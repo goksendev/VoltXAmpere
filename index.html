@@ -501,6 +501,38 @@ const COMP = {
       c.beginPath(); c.arc(10, 0, 3, 0, Math.PI * 2); c.stroke();
       c.beginPath(); c.moveTo(13, 0); c.lineTo(30, 0); c.stroke();
     }
+  },
+  npn: {
+    name: 'NPN Transistör', en: 'NPN', color: '#a855f7', unit: '', def: 100, cat: 'Semi',
+    pins: [{ dx: -40, dy: 0 }, { dx: 20, dy: -40 }, { dx: 20, dy: 40 }],
+    draw(c) {
+      c.strokeStyle = this.color; c.lineWidth = 2;
+      c.beginPath(); c.moveTo(-40, 0); c.lineTo(-8, 0); c.stroke();
+      c.lineWidth = 3;
+      c.beginPath(); c.moveTo(-8, -16); c.lineTo(-8, 16); c.stroke();
+      c.lineWidth = 2;
+      c.beginPath(); c.moveTo(-8, -8); c.lineTo(20, -28); c.lineTo(20, -40); c.stroke();
+      c.beginPath(); c.moveTo(-8, 8); c.lineTo(20, 28); c.lineTo(20, 40); c.stroke();
+      var ax = 10, ay = 20;
+      c.beginPath(); c.moveTo(ax, ay); c.lineTo(ax - 6, ay - 2); c.lineTo(ax - 2, ay - 6); c.closePath();
+      c.fillStyle = this.color; c.fill();
+    }
+  },
+  pnp: {
+    name: 'PNP Transistör', en: 'PNP', color: '#a855f7', unit: '', def: 100, cat: 'Semi',
+    pins: [{ dx: -40, dy: 0 }, { dx: 20, dy: -40 }, { dx: 20, dy: 40 }],
+    draw(c) {
+      c.strokeStyle = this.color; c.lineWidth = 2;
+      c.beginPath(); c.moveTo(-40, 0); c.lineTo(-8, 0); c.stroke();
+      c.lineWidth = 3;
+      c.beginPath(); c.moveTo(-8, -16); c.lineTo(-8, 16); c.stroke();
+      c.lineWidth = 2;
+      c.beginPath(); c.moveTo(-8, -8); c.lineTo(20, -28); c.lineTo(20, -40); c.stroke();
+      c.beginPath(); c.moveTo(-8, 8); c.lineTo(20, 28); c.lineTo(20, 40); c.stroke();
+      var ax = 0, ay = 4;
+      c.beginPath(); c.moveTo(ax, ay); c.lineTo(ax + 6, ay + 2); c.lineTo(ax + 2, ay + 6); c.closePath();
+      c.fillStyle = this.color; c.fill();
+    }
   }
 };
 
@@ -539,6 +571,44 @@ var PRESETS = [
     desc:'I(t) = (V/R)(1-e^(-Rt/L))', formula:'τ = L/R = 1 µs (1kΩ, 1mH)',
     parts:[{type:'vdc',x:-60,y:0,rot:0,val:5},{type:'resistor',x:40,y:-40,rot:0,val:1000},{type:'inductor',x:140,y:0,rot:1,val:1e-3},{type:'ground',x:-60,y:80,rot:0,val:0},{type:'ground',x:140,y:80,rot:0,val:0}],
     wires:[{x1:-60,y1:-40,x2:0,y2:-40},{x1:80,y1:-40,x2:140,y2:-40},{x1:-60,y1:40,x2:-60,y2:60},{x1:140,y1:40,x2:140,y2:60}]},
+  { id:'ce-amp', name:'CE Yükselteç', color:'#a855f7',
+    desc:'Common Emitter amplifier', formula:'Vce \u2248 6V, Ic \u2248 1.2mA',
+    parts:[
+      {type:'vdc',x:-120,y:0,rot:0,val:12},
+      {type:'resistor',x:-20,y:-80,rot:0,val:47000},
+      {type:'resistor',x:-20,y:80,rot:0,val:10000},
+      {type:'resistor',x:100,y:-80,rot:1,val:4700},
+      {type:'resistor',x:100,y:80,rot:1,val:1000},
+      {type:'npn',x:60,y:0,rot:0,val:100},
+      {type:'ground',x:-120,y:120,rot:0,val:0},
+      {type:'ground',x:100,y:120,rot:0,val:0},
+    ],
+    wires:[
+      {x1:-120,y1:-40,x2:-60,y2:-80},{x1:20,y2:-80,x2:60,y1:-80},
+      {x1:-120,y1:-40,x2:100,y2:-120},
+      {x1:100,y1:-40,x2:80,y2:-40},
+      {x1:80,y1:40,x2:100,y2:40},
+      {x1:-60,y1:-80,x2:20,y2:0},
+      {x1:-120,y1:40,x2:-120,y2:100},
+      {x1:100,y1:100,x2:100,y2:100},
+    ]},
+  { id:'npn-sw', name:'NPN Anahtar', color:'#a855f7',
+    desc:'Transistör ile switching', formula:'Vce_sat \u2248 0.2V',
+    parts:[
+      {type:'vdc',x:-100,y:0,rot:0,val:5},
+      {type:'resistor',x:0,y:-40,rot:0,val:10000},
+      {type:'resistor',x:100,y:-60,rot:1,val:1000},
+      {type:'npn',x:60,y:0,rot:0,val:100},
+      {type:'ground',x:-100,y:80,rot:0,val:0},
+      {type:'ground',x:60,y:80,rot:0,val:0},
+      {type:'vdc',x:100,y:-120,rot:0,val:5},
+    ],
+    wires:[
+      {x1:-100,y1:-40,x2:-40,y2:-40},{x1:40,y1:-40,x2:20,y2:0},
+      {x1:80,y1:-40,x2:100,y2:-80},
+      {x1:-100,y1:40,x2:-100,y2:60},
+      {x1:60,y1:40,x2:60,y2:60},
+    ]},
 ];
 
 (function buildPalette() {
@@ -765,6 +835,17 @@ function updateInspector() {
     ${p.type === 'vac' ? `<div class="insp-row"><label>Frekans</label><span style="display:flex;align-items:center;gap:4px"><input id="insp-freq" value="${p.freq || 1000}" style="width:80px;text-align:right" onchange="inspFreqChange(this.value)"><span style="color:var(--text-3)">Hz</span></span></div>` : ''}
     <div class="insp-row"><label>Rotation</label><span style="font-family:var(--font-mono)">${(p.rot || 0) * 90}\u00B0</span></div>
     <div class="insp-row"><label>Position</label><span style="font-family:var(--font-mono)">${p.x}, ${p.y}</span></div>`;
+  if (p.type === 'npn' || p.type === 'pnp') {
+    el.innerHTML += `
+      <div class="insp-row"><label>Model</label><select onchange="setModel(this.value)" style="background:var(--surface-3);border:1px solid var(--border);color:var(--text);border-radius:4px;padding:2px 6px;font:11px var(--font-mono)">
+        ${Object.keys(BJT_MODELS).map(k => `<option${(p.model||'Generic')===k?' selected':''}>${k}</option>`).join('')}
+      </select></div>
+      <div class="insp-row"><label>\u03B2 (BF)</label><span style="font-family:var(--font-mono)">${(BJT_MODELS[p.model||'Generic']||{}).BF||100}</span></div>
+      <div class="insp-row"><label>Vbe</label><span style="font-family:var(--font-mono);color:var(--accent)">${fmtVal(p._vbe||0,'V')}</span></div>
+      <div class="insp-row"><label>Vce</label><span style="font-family:var(--font-mono);color:var(--blue)">${fmtVal(p._vce||0,'V')}</span></div>
+      <div class="insp-row"><label>Ic</label><span style="font-family:var(--font-mono);color:var(--orange)">${fmtVal(p._ic||0,'A')}</span></div>
+      <div class="insp-row"><label>Bölge</label><span style="font-family:var(--font-mono);color:${p._region==='Aktif'?'var(--green)':p._region==='Doyma'?'var(--orange)':'var(--red)'}">${p._region||'\u2014'}</span></div>`;
+  }
 }
 function inspValChange(v) {
   if (!S.sel.length) return;
@@ -795,6 +876,13 @@ function inspFreqChange(v) {
   saveUndo();
   p.freq = parseEngVal(v);
   needsRender = true;
+}
+
+function setModel(m) {
+  if (!S.sel.length) return;
+  const p = S.parts.find(pp => pp.id === S.sel[0]); if (!p) return;
+  saveUndo(); p.model = m; needsRender = true; updateInspector();
+  if (S.sim.running) buildCircuitFromCanvas();
 }
 
 // ──────── MOUSE EVENTS ────────
@@ -1342,6 +1430,14 @@ function buildCircuitFromCanvas() {
     else if (p.type === 'vac') comps.push({type:'V', n1:nodes[0], n2:nodes[1], val:p.val||5, part:p, isAC:true, freq:p.freq||COMP.vac.freq||50});
     else if (p.type === 'diode' || p.type === 'led') comps.push({type:'D', n1:nodes[0], n2:nodes[1], part:p, vPrev:0.6});
     else if (p.type === 'switch') comps.push({type:'R', n1:nodes[0], n2:nodes[1], val:p.closed?0.001:1e9, part:p});
+    else if (p.type === 'npn') {
+      var m = BJT_MODELS[p.model || 'Generic'] || BJT_MODELS['Generic'];
+      comps.push({type:'BJT', polarity:1, n1:nodes[0], n2:nodes[1], n3:nodes[2], BF:m.BF, IS:m.IS, NF:m.NF, VAF:m.VAF, part:p, vbePrev:0.6, vbcPrev:0});
+    }
+    else if (p.type === 'pnp') {
+      var m = BJT_MODELS[p.model || 'Generic'] || BJT_MODELS['Generic'];
+      comps.push({type:'BJT', polarity:-1, n1:nodes[0], n2:nodes[1], n3:nodes[2], BF:m.BF, IS:m.IS, NF:m.NF, VAF:m.VAF, part:p, vbePrev:-0.6, vbcPrev:0});
+    }
   }
   // assign wire node mapping for current display
   for (const w of S.wires) {
@@ -1355,12 +1451,19 @@ function buildCircuitFromCanvas() {
 const GMIN = 1e-12, SIM_DT = 1e-5, SUBSTEPS = 15;
 const DIODE_IS = 1e-14, DIODE_N = 1, VT = 0.026;
 
+var BJT_MODELS = {
+  'Generic': { BF: 100, IS: 1e-14, NF: 1, VAF: 100 },
+  '2N2222':  { BF: 100, IS: 1e-14, NF: 1, VAF: 100 },
+  '2N3904':  { BF: 200, IS: 6.7e-15, NF: 1, VAF: 100 },
+  'BC547':   { BF: 300, IS: 1e-14, NF: 1, VAF: 100 },
+  '2N3906':  { BF: 200, IS: 6.7e-15, NF: 1, VAF: 100 },
+};
+
 function solveStep(dt) {
   if (!SIM || SIM.N <= 1) return;
   const N = SIM.N, nv = SIM.vSrc.length;
   const sz = N - 1 + nv; // matrix size (exclude ground node 0)
-  // Newton-Raphson outer loop for diodes
-  const diodes = SIM.comps.filter(c => c.type === 'D');
+  // Newton-Raphson outer loop for diodes & BJTs
   let nodeV = S._nodeVoltages || new Float64Array(N);
   for (let nrIter = 0; nrIter < 20; nrIter++) {
     const A = Array.from({length:sz}, ()=> new Float64Array(sz));
@@ -1412,6 +1515,40 @@ function solveStep(dt) {
         const ieq = id - gd * vdLim;
         stampG(c.n1, c.n2, gd);
         stampI(c.n1, -ieq); stampI(c.n2, ieq);
+      } else if (c.type === 'BJT') {
+        var pol = c.polarity;
+        var nB = c.n1, nC = c.n2, nE = c.n3;
+        var vB = nodeV[nB]||0, vC = nodeV[nC]||0, vE = nodeV[nE]||0;
+        var vbe = pol * (vB - vE);
+        var vbc = pol * (vB - vC);
+        var nVt = c.NF * VT;
+        var vcrit = nVt * Math.log(nVt / (Math.sqrt(2) * c.IS));
+        if (vbe > vcrit) vbe = vcrit + nVt * Math.log(Math.max(1, 1+(vbe-vcrit)/nVt));
+        if (vbc > vcrit) vbc = vcrit + nVt * Math.log(Math.max(1, 1+(vbc-vcrit)/nVt));
+        var eVbe = Math.exp(Math.min(vbe / nVt, 500));
+        var eVbc = Math.exp(Math.min(vbc / nVt, 500));
+        var iF = c.IS * (eVbe - 1);
+        var iR = c.IS * (eVbc - 1);
+        var gF = (c.IS / nVt) * eVbe + GMIN;
+        var gR = (c.IS / nVt) * eVbc + GMIN;
+        var iF_eq = iF - gF * vbe;
+        var iR_eq = iR - gR * vbc;
+        // Stamp B-E junction
+        stampG(pol>0?nB:nE, pol>0?nE:nB, gF);
+        var ieqBE = iF_eq * pol;
+        stampI(nB, -ieqBE); stampI(nE, ieqBE);
+        // Stamp B-C junction
+        stampG(pol>0?nB:nC, pol>0?nC:nB, gR / c.BF);
+        var ieqBC = (iR_eq / c.BF) * pol;
+        stampI(nB, -ieqBC); stampI(nC, ieqBC);
+        // Stamp collector current VCCS
+        var gmEff = gF * (c.BF / (c.BF + 1));
+        if (nC > 0 && nB > 0) { A[nC-1][nB-1] += gmEff * pol; }
+        if (nC > 0 && nE > 0) { A[nC-1][nE-1] -= gmEff * pol; }
+        if (nE > 0 && nB > 0) { A[nE-1][nB-1] -= gmEff * pol; }
+        if (nE > 0 && nE > 0) { A[nE-1][nE-1] += gmEff * pol; }
+        var ic_eq = (iF * c.BF / (c.BF + 1) - gmEff * vbe) * pol;
+        stampI(nC, -ic_eq); stampI(nE, ic_eq);
       }
     }
     // LU solve (Gaussian elimination with partial pivoting)
@@ -1436,16 +1573,24 @@ function solveStep(dt) {
     // extract voltages
     const newV = new Float64Array(N);
     for (let i = 1; i < N; i++) newV[i] = x[i-1];
-    // check diode convergence
+    // check convergence (diodes + BJTs)
     let converged = true;
-    for (const c of diodes) {
-      const vdOld = (nodeV[c.n1]||0) - (nodeV[c.n2]||0);
-      const vdNew = newV[c.n1] - newV[c.n2];
-      if (Math.abs(vdNew - vdOld) > 1e-4) converged = false;
+    for (const c of SIM.comps) {
+      if (c.type === 'D') {
+        const vdOld = (nodeV[c.n1]||0) - (nodeV[c.n2]||0);
+        const vdNew = newV[c.n1] - newV[c.n2];
+        if (Math.abs(vdNew - vdOld) > 1e-4) converged = false;
+      }
+      if (c.type === 'BJT') {
+        var pol = c.polarity;
+        var vbeOld = pol * ((nodeV[c.n1]||0) - (nodeV[c.n3]||0));
+        var vbeNew = pol * (newV[c.n1] - newV[c.n3]);
+        if (Math.abs(vbeNew - vbeOld) > 1e-4) converged = false;
+      }
     }
     nodeV = newV;
     S._nodeVoltages = nodeV;
-    if (diodes.length === 0 || converged) break;
+    if (SIM.comps.every(c => c.type !== 'D' && c.type !== 'BJT') || converged) break;
   }
   // Write results back
   S._nodeVoltages = nodeV;
@@ -1480,6 +1625,19 @@ function solveStep(dt) {
       const cur = DIODE_IS * (Math.exp(eArg) - 1);
       c.part._v = Math.abs(vd); c.part._i = Math.abs(cur); c.part._p = Math.abs(vd * cur);
       c.vPrev = vd;
+    } else if (c.type === 'BJT') {
+      var pol = c.polarity;
+      var vB = nodeV[c.n1]||0, vC = nodeV[c.n2]||0, vE = nodeV[c.n3]||0;
+      var vbe = pol * (vB - vE), vbc = pol * (vB - vC), vce = pol * (vC - vE);
+      var eVbe = Math.exp(Math.min(vbe / (c.NF*VT), 500));
+      var ic = c.IS * c.BF / (c.BF+1) * (eVbe - 1);
+      c.part._v = Math.abs(vce);
+      c.part._i = Math.abs(ic);
+      c.part._p = Math.abs(vce * ic);
+      c.part._vbe = vbe;
+      c.part._vce = vce;
+      c.part._ic = ic;
+      c.part._region = (vbe > 0.5 && vbc < 0) ? 'Aktif' : (vbe > 0.5 && vbc > 0) ? 'Doyma' : 'Kesim';
     }
   }
   // wire current estimation — find any component on same nodes
