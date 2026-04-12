@@ -256,6 +256,22 @@ input:focus{border-color:var(--accent)}
               <option value="falling">&darr; D&uuml;&#351;en</option>
             </select>
           </div>
+          <div class="sc-group">
+            <button class="tb-btn" style="font-size:10px;padding:2px 6px" onclick="toggleScopeMode('xy')">X-Y</button>
+            <button class="tb-btn" style="font-size:10px;padding:2px 6px" onclick="toggleScopeMode('roll')">Roll</button>
+            <button class="tb-btn" style="font-size:10px;padding:2px 6px" onclick="S.scope.persist=!S.scope.persist;needsRender=true">Persist</button>
+            <button class="tb-btn" style="font-size:10px;padding:2px 6px" onclick="toggleCursors()">Cursor</button>
+          </div>
+          <div class="sc-group">
+            <span class="sc-label">Math</span>
+            <select id="sc-math" onchange="S.scope.math=this.value;needsRender=true" style="background:var(--surface-3);border:1px solid var(--border);color:var(--text);border-radius:4px;padding:2px;font:10px var(--font-mono)">
+              <option value="">Kapal&#305;</option>
+              <option value="add">KN1+KN2</option>
+              <option value="sub">KN1-KN2</option>
+              <option value="mul">KN1&times;KN2</option>
+              <option value="dvdt">dV/dt</option>
+            </select>
+          </div>
         </div>
       </div>
       <div id="scope-side">
@@ -265,6 +281,9 @@ input:focus{border-color:var(--accent)}
         <div class="scope-card"><div class="lbl">Periyot</div><div class="val" id="sc-per" style="color:var(--cyan)">&#8212;</div></div>
         <div class="scope-card"><div class="lbl">Duty</div><div class="val" id="sc-duty" style="color:var(--pink)">&#8212;</div></div>
         <div class="scope-card"><div class="lbl">Pavg</div><div class="val" id="sc-pavg" style="color:var(--orange)">&#8212;</div></div>
+        <div class="scope-card"><div class="lbl">Rise T</div><div class="val" id="sc-rise" style="color:var(--green)">&#8212;</div></div>
+        <div class="scope-card"><div class="lbl">Phase</div><div class="val" id="sc-phase" style="color:var(--pink)">&#8212;</div></div>
+        <div class="scope-card"><div class="lbl">THD</div><div class="val" id="sc-thd" style="color:var(--purple)">&#8212;</div></div>
       </div>
     </div>
     <div id="tab-bode" class="tab-panel" style="grid-template-columns:1fr"><canvas id="BODE" style="width:100%;height:100%"></canvas></div>
@@ -402,6 +421,12 @@ const S = {
     tDiv: 1e-3,
     trigger: { mode: 'auto', edge: 'rising', level: 0, src: 0 },
     probeMode: false,
+    mode: 'yt',
+    persist: false,
+    math: '',
+    cursors: false,
+    cx1: 150, cx2: 450,
+    cy1: 40, cy2: 120,
   },
   voltageMap: false, showGrid: true,
   fps: 0, _fc: 0, _ft: performance.now()
@@ -938,6 +963,93 @@ var COMP = {
       c.beginPath(); c.moveTo(8, -8); c.lineTo(8, 8); c.lineTo(-8, 0); c.closePath(); c.stroke();
       c.beginPath(); c.moveTo(8, 0); c.lineTo(30, 0); c.stroke();
     }
+  },
+  dff: {
+    name: 'D Flip-Flop', en: 'DFF', color: '#06b6d4', unit: '', def: 0, cat: 'Logic',
+    pins: [{ dx: -30, dy: -12 }, { dx: -30, dy: 12 }, { dx: 30, dy: -12 }, { dx: 30, dy: 12 }],
+    draw(c) {
+      c.strokeStyle = this.color; c.lineWidth = 2;
+      c.strokeRect(-18, -20, 36, 40);
+      c.font = '600 8px sans-serif'; c.fillStyle = this.color; c.textAlign = 'center';
+      c.fillText('D', -10, -8); c.fillText('Q', 10, -8);
+      c.fillText('>', -10, 16); c.fillText('Q\u0305', 10, 16);
+      c.beginPath(); c.moveTo(-30,-12); c.lineTo(-18,-12); c.moveTo(-30,12); c.lineTo(-18,12); c.stroke();
+      c.beginPath(); c.moveTo(18,-12); c.lineTo(30,-12); c.moveTo(18,12); c.lineTo(30,12); c.stroke();
+    }
+  },
+  counter: {
+    name: 'Sayıcı (4-bit)', en: 'Counter', color: '#06b6d4', unit: '', def: 0, cat: 'Logic',
+    pins: [{ dx: -30, dy: 0 }, { dx: 30, dy: -15 }, { dx: 30, dy: -5 }, { dx: 30, dy: 5 }, { dx: 30, dy: 15 }],
+    draw(c) {
+      c.strokeStyle = this.color; c.lineWidth = 2;
+      c.strokeRect(-18, -22, 36, 44);
+      c.font = '600 7px sans-serif'; c.fillStyle = this.color; c.textAlign = 'center';
+      c.fillText('CLK', -8, 3); c.fillText('CTR', 0, -14);
+      c.fillText('Q0', 12, -12); c.fillText('Q1', 12, -2); c.fillText('Q2', 12, 8); c.fillText('Q3', 12, 18);
+      c.beginPath(); c.moveTo(-30,0); c.lineTo(-18,0); c.stroke();
+      for (var i = 0; i < 4; i++) { c.beginPath(); c.moveTo(18,-15+i*10); c.lineTo(30,-15+i*10); c.stroke(); }
+    }
+  },
+  shiftreg: {
+    name: 'Kaydırıcı', en: 'Shift Reg', color: '#06b6d4', unit: '', def: 0, cat: 'Logic',
+    pins: [{ dx: -30, dy: -10 }, { dx: -30, dy: 10 }, { dx: 30, dy: 0 }],
+    draw(c) {
+      c.strokeStyle = this.color; c.lineWidth = 2;
+      c.strokeRect(-18, -18, 36, 36);
+      c.font = '600 7px sans-serif'; c.fillStyle = this.color; c.textAlign = 'center';
+      c.fillText('D', -10, -6); c.fillText('>', -10, 14); c.fillText('SR', 0, -12); c.fillText('Q', 10, 3);
+      c.beginPath(); c.moveTo(-30,-10); c.lineTo(-18,-10); c.moveTo(-30,10); c.lineTo(-18,10); c.stroke();
+      c.beginPath(); c.moveTo(18,0); c.lineTo(30,0); c.stroke();
+    }
+  },
+  mux: {
+    name: 'Çoklayıcı (2:1)', en: 'MUX', color: '#06b6d4', unit: '', def: 0, cat: 'Logic',
+    pins: [{ dx: -30, dy: -10 }, { dx: -30, dy: 10 }, { dx: 0, dy: 20 }, { dx: 30, dy: 0 }],
+    draw(c) {
+      c.strokeStyle = this.color; c.lineWidth = 2;
+      c.beginPath(); c.moveTo(-14, -20); c.lineTo(-14, 20); c.lineTo(14, 12); c.lineTo(14, -12); c.closePath(); c.stroke();
+      c.font = '600 7px sans-serif'; c.fillStyle = this.color; c.textAlign = 'center';
+      c.fillText('0', -8, -6); c.fillText('1', -8, 14); c.fillText('S', 2, 22);
+      c.beginPath(); c.moveTo(-30,-10); c.lineTo(-14,-10); c.moveTo(-30,10); c.lineTo(-14,10); c.stroke();
+      c.beginPath(); c.moveTo(0,20); c.lineTo(0,14); c.stroke();
+      c.beginPath(); c.moveTo(14,0); c.lineTo(30,0); c.stroke();
+    }
+  },
+  wattmeter: {
+    name: 'Wattmetre', en: 'Wattmeter', color: '#f59e0b', unit: 'W', def: 0, cat: 'ICs',
+    pins: [{ dx: -30, dy: 0 }, { dx: 30, dy: 0 }],
+    draw(c) {
+      c.strokeStyle = this.color; c.lineWidth = 2;
+      c.beginPath(); c.moveTo(-30, 0); c.lineTo(-14, 0); c.stroke();
+      c.beginPath(); c.arc(0, 0, 14, 0, Math.PI*2); c.stroke();
+      c.beginPath(); c.moveTo(14, 0); c.lineTo(30, 0); c.stroke();
+      c.font = '600 12px sans-serif'; c.fillStyle = this.color; c.textAlign = 'center'; c.textBaseline = 'middle';
+      c.fillText('W', 0, 1);
+    }
+  },
+  diffprobe: {
+    name: 'Dif. Probe', en: 'Diff Probe', color: '#ec4899', unit: 'V', def: 0, cat: 'ICs',
+    pins: [{ dx: -30, dy: 0 }, { dx: 30, dy: 0 }],
+    draw(c) {
+      c.strokeStyle = this.color; c.lineWidth = 2;
+      c.beginPath(); c.moveTo(-30, 0); c.lineTo(-10, 0); c.stroke();
+      c.beginPath(); c.arc(0, 0, 10, 0, Math.PI*2); c.stroke();
+      c.beginPath(); c.moveTo(10, 0); c.lineTo(30, 0); c.stroke();
+      c.font = '600 9px sans-serif'; c.fillStyle = this.color; c.textAlign = 'center'; c.textBaseline = 'middle';
+      c.fillText('\u0394V', 0, 1);
+    }
+  },
+  iprobe: {
+    name: 'Akım Probu', en: 'I Probe', color: '#3b82f6', unit: 'A', def: 0, cat: 'ICs',
+    pins: [{ dx: -30, dy: 0 }, { dx: 30, dy: 0 }],
+    draw(c) {
+      c.strokeStyle = this.color; c.lineWidth = 2;
+      c.beginPath(); c.moveTo(-30, 0); c.lineTo(-10, 0); c.stroke();
+      c.beginPath(); c.arc(0, 0, 10, 0, Math.PI*2); c.stroke();
+      c.beginPath(); c.moveTo(10, 0); c.lineTo(30, 0); c.stroke();
+      c.font = '600 9px sans-serif'; c.fillStyle = this.color; c.textAlign = 'center'; c.textBaseline = 'middle';
+      c.fillText('I', 0, 1);
+    }
   }
 };
 
@@ -1111,6 +1223,18 @@ var PRESETS = [
     desc:'Kare dalga harmonik analizi', formula:'THD ve harmonik bileşenler',
     parts:[{type:'pulse',x:-80,y:0,rot:0,val:5,freq:1000},{type:'resistor',x:40,y:0,rot:1,val:1000},{type:'ground',x:-80,y:60,rot:0,val:0},{type:'ground',x:40,y:60,rot:0,val:0}],
     wires:[{x1:-80,y1:-40,x2:40,y2:-40},{x1:-80,y1:40,x2:-80,y2:40},{x1:40,y1:40,x2:40,y2:40}]},
+  { id:'dff-toggle', name:'D Flip-Flop Toggle', color:'#06b6d4',
+    desc:'CLK ile D toggling', formula:'Rising edge \u2192 Q = D',
+    parts:[{type:'pulse',x:-80,y:0,rot:0,val:5,freq:100},{type:'dff',x:40,y:0,rot:0,val:0},{type:'resistor',x:120,y:0,rot:1,val:1000},{type:'ground',x:-80,y:60,rot:0,val:0},{type:'ground',x:120,y:60,rot:0,val:0}],
+    wires:[{x1:-80,y1:-40,x2:10,y2:-12},{x1:-80,y1:-40,x2:10,y2:12},{x1:70,y1:-12,x2:120,y2:-40},{x1:-80,y1:40,x2:-80,y2:40},{x1:120,y1:40,x2:120,y2:40}]},
+  { id:'lissajous', name:'Lissajous Demo', color:'#a855f7',
+    desc:'\u0130ki AC kaynak, faz fark\u0131', formula:'X-Y modunda daire/elips',
+    parts:[{type:'vac',x:-80,y:-40,rot:0,val:5,freq:1000},{type:'vac',x:-80,y:40,rot:0,val:5,freq:1000},{type:'resistor',x:40,y:-40,rot:0,val:1000},{type:'resistor',x:40,y:40,rot:0,val:1000},{type:'ground',x:-80,y:100,rot:0,val:0},{type:'ground',x:40,y:100,rot:0,val:0}],
+    wires:[{x1:-80,y1:-80,x2:0,y2:-40},{x1:80,y1:-40,x2:80,y2:-40},{x1:-80,y1:0,x2:0,y2:40},{x1:80,y1:40,x2:80,y2:40},{x1:-80,y1:60,x2:-80,y2:80},{x1:40,y1:80,x2:40,y2:80}]},
+  { id:'diff-meas', name:'Diferansiyel \u00d6l\u00e7\u00fcm', color:'#ec4899',
+    desc:'\u0130ki nokta aras\u0131 gerilim fark\u0131', formula:'V_diff = V1 - V2',
+    parts:[{type:'vdc',x:-80,y:0,rot:0,val:10},{type:'resistor',x:0,y:-40,rot:0,val:1000},{type:'resistor',x:0,y:40,rot:0,val:2200},{type:'diffprobe',x:80,y:0,rot:0,val:0},{type:'ground',x:-80,y:80,rot:0,val:0}],
+    wires:[{x1:-80,y1:-40,x2:-40,y2:-40},{x1:40,y1:-40,x2:50,y2:0},{x1:40,y1:40,x2:110,y2:0},{x1:-80,y1:40,x2:-80,y2:60}]},
 ];
 
 (function buildPalette() {
@@ -1751,7 +1875,12 @@ function drawScope() {
   const w = scvs.width / DPR, h = scvs.height / DPR;
   const ctrlH = 36, plotH = h - ctrlH;
 
-  sctx.fillStyle = '#080c14'; sctx.fillRect(0, 0, w, h);
+  if (S.scope.persist) {
+    sctx.fillStyle = 'rgba(8,12,20,0.15)';
+  } else {
+    sctx.fillStyle = '#080c14';
+  }
+  sctx.fillRect(0, 0, w, h);
 
   // 10x8 grid
   sctx.strokeStyle = 'rgba(255,255,255,0.04)'; sctx.lineWidth = 0.5;
@@ -1825,6 +1954,55 @@ function drawScope() {
     }
   }
 
+  // X-Y mode (Lissajous)
+  if (S.scope.mode === 'xy' && S.scope.ch[0].on && S.scope.ch[1].on) {
+    var buf0 = S.scope.ch[0].buf, buf1 = S.scope.ch[1].buf;
+    var ptr = S.scope.ptr;
+    sctx.strokeStyle = '#00e09e'; sctx.lineWidth = 1.5;
+    sctx.shadowColor = '#00e09e'; sctx.shadowBlur = 6;
+    sctx.beginPath();
+    for (var i = 0; i < 600; i++) {
+      var vx = buf0[(ptr+i)%600], vy = buf1[(ptr+i)%600];
+      var sx = w/2 + vx * (w*0.3) / (S.scope.ch[0].vDiv||2);
+      var sy = plotH/2 - vy * (plotH*0.3) / (S.scope.ch[1].vDiv||2);
+      if (i === 0) sctx.moveTo(sx, sy); else sctx.lineTo(sx, sy);
+    }
+    sctx.stroke(); sctx.shadowBlur = 0;
+  }
+
+  // Math channel
+  if (S.scope.math && S.scope.ch[0].on && S.scope.ch[1].on) {
+    var buf0 = S.scope.ch[0].buf, buf1 = S.scope.ch[1].buf, ptr = S.scope.ptr;
+    sctx.strokeStyle = '#ffffff'; sctx.lineWidth = 1; sctx.globalAlpha = 0.7;
+    sctx.setLineDash([4,3]);
+    sctx.beginPath();
+    for (var i = 0; i < 600; i++) {
+      var v0 = buf0[(ptr+i)%600], v1 = buf1[(ptr+i)%600];
+      var vm = 0;
+      if (S.scope.math === 'add') vm = v0 + v1;
+      else if (S.scope.math === 'sub') vm = v0 - v1;
+      else if (S.scope.math === 'mul') vm = v0 * v1;
+      else if (S.scope.math === 'dvdt' && i > 0) vm = (v0 - buf0[(ptr+i-1)%600]) * 1000;
+      var x = i/600*w, y = plotH/2 - vm * (plotH*0.3) / (S.scope.ch[0].vDiv||2);
+      if (i === 0) sctx.moveTo(x, y); else sctx.lineTo(x, Math.max(0, Math.min(plotH, y)));
+    }
+    sctx.stroke(); sctx.setLineDash([]); sctx.globalAlpha = 1;
+  }
+
+  // Cursors
+  if (S.scope.cursors) {
+    var cx1 = S.scope.cx1, cx2 = S.scope.cx2;
+    sctx.strokeStyle = '#eab308'; sctx.lineWidth = 1; sctx.setLineDash([3,3]);
+    sctx.beginPath(); sctx.moveTo(cx1, 0); sctx.lineTo(cx1, plotH); sctx.stroke();
+    sctx.beginPath(); sctx.moveTo(cx2, 0); sctx.lineTo(cx2, plotH); sctx.stroke();
+    sctx.setLineDash([]);
+    var samplesPerPx = 600 / w;
+    var dt_cursor = Math.abs(cx2 - cx1) * samplesPerPx * SIM_DT * SUBSTEPS;
+    sctx.fillStyle = '#eab308'; sctx.font = '10px "JetBrains Mono"'; sctx.textAlign = 'center';
+    sctx.fillText('\u0394t=' + fmtVal(dt_cursor, 's'), (cx1+cx2)/2, 12);
+    if (dt_cursor > 0) sctx.fillText('f=' + fmtVal(1/dt_cursor, 'Hz'), (cx1+cx2)/2, 24);
+  }
+
   // Channel labels
   for (let c = 0; c < 4; c++) {
     if (!S.scope.ch[c].on) continue;
@@ -1859,6 +2037,8 @@ function setVDiv(v) {
 }
 function setTrigMode(v) { S.scope.trigger.mode = v; needsRender = true; }
 function setTrigEdge(v) { S.scope.trigger.edge = v; needsRender = true; }
+function toggleScopeMode(mode) { S.scope.mode = S.scope.mode === mode ? 'yt' : mode; needsRender = true; }
+function toggleCursors() { S.scope.cursors = !S.scope.cursors; needsRender = true; }
 
 function assignProbe(partId) {
   for (let c = 0; c < 4; c++) {
@@ -2048,6 +2228,18 @@ function buildCircuitFromCanvas() {
     }
     else if (p.type === 'diac') {
       comps.push({type:'DIAC', n1:nodes[0], n2:nodes[1], vbo:p.val||30, part:p});
+    }
+    else if (p.type === 'dff' || p.type === 'counter' || p.type === 'shiftreg' || p.type === 'mux') {
+      comps.push({type:'DIGI', subtype:p.type, pins:nodes, part:p, _state:0, _prevClk:0, _count:0, _q:0});
+    }
+    else if (p.type === 'wattmeter') {
+      comps.push({type:'R', n1:nodes[0], n2:nodes[1], val:0.001, part:p, isMeter:true});
+    }
+    else if (p.type === 'diffprobe') {
+      comps.push({type:'R', n1:nodes[0], n2:nodes[1], val:1e9, part:p, isMeter:true});
+    }
+    else if (p.type === 'iprobe') {
+      comps.push({type:'V', n1:nodes[0], n2:nodes[1], val:0, part:p, isAC:false, isMeter:true});
     }
   }
   // assign wire node mapping for current display
@@ -2460,6 +2652,38 @@ function solveStep(dt) {
         var r = vd > c.vbo ? 0.1 : 1e8;
         stampG(c.n1, c.n2, 1/r);
       }
+      else if (c.type === 'DIGI') {
+        var pins = c.pins, thresh = 2.5, vH = 5, vL = 0;
+        if (c.subtype === 'dff') {
+          var clk = (nodeV[pins[1]]||0) > thresh;
+          if (clk && !c._prevClk) c._q = (nodeV[pins[0]]||0) > thresh ? 1 : 0;
+          c._prevClk = clk;
+          var qPin = pins[2], qnPin = pins[3];
+          if (qPin > 0) { A[qPin-1][qPin-1] += 1; b[qPin-1] += c._q ? vH : vL; }
+          if (qnPin > 0) { A[qnPin-1][qnPin-1] += 1; b[qnPin-1] += c._q ? vL : vH; }
+        } else if (c.subtype === 'counter') {
+          var clk = (nodeV[pins[0]]||0) > thresh;
+          if (clk && !c._prevClk) c._count = (c._count + 1) % 16;
+          c._prevClk = clk;
+          for (var bit = 0; bit < 4; bit++) {
+            var qp = pins[1+bit];
+            if (qp > 0) { A[qp-1][qp-1] += 1; b[qp-1] += (c._count >> bit) & 1 ? vH : vL; }
+          }
+        } else if (c.subtype === 'shiftreg') {
+          var clk = (nodeV[pins[1]]||0) > thresh;
+          if (clk && !c._prevClk) {
+            c._state = ((c._state << 1) | ((nodeV[pins[0]]||0) > thresh ? 1 : 0)) & 0xFF;
+          }
+          c._prevClk = clk;
+          var qp = pins[2];
+          if (qp > 0) { A[qp-1][qp-1] += 1; b[qp-1] += (c._state & 1) ? vH : vL; }
+        } else if (c.subtype === 'mux') {
+          var sel = (nodeV[pins[2]]||0) > thresh;
+          var vOut = sel ? (nodeV[pins[1]]||0) : (nodeV[pins[0]]||0);
+          var op = pins[3];
+          if (op > 0) { A[op-1][op-1] += 1; b[op-1] += vOut; }
+        }
+      }
     }
     // LU solve (Gaussian elimination with partial pivoting)
     for (let col = 0; col < sz; col++) {
@@ -2614,6 +2838,13 @@ function solveStep(dt) {
     else if (c.type === 'SCR') { c.part._v = Math.abs((nodeV[c.nA]||0)-(nodeV[c.nK]||0)); c.part._i = c.latched ? c.part._v/0.01 : 0; c.part._p = c.part._v*c.part._i; }
     else if (c.type === 'TRIAC') { c.part._v = Math.abs((nodeV[c.n1]||0)-(nodeV[c.n2]||0)); c.part._i = c.active ? c.part._v*100 : 0; c.part._p = c.part._v*c.part._i; }
     else if (c.type === 'DIAC') { var vdiac = Math.abs((nodeV[c.n1]||0)-(nodeV[c.n2]||0)); c.part._v = vdiac; c.part._i = vdiac > c.vbo ? vdiac/0.1 : 0; c.part._p = vdiac*c.part._i; }
+    else if (c.type === 'DIGI') {
+      if (c.subtype === 'dff') { c.part._v = c._q ? 5 : 0; }
+      else if (c.subtype === 'counter') { c.part._v = c._count; }
+      else if (c.subtype === 'shiftreg') { c.part._v = c._state & 1 ? 5 : 0; }
+      else if (c.subtype === 'mux') { var op = c.pins[3]; c.part._v = nodeV[op]||0; }
+      c.part._i = 0; c.part._p = 0;
+    }
   }
   // wire current estimation — find any component on same nodes
   for (const w of S.wires) {
