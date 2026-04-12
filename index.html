@@ -210,6 +210,9 @@ input:focus{border-color:var(--accent)}
       <button class="btab" data-tab="dcsweep" onclick="switchTab('dcsweep')">DC Sweep</button>
       <button class="btab" data-tab="paramsweep" onclick="switchTab('paramsweep')">Param Sweep</button>
       <button class="btab" data-tab="fft" onclick="switchTab('fft')">FFT</button>
+      <button class="btab" data-tab="montecarlo" onclick="switchTab('montecarlo')">Monte Carlo</button>
+      <button class="btab" data-tab="tempsweep" onclick="switchTab('tempsweep')">S&#305;cakl&#305;k</button>
+      <button class="btab" data-tab="noise" onclick="switchTab('noise')">G&#252;r&#252;lt&#252;</button>
     </div>
     <div id="tab-scope" class="tab-panel active" style="grid-template-columns:1fr 200px">
       <div id="scope-wrap">
@@ -290,6 +293,9 @@ input:focus{border-color:var(--accent)}
     <div id="tab-dcsweep" class="tab-panel" style="grid-template-columns:1fr"><canvas id="DCSW" style="width:100%;height:100%"></canvas></div>
     <div id="tab-paramsweep" class="tab-panel"><canvas id="PSWEEP" style="width:100%;height:100%"></canvas></div>
     <div id="tab-fft" class="tab-panel"><canvas id="FFTC" style="width:100%;height:100%"></canvas></div>
+    <div id="tab-montecarlo" class="tab-panel"><canvas id="MCC" style="width:100%;height:100%"></canvas></div>
+    <div id="tab-tempsweep" class="tab-panel"><canvas id="TSWEEP" style="width:100%;height:100%"></canvas></div>
+    <div id="tab-noise" class="tab-panel"><canvas id="NOISEC" style="width:100%;height:100%"></canvas></div>
   </div>
 
   <!-- STATUSBAR -->
@@ -1050,6 +1056,72 @@ var COMP = {
       c.font = '600 9px sans-serif'; c.fillStyle = this.color; c.textAlign = 'center'; c.textBaseline = 'middle';
       c.fillText('I', 0, 1);
     }
+  },
+  potentiometer: {
+    name: 'Potansiyometre', en: 'Pot', color: '#00e09e', unit: '\u03A9', def: 10000, cat: 'Passive',
+    pins: [{ dx: -40, dy: 0 }, { dx: 0, dy: -25 }, { dx: 40, dy: 0 }],
+    draw(c) {
+      c.strokeStyle = this.color; c.lineWidth = 2;
+      c.beginPath(); c.moveTo(-40, 0); c.lineTo(-24, 0);
+      var segs=6, segW=48/segs, amp=8;
+      for(var i=0;i<segs;i++) c.lineTo(-24+(i+0.5)*segW, i%2===0?-amp:amp);
+      c.lineTo(40, 0); c.stroke();
+      c.beginPath(); c.moveTo(0, -25); c.lineTo(0, -8); c.stroke();
+      c.beginPath(); c.moveTo(-4, -12); c.lineTo(0, -6); c.lineTo(4, -12); c.closePath(); c.fillStyle = this.color; c.fill();
+    }
+  },
+  ntc: {
+    name: 'NTC Termist\u00f6r', en: 'NTC', color: '#f59e0b', unit: '\u03A9', def: 10000, cat: 'Passive',
+    pins: [{ dx: -30, dy: 0 }, { dx: 30, dy: 0 }],
+    draw(c) {
+      c.strokeStyle = this.color; c.lineWidth = 2;
+      c.beginPath(); c.moveTo(-30, 0); c.lineTo(-12, 0); c.stroke();
+      c.strokeRect(-12, -8, 24, 16);
+      c.beginPath(); c.moveTo(12, 0); c.lineTo(30, 0); c.stroke();
+      c.font = '600 8px sans-serif'; c.fillStyle = this.color; c.textAlign = 'center';
+      c.fillText('t\u00B0', 0, 3);
+      c.beginPath(); c.moveTo(-8, 6); c.lineTo(8, -6); c.stroke();
+    }
+  },
+  ptc: {
+    name: 'PTC Termist\u00f6r', en: 'PTC', color: '#f59e0b', unit: '\u03A9', def: 100, cat: 'Passive',
+    pins: [{ dx: -30, dy: 0 }, { dx: 30, dy: 0 }],
+    draw(c) {
+      c.strokeStyle = this.color; c.lineWidth = 2;
+      c.beginPath(); c.moveTo(-30, 0); c.lineTo(-12, 0); c.stroke();
+      c.strokeRect(-12, -8, 24, 16);
+      c.beginPath(); c.moveTo(12, 0); c.lineTo(30, 0); c.stroke();
+      c.font = '600 8px sans-serif'; c.fillStyle = this.color; c.textAlign = 'center';
+      c.fillText('t\u00B0', 0, 3);
+      c.beginPath(); c.moveTo(-8, -6); c.lineTo(8, 6); c.stroke();
+    }
+  },
+  ldr: {
+    name: 'LDR', en: 'LDR', color: '#eab308', unit: '\u03A9', def: 10000, cat: 'Passive',
+    pins: [{ dx: -30, dy: 0 }, { dx: 30, dy: 0 }],
+    draw(c) {
+      c.strokeStyle = this.color; c.lineWidth = 2;
+      c.beginPath(); c.moveTo(-30, 0); c.lineTo(-12, 0); c.stroke();
+      c.strokeRect(-12, -8, 24, 16);
+      c.beginPath(); c.moveTo(12, 0); c.lineTo(30, 0); c.stroke();
+      c.lineWidth = 1;
+      c.beginPath(); c.moveTo(-8, -14); c.lineTo(-4, -10); c.stroke();
+      c.beginPath(); c.moveTo(-4, -16); c.lineTo(0, -12); c.stroke();
+      c.beginPath(); c.moveTo(-6, -14); c.lineTo(-8, -12); c.lineTo(-6, -10); c.stroke();
+      c.beginPath(); c.moveTo(-2, -16); c.lineTo(-4, -14); c.lineTo(-2, -12); c.stroke();
+    }
+  },
+  varistor: {
+    name: 'Varist\u00f6r (MOV)', en: 'MOV', color: '#f0454a', unit: 'V', def: 200, cat: 'Passive',
+    pins: [{ dx: -30, dy: 0 }, { dx: 30, dy: 0 }],
+    draw(c) {
+      c.strokeStyle = this.color; c.lineWidth = 2;
+      c.beginPath(); c.moveTo(-30, 0); c.lineTo(-12, 0); c.stroke();
+      c.strokeRect(-12, -8, 24, 16);
+      c.beginPath(); c.moveTo(12, 0); c.lineTo(30, 0); c.stroke();
+      c.font = '600 7px sans-serif'; c.fillStyle = this.color; c.textAlign = 'center';
+      c.fillText('MOV', 0, 3);
+    }
   }
 };
 
@@ -1235,6 +1307,22 @@ var PRESETS = [
     desc:'\u0130ki nokta aras\u0131 gerilim fark\u0131', formula:'V_diff = V1 - V2',
     parts:[{type:'vdc',x:-80,y:0,rot:0,val:10},{type:'resistor',x:0,y:-40,rot:0,val:1000},{type:'resistor',x:0,y:40,rot:0,val:2200},{type:'diffprobe',x:80,y:0,rot:0,val:0},{type:'ground',x:-80,y:80,rot:0,val:0}],
     wires:[{x1:-80,y1:-40,x2:-40,y2:-40},{x1:40,y1:-40,x2:50,y2:0},{x1:40,y1:40,x2:110,y2:0},{x1:-80,y1:40,x2:-80,y2:60}]},
+  { id:'ntc-sensor', name:'NTC S\u0131cakl\u0131k Sens\u00f6r\u00fc', color:'#f59e0b',
+    desc:'S\u0131cakl\u0131k \u2192 diren\u00e7 de\u011fi\u015fimi', formula:'R=R0\u00d7e^(B\u00d7(1/T-1/T0))',
+    parts:[{type:'vdc',x:-60,y:0,rot:0,val:5},{type:'ntc',x:40,y:-40,rot:0,val:10000},{type:'resistor',x:40,y:40,rot:0,val:10000},{type:'ground',x:-60,y:80,rot:0,val:0}],
+    wires:[{x1:-60,y1:-40,x2:10,y2:-40},{x1:70,y1:-40,x2:70,y2:40},{x1:70,y1:40,x2:-60,y2:40},{x1:-60,y1:40,x2:-60,y2:60}]},
+  { id:'ldr-sensor', name:'LDR I\u015f\u0131k Sens\u00f6r\u00fc', color:'#eab308',
+    desc:'I\u015f\u0131k \u2192 diren\u00e7 de\u011fi\u015fimi', formula:'R: 1M\u03A9 (karanl\u0131k) \u2192 100\u03A9 (ayd\u0131nl\u0131k)',
+    parts:[{type:'vdc',x:-60,y:0,rot:0,val:5},{type:'ldr',x:40,y:-40,rot:0,val:10000},{type:'resistor',x:40,y:40,rot:0,val:10000},{type:'ground',x:-60,y:80,rot:0,val:0}],
+    wires:[{x1:-60,y1:-40,x2:10,y2:-40},{x1:70,y1:-40,x2:70,y2:40},{x1:70,y1:40,x2:-60,y2:40},{x1:-60,y1:40,x2:-60,y2:60}]},
+  { id:'pot-divider', name:'Potansiyometre B\u00f6l\u00fcc\u00fc', color:'#00e09e',
+    desc:'Wiper ile ayarlan\u0131r Vout', formula:'Vout = Vin \u00d7 wiper_pos',
+    parts:[{type:'vdc',x:-60,y:0,rot:0,val:10},{type:'potentiometer',x:40,y:0,rot:0,val:10000},{type:'ground',x:-60,y:60,rot:0,val:0}],
+    wires:[{x1:-60,y1:-40,x2:0,y2:0},{x1:80,y1:0,x2:-60,y2:40},{x1:-60,y1:40,x2:-60,y2:40}]},
+  { id:'mc-rc', name:'Monte Carlo \u2014 RC Tolerans', color:'#a855f7',
+    desc:'\u00B110% tolerans da\u011f\u0131l\u0131m\u0131', formula:'200 \u00e7al\u0131\u015ft\u0131rma, histogram',
+    parts:[{type:'vdc',x:-60,y:0,rot:0,val:10},{type:'resistor',x:40,y:-40,rot:0,val:1000},{type:'resistor',x:40,y:40,rot:0,val:2200},{type:'ground',x:-60,y:80,rot:0,val:0}],
+    wires:[{x1:-60,y1:-40,x2:0,y2:-40},{x1:80,y1:-40,x2:80,y2:40},{x1:80,y1:40,x2:-60,y2:40},{x1:-60,y1:40,x2:-60,y2:60}]},
 ];
 
 (function buildPalette() {
@@ -1492,6 +1580,16 @@ function updateInspector() {
       <div class="insp-row"><label>Vout</label><span style="font-family:var(--font-mono);color:var(--orange)">${fmtVal(p._vout||0,'V')}</span></div>
       <div class="insp-row"><label>Av</label><span style="font-family:var(--font-mono);color:var(--purple)">${(p._av||0).toFixed(1)}</span></div>`;
   }
+  if (p.type === 'potentiometer') {
+    el.innerHTML += '<div class="insp-row"><label>Wiper</label><input type="range" min="0" max="100" value="'+(Math.round((p.wiper||0.5)*100))+'" oninput="setPotWiper(this.value)" style="width:100px"></div>';
+    el.innerHTML += '<div class="insp-row"><label>Pozisyon</label><span style="font-family:var(--font-mono)">'+Math.round((p.wiper||0.5)*100)+'%</span></div>';
+  }
+  if (p.type === 'ntc' || p.type === 'ptc') {
+    el.innerHTML += '<div class="insp-row"><label>S\u0131cakl\u0131k</label><input type="range" min="-40" max="125" value="'+(p.temperature||25)+'" oninput="setSensorTemp(this.value)" style="width:100px"><span style="font-family:var(--font-mono);margin-left:4px">'+(p.temperature||25)+'\u00B0C</span></div>';
+  }
+  if (p.type === 'ldr') {
+    el.innerHTML += '<div class="insp-row"><label>I\u015f\u0131k</label><input type="range" min="0" max="100" value="'+(Math.round((p.light||0.5)*100))+'" oninput="setLDRLight(this.value)" style="width:100px"><span style="font-family:var(--font-mono);margin-left:4px">'+Math.round((p.light||0.5)*100)+'%</span></div>';
+  }
 }
 function inspValChange(v) {
   if (!S.sel.length) return;
@@ -1529,6 +1627,27 @@ function setModel(m) {
   const p = S.parts.find(pp => pp.id === S.sel[0]); if (!p) return;
   saveUndo(); p.model = m; needsRender = true; updateInspector();
   if (S.sim.running) buildCircuitFromCanvas();
+}
+function setPotWiper(v) {
+  if (!S.sel.length) return;
+  var p = S.parts.find(function(pp){ return pp.id === S.sel[0]; }); if (!p) return;
+  p.wiper = parseInt(v) / 100;
+  if (S.sim.running) buildCircuitFromCanvas();
+  needsRender = true; updateInspector();
+}
+function setSensorTemp(v) {
+  if (!S.sel.length) return;
+  var p = S.parts.find(function(pp){ return pp.id === S.sel[0]; }); if (!p) return;
+  p.temperature = parseInt(v);
+  if (S.sim.running) buildCircuitFromCanvas();
+  needsRender = true; updateInspector();
+}
+function setLDRLight(v) {
+  if (!S.sel.length) return;
+  var p = S.parts.find(function(pp){ return pp.id === S.sel[0]; }); if (!p) return;
+  p.light = parseInt(v) / 100;
+  if (S.sim.running) buildCircuitFromCanvas();
+  needsRender = true; updateInspector();
 }
 
 // ──────── MOUSE EVENTS ────────
@@ -2240,6 +2359,36 @@ function buildCircuitFromCanvas() {
     }
     else if (p.type === 'iprobe') {
       comps.push({type:'V', n1:nodes[0], n2:nodes[1], val:0, part:p, isAC:false, isMeter:true});
+    }
+    else if (p.type === 'potentiometer') {
+      var wpos = p.wiper !== undefined ? p.wiper : 0.5;
+      var rTotal = p.val || 10000;
+      comps.push({type:'R', n1:nodes[0], n2:nodes[1], val:rTotal*(1-wpos), part:p});
+      comps.push({type:'R', n1:nodes[1], n2:nodes[2], val:rTotal*wpos + 0.1, part:p});
+    }
+    else if (p.type === 'ntc') {
+      var Tk = (p.temperature !== undefined ? p.temperature : 25) + 273.15;
+      var T0k = 298.15, Bcoeff = 3950, R0ntc = p.val || 10000;
+      var Rntc = R0ntc * Math.exp(Bcoeff * (1/Tk - 1/T0k));
+      comps.push({type:'R', n1:nodes[0], n2:nodes[1], val:Math.max(1, Rntc), part:p});
+    }
+    else if (p.type === 'ptc') {
+      var Tptc = p.temperature !== undefined ? p.temperature : 25;
+      var alphaPtc = 0.01, R0ptc = p.val || 100;
+      var Rptc = R0ptc * (1 + alphaPtc * (Tptc - 25));
+      comps.push({type:'R', n1:nodes[0], n2:nodes[1], val:Math.max(1, Rptc), part:p});
+    }
+    else if (p.type === 'ldr') {
+      var light = p.light !== undefined ? p.light : 0.5;
+      var Rdark = 1e6, Rlight = 100;
+      var Rldr = Rdark * Math.pow(Rlight/Rdark, light);
+      comps.push({type:'R', n1:nodes[0], n2:nodes[1], val:Math.max(1, Rldr), part:p});
+    }
+    else if (p.type === 'varistor') {
+      var vdVar = Math.abs((S._nodeVoltages && S._nodeVoltages.length > 1) ? (S._nodeVoltages[1]||0) : 0);
+      var Vc = p.val || 200;
+      var Rvar = vdVar > Vc ? 1 : 1e8;
+      comps.push({type:'R', n1:nodes[0], n2:nodes[1], val:Rvar, part:p});
     }
   }
   // assign wire node mapping for current display
@@ -3197,6 +3346,9 @@ function switchTab(name) {
   if (name === 'dcsweep') drawDCSweep();
   if (name === 'paramsweep') drawParamSweep();
   if (name === 'fft') drawFFT();
+  if (name === 'montecarlo') drawMonteCarlo();
+  if (name === 'tempsweep') drawTempSweep();
+  if (name === 'noise') drawNoise();
   needsRender = true;
 }
 
@@ -3517,6 +3669,163 @@ function drawFFT() {
   c.fillStyle='#5a6a7a';c.font='9px "JetBrains Mono"';c.textAlign='right';
   for(var i=0;i<=5;i++) c.fillText(Math.round(yMin+(yMax-yMin)*(5-i)/5)+'dB',mx-4,my+ph*i/5+4);
   c.textAlign='center';c.fillText('Frekans (Hz)',w/2,h-3);
+}
+
+// ──────── MONTE CARLO ────────
+var mcData = null;
+function runMonteCarlo(tolerance, runs) {
+  tolerance = tolerance || 10; runs = runs || 200;
+  if (!S.parts.length) return;
+  mcData = { values: [], tol: tolerance, runs: runs };
+  var origVals = S.parts.map(function(p){ return p.val; });
+  for (var r = 0; r < runs; r++) {
+    S.parts.forEach(function(p, i) {
+      if (p.type === 'resistor' || p.type === 'capacitor' || p.type === 'inductor') {
+        var gaussRand = Math.sqrt(-2*Math.log(Math.random())) * Math.cos(2*Math.PI*Math.random());
+        p.val = origVals[i] * (1 + gaussRand * tolerance / 300);
+      }
+    });
+    buildCircuitFromCanvas();
+    S.sim.t = 0; S._nodeVoltages = null;
+    try { for (var s = 0; s < 50; s++) { S.sim.t += SIM_DT; solveStep(SIM_DT); } } catch(e){}
+    var meas = S._nodeVoltages && S._nodeVoltages.length > 1 ? Math.abs(S._nodeVoltages[1]) : 0;
+    mcData.values.push(meas);
+  }
+  S.parts.forEach(function(p, i) { p.val = origVals[i]; });
+  buildCircuitFromCanvas();
+  var vals = mcData.values.slice().sort(function(a,b){return a-b;});
+  mcData.mean = vals.reduce(function(a,b){return a+b;},0) / vals.length;
+  mcData.stdDev = Math.sqrt(vals.reduce(function(a,b){return a+(b-mcData.mean)*(b-mcData.mean);},0)/vals.length);
+  mcData.min = vals[0]; mcData.max = vals[vals.length-1];
+  switchTab('montecarlo');
+}
+function drawMonteCarlo() {
+  var cvs = document.getElementById('MCC');
+  if (!cvs) return;
+  var r = cvs.parentElement.getBoundingClientRect();
+  if (r.width<10||r.height<10) return;
+  cvs.width=r.width*DPR;cvs.height=r.height*DPR;
+  cvs.style.width=r.width+'px';cvs.style.height=r.height+'px';
+  var c=cvs.getContext('2d');c.setTransform(DPR,0,0,DPR,0,0);
+  var w=r.width,h=r.height;
+  c.fillStyle='#080c14';c.fillRect(0,0,w,h);
+  if (!mcData) { c.fillStyle='#5a6a7a';c.font='13px Outfit';c.textAlign='center';c.fillText('Monte Carlo yap\u0131lmad\u0131.',w/2,h/2);return; }
+  var bins=30, vals=mcData.values, mn=mcData.min, mx=mcData.max;
+  if (mx===mn){mx+=1;mn-=1;}
+  var binW=(mx-mn)/bins, hist=new Array(bins).fill(0);
+  vals.forEach(function(v){var b=Math.min(bins-1,Math.floor((v-mn)/binW));hist[b]++;});
+  var maxH=Math.max.apply(null,hist);
+  var mx2=50,my=30,pw=w-mx2-40,ph=h-my-40;
+  var bw=pw/bins;
+  for(var i=0;i<bins;i++){
+    var bh=(hist[i]/maxH)*ph;
+    var x=mx2+i*bw;
+    c.fillStyle='rgba(0,224,158,0.6)';c.fillRect(x,my+ph-bh,bw-1,bh);
+    c.strokeStyle='#00e09e';c.lineWidth=1;c.strokeRect(x,my+ph-bh,bw-1,bh);
+  }
+  c.fillStyle='#e0e7f0';c.font='600 11px "JetBrains Mono"';c.textAlign='left';
+  c.fillText('Ortalama: '+fmtVal(mcData.mean,'V')+' | StdDev: '+fmtVal(mcData.stdDev,'V'),mx2,h-8);
+  c.fillText('Min: '+fmtVal(mcData.min,'V')+' | Max: '+fmtVal(mcData.max,'V')+' | N='+mcData.runs,mx2+pw/2,h-8);
+  c.fillStyle='#5a6a7a';c.font='10px "JetBrains Mono"';c.textAlign='center';
+  c.fillText('Tolerans: \u00B1'+mcData.tol+'%',w/2,my-8);
+}
+
+// ──────── TEMPERATURE SWEEP ────────
+var tempData = null;
+function runTempSweep() {
+  if (!S.parts.length) return;
+  tempData = { temps: [], values: [] };
+  var origVals = S.parts.map(function(p){ return p.val; });
+  for (var T = -40; T <= 125; T += 5) {
+    S.parts.forEach(function(p, i) {
+      if (p.type === 'resistor') p.val = origVals[i] * (1 + 0.004 * (T - 25));
+    });
+    buildCircuitFromCanvas();
+    S.sim.t = 0; S._nodeVoltages = null;
+    try { for (var s = 0; s < 50; s++) { S.sim.t += SIM_DT; solveStep(SIM_DT); } } catch(e){}
+    var meas = S._nodeVoltages && S._nodeVoltages.length > 1 ? Math.abs(S._nodeVoltages[1]) : 0;
+    tempData.temps.push(T);
+    tempData.values.push(meas);
+  }
+  S.parts.forEach(function(p, i) { p.val = origVals[i]; });
+  buildCircuitFromCanvas();
+  switchTab('tempsweep');
+}
+function drawTempSweep() {
+  var cvs = document.getElementById('TSWEEP');
+  if (!cvs) return;
+  var r = cvs.parentElement.getBoundingClientRect();
+  if(r.width<10||r.height<10) return;
+  cvs.width=r.width*DPR;cvs.height=r.height*DPR;
+  cvs.style.width=r.width+'px';cvs.style.height=r.height+'px';
+  var c=cvs.getContext('2d');c.setTransform(DPR,0,0,DPR,0,0);
+  var w=r.width,h=r.height;
+  c.fillStyle='#080c14';c.fillRect(0,0,w,h);
+  if (!tempData) { c.fillStyle='#5a6a7a';c.font='13px Outfit';c.textAlign='center';c.fillText('S\u0131cakl\u0131k taramas\u0131 yap\u0131lmad\u0131.',w/2,h/2);return; }
+  var d=tempData,mx2=50,my=20,pw=w-mx2-20,ph=h-my-30;
+  var yMin=Math.min.apply(null,d.values)*0.9,yMax=Math.max.apply(null,d.values)*1.1;
+  if(yMax===yMin){yMax+=1;yMin-=1;}
+  c.strokeStyle='rgba(255,255,255,0.06)';c.lineWidth=0.5;
+  for(var i=0;i<=5;i++){var y=my+ph*i/5;c.beginPath();c.moveTo(mx2,y);c.lineTo(mx2+pw,y);c.stroke();}
+  c.strokeStyle='#f59e0b';c.lineWidth=2;c.shadowColor='#f59e0b';c.shadowBlur=6;
+  c.beginPath();
+  for(var i=0;i<d.temps.length;i++){
+    var x=mx2+(d.temps[i]+40)/165*pw;
+    var y=my+(1-(d.values[i]-yMin)/(yMax-yMin))*ph;
+    if(i===0)c.moveTo(x,y);else c.lineTo(x,y);
+  }
+  c.stroke();c.shadowBlur=0;
+  c.fillStyle='#5a6a7a';c.font='10px "JetBrains Mono"';c.textAlign='center';
+  c.fillText('S\u0131cakl\u0131k (\u00B0C)',w/2,h-3);
+  c.fillText('-40',mx2,h-3);c.fillText('125',mx2+pw,h-3);
+}
+
+// ──────── NOISE ANALYSIS ────────
+var noiseData = null;
+function runNoiseAnalysis() {
+  if (!S.parts.length) return;
+  buildCircuitFromCanvas();
+  if (!SIM) return;
+  noiseData = { freq: [], vnoise: [] };
+  var k = 1.38e-23, T = 300;
+  for (var f = 1; f <= 1e6; f *= 1.5) {
+    var totalNoise = 0;
+    for (var ci = 0; ci < SIM.comps.length; ci++) {
+      var comp = SIM.comps[ci];
+      if (comp.type === 'R') {
+        totalNoise += 4 * k * T * comp.val;
+      }
+    }
+    var vnHz = Math.sqrt(totalNoise);
+    noiseData.freq.push(f);
+    noiseData.vnoise.push(vnHz > 0 ? 20*Math.log10(vnHz) : -200);
+  }
+  switchTab('noise');
+}
+function drawNoise() {
+  var cvs = document.getElementById('NOISEC');
+  if (!cvs) return;
+  var r = cvs.parentElement.getBoundingClientRect();
+  if(r.width<10||r.height<10) return;
+  cvs.width=r.width*DPR;cvs.height=r.height*DPR;
+  cvs.style.width=r.width+'px';cvs.style.height=r.height+'px';
+  var c=cvs.getContext('2d');c.setTransform(DPR,0,0,DPR,0,0);
+  var w=r.width,h=r.height;
+  c.fillStyle='#080c14';c.fillRect(0,0,w,h);
+  if (!noiseData) { c.fillStyle='#5a6a7a';c.font='13px Outfit';c.textAlign='center';c.fillText('G\u00fcr\u00fclt\u00fc analizi yap\u0131lmad\u0131.',w/2,h/2);return; }
+  var d=noiseData,mx2=50,my=20,pw=w-mx2-20,ph=h-my-30;
+  var yMin=Math.min.apply(null,d.vnoise)-5,yMax=Math.max.apply(null,d.vnoise)+5;
+  c.strokeStyle='#ec4899';c.lineWidth=2;c.shadowColor='#ec4899';c.shadowBlur=4;
+  c.beginPath();
+  for(var i=0;i<d.freq.length;i++){
+    var x=mx2+Math.log10(d.freq[i])/6*pw;
+    var y=my+(1-(d.vnoise[i]-yMin)/(yMax-yMin))*ph;
+    if(i===0)c.moveTo(x,y);else c.lineTo(x,y);
+  }
+  c.stroke();c.shadowBlur=0;
+  c.fillStyle='#5a6a7a';c.font='10px "JetBrains Mono"';c.textAlign='center';
+  c.fillText('Frekans (Hz) \u2014 log',w/2,h-3);
+  c.textAlign='right';c.fillText('V/\u221AHz (dB)',mx2-4,my+10);
 }
 
 // ──────── PWA SERVICE WORKER ────────
