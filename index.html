@@ -437,7 +437,7 @@ function drawGateBody(c, type, color) {
 }
 
 // ──────── COMPONENT DEFINITIONS ────────
-const COMP = {
+var COMP = {
   resistor: {
     name: 'Resistor', en: 'R', color: '#00e09e', unit: '\u03A9', def: 1000, key: '1', cat: 'Passive',
     pins: [{ dx: -40, dy: 0 }, { dx: 40, dy: 0 }],
@@ -824,6 +824,30 @@ const COMP = {
       c.strokeRect(-12, -6, 24, 12);
       c.beginPath(); c.moveTo(-6, 0); c.lineTo(6, 0); c.stroke();
       c.beginPath(); c.moveTo(12, 0); c.lineTo(30, 0); c.stroke();
+    }
+  },
+  ammeter: {
+    name: 'Ampermetre', en: 'Ammeter', color: '#3b82f6', unit: 'A', def: 0, cat: 'ICs',
+    pins: [{ dx: -30, dy: 0 }, { dx: 30, dy: 0 }],
+    draw(c) {
+      c.strokeStyle = this.color; c.lineWidth = 2;
+      c.beginPath(); c.moveTo(-30, 0); c.lineTo(-14, 0); c.stroke();
+      c.beginPath(); c.arc(0, 0, 14, 0, Math.PI*2); c.stroke();
+      c.beginPath(); c.moveTo(14, 0); c.lineTo(30, 0); c.stroke();
+      c.font = '600 12px sans-serif'; c.fillStyle = this.color; c.textAlign = 'center'; c.textBaseline = 'middle';
+      c.fillText('A', 0, 1);
+    }
+  },
+  voltmeter: {
+    name: 'Voltmetre', en: 'Voltmeter', color: '#00e09e', unit: 'V', def: 0, cat: 'ICs',
+    pins: [{ dx: -30, dy: 0 }, { dx: 30, dy: 0 }],
+    draw(c) {
+      c.strokeStyle = this.color; c.lineWidth = 2;
+      c.beginPath(); c.moveTo(-30, 0); c.lineTo(-14, 0); c.stroke();
+      c.beginPath(); c.arc(0, 0, 14, 0, Math.PI*2); c.stroke();
+      c.beginPath(); c.moveTo(14, 0); c.lineTo(30, 0); c.stroke();
+      c.font = '600 12px sans-serif'; c.fillStyle = this.color; c.textAlign = 'center'; c.textBaseline = 'middle';
+      c.fillText('V', 0, 1);
     }
   }
 };
@@ -1865,6 +1889,14 @@ function buildCircuitFromCanvas() {
     else if (p.type === 'fuse') {
       comps.push({type:'R', n1:nodes[0], n2:nodes[1], val:(p._blown?1e9:0.001), part:p});
     }
+    else if (p.type === 'ammeter') {
+      // 0V voltage source — measures current through it
+      comps.push({type:'V', n1:nodes[0], n2:nodes[1], val:0, part:p, isAC:false, isMeter:true});
+    }
+    else if (p.type === 'voltmeter') {
+      // Very high resistance — measures voltage across it
+      comps.push({type:'R', n1:nodes[0], n2:nodes[1], val:1e9, part:p, isMeter:true});
+    }
     else if (p.type === 'pulse') {
       comps.push({type:'V', n1:nodes[0], n2:nodes[1], val:p.val||5, part:p, isAC:false, isPulse:true,
         v1:0, v2:p.val||5, td:0, tr:1e-6, tf:1e-6, pw:p.freq?0.5/p.freq:5e-4, per:p.freq?1/p.freq:1e-3});
@@ -2853,12 +2885,36 @@ function runBode(fStart, fStop, ppd) {
         if (vOut < minOut) minOut = vOut;
       }
     }
-    var vpp = maxOut;
-    var gain = (acSrc.val > 0) ? vpp / acSrc.val : 0;
-    var magDB = gain > 0 ? 20 * Math.log10(gain) : -100;
+    var vpp = maxOut - minOut;
+    var gain = (acSrc.val > 0) ? (vpp / 2) / acSrc.val : 0;
+    var magDB = gain > 1e-10 ? 20 * Math.log10(gain) : -100;
+    // Real phase measurement: compare input and output zero-crossings
+    var inZero = -1, outZero = -1, phaseDeg = 0;
+    S.sim.t = 0; S._nodeVoltages = null;
+    for (var s2 = 0; s2 < totalSteps; s2++) {
+      S.sim.t += dt;
+      try { solveStep(dt); } catch(e) { break; }
+      if (s2 >= (periods-2)*stepsPerPeriod && S._nodeVoltages) {
+        var vIn = acSrc.val * Math.sin(2*Math.PI*f*S.sim.t);
+        var vOut2 = S._nodeVoltages.length > 2 ? (S._nodeVoltages[2]||0) : (S._nodeVoltages[1]||0);
+        var prevIn = acSrc.val * Math.sin(2*Math.PI*f*(S.sim.t-dt));
+        var prevOut = S._nodeVoltages.length > 2 ? (S._nodeVoltages[2]||0) : (S._nodeVoltages[1]||0);
+        if (inZero < 0 && prevIn <= 0 && vIn > 0) inZero = S.sim.t;
+        if (outZero < 0 && inZero > 0 && prevOut <= 0 && vOut2 > 0) outZero = S.sim.t;
+        if (inZero > 0 && outZero > 0) break;
+      }
+    }
+    if (inZero > 0 && outZero > 0) {
+      var delay = outZero - inZero;
+      phaseDeg = -delay * f * 360;
+      while (phaseDeg < -180) phaseDeg += 360;
+      while (phaseDeg > 180) phaseDeg -= 360;
+    } else {
+      phaseDeg = gain < 0.5 ? -90 : 0; // fallback estimate
+    }
     bodeData.f.push(f);
     bodeData.mag.push(magDB);
-    bodeData.phase.push(-Math.atan(f / (fStart * Math.pow(10, decades/2))) * 180 / Math.PI);
+    bodeData.phase.push(phaseDeg);
   }
   acSrc.freq = origFreq;
   S.sim.t = 0;
