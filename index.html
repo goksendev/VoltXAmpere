@@ -624,7 +624,7 @@ var PRESETS = [
     body.className = 'cat-body'; body.style.maxHeight = '400px';
     items.forEach(([k, v]) => {
       const d = document.createElement('div'); d.className = 'comp-item';
-      d.innerHTML = `<span style="display:flex;align-items:center"><span class="dot" style="background:${v.color}"></span>${v.name}</span><span class="key">${v.key}</span>`;
+      d.innerHTML = `<span style="display:flex;align-items:center"><span class="dot" style="background:${v.color}"></span>${v.name}</span>${v.key ? '<span class="key">'+v.key+'</span>' : ''}`;
       d.addEventListener('click', () => startPlace(k));
       body.appendChild(d);
     });
@@ -1022,7 +1022,7 @@ document.addEventListener('keydown', e => {
   const k = e.key.toLowerCase();
 
   // number shortcuts
-  for (const [type, def] of Object.entries(COMP)) { if (k === def.key) { startPlace(type); return; } }
+  for (const [type, def] of Object.entries(COMP)) { if (def.key && k === def.key) { startPlace(type); return; } }
 
   if (k === 'escape') {
     S.mode = 'select'; S.placingType = null; S.wireStart = null; S.wirePreview = null;
