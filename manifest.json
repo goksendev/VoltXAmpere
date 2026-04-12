@@ -1,0 +1,17 @@
+{
+  "name": "VoltXAmpere — Devre Simülatörü",
+  "short_name": "VoltXAmpere",
+  "description": "Ücretsiz online elektrik-elektronik devre simülatörü",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "landscape",
+  "theme_color": "#06080c",
+  "background_color": "#06080c",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' rx='24' fill='%2306080c'/%3E%3Ctext x='96' y='130' text-anchor='middle' font-size='120'%3E%E2%9A%A1%3C/text%3E%3C/svg%3E",
+      "sizes": "192x192",
+      "type": "image/svg+xml"
+    }
+  ]
+}

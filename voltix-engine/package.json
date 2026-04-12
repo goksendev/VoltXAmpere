@@ -1,0 +1,22 @@
+{
+  "name": "voltix-engine",
+  "version": "0.1.0",
+  "description": "VoltXAmpere core simulation engine — MNA-based SPICE-class circuit solver",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "bench": "vitest bench"
+  },
+  "keywords": ["spice", "circuit", "simulation", "mna"],
+  "author": "Göksen",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^25.6.0",
+    "typescript": "^6.0.2",
+    "vitest": "^4.1.4"
+  }
+}
