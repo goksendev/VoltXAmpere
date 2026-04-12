@@ -502,8 +502,8 @@ const COMP = {
 };
 
 // ──────── BUILD LEFT PANEL (PALETTE) ────────
-// ──────── PRESETS (must be before buildPalette) ────────
-const PRESETS = [
+// ──────── PRESETS ────────
+var PRESETS = [
   { id:'vdiv', name:'Gerilim Bölücü', color:'#00e09e',
     desc:'Vout = Vin × R2/(R1+R2)', formula:'Vout ≈ 8.25V (12V, 1k/2.2k)',
     parts:[{type:'vdc',x:0,y:0,rot:0,val:12},{type:'resistor',x:100,y:-60,rot:0,val:1000},{type:'resistor',x:100,y:60,rot:1,val:2200},{type:'ground',x:0,y:100,rot:0,val:0}],
@@ -1271,11 +1271,9 @@ function ctxProbe() {
 }
 
 // ──────── MNA SIMULATION ENGINE ────────
-class UnionFind {
-  constructor(n) { this.parent = Array.from({length:n}, (_,i)=>i); this.rank = new Array(n).fill(0); }
-  find(x) { if(this.parent[x]!==x) this.parent[x]=this.find(this.parent[x]); return this.parent[x]; }
-  union(a,b) { a=this.find(a); b=this.find(b); if(a===b) return; if(this.rank[a]<this.rank[b]) [a,b]=[b,a]; this.parent[b]=a; if(this.rank[a]===this.rank[b]) this.rank[a]++; }
-}
+function UnionFind(n) { this.parent = Array.from({length:n}, (_,i)=>i); this.rank = new Array(n).fill(0); }
+UnionFind.prototype.find = function(x) { if(this.parent[x]!==x) this.parent[x]=this.find(this.parent[x]); return this.parent[x]; };
+UnionFind.prototype.union = function(a,b) { a=this.find(a); b=this.find(b); if(a===b) return; if(this.rank[a]<this.rank[b]) {var t=a;a=b;b=t;} this.parent[b]=a; if(this.rank[a]===this.rank[b]) this.rank[a]++; };
 
 let SIM = null; // active simulation state
 
