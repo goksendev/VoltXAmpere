@@ -533,6 +533,55 @@ const COMP = {
       c.beginPath(); c.moveTo(ax, ay); c.lineTo(ax + 6, ay + 2); c.lineTo(ax + 2, ay + 6); c.closePath();
       c.fillStyle = this.color; c.fill();
     }
+  },
+  nmos: {
+    name: 'N-MOSFET', en: 'NMOS', color: '#a855f7', unit: '', def: 0, cat: 'Semi',
+    pins: [{ dx: -40, dy: 0 }, { dx: 20, dy: -40 }, { dx: 20, dy: 40 }],
+    draw(c) {
+      c.strokeStyle = this.color; c.lineWidth = 2;
+      c.beginPath(); c.moveTo(-40, 0); c.lineTo(-12, 0); c.stroke();
+      c.lineWidth = 2.5;
+      c.beginPath(); c.moveTo(-12, -16); c.lineTo(-12, 16); c.stroke();
+      c.lineWidth = 1;
+      c.beginPath(); c.moveTo(-8, -16); c.lineTo(-8, 16); c.stroke();
+      c.lineWidth = 2;
+      c.beginPath(); c.moveTo(-4, -16); c.lineTo(-4, -6); c.lineTo(20, -6); c.lineTo(20, -40); c.stroke();
+      c.beginPath(); c.moveTo(-4, 16); c.lineTo(-4, 6); c.lineTo(20, 6); c.lineTo(20, 40); c.stroke();
+      c.beginPath(); c.moveTo(-4, -6); c.lineTo(-4, 6); c.stroke();
+      c.beginPath(); c.moveTo(4, 6); c.lineTo(-2, 3); c.lineTo(-2, 9); c.closePath(); c.fillStyle = this.color; c.fill();
+    }
+  },
+  pmos: {
+    name: 'P-MOSFET', en: 'PMOS', color: '#a855f7', unit: '', def: 0, cat: 'Semi',
+    pins: [{ dx: -40, dy: 0 }, { dx: 20, dy: -40 }, { dx: 20, dy: 40 }],
+    draw(c) {
+      c.strokeStyle = this.color; c.lineWidth = 2;
+      c.beginPath(); c.moveTo(-40, 0); c.lineTo(-12, 0); c.stroke();
+      c.lineWidth = 2.5;
+      c.beginPath(); c.moveTo(-12, -16); c.lineTo(-12, 16); c.stroke();
+      c.lineWidth = 1;
+      c.beginPath(); c.moveTo(-8, -16); c.lineTo(-8, 16); c.stroke();
+      c.lineWidth = 2;
+      c.beginPath(); c.moveTo(-4, -16); c.lineTo(-4, -6); c.lineTo(20, -6); c.lineTo(20, -40); c.stroke();
+      c.beginPath(); c.moveTo(-4, 16); c.lineTo(-4, 6); c.lineTo(20, 6); c.lineTo(20, 40); c.stroke();
+      c.beginPath(); c.moveTo(-4, -6); c.lineTo(-4, 6); c.stroke();
+      c.beginPath(); c.moveTo(8, 6); c.lineTo(14, 3); c.lineTo(14, 9); c.closePath(); c.fillStyle = this.color; c.fill();
+      c.beginPath(); c.arc(-15, 0, 3, 0, Math.PI*2); c.stroke();
+    }
+  },
+  opamp: {
+    name: 'Op-Amp', en: 'OpAmp', color: '#f59e0b', unit: '', def: 100000, cat: 'ICs',
+    pins: [{ dx: -40, dy: -15 }, { dx: -40, dy: 15 }, { dx: 40, dy: 0 }],
+    draw(c) {
+      c.strokeStyle = this.color; c.lineWidth = 2;
+      c.beginPath(); c.moveTo(-20, -28); c.lineTo(-20, 28); c.lineTo(25, 0); c.closePath(); c.stroke();
+      c.beginPath(); c.moveTo(-40, -15); c.lineTo(-20, -15); c.stroke();
+      c.font = 'bold 12px sans-serif'; c.fillStyle = this.color;
+      c.fillText('+', -17, -11);
+      c.beginPath(); c.moveTo(-40, 15); c.lineTo(-20, 15); c.stroke();
+      c.fillText('\u2212', -18, 19);
+      c.beginPath(); c.moveTo(25, 0); c.lineTo(40, 0); c.stroke();
+    }
   }
 };
 
@@ -609,10 +658,63 @@ var PRESETS = [
       {x1:-100,y1:40,x2:-100,y2:60},
       {x1:60,y1:40,x2:60,y2:60},
     ]},
+  { id:'cmos-inv', name:'CMOS Inverter', color:'#a855f7',
+    desc:'Dijital NOT kapisi', formula:'Vin=0V\u2192Vout=5V, Vin=5V\u2192Vout=0V',
+    parts:[
+      {type:'vdc',x:-80,y:0,rot:0,val:5},
+      {type:'nmos',x:60,y:40,rot:0,val:0},
+      {type:'pmos',x:60,y:-40,rot:0,val:0},
+      {type:'vdc',x:-80,y:-80,rot:0,val:0},
+      {type:'ground',x:-80,y:80,rot:0,val:0},
+      {type:'ground',x:60,y:100,rot:0,val:0},
+    ],
+    wires:[
+      {x1:-80,y1:-40,x2:60,y2:-80},
+      {x1:80,y1:0,x2:80,y2:0},
+      {x1:-80,y1:-120,x2:20,y2:-40},
+      {x1:20,y1:-40,x2:20,y2:40},
+      {x1:-80,y1:40,x2:-80,y2:60},
+      {x1:60,y1:80,x2:60,y2:80},
+    ]},
+  { id:'inv-opamp', name:'Evirici Op-Amp', color:'#f59e0b',
+    desc:'Av = -Rf/Ri', formula:'Av = -10 (Ri=1k\u03A9, Rf=10k\u03A9)',
+    parts:[
+      {type:'vdc',x:-160,y:0,rot:0,val:1},
+      {type:'resistor',x:-60,y:-20,rot:0,val:1000},
+      {type:'resistor',x:20,y:-60,rot:0,val:10000},
+      {type:'opamp',x:40,y:0,rot:0,val:100000},
+      {type:'ground',x:-160,y:60,rot:0,val:0},
+      {type:'ground',x:0,y:40,rot:0,val:0},
+    ],
+    wires:[
+      {x1:-160,y1:-40,x2:-100,y2:-20},
+      {x1:-20,y1:-20,x2:0,y2:15},
+      {x1:-20,y1:-60,x2:0,y2:15},
+      {x1:60,y1:-60,x2:80,y2:0},
+      {x1:0,y1:-15,x2:0,y2:20},
+      {x1:-160,y1:40,x2:-160,y2:40},
+    ]},
+  { id:'noninv-opamp', name:'Evirmeyen Op-Amp', color:'#f59e0b',
+    desc:'Av = 1 + Rf/R1', formula:'Av = +10 (R1=1k\u03A9, Rf=9k\u03A9)',
+    parts:[
+      {type:'vdc',x:-160,y:0,rot:0,val:1},
+      {type:'resistor',x:20,y:40,rot:1,val:1000},
+      {type:'resistor',x:20,y:-60,rot:0,val:9000},
+      {type:'opamp',x:40,y:0,rot:0,val:100000},
+      {type:'ground',x:-160,y:60,rot:0,val:0},
+      {type:'ground',x:20,y:80,rot:0,val:0},
+    ],
+    wires:[
+      {x1:-160,y1:-40,x2:0,y2:-15},
+      {x1:0,y1:15,x2:20,y2:0},
+      {x1:60,y1:-60,x2:80,y2:0},
+      {x1:-160,y1:40,x2:-160,y2:40},
+      {x1:20,y1:60,x2:20,y2:60},
+    ]},
 ];
 
 (function buildPalette() {
-  const cats = { Passive: 'Pasif (Passive)', Sources: 'Kaynaklar (Sources)', Semi: 'Yarıiletken (Semiconductor)', Basic: 'Temel (Basic)' };
+  const cats = { Passive: 'Pasif (Passive)', Sources: 'Kaynaklar (Sources)', Semi: 'Yarıiletken (Semiconductor)', ICs: 'Entegre (ICs)', Basic: 'Temel (Basic)' };
   const el = document.getElementById('left');
   for (const [ck, cl] of Object.entries(cats)) {
     const items = Object.entries(COMP).filter(([, v]) => v.cat === ck);
@@ -845,6 +947,26 @@ function updateInspector() {
       <div class="insp-row"><label>Vce</label><span style="font-family:var(--font-mono);color:var(--blue)">${fmtVal(p._vce||0,'V')}</span></div>
       <div class="insp-row"><label>Ic</label><span style="font-family:var(--font-mono);color:var(--orange)">${fmtVal(p._ic||0,'A')}</span></div>
       <div class="insp-row"><label>Bölge</label><span style="font-family:var(--font-mono);color:${p._region==='Aktif'?'var(--green)':p._region==='Doyma'?'var(--orange)':'var(--red)'}">${p._region||'\u2014'}</span></div>`;
+  }
+  if (p.type === 'nmos' || p.type === 'pmos') {
+    el.innerHTML += `
+      <div class="insp-row"><label>Model</label><select onchange="setModel(this.value)" style="background:var(--surface-3);border:1px solid var(--border);color:var(--text);border-radius:4px;padding:2px 6px;font:11px var(--font-mono)">
+        ${Object.keys(MOSFET_MODELS).map(k => '<option'+(((p.model||'Generic')===k)?' selected':'')+'>'+k+'</option>').join('')}
+      </select></div>
+      <div class="insp-row"><label>Vgs</label><span style="font-family:var(--font-mono);color:var(--accent)">${fmtVal(p._vgs||0,'V')}</span></div>
+      <div class="insp-row"><label>Vds</label><span style="font-family:var(--font-mono);color:var(--blue)">${fmtVal(p._vds||0,'V')}</span></div>
+      <div class="insp-row"><label>Id</label><span style="font-family:var(--font-mono);color:var(--orange)">${fmtVal(p._id||0,'A')}</span></div>
+      <div class="insp-row"><label>Bölge</label><span style="font-family:var(--font-mono);color:${p._region==='Doyma'?'var(--green)':p._region==='Lineer'?'var(--orange)':'var(--red)'}">${p._region||'\u2014'}</span></div>`;
+  }
+  if (p.type === 'opamp') {
+    el.innerHTML += `
+      <div class="insp-row"><label>Model</label><select onchange="setModel(this.value)" style="background:var(--surface-3);border:1px solid var(--border);color:var(--text);border-radius:4px;padding:2px 6px;font:11px var(--font-mono)">
+        ${Object.keys(OPAMP_MODELS).map(k => '<option'+(((p.model||'Ideal')===k)?' selected':'')+'>'+k+'</option>').join('')}
+      </select></div>
+      <div class="insp-row"><label>V(+)</label><span style="font-family:var(--font-mono);color:var(--accent)">${fmtVal(p._vinP||0,'V')}</span></div>
+      <div class="insp-row"><label>V(\u2212)</label><span style="font-family:var(--font-mono);color:var(--blue)">${fmtVal(p._vinN||0,'V')}</span></div>
+      <div class="insp-row"><label>Vout</label><span style="font-family:var(--font-mono);color:var(--orange)">${fmtVal(p._vout||0,'V')}</span></div>
+      <div class="insp-row"><label>Av</label><span style="font-family:var(--font-mono);color:var(--purple)">${(p._av||0).toFixed(1)}</span></div>`;
   }
 }
 function inspValChange(v) {
@@ -1438,6 +1560,21 @@ function buildCircuitFromCanvas() {
       var m = BJT_MODELS[p.model || 'Generic'] || BJT_MODELS['Generic'];
       comps.push({type:'BJT', polarity:-1, n1:nodes[0], n2:nodes[1], n3:nodes[2], BF:m.BF, IS:m.IS, NF:m.NF, VAF:m.VAF, part:p, vbePrev:-0.6, vbcPrev:0});
     }
+    else if (p.type === 'nmos') {
+      var mm = MOSFET_MODELS[p.model || 'Generic'] || MOSFET_MODELS['Generic'];
+      comps.push({type:'MOS', polarity:1, n1:nodes[0], n2:nodes[1], n3:nodes[2],
+        VTO:mm.VTO, KP:mm.KP, LAMBDA:mm.LAMBDA, part:p});
+    }
+    else if (p.type === 'pmos') {
+      var mm = MOSFET_MODELS[p.model || 'Generic'] || MOSFET_MODELS['Generic'];
+      comps.push({type:'MOS', polarity:-1, n1:nodes[0], n2:nodes[1], n3:nodes[2],
+        VTO:mm.VTO, KP:mm.KP, LAMBDA:mm.LAMBDA, part:p});
+    }
+    else if (p.type === 'opamp') {
+      var om = OPAMP_MODELS[p.model || 'Ideal'] || OPAMP_MODELS['Ideal'];
+      comps.push({type:'OA', nP:nodes[0], nN:nodes[1], nO:nodes[2],
+        A:om.A, Rin:om.Rin, Rout:om.Rout, part:p});
+    }
   }
   // assign wire node mapping for current display
   for (const w of S.wires) {
@@ -1457,6 +1594,18 @@ var BJT_MODELS = {
   '2N3904':  { BF: 200, IS: 6.7e-15, NF: 1, VAF: 100 },
   'BC547':   { BF: 300, IS: 1e-14, NF: 1, VAF: 100 },
   '2N3906':  { BF: 200, IS: 6.7e-15, NF: 1, VAF: 100 },
+};
+var MOSFET_MODELS = {
+  'Generic': { VTO: 2.0, KP: 110e-6, LAMBDA: 0.04 },
+  'IRF540N': { VTO: 3.0, KP: 20.0, LAMBDA: 0.01 },
+  '2N7000':  { VTO: 2.0, KP: 0.1, LAMBDA: 0.04 },
+  'BS170':   { VTO: 2.0, KP: 0.15, LAMBDA: 0.04 },
+};
+var OPAMP_MODELS = {
+  'Ideal':  { A: 1e5, Rin: 1e9, Rout: 0.1 },
+  'LM741':  { A: 2e5, Rin: 2e6, Rout: 75 },
+  'LM358':  { A: 1e5, Rin: 1e6, Rout: 50 },
+  'TL072':  { A: 2e5, Rin: 1e12, Rout: 100 },
 };
 
 function solveStep(dt) {
@@ -1550,6 +1699,45 @@ function solveStep(dt) {
         var ic_eq = (iF * c.BF / (c.BF + 1) - gmEff * vbe) * pol;
         stampI(nC, -ic_eq); stampI(nE, ic_eq);
       }
+      else if (c.type === 'MOS') {
+        var pol = c.polarity;
+        var nG = c.n1, nD = c.n2, nS = c.n3;
+        var vG = nodeV[nG]||0, vD = nodeV[nD]||0, vS = nodeV[nS]||0;
+        var vgs = pol * (vG - vS);
+        var vds = pol * (vD - vS);
+        var vth = c.VTO;
+        var beta = c.KP;
+        var lambda = c.LAMBDA;
+        var id = 0, gm = 0, gds = GMIN;
+        if (vgs <= vth) {
+          id = 0; gm = 0; gds = GMIN;
+        } else if (vds < vgs - vth) {
+          id = beta * ((vgs - vth) * vds - vds * vds / 2) * (1 + lambda * vds);
+          gm = beta * vds * (1 + lambda * vds);
+          gds = beta * ((vgs - vth) - vds) * (1 + lambda * vds) + beta * ((vgs - vth) * vds - vds * vds / 2) * lambda + GMIN;
+        } else {
+          id = beta / 2 * (vgs - vth) * (vgs - vth) * (1 + lambda * vds);
+          gm = beta * (vgs - vth) * (1 + lambda * vds);
+          gds = beta / 2 * (vgs - vth) * (vgs - vth) * lambda + GMIN;
+        }
+        var ieq = id - gm * vgs - gds * vds;
+        if (nD > 0 && nG > 0) A[nD-1][nG-1] += gm * pol;
+        if (nD > 0 && nS > 0) A[nD-1][nS-1] -= gm * pol;
+        if (nS > 0 && nG > 0) A[nS-1][nG-1] -= gm * pol;
+        if (nS > 0 && nS > 0) A[nS-1][nS-1] += gm * pol;
+        stampG(pol>0?nD:nS, pol>0?nS:nD, gds);
+        var ieqPol = ieq * pol;
+        stampI(nD, -ieqPol); stampI(nS, ieqPol);
+      }
+      else if (c.type === 'OA') {
+        var ginp = 1 / c.Rin;
+        stampG(c.nP, c.nN, ginp);
+        var gOut = 1 / c.Rout;
+        var gm_oa = c.A / c.Rout;
+        if (c.nO > 0) A[c.nO-1][c.nO-1] += gOut;
+        if (c.nO > 0 && c.nP > 0) A[c.nO-1][c.nP-1] += gm_oa;
+        if (c.nO > 0 && c.nN > 0) A[c.nO-1][c.nN-1] -= gm_oa;
+      }
     }
     // LU solve (Gaussian elimination with partial pivoting)
     for (let col = 0; col < sz; col++) {
@@ -1587,10 +1775,16 @@ function solveStep(dt) {
         var vbeNew = pol * (newV[c.n1] - newV[c.n3]);
         if (Math.abs(vbeNew - vbeOld) > 1e-4) converged = false;
       }
+      if (c.type === 'MOS') {
+        var pol = c.polarity;
+        var vgsOld = pol * ((nodeV[c.n1]||0) - (nodeV[c.n3]||0));
+        var vgsNew = pol * (newV[c.n1] - newV[c.n3]);
+        if (Math.abs(vgsNew - vgsOld) > 1e-4) converged = false;
+      }
     }
     nodeV = newV;
     S._nodeVoltages = nodeV;
-    if (SIM.comps.every(c => c.type !== 'D' && c.type !== 'BJT') || converged) break;
+    if (SIM.comps.every(c => c.type !== 'D' && c.type !== 'BJT' && c.type !== 'MOS') || converged) break;
   }
   // Write results back
   S._nodeVoltages = nodeV;
@@ -1638,6 +1832,25 @@ function solveStep(dt) {
       c.part._vce = vce;
       c.part._ic = ic;
       c.part._region = (vbe > 0.5 && vbc < 0) ? 'Aktif' : (vbe > 0.5 && vbc > 0) ? 'Doyma' : 'Kesim';
+    }
+    else if (c.type === 'MOS') {
+      var pol = c.polarity;
+      var vG=nodeV[c.n1]||0, vD=nodeV[c.n2]||0, vS=nodeV[c.n3]||0;
+      var vgs=pol*(vG-vS), vds=pol*(vD-vS), vth=c.VTO;
+      var id=0;
+      if (vgs > vth) {
+        if (vds < vgs-vth) id = c.KP*((vgs-vth)*vds - vds*vds/2);
+        else id = c.KP/2*(vgs-vth)*(vgs-vth)*(1+c.LAMBDA*vds);
+      }
+      c.part._v = Math.abs(vds); c.part._i = Math.abs(id); c.part._p = Math.abs(vds*id);
+      c.part._vgs = vgs; c.part._vds = vds; c.part._id = id;
+      c.part._region = vgs < vth ? 'Kesim' : (vds < vgs-vth ? 'Lineer' : 'Doyma');
+    }
+    else if (c.type === 'OA') {
+      var vP=nodeV[c.nP]||0, vN=nodeV[c.nN]||0, vO=nodeV[c.nO]||0;
+      c.part._v = Math.abs(vO); c.part._i = 0; c.part._p = 0;
+      c.part._vinP = vP; c.part._vinN = vN; c.part._vout = vO;
+      c.part._av = (Math.abs(vP-vN) > 1e-9) ? (vO/(vP-vN)) : 0;
     }
   }
   // wire current estimation — find any component on same nodes
