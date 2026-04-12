@@ -167,6 +167,7 @@ input:focus{border-color:var(--accent)}
     <div class="tb-sep"></div>
     <button class="tb-btn" onclick="exportJSON()" title="Kaydet (Ctrl+S)">&#128190; Kaydet</button>
     <button class="tb-btn" onclick="importJSON()" title="Aç (Ctrl+O)">&#128194; Aç</button>
+    <button class="tb-btn" onclick="importSpiceModels()" title="SPICE Model Yükle">&#9881; .model</button>
     <button class="tb-btn" onclick="exportPNG()" title="PNG İndir">&#128247; PNG</button>
     <button class="tb-btn" onclick="shareURL()" title="Paylaş">&#128279; Paylaş</button>
     <div class="tb-sep"></div>
@@ -1750,25 +1751,99 @@ function buildCircuitFromCanvas() {
 const GMIN = 1e-12, SIM_DT = 1e-5, SUBSTEPS = 15;
 const DIODE_IS = 1e-14, DIODE_N = 1, VT = 0.026;
 
+var DIODE_MODELS = {
+  'Generic': { IS: 1e-14, N: 1 },
+  '1N4148':  { IS: 2.52e-9, N: 1.752 },
+  '1N4007':  { IS: 7.02e-9, N: 1.77 },
+  '1N5819':  { IS: 3.16e-8, N: 1.04 },
+};
+var LED_MODELS = {
+  'Kırmızı': { VF: 1.8, color: '#f0454a' },
+  'Yeşil':   { VF: 2.2, color: '#22c55e' },
+  'Mavi':    { VF: 3.2, color: '#3b82f6' },
+  'Sarı':    { VF: 2.0, color: '#eab308' },
+  'Beyaz':   { VF: 3.3, color: '#e0e7f0' },
+};
+var ZENER_MODELS = {
+  '3.3V': { VZ: 3.3 }, '5.1V': { VZ: 5.1 }, '6.8V': { VZ: 6.8 }, '12V': { VZ: 12 }, '15V': { VZ: 15 },
+};
 var BJT_MODELS = {
   'Generic': { BF: 100, IS: 1e-14, NF: 1, VAF: 100 },
   '2N2222':  { BF: 100, IS: 1e-14, NF: 1, VAF: 100 },
   '2N3904':  { BF: 200, IS: 6.7e-15, NF: 1, VAF: 100 },
-  'BC547':   { BF: 300, IS: 1e-14, NF: 1, VAF: 100 },
   '2N3906':  { BF: 200, IS: 6.7e-15, NF: 1, VAF: 100 },
+  'BC547':   { BF: 300, IS: 1e-14, NF: 1, VAF: 100 },
+  'BC557':   { BF: 300, IS: 1e-14, NF: 1, VAF: 100 },
 };
 var MOSFET_MODELS = {
-  'Generic': { VTO: 2.0, KP: 110e-6, LAMBDA: 0.04 },
-  'IRF540N': { VTO: 3.0, KP: 20.0, LAMBDA: 0.01 },
-  '2N7000':  { VTO: 2.0, KP: 0.1, LAMBDA: 0.04 },
-  'BS170':   { VTO: 2.0, KP: 0.15, LAMBDA: 0.04 },
+  'Generic':  { VTO: 2.0, KP: 110e-6, LAMBDA: 0.04 },
+  'IRF540N':  { VTO: 3.0, KP: 20.0, LAMBDA: 0.01 },
+  'IRF9540N': { VTO: 3.0, KP: 10.0, LAMBDA: 0.01 },
+  '2N7000':   { VTO: 2.0, KP: 0.1, LAMBDA: 0.04 },
+  'BS170':    { VTO: 2.0, KP: 0.15, LAMBDA: 0.04 },
 };
 var OPAMP_MODELS = {
-  'Ideal':  { A: 1e5, Rin: 1e9, Rout: 0.1 },
-  'LM741':  { A: 2e5, Rin: 2e6, Rout: 75 },
-  'LM358':  { A: 1e5, Rin: 1e6, Rout: 50 },
-  'TL072':  { A: 2e5, Rin: 1e12, Rout: 100 },
+  'Ideal':   { A: 1e5, Rin: 1e9, Rout: 0.1 },
+  'LM741':   { A: 2e5, Rin: 2e6, Rout: 75 },
+  'LM358':   { A: 1e5, Rin: 1e6, Rout: 50 },
+  'TL072':   { A: 2e5, Rin: 1e12, Rout: 100 },
+  'LM324':   { A: 1e5, Rin: 1e6, Rout: 50 },
+  'OPA2134': { A: 5e5, Rin: 1e13, Rout: 30 },
 };
+var VREG_MODELS = {
+  '7805':  { VREG: 5, DROPOUT: 2 },
+  '7812':  { VREG: 12, DROPOUT: 2 },
+  'LM317': { VREG: 1.25, DROPOUT: 3, adjustable: true },
+};
+
+// ──────── SPICE .model PARSER ────────
+function parseSpiceModel(line) {
+  var m = line.match(/\.model\s+(\S+)\s+(NPN|PNP|D|NMOS|PMOS|NFET|PFET)\s*\(([^)]+)\)/i);
+  if (!m) return null;
+  var name = m[1], type = m[2].toUpperCase(), params = {};
+  m[3].replace(/\s+/g,' ').trim().split(/\s+/).forEach(function(p) {
+    var kv = p.split('='); if (kv.length === 2) params[kv[0].toUpperCase()] = parseFloat(kv[1]);
+  });
+  return { name: name, type: type, params: params };
+}
+
+function importSpiceModels() {
+  var input = document.createElement('input');
+  input.type = 'file'; input.accept = '.model,.lib,.mod,.txt,.cir';
+  input.onchange = function(e) {
+    var file = e.target.files[0]; if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function(ev) {
+      var text = ev.target.result;
+      var lines = text.split('\n');
+      var count = 0;
+      for (var i = 0; i < lines.length; i++) {
+        var parsed = parseSpiceModel(lines[i]);
+        if (!parsed) continue;
+        var t = parsed.type, p = parsed.params, n = parsed.name;
+        if (t === 'NPN' || t === 'PNP') {
+          BJT_MODELS[n] = { BF: p.BF||100, IS: p.IS||1e-14, NF: p.NF||1, VAF: p.VAF||100 };
+          count++;
+        } else if (t === 'D') {
+          DIODE_MODELS[n] = { IS: p.IS||1e-14, N: p.N||1 };
+          count++;
+        } else if (t === 'NMOS' || t === 'PMOS' || t === 'NFET' || t === 'PFET') {
+          MOSFET_MODELS[n] = { VTO: p.VTO||p.VTH||2, KP: p.KP||110e-6, LAMBDA: p.LAMBDA||0.04 };
+          count++;
+        }
+      }
+      if (count > 0) {
+        showInfoCard('SPICE Modelleri Yüklendi', count + ' model başarıyla eklendi.', 'Inspector dropdown\'larında görünecekler.');
+        if (S.sim.running) buildCircuitFromCanvas();
+        updateInspector();
+      } else {
+        showInfoCard('Model Bulunamadı', 'Dosyada geçerli .model satırı bulunamadı.', '.model NAME TYPE(PARAM=VAL ...) formatı bekleniyor.');
+      }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+}
 
 function solveStep(dt) {
   if (!SIM || SIM.N <= 1) return;
