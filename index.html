@@ -38,7 +38,7 @@ input{font-family:var(--font-mono);background:var(--surface-2);border:1px solid 
 input:focus{border-color:var(--accent)}
 
 /* LAYOUT */
-#app{display:grid;grid-template-rows:44px 1fr 260px 26px;grid-template-columns:240px 1fr 260px;height:100vh;width:100vw}
+#app{display:grid;grid-template-rows:44px 1fr 180px 26px;grid-template-columns:240px 1fr 260px;height:100vh;width:100vw}
 #topbar{grid-column:1/-1;display:flex;align-items:center;padding:0 12px;gap:8px;background:var(--surface);border-bottom:1px solid var(--border)}
 #left{grid-row:2;overflow-y:auto;background:var(--surface);border-right:1px solid var(--border);padding:8px}
 #canvas-wrap{grid-row:2;position:relative;overflow:hidden;background:var(--bg)}
@@ -172,6 +172,9 @@ input:focus{border-color:var(--accent)}
     <div class="tb-sep"></div>
     <button class="tb-btn" id="btn-vmap" onclick="S.voltageMap=!S.voltageMap;needsRender=true">&#9889; Renk Haritası</button>
     <div class="sim-badge">
+      <select id="sim-speed" onchange="S.sim.speed=parseFloat(this.value)" style="background:var(--surface-3);border:1px solid var(--border);color:var(--text);border-radius:4px;padding:2px 4px;font:11px var(--font-mono);cursor:pointer">
+        <option value="0.1">0.1x</option><option value="0.5">0.5x</option><option value="1" selected>1x</option><option value="2">2x</option><option value="5">5x</option><option value="10">10x</option>
+      </select>
       <span class="tb-badge" id="sim-label">DURDURULDU</span>
       <div class="sim-dot" id="sim-dot"></div>
       <button class="tb-btn" id="btn-sim" onclick="toggleSim()">&#9654; Başlat</button>
@@ -1479,18 +1482,20 @@ function solveStep(dt) {
       c.vPrev = vd;
     }
   }
-  // wire current estimation
+  // wire current estimation — find any component on same nodes
   for (const w of S.wires) {
     const v1 = nodeV[w._n1] || 0, v2 = nodeV[w._n2] || 0;
-    // estimate: find any resistor on same nodes
     let cur = 0;
-    if (w._n1 !== w._n2) {
+    if (w._n1 !== undefined && w._n2 !== undefined && w._n1 !== w._n2) {
+      // Find component between these nodes to get current
       for (const c of SIM.comps) {
-        if (c.type === 'R' && ((c.n1===w._n1&&c.n2===w._n2)||(c.n1===w._n2&&c.n2===w._n1))) {
-          cur = (v1-v2)/c.val; break;
+        if ((c.n1===w._n1&&c.n2===w._n2)||(c.n1===w._n2&&c.n2===w._n1)) {
+          if (c.part && c.part._i) { cur = c.part._i * ((v1>v2)?1:-1); break; }
+          if (c.type === 'R') { cur = (v1-v2)/c.val; break; }
         }
       }
-      if (cur === 0) cur = (v1-v2) * 0.01; // small fallback
+      // Fallback: estimate from voltage difference (assumes ~1kΩ path)
+      if (cur === 0 && Math.abs(v1-v2) > 0.001) cur = (v1-v2) / 1000;
     }
     w._current = cur;
   }
@@ -1515,7 +1520,8 @@ function solveStep(dt) {
 function simulationStep() {
   if (!S.sim.running || !SIM) return;
   try {
-    for (let i = 0; i < SUBSTEPS; i++) {
+    const steps = Math.max(1, Math.round(SUBSTEPS * (S.sim.speed || 1)));
+    for (let i = 0; i < steps; i++) {
       S.sim.t += SIM_DT;
       solveStep(SIM_DT);
     }
