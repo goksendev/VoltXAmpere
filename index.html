@@ -502,6 +502,42 @@ const COMP = {
 };
 
 // ──────── BUILD LEFT PANEL (PALETTE) ────────
+// ──────── PRESETS (must be before buildPalette) ────────
+const PRESETS = [
+  { id:'vdiv', name:'Gerilim Bölücü', color:'#00e09e',
+    desc:'Vout = Vin × R2/(R1+R2)', formula:'Vout ≈ 8.25V (12V, 1k/2.2k)',
+    parts:[{type:'vdc',x:0,y:0,rot:0,val:12},{type:'resistor',x:100,y:-60,rot:0,val:1000},{type:'resistor',x:100,y:60,rot:1,val:2200},{type:'ground',x:0,y:100,rot:0,val:0}],
+    wires:[{x1:0,y1:-40,x2:100,y2:-60},{x1:100,y1:-20,x2:100,y2:20},{x1:100,y1:60,x2:0,y2:40},{x1:0,y1:40,x2:0,y2:80}]},
+  { id:'rclp', name:'RC Alçak Geçiren', color:'#3b82f6',
+    desc:'fc = 1/(2πRC)', formula:'fc ≈ 1592 Hz (1kΩ, 100nF)',
+    parts:[{type:'vac',x:-80,y:0,rot:0,val:5,freq:1000},{type:'resistor',x:40,y:-60,rot:0,val:1000},{type:'capacitor',x:120,y:0,rot:1,val:100e-9},{type:'ground',x:-80,y:80,rot:0,val:0},{type:'ground',x:120,y:80,rot:0,val:0}],
+    wires:[{x1:-80,y1:-40,x2:0,y2:-60},{x1:80,y1:-60,x2:120,y2:-40},{x1:-80,y1:40,x2:-80,y2:60},{x1:120,y1:40,x2:120,y2:60}]},
+  { id:'led', name:'LED Devresi', color:'#eab308',
+    desc:'I = (Vs - Vf) / R', formula:'I ≈ 13.6 mA (5V, 220Ω, Vf≈2V)',
+    parts:[{type:'vdc',x:-60,y:0,rot:0,val:5},{type:'resistor',x:40,y:-40,rot:0,val:220},{type:'led',x:120,y:0,rot:1,val:0},{type:'ground',x:-60,y:80,rot:0,val:0}],
+    wires:[{x1:-60,y1:-40,x2:0,y2:-40},{x1:80,y1:-40,x2:120,y2:-30},{x1:120,y1:30,x2:-60,y2:40},{x1:-60,y1:40,x2:-60,y2:60}]},
+  { id:'halfwave', name:'Yarım Dalga Doğrultucu', color:'#f0454a',
+    desc:'Sadece pozitif yarım dalga geçer', formula:'Vout_peak ≈ Vpeak - 0.7V',
+    parts:[{type:'vac',x:-80,y:0,rot:0,val:10,freq:60},{type:'diode',x:40,y:-60,rot:0,val:0},{type:'resistor',x:120,y:0,rot:1,val:1000},{type:'ground',x:-80,y:80,rot:0,val:0},{type:'ground',x:120,y:80,rot:0,val:0}],
+    wires:[{x1:-80,y1:-40,x2:10,y2:-60},{x1:70,y1:-60,x2:120,y2:-40},{x1:-80,y1:40,x2:-80,y2:60},{x1:120,y1:40,x2:120,y2:60}]},
+  { id:'rccharge', name:'Kapasitör Şarj', color:'#06b6d4',
+    desc:'V(t) = Vs × (1 - e^(-t/RC))', formula:'τ = RC = 1 ms (1kΩ, 1µF)',
+    parts:[{type:'vdc',x:-60,y:0,rot:0,val:5},{type:'switch',x:40,y:-40,rot:0,val:0},{type:'resistor',x:120,y:-40,rot:0,val:1000},{type:'capacitor',x:200,y:0,rot:1,val:1e-6},{type:'ground',x:-60,y:80,rot:0,val:0},{type:'ground',x:200,y:80,rot:0,val:0}],
+    wires:[{x1:-60,y1:-40,x2:10,y2:-40},{x1:70,y1:-40,x2:80,y2:-40},{x1:160,y1:-40,x2:200,y2:-40},{x1:-60,y1:40,x2:-60,y2:60},{x1:200,y1:40,x2:200,y2:60}]},
+  { id:'rlc', name:'RLC Rezonans', color:'#a855f7',
+    desc:'f0 = 1/(2π√LC)', formula:'Underdamped osilasyon',
+    parts:[{type:'vdc',x:-80,y:0,rot:0,val:10},{type:'resistor',x:20,y:-60,rot:0,val:10},{type:'inductor',x:120,y:-60,rot:0,val:1e-3},{type:'capacitor',x:200,y:0,rot:1,val:10e-6},{type:'ground',x:-80,y:80,rot:0,val:0},{type:'ground',x:200,y:80,rot:0,val:0}],
+    wires:[{x1:-80,y1:-40,x2:-20,y2:-60},{x1:60,y1:-60,x2:80,y2:-60},{x1:160,y1:-60,x2:200,y2:-40},{x1:-80,y1:40,x2:-80,y2:60},{x1:200,y1:40,x2:200,y2:60}]},
+  { id:'serpar', name:'Seri-Paralel Direnç', color:'#22c55e',
+    desc:'Rtop = R1 + (R2||R3)', formula:'V1=9V, R1=470Ω, R2||R3=500Ω',
+    parts:[{type:'vdc',x:-80,y:0,rot:0,val:9},{type:'resistor',x:20,y:-40,rot:0,val:470},{type:'resistor',x:140,y:-20,rot:1,val:1000},{type:'resistor',x:140,y:40,rot:1,val:1000},{type:'ground',x:-80,y:80,rot:0,val:0}],
+    wires:[{x1:-80,y1:-40,x2:-20,y2:-40},{x1:60,y1:-40,x2:140,y2:-60},{x1:140,y1:0,x2:140,y2:0},{x1:140,y1:60,x2:-80,y2:40},{x1:-80,y1:40,x2:-80,y2:60}]},
+  { id:'rl', name:'RL Transient', color:'#f59e0b',
+    desc:'I(t) = (V/R)(1-e^(-Rt/L))', formula:'τ = L/R = 1 µs (1kΩ, 1mH)',
+    parts:[{type:'vdc',x:-60,y:0,rot:0,val:5},{type:'resistor',x:40,y:-40,rot:0,val:1000},{type:'inductor',x:140,y:0,rot:1,val:1e-3},{type:'ground',x:-60,y:80,rot:0,val:0},{type:'ground',x:140,y:80,rot:0,val:0}],
+    wires:[{x1:-60,y1:-40,x2:0,y2:-40},{x1:80,y1:-40,x2:140,y2:-40},{x1:-60,y1:40,x2:-60,y2:60},{x1:140,y1:40,x2:140,y2:60}]},
+];
+
 (function buildPalette() {
   const cats = { Passive: 'Pasif (Passive)', Sources: 'Kaynaklar (Sources)', Semi: 'Yarıiletken (Semiconductor)', Basic: 'Temel (Basic)' };
   const el = document.getElementById('left');
@@ -1541,98 +1577,7 @@ function render() {
   else document.getElementById('sb-dt').textContent = 'dt=10\u00B5s';
 }
 
-// ──────── PRESETS ────────
-const G = GRID;
-const PRESETS = [
-  { id:'vdiv', name:'Gerilim Bölücü', color:'#00e09e',
-    desc:'Vout = Vin × R2/(R1+R2)', formula:'Vout ≈ 8.25V (12V, 1k/2.2k)',
-    parts:[
-      {type:'vdc',x:0,y:0,rot:0,val:12},
-      {type:'resistor',x:100,y:-60,rot:0,val:1000},
-      {type:'resistor',x:100,y:60,rot:1,val:2200},
-      {type:'ground',x:0,y:100,rot:0,val:0},
-    ],
-    wires:[{x1:0,y1:-40,x2:100,y2:-60},{x1:100,y1:-20,x2:100,y2:20},{x1:100,y1:60,x2:0,y2:40},{x1:0,y1:40,x2:0,y2:80}]
-  },
-  { id:'rclp', name:'RC Alçak Geçiren', color:'#3b82f6',
-    desc:'fc = 1/(2πRC)', formula:'fc ≈ 1592 Hz (1kΩ, 100nF)',
-    parts:[
-      {type:'vac',x:-80,y:0,rot:0,val:5,freq:1000},
-      {type:'resistor',x:40,y:-60,rot:0,val:1000},
-      {type:'capacitor',x:120,y:0,rot:1,val:100e-9},
-      {type:'ground',x:-80,y:80,rot:0,val:0},
-      {type:'ground',x:120,y:80,rot:0,val:0},
-    ],
-    wires:[{x1:-80,y1:-40,x2:0,y2:-60},{x1:80,y1:-60,x2:120,y2:-40},{x1:-80,y1:40,x2:-80,y2:60},{x1:120,y1:40,x2:120,y2:60}]
-  },
-  { id:'led', name:'LED Devresi', color:'#eab308',
-    desc:'I = (Vs - Vf) / R', formula:'I ≈ 13.6 mA (5V, 220Ω, Vf≈2V)',
-    parts:[
-      {type:'vdc',x:-60,y:0,rot:0,val:5},
-      {type:'resistor',x:40,y:-40,rot:0,val:220},
-      {type:'led',x:120,y:0,rot:1,val:0},
-      {type:'ground',x:-60,y:80,rot:0,val:0},
-    ],
-    wires:[{x1:-60,y1:-40,x2:0,y2:-40},{x1:80,y1:-40,x2:120,y2:-30},{x1:120,y1:30,x2:-60,y2:40},{x1:-60,y1:40,x2:-60,y2:60}]
-  },
-  { id:'halfwave', name:'Yarım Dalga Doğrultucu', color:'#f0454a',
-    desc:'Sadece pozitif yarım dalga geçer', formula:'Vout_peak ≈ Vpeak - 0.7V',
-    parts:[
-      {type:'vac',x:-80,y:0,rot:0,val:10,freq:60},
-      {type:'diode',x:40,y:-60,rot:0,val:0},
-      {type:'resistor',x:120,y:0,rot:1,val:1000},
-      {type:'ground',x:-80,y:80,rot:0,val:0},
-      {type:'ground',x:120,y:80,rot:0,val:0},
-    ],
-    wires:[{x1:-80,y1:-40,x2:10,y2:-60},{x1:70,y1:-60,x2:120,y2:-40},{x1:-80,y1:40,x2:-80,y2:60},{x1:120,y1:40,x2:120,y2:60}]
-  },
-  { id:'rccharge', name:'Kapasitör Şarj', color:'#06b6d4',
-    desc:'V(t) = Vs × (1 - e^(-t/RC))', formula:'τ = RC = 1 ms (1kΩ, 1µF)',
-    parts:[
-      {type:'vdc',x:-60,y:0,rot:0,val:5},
-      {type:'switch',x:40,y:-40,rot:0,val:0},
-      {type:'resistor',x:120,y:-40,rot:0,val:1000},
-      {type:'capacitor',x:200,y:0,rot:1,val:1e-6},
-      {type:'ground',x:-60,y:80,rot:0,val:0},
-      {type:'ground',x:200,y:80,rot:0,val:0},
-    ],
-    wires:[{x1:-60,y1:-40,x2:10,y2:-40},{x1:70,y1:-40,x2:80,y2:-40},{x1:160,y1:-40,x2:200,y2:-40},{x1:-60,y1:40,x2:-60,y2:60},{x1:200,y1:40,x2:200,y2:60}]
-  },
-  { id:'rlc', name:'RLC Rezonans', color:'#a855f7',
-    desc:'f0 = 1/(2π√LC)', formula:'Underdamped osilasyon',
-    parts:[
-      {type:'vdc',x:-80,y:0,rot:0,val:10},
-      {type:'resistor',x:20,y:-60,rot:0,val:10},
-      {type:'inductor',x:120,y:-60,rot:0,val:1e-3},
-      {type:'capacitor',x:200,y:0,rot:1,val:10e-6},
-      {type:'ground',x:-80,y:80,rot:0,val:0},
-      {type:'ground',x:200,y:80,rot:0,val:0},
-    ],
-    wires:[{x1:-80,y1:-40,x2:-20,y2:-60},{x1:60,y1:-60,x2:80,y2:-60},{x1:160,y1:-60,x2:200,y2:-40},{x1:-80,y1:40,x2:-80,y2:60},{x1:200,y1:40,x2:200,y2:60}]
-  },
-  { id:'serpar', name:'Seri-Paralel Direnç', color:'#22c55e',
-    desc:'Rtop = R1 + (R2||R3)', formula:'V1=9V, R1=470Ω, R2||R3=1kΩ||1kΩ=500Ω',
-    parts:[
-      {type:'vdc',x:-80,y:0,rot:0,val:9},
-      {type:'resistor',x:20,y:-40,rot:0,val:470},
-      {type:'resistor',x:140,y:-20,rot:1,val:1000},
-      {type:'resistor',x:140,y:40,rot:1,val:1000},
-      {type:'ground',x:-80,y:80,rot:0,val:0},
-    ],
-    wires:[{x1:-80,y1:-40,x2:-20,y2:-40},{x1:60,y1:-40,x2:140,y2:-60},{x1:140,y1:0,x2:140,y2:0},{x1:140,y1:60,x2:-80,y2:40},{x1:-80,y1:40,x2:-80,y2:60}]
-  },
-  { id:'rl', name:'RL Transient', color:'#f59e0b',
-    desc:'I(t) = (V/R)(1-e^(-Rt/L))', formula:'τ = L/R = 1 µs (1kΩ, 1mH)',
-    parts:[
-      {type:'vdc',x:-60,y:0,rot:0,val:5},
-      {type:'resistor',x:40,y:-40,rot:0,val:1000},
-      {type:'inductor',x:140,y:0,rot:1,val:1e-3},
-      {type:'ground',x:-60,y:80,rot:0,val:0},
-      {type:'ground',x:140,y:80,rot:0,val:0},
-    ],
-    wires:[{x1:-60,y1:-40,x2:0,y2:-40},{x1:80,y1:-40,x2:140,y2:-40},{x1:-60,y1:40,x2:-60,y2:60},{x1:140,y1:40,x2:140,y2:60}]
-  },
-];
+// (PRESETS moved before buildPalette — see above)
 
 function loadPreset(id) {
   const pr = PRESETS.find(p => p.id === id);
