@@ -208,6 +208,8 @@ input:focus{border-color:var(--accent)}
       <button class="btab active" data-tab="scope" onclick="switchTab('scope')">Osiloskop</button>
       <button class="btab" data-tab="bode" onclick="switchTab('bode')">Bode Plot</button>
       <button class="btab" data-tab="dcsweep" onclick="switchTab('dcsweep')">DC Sweep</button>
+      <button class="btab" data-tab="paramsweep" onclick="switchTab('paramsweep')">Param Sweep</button>
+      <button class="btab" data-tab="fft" onclick="switchTab('fft')">FFT</button>
     </div>
     <div id="tab-scope" class="tab-panel active" style="grid-template-columns:1fr 200px">
       <div id="scope-wrap">
@@ -267,6 +269,8 @@ input:focus{border-color:var(--accent)}
     </div>
     <div id="tab-bode" class="tab-panel" style="grid-template-columns:1fr"><canvas id="BODE" style="width:100%;height:100%"></canvas></div>
     <div id="tab-dcsweep" class="tab-panel" style="grid-template-columns:1fr"><canvas id="DCSW" style="width:100%;height:100%"></canvas></div>
+    <div id="tab-paramsweep" class="tab-panel"><canvas id="PSWEEP" style="width:100%;height:100%"></canvas></div>
+    <div id="tab-fft" class="tab-panel"><canvas id="FFTC" style="width:100%;height:100%"></canvas></div>
   </div>
 
   <!-- STATUSBAR -->
@@ -849,6 +853,91 @@ var COMP = {
       c.font = '600 12px sans-serif'; c.fillStyle = this.color; c.textAlign = 'center'; c.textBaseline = 'middle';
       c.fillText('V', 0, 1);
     }
+  },
+  schottky: {
+    name: 'Schottky Diyot', en: 'Schottky', color: '#f59e0b', unit: '', def: 0, cat: 'Semi',
+    pins: [{ dx: -30, dy: 0 }, { dx: 30, dy: 0 }],
+    draw(c) {
+      c.strokeStyle = this.color; c.lineWidth = 2;
+      var s = 10;
+      c.beginPath(); c.moveTo(-30, 0); c.lineTo(-s, 0); c.stroke();
+      c.beginPath(); c.moveTo(-s, -s); c.lineTo(-s, s); c.lineTo(s, 0); c.closePath(); c.stroke();
+      c.beginPath(); c.moveTo(s-2, -s); c.lineTo(s, -s); c.lineTo(s, s); c.lineTo(s+2, s); c.stroke();
+      c.beginPath(); c.moveTo(s, 0); c.lineTo(30, 0); c.stroke();
+    }
+  },
+  njfet: {
+    name: 'N-JFET', en: 'NJFET', color: '#a855f7', unit: '', def: 0, cat: 'Semi',
+    pins: [{ dx: -40, dy: 0 }, { dx: 20, dy: -40 }, { dx: 20, dy: 40 }],
+    draw(c) {
+      c.strokeStyle = this.color; c.lineWidth = 2;
+      c.beginPath(); c.moveTo(-40, 0); c.lineTo(-8, 0); c.stroke();
+      c.lineWidth = 3; c.beginPath(); c.moveTo(-8, -16); c.lineTo(-8, 16); c.stroke(); c.lineWidth = 2;
+      c.beginPath(); c.moveTo(-8, -10); c.lineTo(20, -10); c.lineTo(20, -40); c.stroke();
+      c.beginPath(); c.moveTo(-8, 10); c.lineTo(20, 10); c.lineTo(20, 40); c.stroke();
+      c.beginPath(); c.moveTo(-14, 0); c.lineTo(-8, -4); c.lineTo(-8, 4); c.closePath(); c.fillStyle = this.color; c.fill();
+    }
+  },
+  pjfet: {
+    name: 'P-JFET', en: 'PJFET', color: '#a855f7', unit: '', def: 0, cat: 'Semi',
+    pins: [{ dx: -40, dy: 0 }, { dx: 20, dy: -40 }, { dx: 20, dy: 40 }],
+    draw(c) {
+      c.strokeStyle = this.color; c.lineWidth = 2;
+      c.beginPath(); c.moveTo(-40, 0); c.lineTo(-8, 0); c.stroke();
+      c.lineWidth = 3; c.beginPath(); c.moveTo(-8, -16); c.lineTo(-8, 16); c.stroke(); c.lineWidth = 2;
+      c.beginPath(); c.moveTo(-8, -10); c.lineTo(20, -10); c.lineTo(20, -40); c.stroke();
+      c.beginPath(); c.moveTo(-8, 10); c.lineTo(20, 10); c.lineTo(20, 40); c.stroke();
+      c.beginPath(); c.moveTo(-2, 0); c.lineTo(-8, -4); c.lineTo(-8, 4); c.closePath(); c.fillStyle = this.color; c.fill();
+    }
+  },
+  igbt: {
+    name: 'IGBT', en: 'IGBT', color: '#a855f7', unit: '', def: 0, cat: 'Semi',
+    pins: [{ dx: -40, dy: 0 }, { dx: 20, dy: -40 }, { dx: 20, dy: 40 }],
+    draw(c) {
+      c.strokeStyle = this.color; c.lineWidth = 2;
+      c.beginPath(); c.moveTo(-40, 0); c.lineTo(-12, 0); c.stroke();
+      c.lineWidth = 2.5; c.beginPath(); c.moveTo(-12, -16); c.lineTo(-12, 16); c.stroke();
+      c.lineWidth = 1; c.beginPath(); c.moveTo(-8, -16); c.lineTo(-8, 16); c.stroke(); c.lineWidth = 2;
+      c.beginPath(); c.moveTo(-4, -10); c.lineTo(20, -10); c.lineTo(20, -40); c.stroke();
+      c.beginPath(); c.moveTo(-4, 10); c.lineTo(20, 10); c.lineTo(20, 40); c.stroke();
+      c.beginPath(); c.moveTo(8, 10); c.lineTo(2, 7); c.lineTo(2, 13); c.closePath(); c.fillStyle = this.color; c.fill();
+      c.font = '600 7px sans-serif'; c.fillStyle = this.color; c.textAlign = 'center'; c.fillText('IGBT', 0, -20);
+    }
+  },
+  scr: {
+    name: 'Tristör (SCR)', en: 'SCR', color: '#f0454a', unit: '', def: 0, cat: 'Semi',
+    pins: [{ dx: -30, dy: 0 }, { dx: 30, dy: 0 }, { dx: 0, dy: 30 }],
+    draw(c) {
+      c.strokeStyle = this.color; c.lineWidth = 2;
+      c.beginPath(); c.moveTo(-30, 0); c.lineTo(-10, 0); c.stroke();
+      c.beginPath(); c.moveTo(-10, -10); c.lineTo(-10, 10); c.lineTo(10, 0); c.closePath(); c.stroke();
+      c.beginPath(); c.moveTo(10, -10); c.lineTo(10, 10); c.stroke();
+      c.beginPath(); c.moveTo(10, 0); c.lineTo(30, 0); c.stroke();
+      c.beginPath(); c.moveTo(0, 5); c.lineTo(0, 30); c.stroke();
+    }
+  },
+  triac: {
+    name: 'TRIAC', en: 'TRIAC', color: '#f0454a', unit: '', def: 0, cat: 'Semi',
+    pins: [{ dx: -30, dy: 0 }, { dx: 30, dy: 0 }, { dx: 0, dy: 30 }],
+    draw(c) {
+      c.strokeStyle = this.color; c.lineWidth = 2;
+      c.beginPath(); c.moveTo(-30, 0); c.lineTo(-10, 0); c.stroke();
+      c.beginPath(); c.moveTo(-8, -8); c.lineTo(-8, 8); c.lineTo(8, 0); c.closePath(); c.stroke();
+      c.beginPath(); c.moveTo(8, -8); c.lineTo(8, 8); c.lineTo(-8, 0); c.closePath(); c.stroke();
+      c.beginPath(); c.moveTo(10, 0); c.lineTo(30, 0); c.stroke();
+      c.beginPath(); c.moveTo(0, 5); c.lineTo(0, 30); c.stroke();
+    }
+  },
+  diac: {
+    name: 'DIAC', en: 'DIAC', color: '#f0454a', unit: 'V', def: 30, cat: 'Semi',
+    pins: [{ dx: -30, dy: 0 }, { dx: 30, dy: 0 }],
+    draw(c) {
+      c.strokeStyle = this.color; c.lineWidth = 2;
+      c.beginPath(); c.moveTo(-30, 0); c.lineTo(-8, 0); c.stroke();
+      c.beginPath(); c.moveTo(-8, -8); c.lineTo(-8, 8); c.lineTo(8, 0); c.closePath(); c.stroke();
+      c.beginPath(); c.moveTo(8, -8); c.lineTo(8, 8); c.lineTo(-8, 0); c.closePath(); c.stroke();
+      c.beginPath(); c.moveTo(8, 0); c.lineTo(30, 0); c.stroke();
+    }
   }
 };
 
@@ -1006,6 +1095,22 @@ var PRESETS = [
     desc:'Frekans cevabı', formula:'fc = 1/(2\u03C0RC) \u2248 1592 Hz',
     parts:[{type:'vac',x:-80,y:0,rot:0,val:5,freq:1000},{type:'resistor',x:20,y:-40,rot:0,val:1000},{type:'capacitor',x:100,y:0,rot:1,val:100e-9},{type:'ground',x:-80,y:60,rot:0,val:0},{type:'ground',x:100,y:60,rot:0,val:0}],
     wires:[{x1:-80,y1:-40,x2:-20,y2:-40},{x1:60,y1:-40,x2:100,y2:-40},{x1:-80,y1:40,x2:-80,y2:40},{x1:100,y1:40,x2:100,y2:40}]},
+  { id:'jfet-cs', name:'JFET Common Source', color:'#a855f7',
+    desc:'JFET yükselteç', formula:'Av = -gm × RD',
+    parts:[{type:'vdc',x:-80,y:0,rot:0,val:12},{type:'njfet',x:40,y:0,rot:0,val:0},{type:'resistor',x:80,y:-60,rot:1,val:4700},{type:'resistor',x:80,y:60,rot:1,val:1000},{type:'ground',x:-80,y:80,rot:0,val:0},{type:'ground',x:80,y:100,rot:0,val:0}],
+    wires:[{x1:-80,y1:-40,x2:80,y2:-100},{x1:60,y1:-40,x2:80,y2:-20},{x1:60,y1:40,x2:80,y2:20},{x1:-80,y1:40,x2:-80,y2:60},{x1:80,y1:80,x2:80,y2:80}]},
+  { id:'scr-phase', name:'SCR Faz Kontrolü', color:'#f0454a',
+    desc:'Tristör ile AC güç kontrolü', formula:'Gate pulse → SCR iletim',
+    parts:[{type:'vac',x:-80,y:0,rot:0,val:10,freq:50},{type:'scr',x:40,y:0,rot:0,val:0},{type:'resistor',x:120,y:0,rot:1,val:100},{type:'vdc',x:0,y:60,rot:0,val:2},{type:'ground',x:-80,y:80,rot:0,val:0},{type:'ground',x:120,y:80,rot:0,val:0}],
+    wires:[{x1:-80,y1:-40,x2:10,y2:0},{x1:70,y1:0,x2:120,y2:-40},{x1:-80,y1:40,x2:-80,y2:60},{x1:120,y1:40,x2:120,y2:60},{x1:0,y1:20,x2:40,y2:30}]},
+  { id:'param-sweep-rc', name:'Param Sweep — RC', color:'#00e09e',
+    desc:'R değişince filtre cevabı', formula:'R: 100Ω → 10kΩ tarama',
+    parts:[{type:'vac',x:-80,y:0,rot:0,val:5,freq:1000},{type:'resistor',x:20,y:-40,rot:0,val:1000},{type:'capacitor',x:100,y:0,rot:1,val:100e-9},{type:'ground',x:-80,y:60,rot:0,val:0},{type:'ground',x:100,y:60,rot:0,val:0}],
+    wires:[{x1:-80,y1:-40,x2:-20,y2:-40},{x1:60,y1:-40,x2:100,y2:-40},{x1:-80,y1:40,x2:-80,y2:40},{x1:100,y1:40,x2:100,y2:40}]},
+  { id:'fft-square', name:'FFT — Kare Dalga', color:'#ec4899',
+    desc:'Kare dalga harmonik analizi', formula:'THD ve harmonik bileşenler',
+    parts:[{type:'pulse',x:-80,y:0,rot:0,val:5,freq:1000},{type:'resistor',x:40,y:0,rot:1,val:1000},{type:'ground',x:-80,y:60,rot:0,val:0},{type:'ground',x:40,y:60,rot:0,val:0}],
+    wires:[{x1:-80,y1:-40,x2:40,y2:-40},{x1:-80,y1:40,x2:-80,y2:40},{x1:40,y1:40,x2:40,y2:40}]},
 ];
 
 (function buildPalette() {
@@ -1923,6 +2028,27 @@ function buildCircuitFromCanvas() {
     else if (p.type === 'cccs') {
       comps.push({type:'CCCS', ncP:nodes[0], ncN:nodes[1], noP:nodes[2], noN:nodes[3], alpha:p.val||10, part:p});
     }
+    else if (p.type === 'schottky') {
+      comps.push({type:'D', n1:nodes[0], n2:nodes[1], part:p, vPrev:0.3, IS:3.16e-8, N:1.04});
+    }
+    else if (p.type === 'njfet') {
+      comps.push({type:'JFET', polarity:1, n1:nodes[0], n2:nodes[1], n3:nodes[2], Idss:0.01, Vp:-2, part:p});
+    }
+    else if (p.type === 'pjfet') {
+      comps.push({type:'JFET', polarity:-1, n1:nodes[0], n2:nodes[1], n3:nodes[2], Idss:0.01, Vp:2, part:p});
+    }
+    else if (p.type === 'igbt') {
+      comps.push({type:'MOS', polarity:1, n1:nodes[0], n2:nodes[1], n3:nodes[2], VTO:4, KP:5, LAMBDA:0.01, part:p});
+    }
+    else if (p.type === 'scr') {
+      comps.push({type:'SCR', nA:nodes[0], nK:nodes[1], nG:nodes[2], part:p, latched:false});
+    }
+    else if (p.type === 'triac') {
+      comps.push({type:'TRIAC', n1:nodes[0], n2:nodes[1], nG:nodes[2], part:p, active:false});
+    }
+    else if (p.type === 'diac') {
+      comps.push({type:'DIAC', n1:nodes[0], n2:nodes[1], vbo:p.val||30, part:p});
+    }
   }
   // assign wire node mapping for current display
   for (const w of S.wires) {
@@ -2288,6 +2414,52 @@ function solveStep(dt) {
         var iOut = alpha * iCtrl;
         stampI(c.noP, -iOut); stampI(c.noN, iOut);
       }
+      else if (c.type === 'JFET') {
+        var pol = c.polarity;
+        var nG = c.n1, nD = c.n2, nS = c.n3;
+        var vgs = pol * ((nodeV[nG]||0) - (nodeV[nS]||0));
+        var vds = pol * ((nodeV[nD]||0) - (nodeV[nS]||0));
+        var Idss = c.Idss, Vp = c.Vp;
+        var id = 0, gm = 0, gds = GMIN;
+        if (pol > 0 ? (vgs <= Vp) : (vgs >= Vp)) { id = 0; }
+        else if (Math.abs(vds) < Math.abs(vgs - Vp)) {
+          id = Idss * (2*(vgs/Vp - 1)*vds/Vp - (vds/Vp)*(vds/Vp));
+          gm = 2 * Idss / Math.abs(Vp) * Math.abs(vds/Vp);
+          gds = 2 * Idss / Math.abs(Vp) * Math.abs(vgs/Vp - 1 - vds/Vp) + GMIN;
+        } else {
+          id = Idss * Math.pow(1 - vgs/Vp, 2);
+          gm = -2 * Idss / Vp * (1 - vgs/Vp);
+          gds = GMIN;
+        }
+        var ieq = id * pol - gm * vgs - gds * vds;
+        if (nD > 0 && nG > 0) A[nD-1][nG-1] += gm * pol;
+        if (nD > 0 && nS > 0) A[nD-1][nS-1] -= gm * pol;
+        if (nS > 0 && nG > 0) A[nS-1][nG-1] -= gm * pol;
+        if (nS > 0 && nS > 0) A[nS-1][nS-1] += gm * pol;
+        stampG(pol>0?nD:nS, pol>0?nS:nD, gds);
+        stampI(nD, -ieq * pol); stampI(nS, ieq * pol);
+      }
+      else if (c.type === 'SCR') {
+        var vAK = (nodeV[c.nA]||0) - (nodeV[c.nK]||0);
+        var vGK = (nodeV[c.nG]||0) - (nodeV[c.nK]||0);
+        if (!c.latched && vGK > 0.7 && vAK > 0.7) c.latched = true;
+        if (c.latched && vAK < 0.1) c.latched = false;
+        var rSCR = c.latched ? 0.01 : 1e8;
+        stampG(c.nA, c.nK, 1/rSCR);
+        stampG(c.nG, c.nK, GMIN);
+      }
+      else if (c.type === 'TRIAC') {
+        var v12 = (nodeV[c.n1]||0) - (nodeV[c.n2]||0);
+        var vGK = (nodeV[c.nG]||0) - (nodeV[c.n2]||0);
+        if (!c.active && Math.abs(vGK) > 0.7 && Math.abs(v12) > 0.7) c.active = true;
+        if (c.active && Math.abs(v12) < 0.1) c.active = false;
+        stampG(c.n1, c.n2, c.active ? 100 : GMIN);
+      }
+      else if (c.type === 'DIAC') {
+        var vd = Math.abs((nodeV[c.n1]||0) - (nodeV[c.n2]||0));
+        var r = vd > c.vbo ? 0.1 : 1e8;
+        stampG(c.n1, c.n2, 1/r);
+      }
     }
     // LU solve (Gaussian elimination with partial pivoting)
     for (let col = 0; col < sz; col++) {
@@ -2433,6 +2605,15 @@ function solveStep(dt) {
       c.part._v = Math.abs((nodeV[c.noP]||0) - (nodeV[c.noN]||0));
       c.part._i = 0; c.part._p = 0;
     }
+    else if (c.type === 'JFET') {
+      var pol = c.polarity, vgs = pol*((nodeV[c.n1]||0)-(nodeV[c.n3]||0)), vds = pol*((nodeV[c.n2]||0)-(nodeV[c.n3]||0));
+      var id = c.Idss * Math.pow(Math.max(0, 1-vgs/c.Vp), 2);
+      c.part._v = Math.abs(vds); c.part._i = Math.abs(id); c.part._p = Math.abs(vds*id);
+      c.part._region = (pol>0 ? vgs<=c.Vp : vgs>=c.Vp) ? 'Kesim' : (Math.abs(vds)<Math.abs(vgs-c.Vp) ? 'Lineer' : 'Doyma');
+    }
+    else if (c.type === 'SCR') { c.part._v = Math.abs((nodeV[c.nA]||0)-(nodeV[c.nK]||0)); c.part._i = c.latched ? c.part._v/0.01 : 0; c.part._p = c.part._v*c.part._i; }
+    else if (c.type === 'TRIAC') { c.part._v = Math.abs((nodeV[c.n1]||0)-(nodeV[c.n2]||0)); c.part._i = c.active ? c.part._v*100 : 0; c.part._p = c.part._v*c.part._i; }
+    else if (c.type === 'DIAC') { var vdiac = Math.abs((nodeV[c.n1]||0)-(nodeV[c.n2]||0)); c.part._v = vdiac; c.part._i = vdiac > c.vbo ? vdiac/0.1 : 0; c.part._p = vdiac*c.part._i; }
   }
   // wire current estimation — find any component on same nodes
   for (const w of S.wires) {
@@ -2783,6 +2964,8 @@ function switchTab(name) {
   document.querySelectorAll('.tab-panel').forEach(function(p){ p.classList.toggle('active', p.id === 'tab-'+name); });
   if (name === 'bode') drawBode();
   if (name === 'dcsweep') drawDCSweep();
+  if (name === 'paramsweep') drawParamSweep();
+  if (name === 'fft') drawFFT();
   needsRender = true;
 }
 
@@ -2984,6 +3167,125 @@ function drawBode() {
     var x = mx + pw*i/4;
     c.fillText(fmtVal(f,'Hz'), x, py+ph+14);
   }
+}
+
+// ──────── PARAMETER SWEEP ────────
+var paramSweepData = null;
+function runParamSweep(partId, propName, start, stop, steps) {
+  var part = S.parts.find(function(p){ return p.id === partId; });
+  if (!part) return;
+  paramSweepData = { x: [], traces: [], label: propName };
+  var origVal = part.val;
+  var step = (stop - start) / (steps || 10);
+  for (var v = start; v <= stop + step/2; v += step) {
+    part.val = v;
+    buildCircuitFromCanvas();
+    S.sim.t = 0; S._nodeVoltages = null;
+    try { for (var i = 0; i < 100; i++) { S.sim.t += SIM_DT; solveStep(SIM_DT); } } catch(e){}
+    var meas = S._nodeVoltages && S._nodeVoltages.length > 1 ? S._nodeVoltages[1] : 0;
+    paramSweepData.x.push(v);
+    paramSweepData.traces.push(meas);
+  }
+  part.val = origVal;
+  buildCircuitFromCanvas();
+  switchTab('paramsweep');
+}
+
+function drawParamSweep() {
+  var cvs = document.getElementById('PSWEEP');
+  if (!cvs) return;
+  var r = cvs.parentElement.getBoundingClientRect();
+  if (r.width < 10 || r.height < 10) return;
+  cvs.width = r.width * DPR; cvs.height = r.height * DPR;
+  cvs.style.width = r.width+'px'; cvs.style.height = r.height+'px';
+  var c = cvs.getContext('2d'); c.setTransform(DPR,0,0,DPR,0,0);
+  var w = r.width, h = r.height;
+  c.fillStyle = '#080c14'; c.fillRect(0, 0, w, h);
+  if (!paramSweepData || !paramSweepData.x.length) {
+    c.fillStyle = '#5a6a7a'; c.font = '13px Outfit'; c.textAlign = 'center';
+    c.fillText('Parameter Sweep yapılmadı.', w/2, h/2); return;
+  }
+  var d = paramSweepData, mx=50,my=20,pw=w-mx-20,ph=h-my-30;
+  var xMin=Math.min.apply(null,d.x), xMax=Math.max.apply(null,d.x);
+  var yMin=Math.min.apply(null,d.traces), yMax=Math.max.apply(null,d.traces);
+  if (yMax===yMin){yMax+=1;yMin-=1;}
+  c.strokeStyle='#00e09e';c.lineWidth=2;c.shadowColor='#00e09e';c.shadowBlur=6;
+  c.beginPath();
+  for(var i=0;i<d.x.length;i++){var x=mx+(d.x[i]-xMin)/(xMax-xMin)*pw;var y=my+(1-(d.traces[i]-yMin)/(yMax-yMin))*ph;if(i===0)c.moveTo(x,y);else c.lineTo(x,y);}
+  c.stroke();c.shadowBlur=0;
+}
+
+// ──────── FFT ────────
+var fftData = null;
+function runFFT() {
+  if (!S.scope || !S.scope.ch[0].on) return;
+  var buf = S.scope.ch[0].buf, ptr = S.scope.ptr;
+  var N = 512;
+  var re = new Float64Array(N), im = new Float64Array(N);
+  for (var i = 0; i < N; i++) {
+    var win = 0.5 * (1 - Math.cos(2*Math.PI*i/(N-1)));
+    re[i] = buf[(ptr + i) % 600] * win;
+  }
+  var bits = Math.log2(N);
+  for (var i = 0; i < N; i++) {
+    var j = 0;
+    for (var b = 0; b < bits; b++) j |= ((i >> b) & 1) << (bits - 1 - b);
+    if (j > i) { var t = re[i]; re[i] = re[j]; re[j] = t; t = im[i]; im[i] = im[j]; im[j] = t; }
+  }
+  for (var s = 1; s <= bits; s++) {
+    var m = 1 << s, mh = m >> 1;
+    var wR = Math.cos(2*Math.PI/m), wI = -Math.sin(2*Math.PI/m);
+    for (var k = 0; k < N; k += m) {
+      var uR = 1, uI = 0;
+      for (var j = 0; j < mh; j++) {
+        var tR = uR*re[k+j+mh] - uI*im[k+j+mh];
+        var tI = uR*im[k+j+mh] + uI*re[k+j+mh];
+        re[k+j+mh] = re[k+j] - tR; im[k+j+mh] = im[k+j] - tI;
+        re[k+j] += tR; im[k+j] += tI;
+        var tmp = uR*wR - uI*wI; uI = uR*wI + uI*wR; uR = tmp;
+      }
+    }
+  }
+  fftData = { freq: [], mag: [] };
+  var sampleRate = 1 / SIM_DT / SUBSTEPS;
+  for (var i = 1; i < N/2; i++) {
+    var mag = Math.sqrt(re[i]*re[i] + im[i]*im[i]) / (N/2);
+    var magDB = mag > 1e-10 ? 20*Math.log10(mag) : -100;
+    fftData.freq.push(i * sampleRate / N);
+    fftData.mag.push(magDB);
+  }
+  switchTab('fft');
+}
+
+function drawFFT() {
+  var cvs = document.getElementById('FFTC');
+  if (!cvs) return;
+  var r = cvs.parentElement.getBoundingClientRect();
+  if (r.width < 10 || r.height < 10) return;
+  cvs.width = r.width * DPR; cvs.height = r.height * DPR;
+  cvs.style.width = r.width+'px'; cvs.style.height = r.height+'px';
+  var c = cvs.getContext('2d'); c.setTransform(DPR,0,0,DPR,0,0);
+  var w = r.width, h = r.height;
+  c.fillStyle = '#080c14'; c.fillRect(0, 0, w, h);
+  if (!fftData || !fftData.freq.length) {
+    c.fillStyle = '#5a6a7a'; c.font = '13px Outfit'; c.textAlign = 'center';
+    c.fillText('FFT yapılmadı. Simülasyon çalışırken FFT butonuna basın.', w/2, h/2); return;
+  }
+  var d = fftData, mx=50,my=20,pw=w-mx-20,ph=h-my-30;
+  var yMin=-80, yMax=Math.max.apply(null,d.mag)+5;
+  c.strokeStyle = 'rgba(255,255,255,0.06)'; c.lineWidth = 0.5;
+  for(var i=0;i<=5;i++){var y=my+ph*i/5;c.beginPath();c.moveTo(mx,y);c.lineTo(mx+pw,y);c.stroke();}
+  var barW = Math.max(1, pw / d.freq.length - 1);
+  for(var i=0;i<d.freq.length;i++){
+    var x = mx + i/d.freq.length*pw;
+    var magN = Math.max(0, (d.mag[i]-yMin)/(yMax-yMin));
+    var bh = magN * ph;
+    c.fillStyle = i < 10 ? '#00e09e' : '#3b82f6';
+    c.fillRect(x, my+ph-bh, barW, bh);
+  }
+  c.fillStyle='#5a6a7a';c.font='9px "JetBrains Mono"';c.textAlign='right';
+  for(var i=0;i<=5;i++) c.fillText(Math.round(yMin+(yMax-yMin)*(5-i)/5)+'dB',mx-4,my+ph*i/5+4);
+  c.textAlign='center';c.fillText('Frekans (Hz)',w/2,h-3);
 }
 
 // ──────── PWA SERVICE WORKER ────────
