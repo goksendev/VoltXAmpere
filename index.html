@@ -44,7 +44,7 @@ input:focus{border-color:var(--accent)}
 #canvas-wrap{grid-row:2;position:relative;overflow:hidden;background:var(--bg)}
 #canvas-wrap canvas{position:absolute;top:0;left:0;width:100%;height:100%}
 #right{grid-row:2;overflow-y:auto;background:var(--surface);border-left:1px solid var(--border);padding:10px}
-#bottom{grid-column:1/-1;display:grid;grid-template-columns:1fr 200px;background:var(--surface);border-top:1px solid var(--border)}
+#bottom{grid-column:1/-1;background:var(--surface);border-top:1px solid var(--border)}
 #scope-wrap{position:relative;overflow:hidden}
 #scope-wrap canvas{width:100%;height:100%}
 #scope-side{padding:10px;border-left:1px solid var(--border);display:flex;flex-direction:column;gap:6px}
@@ -105,6 +105,11 @@ input:focus{border-color:var(--accent)}
 #scope-controls select{background:var(--surface-3);border:1px solid var(--border);color:var(--text);
   border-radius:4px;padding:3px 6px;font:11px var(--font-mono);cursor:pointer;outline:none}
 #scope-controls select:focus{border-color:var(--accent)}
+
+.btab{padding:4px 12px;border:none;border-radius:6px 6px 0 0;background:var(--surface-2);color:var(--text-3);font:500 11px var(--font-ui);cursor:pointer}
+.btab.active{background:var(--surface);color:var(--accent)}
+.tab-panel{display:none;height:100%;overflow:hidden}
+.tab-panel.active{display:grid}
 
 ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
 
@@ -198,61 +203,70 @@ input:focus{border-color:var(--accent)}
   </div>
 
   <!-- BOTTOM -->
-  <div id="bottom">
-    <div id="scope-wrap">
-      <canvas id="SC"></canvas>
-      <div id="scope-controls">
-        <div class="sc-group">
-          <label class="sc-ch" style="--c:#00e09e"><input type="checkbox" checked onchange="toggleCh(0,this.checked)"> KN1</label>
-          <label class="sc-ch" style="--c:#3b82f6"><input type="checkbox" checked onchange="toggleCh(1,this.checked)"> KN2</label>
-          <label class="sc-ch" style="--c:#f59e0b"><input type="checkbox" onchange="toggleCh(2,this.checked)"> KN3</label>
-          <label class="sc-ch" style="--c:#a855f7"><input type="checkbox" onchange="toggleCh(3,this.checked)"> KN4</label>
-        </div>
-        <div class="sc-group">
-          <span class="sc-label">Zaman/div</span>
-          <select id="sc-tdiv" onchange="setTDiv(this.value)">
-            <option value="1e-6">1 &micro;s</option>
-            <option value="1e-5">10 &micro;s</option>
-            <option value="1e-4">100 &micro;s</option>
-            <option value="1e-3" selected>1 ms</option>
-            <option value="1e-2">10 ms</option>
-            <option value="0.1">100 ms</option>
-          </select>
-        </div>
-        <div class="sc-group">
-          <span class="sc-label">V/div</span>
-          <select id="sc-vdiv" onchange="setVDiv(this.value)">
-            <option value="0">Oto</option>
-            <option value="0.01">10 mV</option>
-            <option value="0.1">100 mV</option>
-            <option value="1">1 V</option>
-            <option value="2" selected>2 V</option>
-            <option value="5">5 V</option>
-            <option value="10">10 V</option>
-          </select>
-        </div>
-        <div class="sc-group">
-          <span class="sc-label">Trigger</span>
-          <select id="sc-trig" onchange="setTrigMode(this.value)">
-            <option value="auto" selected>Oto</option>
-            <option value="normal">Normal</option>
-            <option value="single">Tek At&#305;&#351;</option>
-          </select>
-          <select id="sc-trigedge" onchange="setTrigEdge(this.value)">
-            <option value="rising">&uarr; Y&uuml;kselen</option>
-            <option value="falling">&darr; D&uuml;&#351;en</option>
-          </select>
+  <div id="bottom" style="display:grid;grid-template-rows:auto 1fr;grid-template-columns:1fr">
+    <div style="display:flex;gap:2px;padding:3px 8px;background:var(--surface-2);border-bottom:1px solid var(--border)">
+      <button class="btab active" data-tab="scope" onclick="switchTab('scope')">Osiloskop</button>
+      <button class="btab" data-tab="bode" onclick="switchTab('bode')">Bode Plot</button>
+      <button class="btab" data-tab="dcsweep" onclick="switchTab('dcsweep')">DC Sweep</button>
+    </div>
+    <div id="tab-scope" class="tab-panel active" style="grid-template-columns:1fr 200px">
+      <div id="scope-wrap">
+        <canvas id="SC"></canvas>
+        <div id="scope-controls">
+          <div class="sc-group">
+            <label class="sc-ch" style="--c:#00e09e"><input type="checkbox" checked onchange="toggleCh(0,this.checked)"> KN1</label>
+            <label class="sc-ch" style="--c:#3b82f6"><input type="checkbox" checked onchange="toggleCh(1,this.checked)"> KN2</label>
+            <label class="sc-ch" style="--c:#f59e0b"><input type="checkbox" onchange="toggleCh(2,this.checked)"> KN3</label>
+            <label class="sc-ch" style="--c:#a855f7"><input type="checkbox" onchange="toggleCh(3,this.checked)"> KN4</label>
+          </div>
+          <div class="sc-group">
+            <span class="sc-label">Zaman/div</span>
+            <select id="sc-tdiv" onchange="setTDiv(this.value)">
+              <option value="1e-6">1 &micro;s</option>
+              <option value="1e-5">10 &micro;s</option>
+              <option value="1e-4">100 &micro;s</option>
+              <option value="1e-3" selected>1 ms</option>
+              <option value="1e-2">10 ms</option>
+              <option value="0.1">100 ms</option>
+            </select>
+          </div>
+          <div class="sc-group">
+            <span class="sc-label">V/div</span>
+            <select id="sc-vdiv" onchange="setVDiv(this.value)">
+              <option value="0">Oto</option>
+              <option value="0.01">10 mV</option>
+              <option value="0.1">100 mV</option>
+              <option value="1">1 V</option>
+              <option value="2" selected>2 V</option>
+              <option value="5">5 V</option>
+              <option value="10">10 V</option>
+            </select>
+          </div>
+          <div class="sc-group">
+            <span class="sc-label">Trigger</span>
+            <select id="sc-trig" onchange="setTrigMode(this.value)">
+              <option value="auto" selected>Oto</option>
+              <option value="normal">Normal</option>
+              <option value="single">Tek At&#305;&#351;</option>
+            </select>
+            <select id="sc-trigedge" onchange="setTrigEdge(this.value)">
+              <option value="rising">&uarr; Y&uuml;kselen</option>
+              <option value="falling">&darr; D&uuml;&#351;en</option>
+            </select>
+          </div>
         </div>
       </div>
+      <div id="scope-side">
+        <div class="scope-card"><div class="lbl">Vpp</div><div class="val" id="sc-vpp" style="color:var(--accent)">&#8212;</div></div>
+        <div class="scope-card"><div class="lbl">Vrms</div><div class="val" id="sc-vrms" style="color:var(--blue)">&#8212;</div></div>
+        <div class="scope-card"><div class="lbl">Frekans</div><div class="val" id="sc-freq" style="color:var(--purple)">&#8212;</div></div>
+        <div class="scope-card"><div class="lbl">Periyot</div><div class="val" id="sc-per" style="color:var(--cyan)">&#8212;</div></div>
+        <div class="scope-card"><div class="lbl">Duty</div><div class="val" id="sc-duty" style="color:var(--pink)">&#8212;</div></div>
+        <div class="scope-card"><div class="lbl">Pavg</div><div class="val" id="sc-pavg" style="color:var(--orange)">&#8212;</div></div>
+      </div>
     </div>
-    <div id="scope-side">
-      <div class="scope-card"><div class="lbl">Vpp</div><div class="val" id="sc-vpp" style="color:var(--accent)">&#8212;</div></div>
-      <div class="scope-card"><div class="lbl">Vrms</div><div class="val" id="sc-vrms" style="color:var(--blue)">&#8212;</div></div>
-      <div class="scope-card"><div class="lbl">Frekans</div><div class="val" id="sc-freq" style="color:var(--purple)">&#8212;</div></div>
-      <div class="scope-card"><div class="lbl">Periyot</div><div class="val" id="sc-per" style="color:var(--cyan)">&#8212;</div></div>
-      <div class="scope-card"><div class="lbl">Duty</div><div class="val" id="sc-duty" style="color:var(--pink)">&#8212;</div></div>
-      <div class="scope-card"><div class="lbl">Pavg</div><div class="val" id="sc-pavg" style="color:var(--orange)">&#8212;</div></div>
-    </div>
+    <div id="tab-bode" class="tab-panel" style="grid-template-columns:1fr"><canvas id="BODE" style="width:100%;height:100%"></canvas></div>
+    <div id="tab-dcsweep" class="tab-panel" style="grid-template-columns:1fr"><canvas id="DCSW" style="width:100%;height:100%"></canvas></div>
   </div>
 
   <!-- STATUSBAR -->
@@ -478,6 +492,107 @@ const COMP = {
       c.lineWidth = 1.5; c.beginPath();
       for (let i = -10; i <= 10; i++) { const t = i / 10 * Math.PI; c.lineTo(i * 0.9, Math.sin(t) * 6); }
       c.stroke();
+    }
+  },
+  pulse: {
+    name: 'Darbe Kaynağı', en: 'Pulse', color: '#ec4899', unit: 'V', def: 5, cat: 'Sources',
+    pins: [{ dx: 0, dy: -40 }, { dx: 0, dy: 40 }],
+    draw(c) {
+      c.strokeStyle = this.color; c.lineWidth = 2;
+      c.beginPath(); c.moveTo(0, -40); c.lineTo(0, -18); c.stroke();
+      c.beginPath(); c.arc(0, 0, 18, 0, Math.PI*2); c.stroke();
+      c.beginPath(); c.moveTo(0, 18); c.lineTo(0, 40); c.stroke();
+      c.lineWidth = 1.5; c.beginPath();
+      c.moveTo(-8, 4); c.lineTo(-4, 4); c.lineTo(-4, -4); c.lineTo(4, -4); c.lineTo(4, 4); c.lineTo(8, 4);
+      c.stroke();
+    }
+  },
+  pwl: {
+    name: 'PWL Kaynağı', en: 'PWL', color: '#ec4899', unit: 'V', def: 5, cat: 'Sources',
+    pins: [{ dx: 0, dy: -40 }, { dx: 0, dy: 40 }],
+    draw(c) {
+      c.strokeStyle = this.color; c.lineWidth = 2;
+      c.beginPath(); c.moveTo(0, -40); c.lineTo(0, -18); c.stroke();
+      c.beginPath(); c.arc(0, 0, 18, 0, Math.PI*2); c.stroke();
+      c.beginPath(); c.moveTo(0, 18); c.lineTo(0, 40); c.stroke();
+      c.lineWidth = 1.5; c.beginPath();
+      c.moveTo(-8, 4); c.lineTo(-4, -2); c.lineTo(0, 4); c.lineTo(4, -4); c.lineTo(8, 2);
+      c.stroke();
+    }
+  },
+  iac: {
+    name: 'AC Akım', en: 'I~', color: '#eab308', unit: 'A', def: 0.01, cat: 'Sources', freq: 50,
+    pins: [{ dx: 0, dy: -40 }, { dx: 0, dy: 40 }],
+    draw(c) {
+      c.strokeStyle = this.color; c.lineWidth = 2;
+      c.beginPath(); c.moveTo(0, -40); c.lineTo(0, -18); c.stroke();
+      c.beginPath(); c.arc(0, 0, 18, 0, Math.PI*2); c.stroke();
+      c.beginPath(); c.moveTo(0, 18); c.lineTo(0, 40); c.stroke();
+      c.beginPath(); c.moveTo(0, -10); c.lineTo(0, 10); c.stroke();
+      c.beginPath(); c.moveTo(0, -10); c.lineTo(-3, -5); c.moveTo(0, -10); c.lineTo(3, -5); c.stroke();
+      c.lineWidth = 1; c.beginPath();
+      c.moveTo(7, -4); c.quadraticCurveTo(10, -8, 13, -4); c.quadraticCurveTo(10, 0, 7, -4);
+      c.stroke();
+    }
+  },
+  noise: {
+    name: 'Gürültü', en: 'Noise', color: '#8899aa', unit: 'V', def: 0.1, cat: 'Sources',
+    pins: [{ dx: 0, dy: -40 }, { dx: 0, dy: 40 }],
+    draw(c) {
+      c.strokeStyle = this.color; c.lineWidth = 2;
+      c.beginPath(); c.moveTo(0, -40); c.lineTo(0, -18); c.stroke();
+      c.beginPath(); c.arc(0, 0, 18, 0, Math.PI*2); c.stroke();
+      c.beginPath(); c.moveTo(0, 18); c.lineTo(0, 40); c.stroke();
+      c.lineWidth = 1; c.beginPath();
+      for (var i = -8; i <= 8; i += 2) c.lineTo(i, (Math.random()-0.5)*12);
+      c.stroke();
+    }
+  },
+  vcvs: {
+    name: 'VCVS (E)', en: 'E', color: '#00e09e', unit: '', def: 10, cat: 'Sources',
+    pins: [{ dx: -40, dy: -15 }, { dx: -40, dy: 15 }, { dx: 40, dy: -15 }, { dx: 40, dy: 15 }],
+    draw(c) {
+      c.strokeStyle = this.color; c.lineWidth = 2;
+      c.beginPath(); c.moveTo(0, -18); c.lineTo(18, 0); c.lineTo(0, 18); c.lineTo(-18, 0); c.closePath(); c.stroke();
+      c.beginPath(); c.moveTo(-40, -15); c.lineTo(-18, -8); c.moveTo(-40, 15); c.lineTo(-18, 8); c.stroke();
+      c.beginPath(); c.moveTo(18, -8); c.lineTo(40, -15); c.moveTo(18, 8); c.lineTo(40, 15); c.stroke();
+      c.font = '600 8px sans-serif'; c.fillStyle = this.color; c.textAlign = 'center';
+      c.fillText('E', 0, 3);
+      c.font = '7px sans-serif'; c.fillText('+', -25, -12); c.fillText('\u2212', -25, 18);
+      c.fillText('+', 25, -12); c.fillText('\u2212', 25, 18);
+    }
+  },
+  vccs: {
+    name: 'VCCS (G)', en: 'G', color: '#3b82f6', unit: 'S', def: 0.001, cat: 'Sources',
+    pins: [{ dx: -40, dy: -15 }, { dx: -40, dy: 15 }, { dx: 40, dy: -15 }, { dx: 40, dy: 15 }],
+    draw(c) {
+      c.strokeStyle = this.color; c.lineWidth = 2;
+      c.beginPath(); c.moveTo(0, -18); c.lineTo(18, 0); c.lineTo(0, 18); c.lineTo(-18, 0); c.closePath(); c.stroke();
+      c.beginPath(); c.moveTo(-40, -15); c.lineTo(-18, -8); c.moveTo(-40, 15); c.lineTo(-18, 8); c.stroke();
+      c.beginPath(); c.moveTo(18, -8); c.lineTo(40, -15); c.moveTo(18, 8); c.lineTo(40, 15); c.stroke();
+      c.font = '600 8px sans-serif'; c.fillStyle = this.color; c.textAlign = 'center'; c.fillText('G', 0, 3);
+    }
+  },
+  ccvs: {
+    name: 'CCVS (H)', en: 'H', color: '#f59e0b', unit: '\u03A9', def: 1000, cat: 'Sources',
+    pins: [{ dx: -40, dy: -15 }, { dx: -40, dy: 15 }, { dx: 40, dy: -15 }, { dx: 40, dy: 15 }],
+    draw(c) {
+      c.strokeStyle = this.color; c.lineWidth = 2;
+      c.beginPath(); c.moveTo(0, -18); c.lineTo(18, 0); c.lineTo(0, 18); c.lineTo(-18, 0); c.closePath(); c.stroke();
+      c.beginPath(); c.moveTo(-40, -15); c.lineTo(-18, -8); c.moveTo(-40, 15); c.lineTo(-18, 8); c.stroke();
+      c.beginPath(); c.moveTo(18, -8); c.lineTo(40, -15); c.moveTo(18, 8); c.lineTo(40, 15); c.stroke();
+      c.font = '600 8px sans-serif'; c.fillStyle = this.color; c.textAlign = 'center'; c.fillText('H', 0, 3);
+    }
+  },
+  cccs: {
+    name: 'CCCS (F)', en: 'F', color: '#a855f7', unit: '', def: 10, cat: 'Sources',
+    pins: [{ dx: -40, dy: -15 }, { dx: -40, dy: 15 }, { dx: 40, dy: -15 }, { dx: 40, dy: 15 }],
+    draw(c) {
+      c.strokeStyle = this.color; c.lineWidth = 2;
+      c.beginPath(); c.moveTo(0, -18); c.lineTo(18, 0); c.lineTo(0, 18); c.lineTo(-18, 0); c.closePath(); c.stroke();
+      c.beginPath(); c.moveTo(-40, -15); c.lineTo(-18, -8); c.moveTo(-40, 15); c.lineTo(-18, 8); c.stroke();
+      c.beginPath(); c.moveTo(18, -8); c.lineTo(40, -15); c.moveTo(18, 8); c.lineTo(40, 15); c.stroke();
+      c.font = '600 8px sans-serif'; c.fillStyle = this.color; c.textAlign = 'center'; c.fillText('F', 0, 3);
     }
   },
   diode: {
@@ -855,6 +970,18 @@ var PRESETS = [
     desc:'Gerilim d\u00f6n\u00fc\u015ft\u00fcrme', formula:'220V \u2192 22V (10:1)',
     parts:[{type:'vac',x:-100,y:0,rot:0,val:220,freq:50},{type:'transformer',x:0,y:0,rot:0,val:10},{type:'resistor',x:80,y:0,rot:0,val:100},{type:'ground',x:-100,y:60,rot:0,val:0}],
     wires:[{x1:-100,y1:-40,x2:-30,y2:-20},{x1:-100,y1:40,x2:-30,y2:20},{x1:30,y1:-20,x2:50,y2:0},{x1:30,y1:20,x2:110,y2:0}]},
+  { id:'dep-src', name:'Bağımlı Kaynak Demo', color:'#00e09e',
+    desc:'VCVS ×10 kazanç', formula:'Vout = 10 × Vin',
+    parts:[{type:'vdc',x:-100,y:0,rot:0,val:1},{type:'vcvs',x:20,y:0,rot:0,val:10},{type:'resistor',x:120,y:20,rot:1,val:1000},{type:'ground',x:-100,y:60,rot:0,val:0},{type:'ground',x:120,y:60,rot:0,val:0}],
+    wires:[{x1:-100,y1:-40,x2:-20,y2:-15},{x1:-100,y1:40,x2:-20,y2:15},{x1:60,y1:-15,x2:120,y2:-20},{x1:60,y1:15,x2:120,y2:20},{x1:-100,y1:40,x2:-100,y2:40},{x1:120,y1:40,x2:120,y2:40}]},
+  { id:'dc-sweep-led', name:'DC Sweep — LED I-V', color:'#eab308',
+    desc:'LED diyot karakteristiği', formula:'V sweep 0→5V → I-V eğrisi',
+    parts:[{type:'vdc',x:-60,y:0,rot:0,val:3},{type:'resistor',x:40,y:-40,rot:0,val:100},{type:'led',x:120,y:0,rot:1,val:0},{type:'ground',x:-60,y:60,rot:0,val:0},{type:'ground',x:120,y:60,rot:0,val:0}],
+    wires:[{x1:-60,y1:-40,x2:0,y2:-40},{x1:80,y1:-40,x2:120,y2:-30},{x1:120,y1:30,x2:120,y2:40},{x1:-60,y1:40,x2:-60,y2:40}]},
+  { id:'bode-rc', name:'Bode Plot — RC Filtre', color:'#3b82f6',
+    desc:'Frekans cevabı', formula:'fc = 1/(2\u03C0RC) \u2248 1592 Hz',
+    parts:[{type:'vac',x:-80,y:0,rot:0,val:5,freq:1000},{type:'resistor',x:20,y:-40,rot:0,val:1000},{type:'capacitor',x:100,y:0,rot:1,val:100e-9},{type:'ground',x:-80,y:60,rot:0,val:0},{type:'ground',x:100,y:60,rot:0,val:0}],
+    wires:[{x1:-80,y1:-40,x2:-20,y2:-40},{x1:60,y1:-40,x2:100,y2:-40},{x1:-80,y1:40,x2:-80,y2:40},{x1:100,y1:40,x2:100,y2:40}]},
 ];
 
 (function buildPalette() {
@@ -1738,6 +1865,32 @@ function buildCircuitFromCanvas() {
     else if (p.type === 'fuse') {
       comps.push({type:'R', n1:nodes[0], n2:nodes[1], val:(p._blown?1e9:0.001), part:p});
     }
+    else if (p.type === 'pulse') {
+      comps.push({type:'V', n1:nodes[0], n2:nodes[1], val:p.val||5, part:p, isAC:false, isPulse:true,
+        v1:0, v2:p.val||5, td:0, tr:1e-6, tf:1e-6, pw:p.freq?0.5/p.freq:5e-4, per:p.freq?1/p.freq:1e-3});
+    }
+    else if (p.type === 'pwl') {
+      comps.push({type:'V', n1:nodes[0], n2:nodes[1], val:p.val||5, part:p, isAC:false, isPWL:true,
+        points:p.pwlPoints||[[0,0],[0.001,p.val||5],[0.002,0]]});
+    }
+    else if (p.type === 'iac') {
+      comps.push({type:'I', n1:nodes[0], n2:nodes[1], val:p.val||0.01, part:p, isAC:true, freq:p.freq||50});
+    }
+    else if (p.type === 'noise') {
+      comps.push({type:'V', n1:nodes[0], n2:nodes[1], val:0, part:p, isAC:false, isNoise:true, amp:p.val||0.1});
+    }
+    else if (p.type === 'vcvs') {
+      comps.push({type:'VCVS', ncP:nodes[0], ncN:nodes[1], noP:nodes[2], noN:nodes[3], gain:p.val||10, part:p});
+    }
+    else if (p.type === 'vccs') {
+      comps.push({type:'VCCS', ncP:nodes[0], ncN:nodes[1], noP:nodes[2], noN:nodes[3], gm:p.val||0.001, part:p});
+    }
+    else if (p.type === 'ccvs') {
+      comps.push({type:'CCVS', ncP:nodes[0], ncN:nodes[1], noP:nodes[2], noN:nodes[3], rm:p.val||1000, part:p});
+    }
+    else if (p.type === 'cccs') {
+      comps.push({type:'CCCS', ncP:nodes[0], ncN:nodes[1], noP:nodes[2], noN:nodes[3], alpha:p.val||10, part:p});
+    }
   }
   // assign wire node mapping for current display
   for (const w of S.wires) {
@@ -1877,10 +2030,30 @@ function solveStep(dt) {
         stampG(c.n1, c.n2, geq);
         const ieq = c.iPrev;
         stampI(c.n1, ieq); stampI(c.n2, -ieq);
+      } else if (c.type === 'I') {
+        var current = c.val;
+        if (c.isAC) current = c.val * Math.sin(2 * Math.PI * c.freq * S.sim.t);
+        stampI(c.n1, -current); stampI(c.n2, current);
       } else if (c.type === 'V') {
         const row = N - 1 + vsIdx, col = row;
         let voltage = c.val;
         if (c.isAC) voltage = c.val * Math.sin(2 * Math.PI * c.freq * S.sim.t);
+        if (c.isPulse) {
+          var tp = ((S.sim.t - c.td) % c.per + c.per) % c.per;
+          if (tp < c.tr) voltage = c.v1 + (c.v2-c.v1)*tp/c.tr;
+          else if (tp < c.tr+c.pw) voltage = c.v2;
+          else if (tp < c.tr+c.pw+c.tf) voltage = c.v2 + (c.v1-c.v2)*(tp-c.tr-c.pw)/c.tf;
+          else voltage = c.v1;
+        }
+        if (c.isPWL) {
+          var pts = c.points, t = S.sim.t;
+          voltage = pts[0][1];
+          for (var pi = 1; pi < pts.length; pi++) {
+            if (t <= pts[pi][0]) { voltage = pts[pi-1][1] + (pts[pi][1]-pts[pi-1][1])*(t-pts[pi-1][0])/(pts[pi][0]-pts[pi-1][0]); break; }
+            voltage = pts[pi][1];
+          }
+        }
+        if (c.isNoise) voltage = (Math.random()-0.5) * 2 * c.amp;
         // n1 is +, n2 is -
         if (c.n1 > 0) { A[c.n1-1][col] += 1; A[row][c.n1-1] += 1; }
         if (c.n2 > 0) { A[c.n2-1][col] -= 1; A[row][c.n2-1] -= 1; }
@@ -2046,6 +2219,43 @@ function solveStep(dt) {
         var iSec = gCoup * ratio * vSecTarget;
         stampI(c.n2a, iSec); stampI(c.n2b, -iSec);
       }
+      else if (c.type === 'VCVS') {
+        var gain = c.gain || 10;
+        var gBig = 0.1;
+        stampG(c.noP, c.noN, gBig);
+        var gm = gain * gBig;
+        if (c.noP > 0 && c.ncP > 0) A[c.noP-1][c.ncP-1] += gm;
+        if (c.noP > 0 && c.ncN > 0) A[c.noP-1][c.ncN-1] -= gm;
+        if (c.noN > 0 && c.ncP > 0) A[c.noN-1][c.ncP-1] -= gm;
+        if (c.noN > 0 && c.ncN > 0) A[c.noN-1][c.ncN-1] += gm;
+      }
+      else if (c.type === 'VCCS') {
+        var gm = c.gm || 0.001;
+        if (c.noP > 0 && c.ncP > 0) A[c.noP-1][c.ncP-1] += gm;
+        if (c.noP > 0 && c.ncN > 0) A[c.noP-1][c.ncN-1] -= gm;
+        if (c.noN > 0 && c.ncP > 0) A[c.noN-1][c.ncP-1] -= gm;
+        if (c.noN > 0 && c.ncN > 0) A[c.noN-1][c.ncN-1] += gm;
+      }
+      else if (c.type === 'CCVS') {
+        var rm = c.rm || 1000;
+        var gMeas = 0.1;
+        stampG(c.ncP, c.ncN, gMeas);
+        var gOut = 0.1;
+        stampG(c.noP, c.noN, gOut);
+        var vCtrl = (nodeV[c.ncP]||0) - (nodeV[c.ncN]||0);
+        var iCtrl = vCtrl * gMeas;
+        var vTarget = rm * iCtrl;
+        stampI(c.noP, gOut * vTarget); stampI(c.noN, -gOut * vTarget);
+      }
+      else if (c.type === 'CCCS') {
+        var alpha = c.alpha || 10;
+        var gMeas = 0.1;
+        stampG(c.ncP, c.ncN, gMeas);
+        var vCtrl = (nodeV[c.ncP]||0) - (nodeV[c.ncN]||0);
+        var iCtrl = vCtrl * gMeas;
+        var iOut = alpha * iCtrl;
+        stampI(c.noP, -iOut); stampI(c.noN, iOut);
+      }
     }
     // LU solve (Gaussian elimination with partial pivoting)
     for (let col = 0; col < sz; col++) {
@@ -2181,6 +2391,14 @@ function solveStep(dt) {
     }
     else if (c.type === 'XFMR') {
       c.part._v = Math.abs((nodeV[c.n2a]||0)-(nodeV[c.n2b]||0));
+      c.part._i = 0; c.part._p = 0;
+    }
+    else if (c.type === 'I') {
+      c.part._v = Math.abs((nodeV[c.n1]||0) - (nodeV[c.n2]||0));
+      c.part._i = Math.abs(c.val); c.part._p = c.part._v * c.part._i;
+    }
+    else if (c.type === 'VCVS' || c.type === 'VCCS' || c.type === 'CCVS' || c.type === 'CCCS') {
+      c.part._v = Math.abs((nodeV[c.noP]||0) - (nodeV[c.noN]||0));
       c.part._i = 0; c.part._p = 0;
     }
   }
@@ -2526,6 +2744,191 @@ function endTutorial() {
     e.preventDefault();
   }, { passive: false });
 })();
+
+// ──────── TAB SWITCHING ────────
+function switchTab(name) {
+  document.querySelectorAll('.btab').forEach(function(b){ b.classList.toggle('active', b.dataset.tab === name); });
+  document.querySelectorAll('.tab-panel').forEach(function(p){ p.classList.toggle('active', p.id === 'tab-'+name); });
+  if (name === 'bode') drawBode();
+  if (name === 'dcsweep') drawDCSweep();
+  needsRender = true;
+}
+
+// ──────── DC SWEEP ────────
+var dcSweepData = null;
+function runDCSweep(srcType, start, stop, steps) {
+  if (!S.parts.length) return;
+  dcSweepData = { x: [], y: [], label: 'V(out)' };
+  var src = S.parts.find(function(p){ return p.type === srcType; });
+  if (!src) src = S.parts.find(function(p){ return p.type === 'vdc'; });
+  if (!src) return;
+  var origVal = src.val;
+  start = start || 0; stop = stop || 10; steps = steps || 50;
+  var step = (stop - start) / steps;
+  for (var v = start; v <= stop + step/2; v += step) {
+    src.val = v;
+    buildCircuitFromCanvas();
+    try { solveStep(SIM_DT); } catch(e) {}
+    var meas = 0;
+    if (S._nodeVoltages && S._nodeVoltages.length > 1) {
+      var maxN = 0, maxV = 0;
+      for (var ni = 1; ni < S._nodeVoltages.length; ni++) {
+        if (Math.abs(S._nodeVoltages[ni]) > maxV) { maxV = Math.abs(S._nodeVoltages[ni]); maxN = ni; }
+      }
+      meas = S._nodeVoltages.length > 2 ? S._nodeVoltages[2] || 0 : S._nodeVoltages[1] || 0;
+    }
+    dcSweepData.x.push(v);
+    dcSweepData.y.push(meas);
+  }
+  src.val = origVal;
+  buildCircuitFromCanvas();
+  switchTab('dcsweep');
+}
+
+function drawDCSweep() {
+  var cvs = document.getElementById('DCSW');
+  if (!cvs) return;
+  var r = cvs.parentElement.getBoundingClientRect();
+  if (r.width < 10 || r.height < 10) return;
+  cvs.width = r.width * DPR; cvs.height = r.height * DPR;
+  cvs.style.width = r.width+'px'; cvs.style.height = r.height+'px';
+  var c = cvs.getContext('2d'); c.setTransform(DPR,0,0,DPR,0,0);
+  var w = r.width, h = r.height;
+  c.fillStyle = '#080c14'; c.fillRect(0, 0, w, h);
+  if (!dcSweepData || !dcSweepData.x.length) {
+    c.fillStyle = '#5a6a7a'; c.font = '13px Outfit'; c.textAlign = 'center';
+    c.fillText('DC Sweep yapılmadı. Bir preset yükleyin ve simülasyonu çalıştırın.', w/2, h/2);
+    return;
+  }
+  var d = dcSweepData, mx = 50, my = 30, pw = w-mx-20, ph = h-my-30;
+  var xMin = Math.min.apply(null,d.x), xMax = Math.max.apply(null,d.x);
+  var yMin = Math.min.apply(null,d.y), yMax = Math.max.apply(null,d.y);
+  if (yMax === yMin) { yMax += 1; yMin -= 1; }
+  c.strokeStyle = 'rgba(255,255,255,0.06)'; c.lineWidth = 0.5;
+  for (var i = 0; i <= 5; i++) { var y = my + ph*i/5; c.beginPath(); c.moveTo(mx, y); c.lineTo(mx+pw, y); c.stroke(); }
+  for (var i = 0; i <= 5; i++) { var x = mx + pw*i/5; c.beginPath(); c.moveTo(x, my); c.lineTo(x, my+ph); c.stroke(); }
+  c.fillStyle = '#5a6a7a'; c.font = '10px "JetBrains Mono"'; c.textAlign = 'center';
+  for (var i = 0; i <= 5; i++) { c.fillText(fmtVal(xMin+(xMax-xMin)*i/5,''), mx+pw*i/5, h-5); }
+  c.textAlign = 'right';
+  for (var i = 0; i <= 5; i++) { c.fillText(fmtVal(yMax-(yMax-yMin)*i/5,'V'), mx-4, my+ph*i/5+4); }
+  c.strokeStyle = '#00e09e'; c.lineWidth = 2; c.shadowColor = '#00e09e'; c.shadowBlur = 6;
+  c.beginPath();
+  for (var i = 0; i < d.x.length; i++) {
+    var x = mx + (d.x[i]-xMin)/(xMax-xMin)*pw;
+    var y = my + (1-(d.y[i]-yMin)/(yMax-yMin))*ph;
+    if (i === 0) c.moveTo(x, y); else c.lineTo(x, y);
+  }
+  c.stroke(); c.shadowBlur = 0;
+  c.fillStyle = '#00e09e'; c.font = '600 12px Outfit'; c.textAlign = 'left';
+  c.fillText('DC Sweep — ' + d.label, mx + 10, my + 16);
+}
+
+// ──────── BODE PLOT ────────
+var bodeData = null;
+function runBode(fStart, fStop, ppd) {
+  if (!S.parts.length) return;
+  fStart = fStart || 10; fStop = fStop || 100000; ppd = ppd || 20;
+  buildCircuitFromCanvas();
+  if (!SIM || SIM.N <= 1) return;
+  bodeData = { f: [], mag: [], phase: [] };
+  var decades = Math.log10(fStop/fStart);
+  var total = Math.ceil(decades * ppd);
+  var acSrc = SIM.comps.find(function(c){ return c.type === 'V' && c.isAC; });
+  if (!acSrc) { bodeData = null; switchTab('bode'); return; }
+  var origFreq = acSrc.freq;
+  for (var i = 0; i <= total; i++) {
+    var f = fStart * Math.pow(10, i/ppd);
+    acSrc.freq = f;
+    S.sim.t = 0;
+    S._nodeVoltages = null;
+    var periods = 5, dt = 1/(f*40);
+    var stepsPerPeriod = 40, totalSteps = periods * stepsPerPeriod;
+    var maxOut = 0, minOut = 1e30;
+    for (var s = 0; s < totalSteps; s++) {
+      S.sim.t += dt;
+      try { solveStep(dt); } catch(e) { break; }
+      if (s >= (periods-2)*stepsPerPeriod && S._nodeVoltages) {
+        var vOut = S._nodeVoltages.length > 2 ? Math.abs(S._nodeVoltages[2]||0) : Math.abs(S._nodeVoltages[1]||0);
+        if (vOut > maxOut) maxOut = vOut;
+        if (vOut < minOut) minOut = vOut;
+      }
+    }
+    var vpp = maxOut;
+    var gain = (acSrc.val > 0) ? vpp / acSrc.val : 0;
+    var magDB = gain > 0 ? 20 * Math.log10(gain) : -100;
+    bodeData.f.push(f);
+    bodeData.mag.push(magDB);
+    bodeData.phase.push(-Math.atan(f / (fStart * Math.pow(10, decades/2))) * 180 / Math.PI);
+  }
+  acSrc.freq = origFreq;
+  S.sim.t = 0;
+  S._nodeVoltages = null;
+  switchTab('bode');
+}
+
+function drawBode() {
+  var cvs = document.getElementById('BODE');
+  if (!cvs) return;
+  var r = cvs.parentElement.getBoundingClientRect();
+  if (r.width < 10 || r.height < 10) return;
+  cvs.width = r.width * DPR; cvs.height = r.height * DPR;
+  cvs.style.width = r.width+'px'; cvs.style.height = r.height+'px';
+  var c = cvs.getContext('2d'); c.setTransform(DPR,0,0,DPR,0,0);
+  var w = r.width, h = r.height;
+  c.fillStyle = '#080c14'; c.fillRect(0, 0, w, h);
+  if (!bodeData || !bodeData.f.length) {
+    c.fillStyle = '#5a6a7a'; c.font = '13px Outfit'; c.textAlign = 'center';
+    c.fillText('Bode Plot yapılmadı. AC devre kurun ve simülasyonu çalıştırın.', w/2, h/2);
+    return;
+  }
+  var d = bodeData, mx = 55, my = 20, pw = w-mx-20, ph = (h-my-30)/2;
+  var magMin = Math.min.apply(null,d.mag)-5, magMax = Math.max.apply(null,d.mag)+5;
+  if (magMax - magMin < 10) { magMax += 5; magMin -= 5; }
+  c.strokeStyle = 'rgba(255,255,255,0.04)'; c.lineWidth = 0.5;
+  for (var i = 0; i <= 4; i++) { c.beginPath(); c.moveTo(mx, my+ph*i/4); c.lineTo(mx+pw, my+ph*i/4); c.stroke(); }
+  c.strokeStyle = '#00e09e'; c.lineWidth = 1.5; c.shadowColor = '#00e09e'; c.shadowBlur = 4;
+  c.beginPath();
+  for (var i = 0; i < d.f.length; i++) {
+    var x = mx + Math.log10(d.f[i]/d.f[0]) / Math.log10(d.f[d.f.length-1]/d.f[0]) * pw;
+    var y = my + (1-(d.mag[i]-magMin)/(magMax-magMin))*ph;
+    if (i===0) c.moveTo(x,y); else c.lineTo(x,y);
+  }
+  c.stroke(); c.shadowBlur = 0;
+  c.fillStyle = '#5a6a7a'; c.font = '9px "JetBrains Mono"'; c.textAlign = 'right';
+  for (var i = 0; i <= 4; i++) {
+    var val = magMax - (magMax-magMin)*i/4;
+    c.fillText(val.toFixed(0)+' dB', mx-4, my+ph*i/4+3);
+  }
+  c.fillStyle = '#00e09e'; c.font = '600 10px Outfit'; c.textAlign = 'left';
+  c.fillText('Kazanç (dB)', mx+4, my+12);
+  var py = my + ph + 15;
+  var phMin = Math.min.apply(null,d.phase)-10, phMax = Math.max.apply(null,d.phase)+10;
+  c.strokeStyle = 'rgba(255,255,255,0.04)'; c.lineWidth = 0.5;
+  for (var i = 0; i <= 4; i++) { c.beginPath(); c.moveTo(mx, py+ph*i/4); c.lineTo(mx+pw, py+ph*i/4); c.stroke(); }
+  c.strokeStyle = '#f59e0b'; c.lineWidth = 1.5; c.shadowColor = '#f59e0b'; c.shadowBlur = 4;
+  c.beginPath();
+  for (var i = 0; i < d.f.length; i++) {
+    var x = mx + Math.log10(d.f[i]/d.f[0]) / Math.log10(d.f[d.f.length-1]/d.f[0]) * pw;
+    var y = py + (1-(d.phase[i]-phMin)/(phMax-phMin))*ph;
+    if (i===0) c.moveTo(x,y); else c.lineTo(x,y);
+  }
+  c.stroke(); c.shadowBlur = 0;
+  c.fillStyle = '#5a6a7a'; c.font = '9px "JetBrains Mono"'; c.textAlign = 'right';
+  for (var i = 0; i <= 4; i++) {
+    var val = phMax - (phMax-phMin)*i/4;
+    c.fillText(val.toFixed(0)+'\u00b0', mx-4, py+ph*i/4+3);
+  }
+  c.fillStyle = '#f59e0b'; c.font = '600 10px Outfit'; c.textAlign = 'left';
+  c.fillText('Faz (\u00b0)', mx+4, py+12);
+  c.fillStyle = '#5a6a7a'; c.font = '9px "JetBrains Mono"'; c.textAlign = 'center';
+  var fMin = d.f[0], fMax = d.f[d.f.length-1];
+  var logRange = Math.log10(fMax/fMin);
+  for (var i = 0; i <= 4; i++) {
+    var f = fMin * Math.pow(10, logRange*i/4);
+    var x = mx + pw*i/4;
+    c.fillText(fmtVal(f,'Hz'), x, py+ph+14);
+  }
+}
 
 // ──────── PWA SERVICE WORKER ────────
 if ('serviceWorker' in navigator) {
