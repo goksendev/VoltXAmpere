@@ -389,6 +389,38 @@ const S = {
 };
 let needsRender = true;
 
+// ──────── GATE DRAWING HELPER ────────
+function drawGateBody(c, type, color) {
+  c.strokeStyle = color; c.lineWidth = 2; c.fillStyle = color;
+  if (type === 'NOT') {
+    c.beginPath(); c.moveTo(-30, 0); c.lineTo(-14, 0); c.stroke();
+  } else {
+    c.beginPath(); c.moveTo(-30, -10); c.lineTo(-14, -10); c.moveTo(-30, 10); c.lineTo(-14, 10); c.stroke();
+  }
+  c.beginPath();
+  if (type === 'AND' || type === 'NAND') {
+    c.moveTo(-14, -16); c.lineTo(-14, 16); c.arc(0, 0, 16, Math.PI*0.5, -Math.PI*0.5, true); c.closePath();
+  } else if (type === 'OR' || type === 'NOR' || type === 'XOR') {
+    c.moveTo(-14, -16); c.quadraticCurveTo(4, -16, 18, 0);
+    c.quadraticCurveTo(4, 16, -14, 16); c.quadraticCurveTo(-6, 0, -14, -16);
+  } else {
+    c.moveTo(-14, -14); c.lineTo(-14, 14); c.lineTo(12, 0); c.closePath();
+  }
+  c.stroke();
+  if (type === 'NAND' || type === 'NOR' || type === 'NOT') {
+    var bx = (type === 'NOT') ? 15 : 19;
+    c.beginPath(); c.arc(bx, 0, 3, 0, Math.PI*2); c.stroke();
+  }
+  if (type === 'XOR') {
+    c.beginPath(); c.moveTo(-18, -16); c.quadraticCurveTo(-10, 0, -18, 16); c.stroke();
+  }
+  var ox = (type === 'NAND' || type === 'NOR') ? 22 : (type === 'NOT' ? 18 : 18);
+  c.beginPath(); c.moveTo(ox, 0); c.lineTo(30, 0); c.stroke();
+  c.font = '600 7px sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
+  var lbl = {'AND':'&','OR':'\u22651','NOT':'1','NAND':'&','NOR':'\u22651','XOR':'=1'}[type]||'';
+  c.fillText(lbl, (type==='NOT')?-2:2, 0);
+}
+
 // ──────── COMPONENT DEFINITIONS ────────
 const COMP = {
   resistor: {
@@ -582,6 +614,101 @@ const COMP = {
       c.fillText('\u2212', -18, 19);
       c.beginPath(); c.moveTo(25, 0); c.lineTo(40, 0); c.stroke();
     }
+  },
+  zener: {
+    name: 'Zener Diyot', en: 'Zener', color: '#ec4899', unit: 'V', def: 5.1, cat: 'Semi',
+    pins: [{ dx: -30, dy: 0 }, { dx: 30, dy: 0 }],
+    draw(c) {
+      c.strokeStyle = this.color; c.lineWidth = 2;
+      var s = 10;
+      c.beginPath(); c.moveTo(-30, 0); c.lineTo(-s, 0); c.stroke();
+      c.beginPath(); c.moveTo(-s, -s); c.lineTo(-s, s); c.lineTo(s, 0); c.closePath(); c.stroke();
+      c.beginPath(); c.moveTo(s, -s); c.lineTo(s, s); c.stroke();
+      c.beginPath(); c.moveTo(s, -s); c.lineTo(s+4, -s-3); c.stroke();
+      c.beginPath(); c.moveTo(s, s); c.lineTo(s-4, s+3); c.stroke();
+      c.beginPath(); c.moveTo(s, 0); c.lineTo(30, 0); c.stroke();
+    }
+  },
+  vreg: {
+    name: 'Regülatör (7805)', en: '7805', color: '#22c55e', unit: 'V', def: 5, cat: 'ICs',
+    pins: [{ dx: -40, dy: 0 }, { dx: 40, dy: 0 }, { dx: 0, dy: 30 }],
+    draw(c) {
+      c.strokeStyle = this.color; c.lineWidth = 2;
+      c.strokeRect(-20, -14, 40, 28);
+      c.font = '600 9px "JetBrains Mono"'; c.fillStyle = this.color; c.textAlign = 'center';
+      c.fillText('7805', 0, 3);
+      c.beginPath(); c.moveTo(-40, 0); c.lineTo(-20, 0); c.stroke();
+      c.beginPath(); c.moveTo(20, 0); c.lineTo(40, 0); c.stroke();
+      c.beginPath(); c.moveTo(0, 14); c.lineTo(0, 30); c.stroke();
+    }
+  },
+  and: {
+    name: 'VE Kapısı', en: 'AND', color: '#06b6d4', unit: '', def: 0, cat: 'Logic',
+    pins: [{ dx: -30, dy: -10 }, { dx: -30, dy: 10 }, { dx: 30, dy: 0 }],
+    draw(c) { drawGateBody(c, 'AND', this.color); }
+  },
+  or: {
+    name: 'VEYA Kapısı', en: 'OR', color: '#06b6d4', unit: '', def: 0, cat: 'Logic',
+    pins: [{ dx: -30, dy: -10 }, { dx: -30, dy: 10 }, { dx: 30, dy: 0 }],
+    draw(c) { drawGateBody(c, 'OR', this.color); }
+  },
+  not: {
+    name: 'DEĞİL Kapısı', en: 'NOT', color: '#06b6d4', unit: '', def: 0, cat: 'Logic',
+    pins: [{ dx: -30, dy: 0 }, { dx: 30, dy: 0 }],
+    draw(c) { drawGateBody(c, 'NOT', this.color); }
+  },
+  nand: {
+    name: 'VE-DEĞİL', en: 'NAND', color: '#06b6d4', unit: '', def: 0, cat: 'Logic',
+    pins: [{ dx: -30, dy: -10 }, { dx: -30, dy: 10 }, { dx: 30, dy: 0 }],
+    draw(c) { drawGateBody(c, 'NAND', this.color); }
+  },
+  nor: {
+    name: 'VEYA-DEĞİL', en: 'NOR', color: '#06b6d4', unit: '', def: 0, cat: 'Logic',
+    pins: [{ dx: -30, dy: -10 }, { dx: -30, dy: 10 }, { dx: 30, dy: 0 }],
+    draw(c) { drawGateBody(c, 'NOR', this.color); }
+  },
+  xor: {
+    name: 'ÖZEL VEYA', en: 'XOR', color: '#06b6d4', unit: '', def: 0, cat: 'Logic',
+    pins: [{ dx: -30, dy: -10 }, { dx: -30, dy: 10 }, { dx: 30, dy: 0 }],
+    draw(c) { drawGateBody(c, 'XOR', this.color); }
+  },
+  transformer: {
+    name: 'Trafo', en: 'Transformer', color: '#a855f7', unit: '', def: 10, cat: 'Control',
+    pins: [{ dx: -30, dy: -20 }, { dx: -30, dy: 20 }, { dx: 30, dy: -20 }, { dx: 30, dy: 20 }],
+    draw(c) {
+      c.strokeStyle = this.color; c.lineWidth = 2;
+      for (var i = 0; i < 3; i++) { c.beginPath(); c.arc(-10, -12+i*12, 6, Math.PI*1.5, Math.PI*0.5); c.stroke(); }
+      for (var i = 0; i < 3; i++) { c.beginPath(); c.arc(10, -12+i*12, 6, Math.PI*0.5, Math.PI*1.5); c.stroke(); }
+      c.beginPath(); c.moveTo(-2, -22); c.lineTo(-2, 22); c.moveTo(2, -22); c.lineTo(2, 22); c.stroke();
+      c.beginPath(); c.moveTo(-30, -20); c.lineTo(-16, -20); c.moveTo(-30, 20); c.lineTo(-16, 20); c.stroke();
+      c.beginPath(); c.moveTo(30, -20); c.lineTo(16, -20); c.moveTo(30, 20); c.lineTo(16, 20); c.stroke();
+    }
+  },
+  relay: {
+    name: 'Röle', en: 'Relay', color: '#f59e0b', unit: '', def: 0.05, cat: 'Control',
+    pins: [{ dx: -30, dy: -15 }, { dx: -30, dy: 15 }, { dx: 30, dy: -15 }, { dx: 30, dy: 15 }],
+    draw(c) {
+      c.strokeStyle = this.color; c.lineWidth = 2;
+      c.strokeRect(-20, -20, 16, 40);
+      c.font = '8px sans-serif'; c.fillStyle = this.color; c.textAlign = 'center'; c.fillText('~', -12, 3);
+      c.beginPath(); c.moveTo(-30, -15); c.lineTo(-20, -15); c.moveTo(-30, 15); c.lineTo(-20, 15); c.stroke();
+      c.beginPath(); c.moveTo(30, 15); c.lineTo(10, 15); c.stroke();
+      c.beginPath(); c.arc(10, 15, 2, 0, Math.PI*2); c.fill();
+      c.beginPath(); c.arc(10, -15, 2, 0, Math.PI*2); c.fill();
+      c.beginPath(); c.moveTo(10, 15); c.lineTo(8, -10); c.stroke();
+      c.beginPath(); c.moveTo(10, -15); c.lineTo(30, -15); c.stroke();
+    }
+  },
+  fuse: {
+    name: 'Sigorta', en: 'Fuse', color: '#f0454a', unit: 'A', def: 1, cat: 'Control',
+    pins: [{ dx: -30, dy: 0 }, { dx: 30, dy: 0 }],
+    draw(c) {
+      c.strokeStyle = this.color; c.lineWidth = 2;
+      c.beginPath(); c.moveTo(-30, 0); c.lineTo(-12, 0); c.stroke();
+      c.strokeRect(-12, -6, 24, 12);
+      c.beginPath(); c.moveTo(-6, 0); c.lineTo(6, 0); c.stroke();
+      c.beginPath(); c.moveTo(12, 0); c.lineTo(30, 0); c.stroke();
+    }
   }
 };
 
@@ -711,10 +838,26 @@ var PRESETS = [
       {x1:-160,y1:40,x2:-160,y2:40},
       {x1:20,y1:60,x2:20,y2:60},
     ]},
+  { id:'zener-reg', name:'Zener Regülatör', color:'#ec4899',
+    desc:'Vz ile sabit gerilim', formula:'Vin=12V, Vz=5.1V \u2192 Vout\u22485.1V',
+    parts:[{type:'vdc',x:-80,y:0,rot:0,val:12},{type:'resistor',x:0,y:-40,rot:0,val:1000},{type:'zener',x:80,y:0,rot:1,val:5.1},{type:'ground',x:-80,y:60,rot:0,val:0},{type:'ground',x:80,y:60,rot:0,val:0}],
+    wires:[{x1:-80,y1:-40,x2:-40,y2:-40},{x1:40,y1:-40,x2:80,y2:-40},{x1:-80,y1:40,x2:-80,y2:40},{x1:80,y1:30,x2:80,y2:40}]},
+  { id:'vreg-7805', name:'7805 Regülatör', color:'#22c55e',
+    desc:'Sabit 5V \u00e7\u0131k\u0131\u015f', formula:'Vin=9V \u2192 Vout=5V',
+    parts:[{type:'vdc',x:-80,y:0,rot:0,val:9},{type:'vreg',x:20,y:0,rot:0,val:5},{type:'resistor',x:100,y:20,rot:1,val:1000},{type:'ground',x:-80,y:60,rot:0,val:0},{type:'ground',x:20,y:60,rot:0,val:0},{type:'ground',x:100,y:60,rot:0,val:0}],
+    wires:[{x1:-80,y1:-40,x2:-20,y2:0},{x1:60,y1:0,x2:100,y2:-20},{x1:-80,y1:40,x2:-80,y2:40},{x1:20,y1:30,x2:20,y2:40},{x1:100,y1:20,x2:100,y2:40}]},
+  { id:'logic-demo', name:'Lojik Kap\u0131lar Demo', color:'#06b6d4',
+    desc:'AND + OR + NOT', formula:'Temel dijital lojik',
+    parts:[{type:'vdc',x:-120,y:-40,rot:0,val:5},{type:'vdc',x:-120,y:40,rot:0,val:0},{type:'and',x:0,y:0,rot:0,val:0},{type:'not',x:100,y:0,rot:0,val:0},{type:'ground',x:-120,y:80,rot:0,val:0},{type:'ground',x:-120,y:-80,rot:0,val:0}],
+    wires:[{x1:-120,y1:-80,x2:-30,y2:-10},{x1:-120,y1:0,x2:-30,y2:10},{x1:30,y1:0,x2:70,y2:0},{x1:-120,y1:60,x2:-120,y2:60}]},
+  { id:'trafo', name:'Trafo Devresi', color:'#a855f7',
+    desc:'Gerilim d\u00f6n\u00fc\u015ft\u00fcrme', formula:'220V \u2192 22V (10:1)',
+    parts:[{type:'vac',x:-100,y:0,rot:0,val:220,freq:50},{type:'transformer',x:0,y:0,rot:0,val:10},{type:'resistor',x:80,y:0,rot:0,val:100},{type:'ground',x:-100,y:60,rot:0,val:0}],
+    wires:[{x1:-100,y1:-40,x2:-30,y2:-20},{x1:-100,y1:40,x2:-30,y2:20},{x1:30,y1:-20,x2:50,y2:0},{x1:30,y1:20,x2:110,y2:0}]},
 ];
 
 (function buildPalette() {
-  const cats = { Passive: 'Pasif (Passive)', Sources: 'Kaynaklar (Sources)', Semi: 'Yarıiletken (Semiconductor)', ICs: 'Entegre (ICs)', Basic: 'Temel (Basic)' };
+  const cats = { Passive: 'Pasif (Passive)', Sources: 'Kaynaklar (Sources)', Semi: 'Yarıiletken (Semiconductor)', ICs: 'Entegre (ICs)', Logic: 'Lojik (Logic)', Control: 'Kontrol (Control)', Basic: 'Temel (Basic)' };
   const el = document.getElementById('left');
   for (const [ck, cl] of Object.entries(cats)) {
     const items = Object.entries(COMP).filter(([, v]) => v.cat === ck);
@@ -1575,6 +1718,25 @@ function buildCircuitFromCanvas() {
       comps.push({type:'OA', nP:nodes[0], nN:nodes[1], nO:nodes[2],
         A:om.A, Rin:om.Rin, Rout:om.Rout, part:p});
     }
+    else if (p.type === 'zener') {
+      comps.push({type:'Z', n1:nodes[0], n2:nodes[1], vz:p.val||5.1, part:p, vPrev:0});
+    }
+    else if (p.type === 'vreg') {
+      comps.push({type:'VREG', nIn:nodes[0], nOut:nodes[1], nGnd:nodes[2], vreg:p.val||5, part:p});
+    }
+    else if (p.type==='and'||p.type==='or'||p.type==='not'||p.type==='nand'||p.type==='nor'||p.type==='xor') {
+      comps.push({type:'GATE', gate:p.type, pins:nodes, part:p, _out:0});
+    }
+    else if (p.type === 'transformer') {
+      comps.push({type:'XFMR', n1a:nodes[0], n1b:nodes[1], n2a:nodes[2], n2b:nodes[3], ratio:p.val||10, part:p});
+    }
+    else if (p.type === 'relay') {
+      comps.push({type:'R', n1:nodes[0], n2:nodes[1], val:100, part:p});
+      comps.push({type:'R', n1:nodes[2], n2:nodes[3], val:(p._activated?0.001:1e9), part:p});
+    }
+    else if (p.type === 'fuse') {
+      comps.push({type:'R', n1:nodes[0], n2:nodes[1], val:(p._blown?1e9:0.001), part:p});
+    }
   }
   // assign wire node mapping for current display
   for (const w of S.wires) {
@@ -1738,6 +1900,77 @@ function solveStep(dt) {
         if (c.nO > 0 && c.nP > 0) A[c.nO-1][c.nP-1] += gm_oa;
         if (c.nO > 0 && c.nN > 0) A[c.nO-1][c.nN-1] -= gm_oa;
       }
+      else if (c.type === 'Z') {
+        var vd = (nodeV[c.n1]||0) - (nodeV[c.n2]||0);
+        var vdLim = vd;
+        var vcrit = DIODE_N * VT * Math.log(DIODE_N * VT / (Math.sqrt(2) * DIODE_IS));
+        if (vd > vcrit) vdLim = vcrit + DIODE_N*VT*Math.log(Math.max(1,1+(vd-vcrit)/(DIODE_N*VT)));
+        if (vdLim >= 0) {
+          var eArg = Math.min(vdLim/(DIODE_N*VT), 500);
+          var expV = Math.exp(eArg);
+          var gd = (DIODE_IS/(DIODE_N*VT))*expV + GMIN;
+          var id = DIODE_IS*(expV-1);
+          var ieq = id - gd*vdLim;
+          stampG(c.n1, c.n2, gd);
+          stampI(c.n1, -ieq); stampI(c.n2, ieq);
+        } else {
+          var vr = -vdLim;
+          if (vr > c.vz) {
+            var vBrk = vr - c.vz;
+            var eArg = Math.min(vBrk/(DIODE_N*VT), 500);
+            var expV = Math.exp(eArg);
+            var gd = (DIODE_IS/(DIODE_N*VT))*expV + GMIN;
+            var id = DIODE_IS*(expV-1);
+            var ieq = id - gd*vBrk;
+            stampG(c.n2, c.n1, gd);
+            stampI(c.n2, -ieq); stampI(c.n1, ieq);
+          } else {
+            stampG(c.n1, c.n2, GMIN);
+          }
+        }
+      }
+      else if (c.type === 'VREG') {
+        var vIn = nodeV[c.nIn]||0, vGnd = nodeV[c.nGnd]||0;
+        var target = Math.min(c.vreg, vIn - vGnd - 2);
+        if (target < 0) target = 0;
+        var gBig = 0.1;
+        stampG(c.nOut, c.nGnd, gBig);
+        stampI(c.nOut, gBig * target); stampI(c.nGnd, -gBig * target);
+        stampG(c.nIn, c.nOut, GMIN);
+      }
+      else if (c.type === 'GATE') {
+        var pins = c.pins;
+        var vH = 5, vL = 0, thresh = 2.5;
+        var out = vL;
+        if (c.gate === 'not') {
+          var a = (nodeV[pins[0]]||0) > thresh;
+          out = a ? vL : vH;
+        } else {
+          var a = (nodeV[pins[0]]||0) > thresh;
+          var b2 = (nodeV[pins[1]]||0) > thresh;
+          if (c.gate === 'and') out = (a&&b2) ? vH : vL;
+          else if (c.gate === 'or') out = (a||b2) ? vH : vL;
+          else if (c.gate === 'nand') out = (a&&b2) ? vL : vH;
+          else if (c.gate === 'nor') out = (a||b2) ? vL : vH;
+          else if (c.gate === 'xor') out = (a!==b2) ? vH : vL;
+        }
+        c._out = out;
+        var outPin = (c.gate === 'not') ? pins[1] : pins[2];
+        if (outPin > 0) {
+          A[outPin-1][outPin-1] += 1;
+          b[outPin-1] += out;
+        }
+      }
+      else if (c.type === 'XFMR') {
+        var gCoup = 0.01;
+        var ratio = c.ratio || 10;
+        stampG(c.n1a, c.n1b, gCoup);
+        var vPri = (nodeV[c.n1a]||0) - (nodeV[c.n1b]||0);
+        var vSecTarget = vPri / ratio;
+        stampG(c.n2a, c.n2b, gCoup * ratio * ratio);
+        var iSec = gCoup * ratio * vSecTarget;
+        stampI(c.n2a, iSec); stampI(c.n2b, -iSec);
+      }
     }
     // LU solve (Gaussian elimination with partial pivoting)
     for (let col = 0; col < sz; col++) {
@@ -1781,10 +2014,15 @@ function solveStep(dt) {
         var vgsNew = pol * (newV[c.n1] - newV[c.n3]);
         if (Math.abs(vgsNew - vgsOld) > 1e-4) converged = false;
       }
+      if (c.type === 'Z') {
+        var vdOld = (nodeV[c.n1]||0) - (nodeV[c.n2]||0);
+        var vdNew = newV[c.n1] - newV[c.n2];
+        if (Math.abs(vdNew - vdOld) > 1e-4) converged = false;
+      }
     }
     nodeV = newV;
     S._nodeVoltages = nodeV;
-    if (SIM.comps.every(c => c.type !== 'D' && c.type !== 'BJT' && c.type !== 'MOS') || converged) break;
+    if (SIM.comps.every(c => c.type !== 'D' && c.type !== 'BJT' && c.type !== 'MOS' && c.type !== 'Z') || converged) break;
   }
   // Write results back
   S._nodeVoltages = nodeV;
@@ -1851,6 +2089,24 @@ function solveStep(dt) {
       c.part._v = Math.abs(vO); c.part._i = 0; c.part._p = 0;
       c.part._vinP = vP; c.part._vinN = vN; c.part._vout = vO;
       c.part._av = (Math.abs(vP-vN) > 1e-9) ? (vO/(vP-vN)) : 0;
+    }
+    else if (c.type === 'Z') {
+      var zVd = (nodeV[c.n1]||0) - (nodeV[c.n2]||0);
+      var zEa = Math.min(Math.abs(zVd)/(DIODE_N*VT), 500);
+      var zCur = zVd >= 0 ? DIODE_IS*(Math.exp(zEa)-1) : (Math.abs(zVd) > c.vz ? -DIODE_IS*(Math.exp(Math.min((Math.abs(zVd)-c.vz)/(DIODE_N*VT),500))-1) : 0);
+      c.part._v = Math.abs(zVd); c.part._i = Math.abs(zCur); c.part._p = Math.abs(zVd*zCur);
+    }
+    else if (c.type === 'VREG') {
+      c.part._v = Math.abs((nodeV[c.nOut]||0)-(nodeV[c.nGnd]||0));
+      c.part._i = 0; c.part._p = 0;
+    }
+    else if (c.type === 'GATE') {
+      var gOutPin = (c.gate === 'not') ? c.pins[1] : c.pins[2];
+      c.part._v = nodeV[gOutPin]||0; c.part._i = 0; c.part._p = 0;
+    }
+    else if (c.type === 'XFMR') {
+      c.part._v = Math.abs((nodeV[c.n2a]||0)-(nodeV[c.n2b]||0));
+      c.part._i = 0; c.part._p = 0;
     }
   }
   // wire current estimation — find any component on same nodes
