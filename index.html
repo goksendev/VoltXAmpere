@@ -1884,17 +1884,7 @@ if ('serviceWorker' in navigator) {
 // ──────── STARTUP ────────
 loadFromURL();
 
-// Splash dismiss — robust: works regardless of font loading or script errors
-function hideSplash() {
-  const s = document.getElementById('splash');
-  if (!s || s.classList.contains('hide')) return;
-  s.classList.add('hide');
-  setTimeout(() => { if (s.parentNode) s.remove(); }, 500);
-}
-// Strategy: hide as soon as canvas is ready, but NEVER later than 2s
-setTimeout(hideSplash, 2000); // Hard fallback — always fires
-if (document.readyState === 'complete') hideSplash();
-else window.addEventListener('load', () => setTimeout(hideSplash, 300));
+// Splash is dismissed by the failsafe script at the bottom of <body>
 
 // Tutorial on first visit
 if (!localStorage.getItem('vxa_tutorial_done')) {
@@ -1913,6 +1903,15 @@ function loop() {
   requestAnimationFrame(loop);
 }
 requestAnimationFrame(loop);
+</script>
+<!-- Splash failsafe: SEPARATE script so it runs even if main script has errors -->
+<script>
+(function(){
+  function kill(){var s=document.getElementById('splash');if(!s)return;s.style.transition='opacity .4s';s.style.opacity='0';s.style.pointerEvents='none';setTimeout(function(){if(s&&s.parentNode)s.parentNode.removeChild(s);},500);}
+  setTimeout(kill,2000);
+  if(document.readyState==='complete')setTimeout(kill,200);
+  else window.addEventListener('load',function(){setTimeout(kill,300);});
+})();
 </script>
 </body>
 </html>
