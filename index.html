@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>VoltXAmpere — Devrenizi Hissedin | Ücretsiz Online Devre Simülatörü</title>
+<title>VoltXAmpere v3.0 — Devrenizi Hissedin | Devre Simülatörü</title>
 <meta name="description" content="Ücretsiz online elektrik-elektronik devre simülatörü. Gerçek MNA çözücü, 4 kanallı osiloskop, Bode analizi, 40+ bileşen. Falstad alternatifi.">
 <meta name="keywords" content="devre simülatörü, circuit simulator, elektronik, SPICE, osiloskop, MNA, falstad, ücretsiz, online, VoltXAmpere">
 <meta name="author" content="VoltXAmpere">
@@ -174,6 +174,8 @@ input:focus{border-color:var(--accent)}
     <button class="tb-btn" onclick="importJSON()" title="Aç (Ctrl+O)">&#128194; Aç</button>
     <button class="tb-btn" onclick="importSpiceModels()" title="SPICE Model Yükle">&#9881; .model</button>
     <button class="tb-btn" onclick="exportPNG()" title="PNG İndir">&#128247; PNG</button>
+    <button class="tb-btn" onclick="exportSVG()" title="SVG İndir">SVG</button>
+    <button class="tb-btn" onclick="exportCSV()" title="CSV İndir">CSV</button>
     <button class="tb-btn" onclick="shareURL()" title="Paylaş">&#128279; Paylaş</button>
     <div class="tb-sep"></div>
     <button class="tb-btn" id="btn-vmap" onclick="S.voltageMap=!S.voltageMap;needsRender=true">&#9889; Renk Haritası</button>
@@ -213,6 +215,8 @@ input:focus{border-color:var(--accent)}
       <button class="btab" data-tab="montecarlo" onclick="switchTab('montecarlo')">Monte Carlo</button>
       <button class="btab" data-tab="tempsweep" onclick="switchTab('tempsweep')">S&#305;cakl&#305;k</button>
       <button class="btab" data-tab="noise" onclick="switchTab('noise')">G&#252;r&#252;lt&#252;</button>
+      <button class="btab" data-tab="sensitivity" onclick="switchTab('sensitivity')">Duyarl&#305;l&#305;k</button>
+      <button class="btab" data-tab="worstcase" onclick="switchTab('worstcase')">Worst Case</button>
     </div>
     <div id="tab-scope" class="tab-panel active" style="grid-template-columns:1fr 200px">
       <div id="scope-wrap">
@@ -296,6 +300,8 @@ input:focus{border-color:var(--accent)}
     <div id="tab-montecarlo" class="tab-panel"><canvas id="MCC" style="width:100%;height:100%"></canvas></div>
     <div id="tab-tempsweep" class="tab-panel"><canvas id="TSWEEP" style="width:100%;height:100%"></canvas></div>
     <div id="tab-noise" class="tab-panel"><canvas id="NOISEC" style="width:100%;height:100%"></canvas></div>
+    <div id="tab-sensitivity" class="tab-panel"><canvas id="SENSC" style="width:100%;height:100%"></canvas></div>
+    <div id="tab-worstcase" class="tab-panel"><canvas id="WCC" style="width:100%;height:100%"></canvas></div>
   </div>
 
   <!-- STATUSBAR -->
@@ -304,7 +310,7 @@ input:focus{border-color:var(--accent)}
     <span id="sb-dt">dt=1.00ms</span>
     <span id="sb-nodes">0 parts &middot; 0 wires</span>
     <span id="sb-fps">0 fps</span>
-    <span style="margin-left:auto;color:var(--text-4)">VoltXAmpere v1.0</span>
+    <span style="margin-left:auto;color:var(--text-4)">VoltXAmpere v3.0</span>
   </div>
 </div>
 
@@ -1122,6 +1128,69 @@ var COMP = {
       c.font = '600 7px sans-serif'; c.fillStyle = this.color; c.textAlign = 'center';
       c.fillText('MOV', 0, 3);
     }
+  },
+  comparator: {
+    name: 'Kar\u015f\u0131la\u015ft\u0131r\u0131c\u0131', en: 'Comparator', color: '#f59e0b', unit: '', def: 0, cat: 'ICs',
+    pins: [{ dx: -40, dy: -15 }, { dx: -40, dy: 15 }, { dx: 40, dy: 0 }],
+    draw(c) {
+      c.strokeStyle = this.color; c.lineWidth = 2;
+      c.beginPath(); c.moveTo(-20,-24); c.lineTo(-20,24); c.lineTo(22,0); c.closePath(); c.stroke();
+      c.beginPath(); c.moveTo(-40,-15); c.lineTo(-20,-15); c.moveTo(-40,15); c.lineTo(-20,15); c.stroke();
+      c.beginPath(); c.moveTo(22,0); c.lineTo(40,0); c.stroke();
+      c.font='bold 10px sans-serif'; c.fillStyle=this.color; c.textAlign='center';
+      c.fillText('+', -15, -11); c.fillText('\u2212', -15, 19);
+      c.lineWidth=1; c.beginPath(); c.moveTo(26,-6); c.lineTo(26,-3); c.lineTo(30,-3); c.lineTo(30,3); c.lineTo(34,3); c.lineTo(34,6); c.stroke();
+    }
+  },
+  crystal: {
+    name: 'Kristal', en: 'Crystal', color: '#06b6d4', unit: 'Hz', def: 32768, cat: 'Passive',
+    pins: [{ dx: -30, dy: 0 }, { dx: 30, dy: 0 }],
+    draw(c) {
+      c.strokeStyle = this.color; c.lineWidth = 2;
+      c.beginPath(); c.moveTo(-30,0); c.lineTo(-10,0); c.stroke();
+      c.beginPath(); c.moveTo(-10,-10); c.lineTo(-10,10); c.stroke();
+      c.beginPath(); c.moveTo(10,-10); c.lineTo(10,10); c.stroke();
+      c.strokeRect(-6, -8, 12, 16);
+      c.beginPath(); c.moveTo(10,0); c.lineTo(30,0); c.stroke();
+    }
+  },
+  coupled_l: {
+    name: 'Ba\u011fl\u0131 Bobbin', en: 'Coupled L', color: '#a855f7', unit: '', def: 0.5, cat: 'Passive',
+    pins: [{ dx: -30, dy: -15 }, { dx: -30, dy: 15 }, { dx: 30, dy: -15 }, { dx: 30, dy: 15 }],
+    draw(c) {
+      c.strokeStyle = this.color; c.lineWidth = 2;
+      for(var i=0;i<3;i++){c.beginPath();c.arc(-10,-10+i*10,5,Math.PI,0);c.stroke();}
+      for(var i=0;i<3;i++){c.beginPath();c.arc(10,-10+i*10,5,0,Math.PI);c.stroke();}
+      c.fillStyle=this.color; c.beginPath(); c.arc(-10,-18,2,0,Math.PI*2); c.fill();
+      c.beginPath(); c.arc(10,-18,2,0,Math.PI*2); c.fill();
+      c.beginPath(); c.moveTo(-30,-15); c.lineTo(-15,-15); c.moveTo(-30,15); c.lineTo(-15,15); c.stroke();
+      c.beginPath(); c.moveTo(15,-15); c.lineTo(30,-15); c.moveTo(15,15); c.lineTo(30,15); c.stroke();
+    }
+  },
+  dcmotor: {
+    name: 'DC Motor', en: 'DC Motor', color: '#22c55e', unit: '', def: 0, cat: 'Control',
+    pins: [{ dx: -30, dy: 0 }, { dx: 30, dy: 0 }],
+    draw(c) {
+      c.strokeStyle = this.color; c.lineWidth = 2;
+      c.beginPath(); c.moveTo(-30,0); c.lineTo(-14,0); c.stroke();
+      c.beginPath(); c.arc(0,0,14,0,Math.PI*2); c.stroke();
+      c.beginPath(); c.moveTo(14,0); c.lineTo(30,0); c.stroke();
+      c.font='600 12px sans-serif'; c.fillStyle=this.color; c.textAlign='center'; c.textBaseline='middle';
+      c.fillText('M',0,1);
+    }
+  },
+  tline: {
+    name: '\u0130letim Hatt\u0131', en: 'T-Line', color: '#3b82f6', unit: '\u03A9', def: 50, cat: 'Passive',
+    pins: [{ dx: -40, dy: -10 }, { dx: -40, dy: 10 }, { dx: 40, dy: -10 }, { dx: 40, dy: 10 }],
+    draw(c) {
+      c.strokeStyle = this.color; c.lineWidth = 2;
+      c.beginPath(); c.moveTo(-40,-10); c.lineTo(-20,-10); c.moveTo(-40,10); c.lineTo(-20,10); c.stroke();
+      c.beginPath(); c.moveTo(-20,-10); c.lineTo(20,-10); c.stroke();
+      c.beginPath(); c.moveTo(-20,10); c.lineTo(20,10); c.stroke();
+      c.font='600 8px "JetBrains Mono"'; c.fillStyle=this.color; c.textAlign='center';
+      c.fillText('Z\u2080',0,2);
+      c.beginPath(); c.moveTo(20,-10); c.lineTo(40,-10); c.moveTo(20,10); c.lineTo(40,10); c.stroke();
+    }
   }
 };
 
@@ -1323,6 +1392,22 @@ var PRESETS = [
     desc:'\u00B110% tolerans da\u011f\u0131l\u0131m\u0131', formula:'200 \u00e7al\u0131\u015ft\u0131rma, histogram',
     parts:[{type:'vdc',x:-60,y:0,rot:0,val:10},{type:'resistor',x:40,y:-40,rot:0,val:1000},{type:'resistor',x:40,y:40,rot:0,val:2200},{type:'ground',x:-60,y:80,rot:0,val:0}],
     wires:[{x1:-60,y1:-40,x2:0,y2:-40},{x1:80,y1:-40,x2:80,y2:40},{x1:80,y1:40,x2:-60,y2:40},{x1:-60,y1:40,x2:-60,y2:60}]},
+  { id:'crystal-osc', name:'Kristal Osilat\u00f6r', color:'#06b6d4',
+    desc:'32.768 kHz kristal', formula:'f0 = 1/(2\u03C0\u221A(LC))',
+    parts:[{type:'vdc',x:-80,y:0,rot:0,val:5},{type:'crystal',x:20,y:-40,rot:0,val:32768},{type:'resistor',x:20,y:40,rot:0,val:1e6},{type:'ground',x:-80,y:60,rot:0,val:0}],
+    wires:[{x1:-80,y1:-40,x2:-10,y2:-40},{x1:50,y1:-40,x2:50,y2:40},{x1:-10,y1:40,x2:-80,y2:40},{x1:-80,y1:40,x2:-80,y2:40}]},
+  { id:'dc-motor', name:'DC Motor Kontrol\u00fc', color:'#22c55e',
+    desc:'Motor h\u0131z kontrol\u00fc', formula:'V=IR+Ke\u03C9',
+    parts:[{type:'vdc',x:-60,y:0,rot:0,val:12},{type:'resistor',x:20,y:-40,rot:0,val:10},{type:'dcmotor',x:100,y:0,rot:1,val:0},{type:'ground',x:-60,y:60,rot:0,val:0},{type:'ground',x:100,y:60,rot:0,val:0}],
+    wires:[{x1:-60,y1:-40,x2:-20,y2:-40},{x1:60,y1:-40,x2:100,y2:-30},{x1:100,y1:30,x2:100,y2:40},{x1:-60,y1:40,x2:-60,y2:40}]},
+  { id:'sens-demo', name:'Duyarl\u0131l\u0131k Analizi', color:'#00e09e',
+    desc:'Hangi bile\u015fen en kritik?', formula:'\u2202Vout/\u2202R bar chart',
+    parts:[{type:'vdc',x:-60,y:0,rot:0,val:10},{type:'resistor',x:20,y:-40,rot:0,val:1000},{type:'resistor',x:20,y:40,rot:0,val:2200},{type:'capacitor',x:80,y:0,rot:1,val:100e-9},{type:'ground',x:-60,y:60,rot:0,val:0}],
+    wires:[{x1:-60,y1:-40,x2:-20,y2:-40},{x1:60,y1:-40,x2:60,y2:-40},{x1:60,y1:40,x2:-60,y2:40},{x1:-60,y1:40,x2:-60,y2:40}]},
+  { id:'wc-demo', name:'Worst-Case Analizi', color:'#f0454a',
+    desc:'Tolerans u\u00e7lar\u0131', formula:'Nominal vs \u00B110% en k\u00f6t\u00fc',
+    parts:[{type:'vdc',x:-60,y:0,rot:0,val:10},{type:'resistor',x:20,y:-40,rot:0,val:1000},{type:'resistor',x:20,y:40,rot:0,val:2200},{type:'ground',x:-60,y:60,rot:0,val:0}],
+    wires:[{x1:-60,y1:-40,x2:-20,y2:-40},{x1:60,y1:-40,x2:60,y2:40},{x1:60,y1:40,x2:-60,y2:40},{x1:-60,y1:40,x2:-60,y2:40}]},
 ];
 
 (function buildPalette() {
@@ -2390,6 +2475,26 @@ function buildCircuitFromCanvas() {
       var Rvar = vdVar > Vc ? 1 : 1e8;
       comps.push({type:'R', n1:nodes[0], n2:nodes[1], val:Rvar, part:p});
     }
+    else if (p.type === 'comparator') {
+      comps.push({type:'COMP', nP:nodes[0], nN:nodes[1], nO:nodes[2], part:p});
+    }
+    else if (p.type === 'crystal') {
+      comps.push({type:'R', n1:nodes[0], n2:nodes[1], val:100, part:p});
+      comps.push({type:'C', n1:nodes[0], n2:nodes[1], val:1e-12, part:p, vPrev:0});
+    }
+    else if (p.type === 'coupled_l') {
+      var k = p.val || 0.5;
+      comps.push({type:'R', n1:nodes[0], n2:nodes[1], val:0.1, part:p});
+      comps.push({type:'R', n1:nodes[2], n2:nodes[3], val:0.1, part:p});
+      comps.push({type:'VCVS', ncP:nodes[0], ncN:nodes[1], noP:nodes[2], noN:nodes[3], gain:k, part:p});
+    }
+    else if (p.type === 'dcmotor') {
+      comps.push({type:'R', n1:nodes[0], n2:nodes[1], val:5, part:p});
+    }
+    else if (p.type === 'tline') {
+      comps.push({type:'R', n1:nodes[0], n2:nodes[2], val:p.val||50, part:p});
+      comps.push({type:'R', n1:nodes[1], n2:nodes[3], val:p.val||50, part:p});
+    }
   }
   // assign wire node mapping for current display
   for (const w of S.wires) {
@@ -2801,6 +2906,11 @@ function solveStep(dt) {
         var r = vd > c.vbo ? 0.1 : 1e8;
         stampG(c.n1, c.n2, 1/r);
       }
+      else if (c.type === 'COMP') {
+        var vP = nodeV[c.nP]||0, vN = nodeV[c.nN]||0;
+        var vOut = vP > vN ? 5 : 0;
+        if (c.nO > 0) { A[c.nO-1][c.nO-1] += 1; b[c.nO-1] += vOut; }
+      }
       else if (c.type === 'DIGI') {
         var pins = c.pins, thresh = 2.5, vH = 5, vL = 0;
         if (c.subtype === 'dff') {
@@ -2987,6 +3097,7 @@ function solveStep(dt) {
     else if (c.type === 'SCR') { c.part._v = Math.abs((nodeV[c.nA]||0)-(nodeV[c.nK]||0)); c.part._i = c.latched ? c.part._v/0.01 : 0; c.part._p = c.part._v*c.part._i; }
     else if (c.type === 'TRIAC') { c.part._v = Math.abs((nodeV[c.n1]||0)-(nodeV[c.n2]||0)); c.part._i = c.active ? c.part._v*100 : 0; c.part._p = c.part._v*c.part._i; }
     else if (c.type === 'DIAC') { var vdiac = Math.abs((nodeV[c.n1]||0)-(nodeV[c.n2]||0)); c.part._v = vdiac; c.part._i = vdiac > c.vbo ? vdiac/0.1 : 0; c.part._p = vdiac*c.part._i; }
+    else if (c.type === 'COMP') { c.part._v = (nodeV[c.nP]||0) > (nodeV[c.nN]||0) ? 5 : 0; c.part._i = 0; c.part._p = 0; }
     else if (c.type === 'DIGI') {
       if (c.subtype === 'dff') { c.part._v = c._q ? 5 : 0; }
       else if (c.subtype === 'counter') { c.part._v = c._count; }
@@ -3349,6 +3460,8 @@ function switchTab(name) {
   if (name === 'montecarlo') drawMonteCarlo();
   if (name === 'tempsweep') drawTempSweep();
   if (name === 'noise') drawNoise();
+  if (name === 'sensitivity') drawSensitivity();
+  if (name === 'worstcase') drawWorstCase();
   needsRender = true;
 }
 
@@ -3828,6 +3941,142 @@ function drawNoise() {
   c.textAlign='right';c.fillText('V/\u221AHz (dB)',mx2-4,my+10);
 }
 
+// ──────── SENSITIVITY ANALYSIS ────────
+var sensData = null;
+function runSensitivity() {
+  if (!S.parts.length) return;
+  sensData = { names: [], values: [] };
+  var passives = S.parts.filter(function(p){ return p.type==='resistor'||p.type==='capacitor'||p.type==='inductor'; });
+  if (!passives.length) return;
+  buildCircuitFromCanvas(); S.sim.t=0; S._nodeVoltages=null;
+  try{for(var i=0;i<50;i++){S.sim.t+=SIM_DT;solveStep(SIM_DT);}}catch(e){}
+  var baseline = S._nodeVoltages && S._nodeVoltages.length>1 ? S._nodeVoltages[1] : 0;
+  passives.forEach(function(p) {
+    var orig = p.val, delta = orig * 0.01;
+    p.val = orig + delta;
+    buildCircuitFromCanvas(); S.sim.t=0; S._nodeVoltages=null;
+    try{for(var i=0;i<50;i++){S.sim.t+=SIM_DT;solveStep(SIM_DT);}}catch(e){}
+    var perturbed = S._nodeVoltages && S._nodeVoltages.length>1 ? S._nodeVoltages[1] : 0;
+    var sens = Math.abs((perturbed - baseline) / delta);
+    sensData.names.push(p.name || (p.type.charAt(0).toUpperCase() + p.id));
+    sensData.values.push(sens);
+    p.val = orig;
+  });
+  buildCircuitFromCanvas();
+  switchTab('sensitivity');
+}
+function drawSensitivity() {
+  var cvs2 = document.getElementById('SENSC');
+  if (!cvs2) return;
+  var r=cvs2.parentElement.getBoundingClientRect();
+  if(r.width<10||r.height<10) return;
+  cvs2.width=r.width*DPR;cvs2.height=r.height*DPR;
+  cvs2.style.width=r.width+'px';cvs2.style.height=r.height+'px';
+  var c=cvs2.getContext('2d');c.setTransform(DPR,0,0,DPR,0,0);
+  var w=r.width,h=r.height;
+  c.fillStyle='#080c14';c.fillRect(0,0,w,h);
+  if(!sensData||!sensData.names.length){c.fillStyle='#5a6a7a';c.font='13px Outfit';c.textAlign='center';c.fillText('Duyarl\u0131l\u0131k analizi yap\u0131lmad\u0131.',w/2,h/2);return;}
+  var d=sensData,mx=80,my=20,pw=w-mx-20,ph=h-my-30;
+  var maxV=Math.max.apply(null,d.values)||1;
+  var barH=Math.min(20,ph/d.names.length-2);
+  for(var i=0;i<d.names.length;i++){
+    var y=my+i*(barH+4);
+    var bw=(d.values[i]/maxV)*pw;
+    c.fillStyle='rgba(0,224,158,0.6)';c.fillRect(mx,y,bw,barH);
+    c.strokeStyle='#00e09e';c.lineWidth=1;c.strokeRect(mx,y,bw,barH);
+    c.fillStyle='#8899aa';c.font='10px "JetBrains Mono"';c.textAlign='right';c.textBaseline='middle';
+    c.fillText(d.names[i],mx-6,y+barH/2);
+    c.textAlign='left';c.fillText(d.values[i].toExponential(2),mx+bw+6,y+barH/2);
+  }
+  c.fillStyle='#5a6a7a';c.font='10px Outfit';c.textAlign='center';c.fillText('\u2202Vout / \u2202param',w/2,h-3);
+}
+
+// ──────── WORST CASE ANALYSIS ────────
+var wcData = null;
+function runWorstCase() {
+  if (!S.parts.length) return;
+  var tolerance = 0.1;
+  wcData = { nominal: 0, best: 0, worst: 0 };
+  var passives = S.parts.filter(function(p){ return p.type==='resistor'||p.type==='capacitor'||p.type==='inductor'; });
+  var origVals = passives.map(function(p){ return p.val; });
+  buildCircuitFromCanvas(); S.sim.t=0; S._nodeVoltages=null;
+  try{for(var i=0;i<50;i++){S.sim.t+=SIM_DT;solveStep(SIM_DT);}}catch(e){}
+  wcData.nominal = S._nodeVoltages&&S._nodeVoltages.length>1 ? S._nodeVoltages[1] : 0;
+  passives.forEach(function(p){ p.val *= (1 - tolerance); });
+  buildCircuitFromCanvas(); S.sim.t=0; S._nodeVoltages=null;
+  try{for(var i=0;i<50;i++){S.sim.t+=SIM_DT;solveStep(SIM_DT);}}catch(e){}
+  var allMin = S._nodeVoltages&&S._nodeVoltages.length>1 ? S._nodeVoltages[1] : 0;
+  passives.forEach(function(p,i){ p.val = origVals[i] * (1 + tolerance); });
+  buildCircuitFromCanvas(); S.sim.t=0; S._nodeVoltages=null;
+  try{for(var i=0;i<50;i++){S.sim.t+=SIM_DT;solveStep(SIM_DT);}}catch(e){}
+  var allMax = S._nodeVoltages&&S._nodeVoltages.length>1 ? S._nodeVoltages[1] : 0;
+  wcData.best = Math.max(allMin, allMax);
+  wcData.worst = Math.min(allMin, allMax);
+  passives.forEach(function(p,i){ p.val = origVals[i]; });
+  buildCircuitFromCanvas();
+  switchTab('worstcase');
+}
+function drawWorstCase() {
+  var cvs3 = document.getElementById('WCC');
+  if (!cvs3) return;
+  var r=cvs3.parentElement.getBoundingClientRect();
+  if(r.width<10||r.height<10) return;
+  cvs3.width=r.width*DPR;cvs3.height=r.height*DPR;
+  cvs3.style.width=r.width+'px';cvs3.style.height=r.height+'px';
+  var c=cvs3.getContext('2d');c.setTransform(DPR,0,0,DPR,0,0);
+  var w=r.width,h=r.height;
+  c.fillStyle='#080c14';c.fillRect(0,0,w,h);
+  if(!wcData){c.fillStyle='#5a6a7a';c.font='13px Outfit';c.textAlign='center';c.fillText('Worst-case analizi yap\u0131lmad\u0131.',w/2,h/2);return;}
+  c.font='600 14px Outfit';c.textAlign='center';c.fillStyle='#e0e7f0';
+  c.fillText('Worst-Case Analiz Sonu\u00e7lar\u0131',w/2,30);
+  c.font='500 16px "JetBrains Mono"';
+  var cy = h/2 - 30;
+  c.fillStyle='#00e09e'; c.fillText('Nominal: '+fmtVal(wcData.nominal,'V'),w/2,cy);
+  c.fillStyle='#22c55e'; c.fillText('Best Case: '+fmtVal(wcData.best,'V'),w/2,cy+30);
+  c.fillStyle='#f0454a'; c.fillText('Worst Case: '+fmtVal(wcData.worst,'V'),w/2,cy+60);
+  c.fillStyle='#f59e0b'; c.fillText('Spread: '+fmtVal(Math.abs(wcData.best-wcData.worst),'V')+' (\u00B110%)',w/2,cy+90);
+}
+
+// ──────── SVG EXPORT ────────
+function exportSVG() {
+  var w = cvs.width/DPR, h = cvs.height/DPR;
+  var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="'+w+'" height="'+h+'" style="background:#06080c">';
+  svg += '<style>text{font-family:JetBrains Mono,monospace;fill:#8899aa;}</style>';
+  S.parts.forEach(function(p) {
+    var sx = p.x * S.view.zoom + S.view.ox, sy = p.y * S.view.zoom + S.view.oy;
+    var def = COMP[p.type];
+    svg += '<circle cx="'+sx+'" cy="'+sy+'" r="8" fill="none" stroke="'+(def?def.color:'#888')+'" stroke-width="1.5"/>';
+    svg += '<text x="'+sx+'" y="'+(sy+20)+'" text-anchor="middle" font-size="10">'+(p.name||p.type)+'</text>';
+  });
+  S.wires.forEach(function(wr) {
+    var s1 = {x:wr.x1*S.view.zoom+S.view.ox, y:wr.y1*S.view.zoom+S.view.oy};
+    var s2 = {x:wr.x2*S.view.zoom+S.view.ox, y:wr.y2*S.view.zoom+S.view.oy};
+    svg += '<line x1="'+s1.x+'" y1="'+s1.y+'" x2="'+s2.x+'" y2="'+s2.y+'" stroke="#3a4a5a" stroke-width="2"/>';
+  });
+  svg += '</svg>';
+  var blob = new Blob([svg], {type:'image/svg+xml'});
+  var a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'voltxampere.svg'; a.click(); URL.revokeObjectURL(a.href);
+}
+
+// ──────── CSV EXPORT ────────
+function exportCSV() {
+  var lines = ['Time'];
+  var ch = S.scope.ch;
+  for (var i = 0; i < 4; i++) if (ch[i].on) lines[0] += ','+ch[i].label;
+  lines[0] += '\n';
+  var ptr = S.scope.ptr;
+  for (var s = 0; s < 600; s++) {
+    var t = s * SIM_DT * SUBSTEPS;
+    var line = t.toExponential(4);
+    for (var i = 0; i < 4; i++) if (ch[i].on) line += ',' + ch[i].buf[(ptr+s)%600].toFixed(6);
+    lines.push(line + '\n');
+  }
+  var blob = new Blob(lines, {type:'text/csv'});
+  var a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'voltxampere-scope.csv'; a.click(); URL.revokeObjectURL(a.href);
+}
+
 // ──────── PWA SERVICE WORKER ────────
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js').catch(() => {});
@@ -3844,7 +4093,7 @@ if (!localStorage.getItem('vxa_tutorial_done')) {
 }
 
 // Console banner
-console.log('%c⚡ VoltXAmpere v1.0', 'color:#00e09e;font-size:18px;font-weight:bold');
+console.log('%c⚡ VoltXAmpere v3.0', 'color:#00e09e;font-size:18px;font-weight:bold');
 console.log('%cDevrenizi Hissedin — voltxampere.com', 'color:#8899aa;font-size:12px');
 
 // ──────── RENDER LOOP ────────
