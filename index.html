@@ -110,6 +110,11 @@ input:focus{border-color:var(--accent)}
 .btab.active{background:var(--surface);color:var(--accent)}
 .tab-panel{display:none;height:100%;overflow:hidden}
 .tab-panel.active{display:grid}
+.tab-overlay{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(8,12,20,0.85);z-index:2}
+.tab-overlay p{color:var(--text-3);font:12px var(--font-ui);margin-bottom:10px}
+.run-btn{padding:8px 20px;border:none;border-radius:8px;background:var(--accent);color:var(--bg);font:600 13px var(--font-ui);cursor:pointer;transition:.15s}
+.run-btn:hover{box-shadow:0 0 16px var(--accent-glow);transform:scale(1.03)}
+#minimap{position:absolute;bottom:8px;right:8px;width:160px;height:100px;background:rgba(11,15,21,0.9);border:1px solid var(--border-2);border-radius:6px;z-index:5;cursor:pointer;overflow:hidden}
 
 ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
 
@@ -176,6 +181,7 @@ input:focus{border-color:var(--accent)}
     <button class="tb-btn" onclick="exportPNG()" title="PNG İndir">&#128247; PNG</button>
     <button class="tb-btn" onclick="exportSVG()" title="SVG İndir">SVG</button>
     <button class="tb-btn" onclick="exportCSV()" title="CSV İndir">CSV</button>
+    <button class="tb-btn" onclick="showBOM()" title="BOM">&#128203; BOM</button>
     <button class="tb-btn" onclick="shareURL()" title="Paylaş">&#128279; Paylaş</button>
     <div class="tb-sep"></div>
     <button class="tb-btn" id="btn-vmap" onclick="S.voltageMap=!S.voltageMap;needsRender=true">&#9889; Renk Haritası</button>
@@ -193,7 +199,7 @@ input:focus{border-color:var(--accent)}
   <div id="left"></div>
 
   <!-- CANVAS -->
-  <div id="canvas-wrap"><canvas id="C"></canvas></div>
+  <div id="canvas-wrap"><canvas id="C"></canvas><canvas id="minimap" width="160" height="100" style="position:absolute;bottom:8px;right:8px;width:160px;height:100px;background:rgba(11,15,21,0.9);border:1px solid var(--border-2);border-radius:6px;z-index:5;cursor:pointer"></canvas></div>
 
   <!-- RIGHT PANEL -->
   <div id="right">
@@ -293,15 +299,15 @@ input:focus{border-color:var(--accent)}
         <div class="scope-card"><div class="lbl">THD</div><div class="val" id="sc-thd" style="color:var(--purple)">&#8212;</div></div>
       </div>
     </div>
-    <div id="tab-bode" class="tab-panel" style="grid-template-columns:1fr"><canvas id="BODE" style="width:100%;height:100%"></canvas></div>
-    <div id="tab-dcsweep" class="tab-panel" style="grid-template-columns:1fr"><canvas id="DCSW" style="width:100%;height:100%"></canvas></div>
-    <div id="tab-paramsweep" class="tab-panel"><canvas id="PSWEEP" style="width:100%;height:100%"></canvas></div>
-    <div id="tab-fft" class="tab-panel"><canvas id="FFTC" style="width:100%;height:100%"></canvas></div>
-    <div id="tab-montecarlo" class="tab-panel"><canvas id="MCC" style="width:100%;height:100%"></canvas></div>
-    <div id="tab-tempsweep" class="tab-panel"><canvas id="TSWEEP" style="width:100%;height:100%"></canvas></div>
-    <div id="tab-noise" class="tab-panel"><canvas id="NOISEC" style="width:100%;height:100%"></canvas></div>
-    <div id="tab-sensitivity" class="tab-panel"><canvas id="SENSC" style="width:100%;height:100%"></canvas></div>
-    <div id="tab-worstcase" class="tab-panel"><canvas id="WCC" style="width:100%;height:100%"></canvas></div>
+    <div id="tab-bode" class="tab-panel" style="position:relative"><canvas id="BODE" style="width:100%;height:100%"></canvas><div class="tab-overlay" id="ov-bode"><p>AC devre kurun, sim&uuml;lasyonu ba&scedil;lat&inodot;n</p><button class="run-btn" onclick="runBode()">&#9654; Bode Analizi Ba&scedil;lat</button></div></div>
+    <div id="tab-dcsweep" class="tab-panel" style="position:relative"><canvas id="DCSW" style="width:100%;height:100%"></canvas><div class="tab-overlay" id="ov-dcsweep"><p>DC kaynak ekleyin</p><button class="run-btn" onclick="runDCSweep('vdc',0,10,50)">&#9654; DC Sweep Ba&scedil;lat</button></div></div>
+    <div id="tab-paramsweep" class="tab-panel" style="position:relative"><canvas id="PSWEEP" style="width:100%;height:100%"></canvas><div class="tab-overlay" id="ov-paramsweep"><p>Bir bile&scedil;en se&ccedil;in</p><button class="run-btn" onclick="if(S.sel[0])runParamSweep(S.sel[0],'val',100,10000,20)">&#9654; Param Sweep Ba&scedil;lat</button></div></div>
+    <div id="tab-fft" class="tab-panel" style="position:relative"><canvas id="FFTC" style="width:100%;height:100%"></canvas><div class="tab-overlay" id="ov-fft"><p>Sim&uuml;lasyonu &ccedil;al&inodot;&scedil;t&inodot;r&inodot;n</p><button class="run-btn" onclick="runFFT()">&#9654; FFT Hesapla</button></div></div>
+    <div id="tab-montecarlo" class="tab-panel" style="position:relative"><canvas id="MCC" style="width:100%;height:100%"></canvas><div class="tab-overlay" id="ov-montecarlo"><p>Devre kurun, tolerans analizi yap&inodot;n</p><button class="run-btn" onclick="runMonteCarlo(10,200)">&#9654; Monte Carlo (&plusmn;10%, 200x)</button></div></div>
+    <div id="tab-tempsweep" class="tab-panel" style="position:relative"><canvas id="TSWEEP" style="width:100%;height:100%"></canvas><div class="tab-overlay" id="ov-tempsweep"><p>S&inodot;cakl&inodot;k etkisini g&ouml;r&uuml;n</p><button class="run-btn" onclick="runTempSweep()">&#9654; S&inodot;cakl&inodot;k Taramas&inodot; (-40&deg;C&#8594;125&deg;C)</button></div></div>
+    <div id="tab-noise" class="tab-panel" style="position:relative"><canvas id="NOISEC" style="width:100%;height:100%"></canvas><div class="tab-overlay" id="ov-noise"><p>Diren&ccedil;li devre kurun</p><button class="run-btn" onclick="runNoiseAnalysis()">&#9654; G&uuml;r&uuml;lt&uuml; Analizi Ba&scedil;lat</button></div></div>
+    <div id="tab-sensitivity" class="tab-panel" style="position:relative"><canvas id="SENSC" style="width:100%;height:100%"></canvas><div class="tab-overlay" id="ov-sensitivity"><p>Hangi bile&scedil;en en kritik?</p><button class="run-btn" onclick="runSensitivity()">&#9654; Duyarl&inodot;l&inodot;k Analizi</button></div></div>
+    <div id="tab-worstcase" class="tab-panel" style="position:relative"><canvas id="WCC" style="width:100%;height:100%"></canvas><div class="tab-overlay" id="ov-worstcase"><p>Tolerans u&ccedil;lar&inodot;n&inodot; test edin</p><button class="run-btn" onclick="runWorstCase()">&#9654; Worst-Case (&plusmn;10%)</button></div></div>
   </div>
 
   <!-- STATUSBAR -->
@@ -441,6 +447,8 @@ const S = {
     cy1: 40, cy2: 120,
   },
   voltageMap: false, showGrid: true,
+  netNames: {},
+  annotations: [],
   fps: 0, _fc: 0, _ft: performance.now()
 };
 let needsRender = true;
@@ -1432,7 +1440,7 @@ var PRESETS = [
   }
   // Preset section
   const psec = document.createElement('div');
-  psec.innerHTML = '<div style="margin-top:12px;padding:4px 8px;font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.5px">Hazır Devreler (Presets)</div>';
+  psec.innerHTML = '<div style="margin-top:16px;padding:8px;font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:1px;border-top:2px solid var(--accent);border-radius:0">&#9889; Hazır Devreler (Presets)</div>';
   el.appendChild(psec);
   PRESETS.forEach(pr => {
     const d = document.createElement('div'); d.className = 'comp-item';
@@ -1837,10 +1845,23 @@ wrap.addEventListener('dblclick', () => {
     document.getElementById('btn-wire').classList.remove('active'); needsRender = true;
     return;
   }
-  const w = s2w(S.mouse.x, S.mouse.y), hit = hitTestPart(w.x, w.y);
+  var w2 = s2w(S.mouse.x, S.mouse.y), hit = hitTestPart(w2.x, w2.y);
   if (hit && hit.type === 'switch') {
     saveUndo(); hit.closed = !hit.closed; needsRender = true;
     if (S.sim.running) buildCircuitFromCanvas();
+    return;
+  }
+  // Double-click on wire → name the net
+  if (S.mode === 'select') {
+    for (var wi = 0; wi < S.wires.length; wi++) {
+      var wire = S.wires[wi];
+      var wmx = (wire.x1+wire.x2)/2, wmy = (wire.y1+wire.y2)/2;
+      if (Math.abs(w2.x - wmx) < 20 && Math.abs(w2.y - wmy) < 20) {
+        var name = prompt('Net ismi girin:', S.netNames[wi] || '');
+        if (name !== null) { S.netNames[wi] = name; needsRender = true; }
+        return;
+      }
+    }
   }
 });
 
@@ -1892,6 +1913,15 @@ document.addEventListener('keydown', e => {
   if (k === 'o' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); importJSON(); return; }
   if (k === 'e') { ctxEditVal(); return; }
   if (k === 'p') { ctxProbe(); return; }
+  if (k === 't' && !e.ctrlKey) {
+    var text = prompt('Not metni:', '');
+    if (text) {
+      var aw = s2w(S.mouse.x, S.mouse.y);
+      S.annotations.push({id: Date.now(), x: snap(aw.x), y: snap(aw.y), text: text, fontSize: 12, color: '#8899aa'});
+      needsRender = true;
+    }
+    return;
+  }
   if (k === 'g' && !e.ctrlKey) { S.voltageMap = !S.voltageMap; needsRender = true; return; }
   if (k === '?' || (k === '/' && e.shiftKey)) { document.getElementById('shortcuts-modal').classList.toggle('show'); return; }
   if (k === ' ') { e.preventDefault(); toggleSim(); return; }
@@ -1995,6 +2025,14 @@ function drawWire(w) {
       ctx.beginPath(); ctx.arc(px, py, 2.5, 0, Math.PI*2); ctx.fill();
     }
     ctx.restore();
+  }
+  // Net name label
+  var wIdx = S.wires.indexOf(w);
+  if (wIdx >= 0 && S.netNames[wIdx]) {
+    ctx.font = '600 10px "JetBrains Mono"';
+    ctx.fillStyle = '#00e09e';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+    ctx.fillText(S.netNames[wIdx], (w.x1+w.x2)/2, Math.min(w.y1,w.y2) - 4);
   }
 }
 
@@ -3176,11 +3214,20 @@ function render() {
   drawSnapGlow();
   drawVoltageMap();
 
+  // Annotations
+  S.annotations.forEach(function(a) {
+    ctx.font = a.fontSize + 'px "Outfit"';
+    ctx.fillStyle = a.color;
+    ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    ctx.fillText(a.text, a.x, a.y);
+  });
+
   ctx.restore();
 
   // simulation step
   if (S.sim.running) simulationStep();
   drawScope();
+  drawMinimap();
 
   // live measurements
   if (S.sim.running && S.sel.length) {
@@ -3493,6 +3540,7 @@ function runDCSweep(srcType, start, stop, steps) {
   }
   src.val = origVal;
   buildCircuitFromCanvas();
+  var ov=document.getElementById('ov-dcsweep');if(ov)ov.style.display='none';
   switchTab('dcsweep');
 }
 
@@ -3598,6 +3646,7 @@ function runBode(fStart, fStop, ppd) {
   acSrc.freq = origFreq;
   S.sim.t = 0;
   S._nodeVoltages = null;
+  var ov=document.getElementById('ov-bode');if(ov)ov.style.display='none';
   switchTab('bode');
 }
 
@@ -3684,6 +3733,7 @@ function runParamSweep(partId, propName, start, stop, steps) {
   }
   part.val = origVal;
   buildCircuitFromCanvas();
+  var ov=document.getElementById('ov-paramsweep');if(ov)ov.style.display='none';
   switchTab('paramsweep');
 }
 
@@ -3750,6 +3800,7 @@ function runFFT() {
     fftData.freq.push(i * sampleRate / N);
     fftData.mag.push(magDB);
   }
+  var ov=document.getElementById('ov-fft');if(ov)ov.style.display='none';
   switchTab('fft');
 }
 
@@ -3810,6 +3861,7 @@ function runMonteCarlo(tolerance, runs) {
   mcData.mean = vals.reduce(function(a,b){return a+b;},0) / vals.length;
   mcData.stdDev = Math.sqrt(vals.reduce(function(a,b){return a+(b-mcData.mean)*(b-mcData.mean);},0)/vals.length);
   mcData.min = vals[0]; mcData.max = vals[vals.length-1];
+  var ov=document.getElementById('ov-montecarlo');if(ov)ov.style.display='none';
   switchTab('montecarlo');
 }
 function drawMonteCarlo() {
@@ -3862,6 +3914,7 @@ function runTempSweep() {
   }
   S.parts.forEach(function(p, i) { p.val = origVals[i]; });
   buildCircuitFromCanvas();
+  var ov=document.getElementById('ov-tempsweep');if(ov)ov.style.display='none';
   switchTab('tempsweep');
 }
 function drawTempSweep() {
@@ -3913,6 +3966,7 @@ function runNoiseAnalysis() {
     noiseData.freq.push(f);
     noiseData.vnoise.push(vnHz > 0 ? 20*Math.log10(vnHz) : -200);
   }
+  var ov=document.getElementById('ov-noise');if(ov)ov.style.display='none';
   switchTab('noise');
 }
 function drawNoise() {
@@ -3963,6 +4017,7 @@ function runSensitivity() {
     p.val = orig;
   });
   buildCircuitFromCanvas();
+  var ov=document.getElementById('ov-sensitivity');if(ov)ov.style.display='none';
   switchTab('sensitivity');
 }
 function drawSensitivity() {
@@ -4014,6 +4069,7 @@ function runWorstCase() {
   wcData.worst = Math.min(allMin, allMax);
   passives.forEach(function(p,i){ p.val = origVals[i]; });
   buildCircuitFromCanvas();
+  var ov=document.getElementById('ov-worstcase');if(ov)ov.style.display='none';
   switchTab('worstcase');
 }
 function drawWorstCase() {
@@ -4097,6 +4153,100 @@ console.log('%c⚡ VoltXAmpere v3.0', 'color:#00e09e;font-size:18px;font-weight:
 console.log('%cDevrenizi Hissedin — voltxampere.com', 'color:#8899aa;font-size:12px');
 
 // ──────── RENDER LOOP ────────
+// ──────── MINIMAP ────────
+function drawMinimap() {
+  var mc = document.getElementById('minimap');
+  if (!mc || !S.parts.length) return;
+  var mctx = mc.getContext('2d');
+  var mw = 160, mh = 100;
+  mctx.clearRect(0, 0, mw, mh);
+  mctx.fillStyle = 'rgba(11,15,21,0.9)';
+  mctx.fillRect(0, 0, mw, mh);
+  var mnx=Infinity,mny=Infinity,mxx=-Infinity,mxy=-Infinity;
+  S.parts.forEach(function(p){mnx=Math.min(mnx,p.x-60);mny=Math.min(mny,p.y-60);mxx=Math.max(mxx,p.x+60);mxy=Math.max(mxy,p.y+60);});
+  var bw=mxx-mnx||200, bh=mxy-mny||200;
+  var scale = Math.min(mw/bw, mh/bh) * 0.85;
+  var ox = mw/2 - (mnx+bw/2)*scale, oy = mh/2 - (mny+bh/2)*scale;
+  S.parts.forEach(function(p) {
+    var def = COMP[p.type];
+    mctx.fillStyle = def ? def.color : '#888';
+    mctx.fillRect(p.x*scale+ox-1, p.y*scale+oy-1, 3, 3);
+  });
+  mctx.strokeStyle = '#3a4a5a'; mctx.lineWidth = 0.5;
+  S.wires.forEach(function(w) {
+    mctx.beginPath();
+    mctx.moveTo(w.x1*scale+ox, w.y1*scale+oy);
+    mctx.lineTo(w.x2*scale+ox, w.y2*scale+oy);
+    mctx.stroke();
+  });
+  var cw = cvs.width/DPR, ch = cvs.height/DPR;
+  var vx1 = (-S.view.ox/S.view.zoom)*scale+ox;
+  var vy1 = (-S.view.oy/S.view.zoom)*scale+oy;
+  var vw = (cw/S.view.zoom)*scale, vh = (ch/S.view.zoom)*scale;
+  mctx.strokeStyle = '#00e09e'; mctx.lineWidth = 1;
+  mctx.strokeRect(vx1, vy1, vw, vh);
+}
+document.getElementById('minimap').addEventListener('click', function(e) {
+  if (!S.parts.length) return;
+  var rect = this.getBoundingClientRect();
+  var mx = e.clientX - rect.left, my = e.clientY - rect.top;
+  var mw = 160, mh = 100;
+  var mnx=Infinity,mny=Infinity,mxx=-Infinity,mxy=-Infinity;
+  S.parts.forEach(function(p){mnx=Math.min(mnx,p.x-60);mny=Math.min(mny,p.y-60);mxx=Math.max(mxx,p.x+60);mxy=Math.max(mxy,p.y+60);});
+  var bw=mxx-mnx||200, bh=mxy-mny||200;
+  var scale = Math.min(mw/bw, mh/bh) * 0.85;
+  var ox = mw/2 - (mnx+bw/2)*scale, oy = mh/2 - (mny+bh/2)*scale;
+  var wx = (mx - ox) / scale, wy = (my - oy) / scale;
+  var cw = cvs.width/DPR, ch = cvs.height/DPR;
+  S.view.ox = cw/2 - wx * S.view.zoom;
+  S.view.oy = ch/2 - wy * S.view.zoom;
+  needsRender = true;
+});
+
+// ──────── BOM ────────
+function showBOM() {
+  var counts = {};
+  S.parts.forEach(function(p) {
+    if (p.type === 'ground') return;
+    var def = COMP[p.type];
+    var key = p.type + '|' + (p.val||0) + '|' + (def ? def.unit : '');
+    if (!counts[key]) counts[key] = { type: p.type, name: def ? def.name : p.type, val: p.val, unit: def ? def.unit : '', count: 0, refs: [] };
+    counts[key].count++;
+    counts[key].refs.push(p.name || (p.type.charAt(0).toUpperCase() + p.id));
+  });
+  var html = '<table style="width:100%;border-collapse:collapse;font:12px var(--font-mono)">';
+  html += '<tr style="border-bottom:2px solid var(--border);color:var(--text-2)"><th style="text-align:left;padding:6px">Referans</th><th style="text-align:left;padding:6px">Tip</th><th style="text-align:right;padding:6px">De\u011fer</th><th style="text-align:center;padding:6px">Adet</th></tr>';
+  Object.values(counts).forEach(function(c) {
+    html += '<tr style="border-bottom:1px solid var(--border)">';
+    html += '<td style="padding:4px 6px;color:var(--text)">' + c.refs.join(', ') + '</td>';
+    html += '<td style="padding:4px 6px;color:var(--text-2)">' + c.name + '</td>';
+    html += '<td style="padding:4px 6px;text-align:right;color:var(--accent)">' + (c.val ? fmtVal(c.val, c.unit) : '\u2014') + '</td>';
+    html += '<td style="padding:4px 6px;text-align:center;color:var(--text)">' + c.count + '</td>';
+    html += '</tr>';
+  });
+  html += '</table>';
+  html += '<div style="margin-top:8px;color:var(--text-3);font:11px var(--font-ui)">Toplam: ' + S.parts.filter(function(p){return p.type!=='ground';}).length + ' bile\u015fen</div>';
+  document.getElementById('bom-table').innerHTML = html;
+  document.getElementById('bom-modal').style.display = 'flex';
+}
+function exportBOMCSV() {
+  var lines = ['Referans,Tip,Deger,Birim,Adet\n'];
+  var counts = {};
+  S.parts.forEach(function(p) {
+    if (p.type === 'ground') return;
+    var def = COMP[p.type];
+    var key = p.type + '|' + (p.val||0);
+    if (!counts[key]) counts[key] = { refs: [], type: def?def.name:p.type, val: p.val||0, unit: def?def.unit:'', count: 0 };
+    counts[key].count++;
+    counts[key].refs.push(p.name || (p.type.charAt(0).toUpperCase() + p.id));
+  });
+  Object.values(counts).forEach(function(c) {
+    lines.push(c.refs.join(';') + ',' + c.type + ',' + c.val + ',' + c.unit + ',' + c.count + '\n');
+  });
+  var blob = new Blob(lines, {type:'text/csv'});
+  var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'voltxampere-bom.csv'; a.click();
+}
+
 function loop() {
   if (needsRender || S.sim.running || S.mode !== 'select' || S.hoveredPin) {
     render(); needsRender = false;
@@ -4114,5 +4264,15 @@ requestAnimationFrame(loop);
   else window.addEventListener('load',function(){setTimeout(kill,300);});
 })();
 </script>
+<div id="bom-modal" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.6);align-items:center;justify-content:center" onclick="if(event.target===this)this.style.display='none'">
+  <div style="background:var(--surface-2);border:1px solid var(--border-2);border-radius:14px;padding:24px;max-width:600px;width:90%;max-height:80vh;overflow-y:auto;box-shadow:0 12px 40px rgba(0,0,0,.5)">
+    <div style="display:flex;justify-content:space-between;margin-bottom:16px">
+      <h2 style="font:600 16px var(--font-ui);color:var(--accent)">Bill of Materials (BOM)</h2>
+      <button style="font-size:18px;color:var(--text-3);cursor:pointer;background:none;border:none" onclick="document.getElementById('bom-modal').style.display='none'">&times;</button>
+    </div>
+    <div id="bom-table"></div>
+    <button class="run-btn" style="margin-top:12px" onclick="exportBOMCSV()">CSV &#304;ndir</button>
+  </div>
+</div>
 </body>
 </html>
