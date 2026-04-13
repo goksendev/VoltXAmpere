@@ -3,14 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>VoltXAmpere v4.0 — Free Online Circuit Simulator | Ücretsiz Devre Simülatörü</title>
+<title>VoltXAmpere v5.0 — Free Online Circuit Simulator | Ücretsiz Devre Simülatörü</title>
 <meta name="description" content="Free online circuit simulator with 61 components, 10 analysis types, pro oscilloscope. No signup required. SPICE-class MNA engine. Ücretsiz online devre simülatörü.">
 <meta name="keywords" content="devre simülatörü, circuit simulator, elektronik, SPICE, osiloskop, MNA, falstad, ücretsiz, online, VoltXAmpere">
 <meta name="author" content="VoltXAmpere">
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="https://voltxampere.com/">
 <meta property="og:title" content="VoltXAmpere — Free Online Circuit Simulator">
-<meta property="og:description" content="61 components, 10 analysis types, pro oscilloscope. Free, no signup. SPICE-class browser simulator.">
+<meta property="og:description" content="61 components, 10 analysis types, AI assistant, pro oscilloscope. Free, no signup. SPICE-class browser simulator.">
 <meta property="og:url" content="https://voltxampere.com/">
 <meta property="og:type" content="website">
 <meta property="og:locale" content="en_US">
@@ -209,6 +209,35 @@ input:focus{border-color:var(--accent)}
 .embed-mode #embed-badge{display:block}
 .high-contrast{--border:#ffffff40;--border-2:#ffffff60;--text:#ffffff;--text-2:#dddddd;--text-3:#aaaaaa;--accent:#00ff88}
 .high-contrast canvas{filter:contrast(1.2)}
+
+/* AI PANEL */
+#ai-panel{display:none;position:fixed;bottom:60px;right:16px;width:360px;max-height:500px;
+  background:var(--surface-2);border:1px solid var(--border-2);border-radius:14px;
+  box-shadow:0 12px 40px rgba(0,0,0,.5);z-index:100;flex-direction:column}
+#ai-panel.show{display:flex}
+#ai-header{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+#ai-header h3{font:600 14px var(--font-ui);color:var(--accent);display:flex;align-items:center;gap:6px}
+#ai-messages{flex:1;overflow-y:auto;padding:12px;max-height:300px;display:flex;flex-direction:column;gap:8px}
+.ai-msg{padding:8px 12px;border-radius:10px;font:12px var(--font-ui);line-height:1.5;max-width:90%;word-wrap:break-word}
+.ai-msg.user{background:var(--accent-dim);color:var(--text);align-self:flex-end;border-bottom-right-radius:4px}
+.ai-msg.ai{background:var(--surface-3);color:var(--text);align-self:flex-start;border-bottom-left-radius:4px}
+#ai-quick{padding:8px 12px;display:flex;gap:6px;flex-wrap:wrap;border-top:1px solid var(--border)}
+.ai-quick-btn{padding:4px 10px;border:1px solid var(--border);border-radius:16px;background:transparent;
+  color:var(--text-2);font:500 11px var(--font-ui);cursor:pointer;transition:.15s}
+.ai-quick-btn:hover{border-color:var(--accent);color:var(--accent)}
+#ai-input-row{padding:8px 12px;border-top:1px solid var(--border);display:flex;gap:6px}
+#ai-input{flex:1;background:var(--surface-3);border:1px solid var(--border);color:var(--text);
+  border-radius:8px;padding:6px 10px;font:12px var(--font-ui);outline:none}
+#ai-input:focus{border-color:var(--accent)}
+#ai-send{padding:6px 12px;border:none;border-radius:8px;background:var(--accent);color:var(--bg);
+  font:600 12px var(--font-ui);cursor:pointer}
+#ai-fab{position:fixed;bottom:16px;right:16px;width:48px;height:48px;border-radius:50%;
+  background:var(--accent);color:var(--bg);border:none;font-size:20px;cursor:pointer;
+  box-shadow:0 4px 16px rgba(0,224,158,.3);z-index:99;transition:.15s}
+#ai-fab:hover{transform:scale(1.1);box-shadow:0 6px 24px rgba(0,224,158,.4)}
+#ai-key-row{padding:8px 12px;border-top:1px solid var(--border);display:flex;gap:6px}
+#ai-key-input{flex:1;background:var(--surface-3);border:1px solid var(--border);color:var(--text);
+  border-radius:6px;padding:4px 8px;font:11px var(--font-mono)}
 </style>
 </head>
 <body>
@@ -373,7 +402,7 @@ input:focus{border-color:var(--accent)}
     <span id="sb-dt">dt=1.00ms</span>
     <span id="sb-nodes">0 parts &middot; 0 wires</span>
     <span id="sb-fps">0 fps</span>
-    <span style="margin-left:auto;color:var(--text-4)">VoltXAmpere v4.0 — © 2026 Open Source</span>
+    <span style="margin-left:auto;color:var(--text-4)">VoltXAmpere v5.0 — © 2026 Open Source</span>
   </div>
 </div>
 
@@ -500,7 +529,7 @@ input:focus{border-color:var(--accent)}
 
 <script>
 /* ============================================================
-   VoltXAmpere v4.0 — Browser Circuit Simulator
+   VoltXAmpere v5.0 — Browser Circuit Simulator
    ============================================================ */
 
 // ──────── CONSTANTS & STATE ────────
@@ -597,6 +626,13 @@ var STR = {
     runMC:'▶ Monte Carlo', runTemp:'▶ Sıcaklık Taraması',
     runNoise:'▶ Gürültü Analizi', runSens:'▶ Duyarlılık Analizi',
     runWC:'▶ Worst-Case',
+    aiTitle:'AI Asistan', aiPlaceholder:'Sorunuzu yazın...', aiSend:'Gönder',
+    aiFindError:'Hata Bul', aiOptimize:'Optimize Et', aiExplain:'Açıkla',
+    aiApiKey:'API Anahtarı', aiApiKeyPlaceholder:'Anthropic API key...',
+    aiNoKey:'API anahtarı gerekli. Ayarlardan girin.',
+    aiThinking:'Düşünüyor...',
+    circuitDesc:'Devre Açıklaması', noCircuit:'Devre boş',
+    scriptApi:'Scripting API: console\'da VXA.help() yazın',
   },
   en: {
     undo:'Undo', redo:'Redo', wire:'Wire', rotate:'Rotate', del:'Delete',
@@ -645,6 +681,13 @@ var STR = {
     runMC:'▶ Run Monte Carlo', runTemp:'▶ Run Temp Sweep',
     runNoise:'▶ Run Noise Analysis', runSens:'▶ Run Sensitivity',
     runWC:'▶ Run Worst-Case',
+    aiTitle:'AI Assistant', aiPlaceholder:'Ask a question...', aiSend:'Send',
+    aiFindError:'Find Errors', aiOptimize:'Optimize', aiExplain:'Explain',
+    aiApiKey:'API Key', aiApiKeyPlaceholder:'Anthropic API key...',
+    aiNoKey:'API key required. Enter in settings.',
+    aiThinking:'Thinking...',
+    circuitDesc:'Circuit Description', noCircuit:'Circuit is empty',
+    scriptApi:'Scripting API: type VXA.help() in console',
   }
 };
 
@@ -670,6 +713,7 @@ function setLanguage(lang) {
   // Update embed badge
   var eb = document.getElementById('embed-badge');
   if (eb) eb.textContent = t('embedOpen');
+  if (aiVisible) updateAILabels();
   needsRender = true;
 }
 
@@ -4682,8 +4726,189 @@ function setAriaLabels() {
 setAriaLabels();
 
 // Console banner
-console.log('%c⚡ VoltXAmpere v4.0', 'color:#00e09e;font-size:18px;font-weight:bold');
-console.log('%cFree Circuit Simulator — voltxampere.com', 'color:#8899aa;font-size:12px');
+console.log('%c\u26A1 VoltXAmpere v5.0', 'color:#00e09e;font-size:18px;font-weight:bold');
+console.log('%cFree Circuit Simulator with AI \u2014 voltxampere.com', 'color:#8899aa;font-size:12px');
+console.log('%c' + t('scriptApi'), 'color:#f59e0b;font-size:11px');
+
+// ──────── AI ASSISTANT ────────
+var aiVisible = false;
+function toggleAI() {
+  aiVisible = !aiVisible;
+  document.getElementById('ai-panel').classList.toggle('show', aiVisible);
+  if (aiVisible) updateAILabels();
+}
+
+function updateAILabels() {
+  document.getElementById('ai-title-text').textContent = t('aiTitle');
+  document.getElementById('ai-input').placeholder = t('aiPlaceholder');
+  document.getElementById('ai-send').textContent = t('aiSend');
+  document.getElementById('ai-key-input').placeholder = t('aiApiKeyPlaceholder');
+  var qBtns = document.querySelectorAll('.ai-quick-btn');
+  if (qBtns[0]) qBtns[0].textContent = '\uD83D\uDD0D ' + t('aiFindError');
+  if (qBtns[1]) qBtns[1].textContent = '\u26A1 ' + t('aiOptimize');
+  if (qBtns[2]) qBtns[2].textContent = '\uD83D\uDCD6 ' + t('aiExplain');
+  var saved = localStorage.getItem('vxa_ai_key');
+  if (saved) document.getElementById('ai-key-input').value = saved;
+}
+
+function saveAIKey() {
+  var key = document.getElementById('ai-key-input').value.trim();
+  if (key) { localStorage.setItem('vxa_ai_key', key); showInfoCard('API Key', 'Saved!', ''); }
+}
+
+function getAIKey() { return localStorage.getItem('vxa_ai_key') || ''; }
+
+function describeCircuit() {
+  if (!S.parts.length) return t('noCircuit');
+  var desc = 'Circuit with ' + S.parts.length + ' components and ' + S.wires.length + ' wires:\n';
+  S.parts.forEach(function(p) {
+    var def = COMP[p.type];
+    var name = p.name || (p.type.charAt(0).toUpperCase() + p.id);
+    desc += '- ' + name + ': ' + (def ? def.en || def.name : p.type);
+    if (def && def.unit && p.val) desc += ' = ' + fmtVal(p.val, def.unit);
+    if (p.freq) desc += ', freq=' + p.freq + 'Hz';
+    desc += ' at (' + p.x + ',' + p.y + ')';
+    if (p._v) desc += ' [V=' + p._v.toFixed(3) + 'V, I=' + (p._i||0).toFixed(4) + 'A]';
+    desc += '\n';
+  });
+  desc += 'Connections: ' + S.wires.length + ' wires connecting components.\n';
+  if (S._nodeVoltages) {
+    desc += 'Node voltages: ';
+    for (var i = 1; i < Math.min(S._nodeVoltages.length, 10); i++) {
+      if (S._nodeVoltages[i] !== undefined) desc += 'N' + i + '=' + S._nodeVoltages[i].toFixed(3) + 'V ';
+    }
+  }
+  return desc;
+}
+
+function addAIMessage(text, role) {
+  var msgs = document.getElementById('ai-messages');
+  var div = document.createElement('div');
+  div.className = 'ai-msg ' + role;
+  div.textContent = text;
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function aiAsk(type) {
+  var prompts = {
+    findError: 'Analyze this circuit and find any errors, issues, or potential problems. Check for: missing ground, floating nodes, incorrect component values, short circuits, and design issues.',
+    optimize: 'Suggest optimizations for this circuit. Consider: component values, power efficiency, signal quality, and cost reduction.',
+    explain: 'Explain what this circuit does, how it works, and what each component\'s role is. Include key formulas and expected behavior.'
+  };
+  var q = prompts[type] || type;
+  aiSendMessage(q);
+}
+
+function aiSend() {
+  var input = document.getElementById('ai-input');
+  var q = input.value.trim();
+  if (!q) return;
+  input.value = '';
+  aiSendMessage(q);
+}
+
+function aiSendMessage(question) {
+  var key = getAIKey();
+  if (!key) { addAIMessage(t('aiNoKey'), 'ai'); return; }
+  addAIMessage(question, 'user');
+  addAIMessage(t('aiThinking'), 'ai');
+  var circuitInfo = describeCircuit();
+  fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': key,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 1024,
+      system: 'You are an expert electrical/electronics engineer. Analyze circuits and provide clear, concise advice. The user is working in VoltXAmpere circuit simulator. Respond in ' + (currentLang === 'tr' ? 'Turkish' : 'English') + '.',
+      messages: [{ role: 'user', content: question + '\n\nCircuit:\n' + circuitInfo }]
+    })
+  }).then(function(r) { return r.json(); })
+  .then(function(data) {
+    var msgs = document.getElementById('ai-messages');
+    msgs.lastChild.textContent = data.content && data.content[0] ? data.content[0].text : (data.error ? data.error.message : 'Error');
+  })
+  .catch(function(err) {
+    var msgs = document.getElementById('ai-messages');
+    msgs.lastChild.textContent = 'Error: ' + err.message;
+  });
+}
+
+// ──────── SCRIPTING API ────────
+window.VXA = {
+  get parts() { return S.parts; },
+  get wires() { return S.wires; },
+  addComponent: function(type, x, y, opts) {
+    opts = opts || {};
+    var def = COMP[type]; if (!def) { console.error('Unknown type: '+type); return null; }
+    var p = { id:S.nextId++, type:type, name:nextName(type), x:snap(x||0), y:snap(y||0),
+      rot:opts.rot||0, val:opts.val||def.def, freq:opts.freq||0, flipH:false, flipV:false, closed:false };
+    S.parts.push(p); needsRender=true; return p;
+  },
+  removeComponent: function(id) {
+    S.parts = S.parts.filter(function(p){return p.id !== id;});
+    needsRender = true;
+  },
+  addWire: function(x1,y1,x2,y2) {
+    S.wires.push({x1:snap(x1),y1:snap(y1),x2:snap(x2),y2:snap(y2)});
+    needsRender = true;
+  },
+  runSim: function() { if(!S.sim.running) toggleSim(); },
+  stopSim: function() { if(S.sim.running) toggleSim(); },
+  getVoltage: function(nodeIdx) { return S._nodeVoltages ? S._nodeVoltages[nodeIdx] || 0 : 0; },
+  getCurrent: function(partId) { var p=S.parts.find(function(pp){return pp.id===partId;}); return p?p._i||0:0; },
+  exportJSON: function() { exportJSON(); },
+  loadPreset: function(id) { loadPreset(id); },
+  describe: function() { return describeCircuit(); },
+  help: function() {
+    console.log('%cVoltXAmpere Scripting API', 'color:#00e09e;font-weight:bold;font-size:14px');
+    console.log('VXA.parts \u2014 all circuit components');
+    console.log('VXA.wires \u2014 all wires');
+    console.log('VXA.addComponent(type, x, y, {val, rot, freq}) \u2014 add component');
+    console.log('VXA.removeComponent(id) \u2014 remove by id');
+    console.log('VXA.addWire(x1,y1,x2,y2) \u2014 add wire');
+    console.log('VXA.runSim() / VXA.stopSim() \u2014 simulation control');
+    console.log('VXA.getVoltage(nodeIdx) \u2014 node voltage');
+    console.log('VXA.getCurrent(partId) \u2014 component current');
+    console.log('VXA.loadPreset(id) \u2014 load preset circuit');
+    console.log('VXA.describe() \u2014 circuit description text');
+    console.log('VXA.exportJSON() \u2014 download circuit JSON');
+    return 'Type any command above to use it.';
+  }
+};
+
+// ──────── CIRCUIT DESCRIPTION (pattern matching) ────────
+function getCircuitDescription() {
+  if (!S.parts.length) return t('noCircuit');
+  var types = {};
+  S.parts.forEach(function(p){ types[p.type] = (types[p.type]||0)+1; });
+  var desc = '';
+  if (types.vdc && types.resistor >= 2 && !types.capacitor && !types.inductor) {
+    desc = currentLang==='tr' ? 'Bu devre bir gerilim b\u00F6l\u00FCc\u00FCd\u00FCr.' : 'This is a voltage divider circuit.';
+    desc += ' Vout = Vin \u00D7 R2/(R1+R2)';
+  } else if (types.vac && types.resistor && types.capacitor && !types.inductor) {
+    desc = currentLang==='tr' ? 'Bu devre bir RC filtredir.' : 'This is an RC filter circuit.';
+    desc += ' fc = 1/(2\u03C0RC)';
+  } else if (types.vac && types.diode) {
+    desc = currentLang==='tr' ? 'Bu devre bir do\u011Frultucu devresidir.' : 'This is a rectifier circuit.';
+  } else if (types.opamp) {
+    desc = currentLang==='tr' ? 'Bu devre bir op-amp konfig\u00FCrasyonudur.' : 'This is an op-amp configuration.';
+  } else if (types.npn || types.pnp) {
+    desc = currentLang==='tr' ? 'Bu devre bir BJT transist\u00F6r devresidir.' : 'This is a BJT transistor circuit.';
+  } else if (types.nmos || types.pmos) {
+    desc = currentLang==='tr' ? 'Bu devre bir MOSFET devresidir.' : 'This is a MOSFET circuit.';
+  } else {
+    desc = currentLang==='tr' ?
+      S.parts.length + ' bile\u015Fenli ve ' + S.wires.length + ' kablolu bir devre.' :
+      'A circuit with ' + S.parts.length + ' components and ' + S.wires.length + ' wires.';
+  }
+  return desc;
+}
 
 // ──────── RENDER LOOP ────────
 // ──────── MINIMAP ────────
@@ -4878,7 +5103,7 @@ function generateReport() {
       reportHTML += '<span class="stat">P: '+fmtVal(p._p||0,'W')+'</span>';
     }
   }
-  reportHTML += '<hr><p style="color:#999;font-size:12px">VoltXAmpere v4.0 \u2014 voltxampere.com tarafından oluşturuldu</p>';
+  reportHTML += '<hr><p style="color:#999;font-size:12px">VoltXAmpere v5.0 \u2014 voltxampere.com tarafından oluşturuldu</p>';
   reportHTML += '</body></html>';
   var win = window.open('', '_blank');
   win.document.write(reportHTML);
@@ -4937,6 +5162,28 @@ function loop() {
 }
 requestAnimationFrame(loop);
 </script>
+<!-- AI FAB + PANEL -->
+<button id="ai-fab" onclick="toggleAI()" aria-label="AI Assistant">&#129302;</button>
+<div id="ai-panel">
+  <div id="ai-header">
+    <h3>&#129302; <span id="ai-title-text"></span></h3>
+    <button style="background:none;border:none;color:var(--text-3);font-size:16px;cursor:pointer" onclick="toggleAI()">&times;</button>
+  </div>
+  <div id="ai-messages"></div>
+  <div id="ai-quick">
+    <button class="ai-quick-btn" onclick="aiAsk('findError')"></button>
+    <button class="ai-quick-btn" onclick="aiAsk('optimize')"></button>
+    <button class="ai-quick-btn" onclick="aiAsk('explain')"></button>
+  </div>
+  <div id="ai-input-row">
+    <input id="ai-input" onkeydown="if(event.key==='Enter')aiSend()">
+    <button id="ai-send" onclick="aiSend()"></button>
+  </div>
+  <div id="ai-key-row">
+    <input id="ai-key-input" type="password" placeholder="">
+    <button style="padding:4px 8px;border:none;border-radius:4px;background:var(--surface-3);color:var(--text);font:10px var(--font-ui);cursor:pointer" onclick="saveAIKey()">&#128190;</button>
+  </div>
+</div>
 <!-- Splash failsafe: SEPARATE script so it runs even if main script has errors -->
 <script>
 (function(){
