@@ -182,10 +182,14 @@ input:focus{border-color:var(--accent)}
     <button class="tb-btn" onclick="exportSVG()" title="SVG İndir">SVG</button>
     <button class="tb-btn" onclick="exportCSV()" title="CSV İndir">CSV</button>
     <button class="tb-btn" onclick="showBOM()" title="BOM">&#128203; BOM</button>
+    <button class="tb-btn" onclick="generateReport()" title="Rapor">&#128196; Rapor</button>
     <button class="tb-btn" onclick="shareURL()" title="Paylaş">&#128279; Paylaş</button>
     <div class="tb-sep"></div>
     <button class="tb-btn" id="btn-vmap" onclick="S.voltageMap=!S.voltageMap;needsRender=true">&#9889; Renk Haritası</button>
     <div class="sim-badge">
+      <button class="tb-btn" style="font-size:10px" onclick="simStep()" title="Tek Ad&#305;m">&#9193; Ad&#305;m</button>
+      <button class="tb-btn" style="font-size:10px" onclick="simBookmark()" title="Yer &#304;mi">&#128278; &#304;&#351;aretle</button>
+      <button class="tb-btn" style="font-size:10px" onclick="simGotoBookmark()" title="Yer &#304;mine Git">&#8617; Geri</button>
       <select id="sim-speed" onchange="S.sim.speed=parseFloat(this.value)" style="background:var(--surface-3);border:1px solid var(--border);color:var(--text);border-radius:4px;padding:2px 4px;font:11px var(--font-mono);cursor:pointer">
         <option value="0.1">0.1x</option><option value="0.5">0.5x</option><option value="1" selected>1x</option><option value="2">2x</option><option value="5">5x</option><option value="10">10x</option>
       </select>
@@ -331,6 +335,8 @@ input:focus{border-color:var(--accent)}
   <div class="cm-sep"></div>
   <div class="cm-item" onclick="ctxCopy()">&#9112; Kopyala<span class="cm-key">Ctrl+C</span></div>
   <div class="cm-item" onclick="ctxDelete()" style="color:var(--red)">&#10005; Sil<span class="cm-key">Del</span></div>
+  <div class="cm-sep"></div>
+  <div class="cm-item" onclick="ctxSaveBlock()">&#9635; Blok Kaydet</div>
 </div>
 
 <!-- SPLASH SCREEN -->
@@ -449,6 +455,9 @@ const S = {
   voltageMap: false, showGrid: true,
   netNames: {},
   annotations: [],
+  subcircuits: {},
+  hierarchyStack: [],
+  groups: [],
   fps: 0, _fc: 0, _ft: performance.now()
 };
 let needsRender = true;
@@ -1755,6 +1764,19 @@ wrap.addEventListener('mousemove', e => {
 
   // dragging parts
   if (S.drag.active && S.drag.type === 'move') {
+    // If dragged part is in a group, ensure all group members are in drag.parts
+    if (S.drag.parts.length > 0) {
+      S.groups.forEach(function(g) {
+        if (S.drag.parts.some(function(dp){ return g.partIds.includes(dp.id); })) {
+          g.partIds.forEach(function(pid) {
+            if (!S.drag.parts.some(function(dp){ return dp.id === pid; })) {
+              var pp = S.parts.find(function(p){ return p.id === pid; });
+              if (pp) S.drag.parts.push({id:pid, ox:pp.x, oy:pp.y});
+            }
+          });
+        }
+      });
+    }
     const dx = w.x - S.drag.sx, dy = w.y - S.drag.sy;
     S.drag.parts.forEach(d => {
       const p = S.parts.find(pp => pp.id === d.id);
@@ -1922,7 +1944,27 @@ document.addEventListener('keydown', e => {
     }
     return;
   }
-  if (k === 'g' && !e.ctrlKey) { S.voltageMap = !S.voltageMap; needsRender = true; return; }
+  if (k === 'g' && (e.ctrlKey || e.metaKey) && !e.shiftKey) {
+    e.preventDefault();
+    if (S.sel.length < 2) return;
+    var gParts = S.parts.filter(function(p){ return S.sel.includes(p.id); });
+    var gx = Math.min.apply(null, gParts.map(function(p){return p.x;}))-40;
+    var gy = Math.min.apply(null, gParts.map(function(p){return p.y;}))-40;
+    var gw = Math.max.apply(null, gParts.map(function(p){return p.x;}))-gx+80;
+    var gh = Math.max.apply(null, gParts.map(function(p){return p.y;}))-gy+80;
+    var name = prompt('Grup adı:', 'Grup '+(S.groups.length+1));
+    if (!name) return;
+    S.groups.push({id:Date.now(), name:name, partIds:S.sel.slice(), x:gx, y:gy, w:gw, h:gh});
+    needsRender = true; return;
+  }
+  if (k === 'g' && (e.ctrlKey || e.metaKey) && e.shiftKey) {
+    e.preventDefault();
+    S.groups = S.groups.filter(function(g) {
+      return !S.sel.some(function(id){ return g.partIds.includes(id); });
+    });
+    needsRender = true; return;
+  }
+  if (k === 'g' && !e.ctrlKey && !e.metaKey) { S.voltageMap = !S.voltageMap; needsRender = true; return; }
   if (k === '?' || (k === '/' && e.shiftKey)) { document.getElementById('shortcuts-modal').classList.toggle('show'); return; }
   if (k === ' ') { e.preventDefault(); toggleSim(); return; }
   if (k === '=' || k === '+') { S.view.zoom = Math.min(S.view.maxZoom, S.view.zoom * 1.2); needsRender = true; return; }
@@ -3208,11 +3250,43 @@ function render() {
 
   S.wires.forEach(drawWire);
   drawWirePreview();
+
+  // Junction points (where 3+ wires meet)
+  var junctions = {};
+  S.wires.forEach(function(w) {
+    [w.x1+','+w.y1, w.x2+','+w.y2].forEach(function(k) {
+      junctions[k] = (junctions[k]||0) + 1;
+    });
+  });
+  for (var jk in junctions) {
+    if (junctions[jk] >= 3) {
+      var jp = jk.split(',');
+      ctx.fillStyle = '#00e09e';
+      ctx.beginPath(); ctx.arc(parseFloat(jp[0]), parseFloat(jp[1]), 4, 0, Math.PI*2); ctx.fill();
+    }
+  }
+
   S.parts.forEach(drawPart);
   drawGhostPreview();
   drawSelBox();
   drawSnapGlow();
   drawVoltageMap();
+
+  // Groups
+  S.groups.forEach(function(g) {
+    var gp = S.parts.filter(function(p){ return g.partIds.includes(p.id); });
+    if (!gp.length) return;
+    var gx = Math.min.apply(null,gp.map(function(p){return p.x;}))-30;
+    var gy = Math.min.apply(null,gp.map(function(p){return p.y;}))-30;
+    var gw = Math.max.apply(null,gp.map(function(p){return p.x;}))-gx+60;
+    var gh = Math.max.apply(null,gp.map(function(p){return p.y;}))-gy+60;
+    ctx.strokeStyle = 'rgba(236,72,153,0.4)'; ctx.lineWidth = 1; ctx.setLineDash([6,4]);
+    ctx.strokeRect(gx, gy, gw, gh);
+    ctx.setLineDash([]);
+    ctx.font = '500 10px Outfit'; ctx.fillStyle = 'rgba(236,72,153,0.6)';
+    ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
+    ctx.fillText(g.name, gx+4, gy-2);
+  });
 
   // Annotations
   S.annotations.forEach(function(a) {
@@ -4202,6 +4276,155 @@ document.getElementById('minimap').addEventListener('click', function(e) {
   S.view.oy = ch/2 - wy * S.view.zoom;
   needsRender = true;
 });
+
+// ──────── SUBCIRCUIT / BLOCK ────────
+function ctxSaveBlock() {
+  hideCtx();
+  if (S.sel.length < 2) { alert('En az 2 bileşen seçin.'); return; }
+  var name = prompt('Blok adı:', 'MyBlock');
+  if (!name) return;
+  var selParts = S.parts.filter(function(p){ return S.sel.includes(p.id); });
+  var cx = selParts.reduce(function(a,p){return a+p.x;},0) / selParts.length;
+  var cy = selParts.reduce(function(a,p){return a+p.y;},0) / selParts.length;
+  var blockPins = [];
+  selParts.forEach(function(p) {
+    var pins = getPartPins(p);
+    pins.forEach(function(pin, pi) {
+      S.wires.forEach(function(w) {
+        var wx1 = Math.round(w.x1), wy1 = Math.round(w.y1);
+        var wx2 = Math.round(w.x2), wy2 = Math.round(w.y2);
+        var px = Math.round(pin.x), py = Math.round(pin.y);
+        if ((wx1===px&&wy1===py)||(wx2===px&&wy2===py)) {
+          var otherX = (wx1===px&&wy1===py) ? wx2 : wx1;
+          var otherY = (wx1===px&&wy1===py) ? wy2 : wy1;
+          var isExternal = !selParts.some(function(sp) {
+            return getPartPins(sp).some(function(spp) { return Math.round(spp.x)===otherX && Math.round(spp.y)===otherY; });
+          });
+          if (isExternal) blockPins.push({x: pin.x - cx, y: pin.y - cy, label: 'P'+(blockPins.length+1)});
+        }
+      });
+    });
+  });
+  var relParts = selParts.map(function(p){ return {type:p.type,x:p.x-cx,y:p.y-cy,rot:p.rot||0,val:p.val,freq:p.freq||0}; });
+  var relWires = S.wires.filter(function(w) {
+    return selParts.some(function(p){ var pins=getPartPins(p); return pins.some(function(pin){return (Math.round(pin.x)===Math.round(w.x1)&&Math.round(pin.y)===Math.round(w.y1))||(Math.round(pin.x)===Math.round(w.x2)&&Math.round(pin.y)===Math.round(w.y2));}); });
+  }).map(function(w){ return {x1:w.x1-cx,y1:w.y1-cy,x2:w.x2-cx,y2:w.y2-cy}; });
+  S.subcircuits[name] = { parts: relParts, wires: relWires, pins: blockPins.length ? blockPins : [{x:-30,y:0,label:'IN'},{x:30,y:0,label:'OUT'}] };
+  COMP['block_'+name] = {
+    name: name, en: name, color: '#ec4899', unit: '', def: 0, cat: 'Blocks',
+    pins: S.subcircuits[name].pins.map(function(bp){ return {dx:bp.x, dy:bp.y}; }),
+    draw: function(c) {
+      c.strokeStyle = '#ec4899'; c.lineWidth = 2;
+      c.strokeRect(-30, -20, 60, 40);
+      c.font = '600 9px Outfit'; c.fillStyle = '#ec4899'; c.textAlign = 'center'; c.textBaseline = 'middle';
+      c.fillText(name, 0, 0);
+      S.subcircuits[name].pins.forEach(function(bp) {
+        c.beginPath(); c.moveTo(bp.x, bp.y); c.lineTo(bp.x > 0 ? bp.x+10 : bp.x-10, bp.y); c.stroke();
+        c.font = '7px "JetBrains Mono"'; c.fillText(bp.label, bp.x, bp.y-8);
+      });
+    }
+  };
+  rebuildPalette();
+  showInfoCard('Blok Kaydedildi', name + ' bloğu oluşturuldu.', blockPins.length + ' pin tespit edildi.');
+}
+
+function rebuildPalette() {
+  var el = document.getElementById('left');
+  el.innerHTML = '';
+  var cats = { Passive:'Pasif (Passive)', Sources:'Kaynaklar (Sources)', Semi:'Yarıiletken (Semiconductor)', ICs:'Entegre (ICs)', Logic:'Lojik (Logic)', Control:'Kontrol (Control)', Blocks:'Özel Bloklar', Basic:'Temel (Basic)' };
+  for (var ck in cats) {
+    var cl = cats[ck];
+    var items = Object.entries(COMP).filter(function(e){ return e[1].cat === ck; });
+    if (!items.length) continue;
+    var hdr = document.createElement('div'); hdr.className = 'cat-header open';
+    hdr.innerHTML = '<span>'+cl+'</span><span class="arrow">&#9654;</span>';
+    var body = document.createElement('div'); body.className = 'cat-body'; body.style.maxHeight = '600px';
+    items.forEach(function(e) {
+      var k = e[0], v = e[1];
+      var d = document.createElement('div'); d.className = 'comp-item';
+      d.innerHTML = '<span style="display:flex;align-items:center"><span class="dot" style="background:'+v.color+'"></span>'+v.name+'</span>'+(v.key ? '<span class="key">'+v.key+'</span>' : '');
+      d.addEventListener('click', function(){ startPlace(k); });
+      body.appendChild(d);
+    });
+    hdr.addEventListener('click', function(){ this.classList.toggle('open'); this.nextSibling.classList.toggle('closed'); });
+    el.appendChild(hdr); el.appendChild(body);
+  }
+  var psec = document.createElement('div');
+  psec.innerHTML = '<div style="margin-top:16px;padding:8px;font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:1px;border-top:2px solid var(--accent)">&#9889; Hazır Devreler</div>';
+  el.appendChild(psec);
+  PRESETS.forEach(function(pr) {
+    var d = document.createElement('div'); d.className = 'comp-item';
+    d.innerHTML = '<span style="display:flex;align-items:center"><span class="dot" style="background:'+pr.color+'"></span>'+pr.name+'</span>';
+    d.addEventListener('click', function(){ loadPreset(pr.id); });
+    el.appendChild(d);
+  });
+}
+
+// ──────── TIME CONTROL ────────
+var simBookmarkState = null;
+function simStep() {
+  if (!S.sim.running) { buildCircuitFromCanvas(); S.sim.running = false; }
+  S.sim.t += SIM_DT;
+  try { solveStep(SIM_DT); } catch(e) { S.sim.error = e.message; }
+  needsRender = true;
+  document.getElementById('sb-time').textContent = 't='+(S.sim.t*1000).toFixed(3)+'ms';
+}
+function simBookmark() {
+  simBookmarkState = { t: S.sim.t, nodeV: S._nodeVoltages ? Array.from(S._nodeVoltages) : null };
+  showInfoCard('Yer İmi', 't = '+(S.sim.t*1000).toFixed(3)+' ms işaretlendi.', 'Geri dönmek için ↩ butonunu kullanın.');
+}
+function simGotoBookmark() {
+  if (!simBookmarkState) return;
+  S.sim.t = simBookmarkState.t;
+  if (simBookmarkState.nodeV) S._nodeVoltages = new Float64Array(simBookmarkState.nodeV);
+  needsRender = true;
+  document.getElementById('sb-time').textContent = 't='+(S.sim.t*1000).toFixed(3)+'ms';
+}
+
+// ──────── CIRCUIT REPORT ────────
+function generateReport() {
+  var reportHTML = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>VoltXAmpere Devre Raporu</title>';
+  reportHTML += '<style>body{font-family:Outfit,sans-serif;max-width:800px;margin:40px auto;color:#333;line-height:1.6}';
+  reportHTML += 'h1{color:#00e09e;border-bottom:2px solid #00e09e;padding-bottom:8px}';
+  reportHTML += 'h2{color:#3b82f6;margin-top:24px}table{width:100%;border-collapse:collapse;margin:12px 0}';
+  reportHTML += 'th,td{border:1px solid #ddd;padding:8px;text-align:left}th{background:#f5f5f5}';
+  reportHTML += '.stat{display:inline-block;padding:4px 12px;margin:4px;background:#f0f9ff;border-radius:6px;font-family:"JetBrains Mono",monospace}</style></head><body>';
+  reportHTML += '<h1>&#9889; VoltXAmpere Devre Raporu</h1>';
+  reportHTML += '<p><strong>Tarih:</strong> '+ new Date().toLocaleDateString('tr-TR') +'</p>';
+  reportHTML += '<p><strong>Bileşen Sayısı:</strong> '+S.parts.length+' | <strong>Kablo Sayısı:</strong> '+S.wires.length+'</p>';
+  reportHTML += '<h2>Devre Şeması</h2>';
+  reportHTML += '<img src="'+cvs.toDataURL('image/png')+'" style="width:100%;border:1px solid #ddd;border-radius:8px">';
+  reportHTML += '<h2>Malzeme Listesi (BOM)</h2><table><tr><th>Referans</th><th>Tip</th><th>Değer</th></tr>';
+  S.parts.forEach(function(p) {
+    if (p.type === 'ground') return;
+    var def = COMP[p.type];
+    reportHTML += '<tr><td>'+(p.name||(p.type.charAt(0).toUpperCase()+p.id))+'</td><td>'+(def?def.name:p.type)+'</td><td>'+(def&&def.unit?fmtVal(p.val,def.unit):'\u2014')+'</td></tr>';
+  });
+  reportHTML += '</table>';
+  if (S._nodeVoltages && S._nodeVoltages.length > 1) {
+    reportHTML += '<h2>DC Çalışma Noktası</h2>';
+    for (var ni = 1; ni < S._nodeVoltages.length; ni++) {
+      if (S._nodeVoltages[ni] !== undefined) {
+        reportHTML += '<span class="stat">Node '+ni+': '+S._nodeVoltages[ni].toFixed(4)+' V</span> ';
+      }
+    }
+  }
+  reportHTML += '<h2>Ölçüm Sonuçları</h2>';
+  reportHTML += '<span class="stat">Simülasyon Zamanı: '+(S.sim.t*1000).toFixed(3)+' ms</span>';
+  if (S.sel.length) {
+    var p = S.parts.find(function(pp){return pp.id===S.sel[0];});
+    if (p) {
+      reportHTML += '<span class="stat">V: '+fmtVal(p._v||0,'V')+'</span>';
+      reportHTML += '<span class="stat">I: '+fmtVal(p._i||0,'A')+'</span>';
+      reportHTML += '<span class="stat">P: '+fmtVal(p._p||0,'W')+'</span>';
+    }
+  }
+  reportHTML += '<hr><p style="color:#999;font-size:12px">VoltXAmpere v3.0 \u2014 voltxampere.com tarafından oluşturuldu</p>';
+  reportHTML += '</body></html>';
+  var win = window.open('', '_blank');
+  win.document.write(reportHTML);
+  win.document.close();
+}
 
 // ──────── BOM ────────
 function showBOM() {
