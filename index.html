@@ -196,6 +196,7 @@ input:focus{border-color:var(--accent)}
       <span class="tb-badge" id="sim-label">DURDURULDU</span>
       <div class="sim-dot" id="sim-dot"></div>
       <button class="tb-btn" id="btn-sim" onclick="toggleSim()">&#9654; Başlat</button>
+      <button class="tb-btn" id="lang-btn" onclick="setLanguage(currentLang==='tr'?'en':'tr')" title="TR/EN" style="margin-left:8px">🌐 TR</button>
     </div>
   </div>
 
@@ -461,6 +462,187 @@ const S = {
   fps: 0, _fc: 0, _ft: performance.now()
 };
 let needsRender = true;
+
+// ──────── i18n ────────
+var currentLang = localStorage.getItem('vxa_lang') || (navigator.language && navigator.language.startsWith('tr') ? 'tr' : 'en');
+
+var STR = {
+  tr: {
+    undo:'Geri Al', redo:'Yinele', wire:'Kablo', rotate:'Döndür', del:'Sil',
+    save:'Kaydet', open:'Aç', png:'PNG', svg:'SVG', csv:'CSV', spiceModel:'.model',
+    share:'Paylaş', colorMap:'Renk Haritası', start:'Başlat', stop:'Durdur',
+    running:'ÇALIŞIYOR', stopped:'DURDURULDU', step:'Adım', bookmark:'İşaretle',
+    goBack:'Geri', report:'Rapor', bom:'BOM', gallery:'Galeri',
+    catPassive:'Pasif (Passive)', catSources:'Kaynaklar (Sources)',
+    catSemi:'Yarıiletken (Semiconductor)', catICs:'Entegre (ICs)',
+    catLogic:'Lojik (Logic)', catControl:'Kontrol (Control)',
+    catBlocks:'Özel Bloklar', catBasic:'Temel (Basic)',
+    noSel:'Eleman seçilmedi', value:'Değer', frequency:'Frekans',
+    rotation:'Dönüş', position:'Pozisyon', model:'Model',
+    voltage:'GERİLİM (V)', current:'AKIM (A)', power:'GÜÇ (W)', freq:'FREKANS',
+    tabScope:'Osiloskop', tabBode:'Bode Plot', tabDCSweep:'DC Sweep',
+    tabParam:'Param Sweep', tabFFT:'FFT', tabMC:'Monte Carlo',
+    tabTemp:'Sıcaklık', tabNoise:'Gürültü', tabSens:'Duyarlılık', tabWC:'Worst Case',
+    timeDiv:'Zaman/div', voltDiv:'V/div', trigAuto:'Oto', trigNormal:'Normal',
+    trigSingle:'Tek Atış', edgeRise:'Yükselen', edgeFall:'Düşen', math:'Matematik',
+    ctxEdit:'Değer Düzenle', ctxRotate:'Döndür', ctxFlipH:'Yatay Çevir',
+    ctxCopy:'Kopyala', ctxDelete:'Sil', ctxProbe:'Scope\'a Gönder', ctxBlock:'Blok Kaydet',
+    tutTitle:'Hoş Geldiniz!', tutDesc:'VoltXAmpere ile profesyonel devre simülasyonu.',
+    tutStep2:'Sol panelden bir eleman seçin veya 1-9 tuşlarına basın.',
+    tutStep3:'Canvas\'a tıklayıp yerleştirin, W tuşuyla kablo çizin.',
+    tutStep4:'Space tuşuyla simülasyonu başlatın!',
+    tutStep5:'Osiloskop ve ölçüm kartlarında sonuçları izleyin.',
+    tutSkip:'Atla', tutNext:'İleri',
+    errConv:'⚠ Yakınsama hatası', errFloat:'⚠ Bağlantısız düğüm',
+    close:'Kapat', presets:'⚡ HAZIR DEVRELER',
+    loading:'Yükleniyor...', parts:'eleman', wires:'kablo',
+    shareTitle:'Devreyi Paylaş', shareURL:'Paylaşım Linki',
+    shareEmbed:'Embed Kodu', shareQR:'QR Kod', copied:'Kopyalandı!',
+    galleryTitle:'Devre Galerisi', gallerySearch:'Devre ara...',
+    galleryLoad:'Yükle', galleryAll:'Tümü',
+    bomTitle:'Malzeme Listesi (BOM)', bomRef:'Referans', bomType:'Tip',
+    bomValue:'Değer', bomCount:'Adet', bomTotal:'Toplam',
+    reportTitle:'Devre Raporu', reportDate:'Tarih', reportSchema:'Devre Şeması',
+    reportBOM:'Malzeme Listesi', reportDC:'DC Çalışma Noktası',
+    reportMeas:'Ölçüm Sonuçları',
+    runBode:'▶ Bode Analizi Başlat', runDCSweep:'▶ DC Sweep Başlat',
+    runParam:'▶ Param Sweep Başlat', runFFT:'▶ FFT Hesapla',
+    runMC:'▶ Monte Carlo', runTemp:'▶ Sıcaklık Taraması',
+    runNoise:'▶ Gürültü Analizi', runSens:'▶ Duyarlılık Analizi',
+    runWC:'▶ Worst-Case',
+  },
+  en: {
+    undo:'Undo', redo:'Redo', wire:'Wire', rotate:'Rotate', del:'Delete',
+    save:'Save', open:'Open', png:'PNG', svg:'SVG', csv:'CSV', spiceModel:'.model',
+    share:'Share', colorMap:'Color Map', start:'Start', stop:'Stop',
+    running:'RUNNING', stopped:'STOPPED', step:'Step', bookmark:'Bookmark',
+    goBack:'Back', report:'Report', bom:'BOM', gallery:'Gallery',
+    catPassive:'Passive', catSources:'Sources',
+    catSemi:'Semiconductor', catICs:'Integrated (ICs)',
+    catLogic:'Logic', catControl:'Control',
+    catBlocks:'Custom Blocks', catBasic:'Basic',
+    noSel:'No component selected', value:'Value', frequency:'Frequency',
+    rotation:'Rotation', position:'Position', model:'Model',
+    voltage:'VOLTAGE (V)', current:'CURRENT (A)', power:'POWER (W)', freq:'FREQUENCY',
+    tabScope:'Oscilloscope', tabBode:'Bode Plot', tabDCSweep:'DC Sweep',
+    tabParam:'Param Sweep', tabFFT:'FFT', tabMC:'Monte Carlo',
+    tabTemp:'Temperature', tabNoise:'Noise', tabSens:'Sensitivity', tabWC:'Worst Case',
+    timeDiv:'Time/div', voltDiv:'V/div', trigAuto:'Auto', trigNormal:'Normal',
+    trigSingle:'Single', edgeRise:'Rising', edgeFall:'Falling', math:'Math',
+    ctxEdit:'Edit Value', ctxRotate:'Rotate', ctxFlipH:'Flip H',
+    ctxCopy:'Copy', ctxDelete:'Delete', ctxProbe:'Send to Scope', ctxBlock:'Save as Block',
+    tutTitle:'Welcome!', tutDesc:'Professional circuit simulation with VoltXAmpere.',
+    tutStep2:'Select a component from the left panel or press 1-9.',
+    tutStep3:'Click canvas to place, press W to draw wires.',
+    tutStep4:'Press Space to start simulation!',
+    tutStep5:'Watch results in the oscilloscope and measurement cards.',
+    tutSkip:'Skip', tutNext:'Next',
+    errConv:'⚠ Convergence error', errFloat:'⚠ Floating node',
+    close:'Close', presets:'⚡ EXAMPLE CIRCUITS',
+    loading:'Loading...', parts:'parts', wires:'wires',
+    shareTitle:'Share Circuit', shareURL:'Share Link',
+    shareEmbed:'Embed Code', shareQR:'QR Code', copied:'Copied!',
+    galleryTitle:'Circuit Gallery', gallerySearch:'Search circuits...',
+    galleryLoad:'Load', galleryAll:'All',
+    bomTitle:'Bill of Materials', bomRef:'Reference', bomType:'Type',
+    bomValue:'Value', bomCount:'Qty', bomTotal:'Total',
+    reportTitle:'Circuit Report', reportDate:'Date', reportSchema:'Schematic',
+    reportBOM:'Bill of Materials', reportDC:'DC Operating Point',
+    reportMeas:'Measurements',
+    runBode:'▶ Run Bode', runDCSweep:'▶ Run DC Sweep',
+    runParam:'▶ Run Param Sweep', runFFT:'▶ Run FFT',
+    runMC:'▶ Run Monte Carlo', runTemp:'▶ Run Temp Sweep',
+    runNoise:'▶ Run Noise Analysis', runSens:'▶ Run Sensitivity',
+    runWC:'▶ Run Worst-Case',
+  }
+};
+
+function t(k) { return (STR[currentLang] && STR[currentLang][k]) || (STR.en && STR.en[k]) || k; }
+
+function setLanguage(lang) {
+  currentLang = lang;
+  localStorage.setItem('vxa_lang', lang);
+  var lb = document.getElementById('lang-btn');
+  if (lb) lb.textContent = '\uD83C\uDF10 ' + lang.toUpperCase();
+  rebuildPalette();
+  updateInspector();
+  updateTopbarLabels();
+  updateTabLabels();
+  updateOverlays();
+  updateCtxMenuLabels();
+  document.getElementById('sim-label').textContent = S.sim.running ? t('running') : t('stopped');
+  document.getElementById('btn-sim').innerHTML = (S.sim.running ? '&#9646;&#9646; ' + t('stop') : '&#9654; ' + t('start'));
+  updateMeasLabels();
+  needsRender = true;
+}
+
+function updateTopbarLabels() {
+  var btns = document.querySelectorAll('#topbar .tb-btn');
+  btns.forEach(function(b) {
+    var oc = b.getAttribute('onclick') || '';
+    if (oc.indexOf('undo') !== -1 && oc.indexOf('simGoto') === -1) b.innerHTML = '&#8630; ' + t('undo');
+    else if (oc.indexOf('redo') !== -1) b.innerHTML = '&#8631; ' + t('redo');
+    else if (oc.indexOf('toggleWire') !== -1) b.innerHTML = '&#9866; ' + t('wire');
+    else if (oc.indexOf('rotateSelected') !== -1) b.innerHTML = '&#8635; ' + t('rotate');
+    else if (oc.indexOf('deleteSelected') !== -1) b.innerHTML = '&#10005; ' + t('del');
+    else if (oc.indexOf('exportJSON') !== -1) b.innerHTML = '&#128190; ' + t('save');
+    else if (oc.indexOf('importJSON') !== -1) b.innerHTML = '&#128194; ' + t('open');
+    else if (oc.indexOf('shareURL') !== -1) b.innerHTML = '&#128279; ' + t('share');
+    else if (oc.indexOf('showBOM') !== -1) b.innerHTML = '&#128203; ' + t('bom');
+    else if (oc.indexOf('generateReport') !== -1) b.innerHTML = '&#128196; ' + t('report');
+    else if (oc.indexOf('voltageMap') !== -1) b.innerHTML = '&#9889; ' + t('colorMap');
+    else if (oc.indexOf('simStep') !== -1) b.innerHTML = '&#9197; ' + t('step');
+    else if (oc.indexOf('simBookmark()') !== -1) b.innerHTML = '&#128278; ' + t('bookmark');
+    else if (oc.indexOf('simGotoBookmark') !== -1) b.innerHTML = '&#8617; ' + t('goBack');
+  });
+}
+
+function updateTabLabels() {
+  var tabs = document.querySelectorAll('.btab');
+  var map = {scope:'tabScope',bode:'tabBode',dcsweep:'tabDCSweep',paramsweep:'tabParam',
+    fft:'tabFFT',montecarlo:'tabMC',tempsweep:'tabTemp',noise:'tabNoise',
+    sensitivity:'tabSens',worstcase:'tabWC'};
+  tabs.forEach(function(tb) {
+    var dt = tb.getAttribute('data-tab');
+    if (dt && map[dt]) tb.textContent = t(map[dt]);
+  });
+}
+
+function updateMeasLabels() {
+  var cards = document.querySelectorAll('.mcard-label');
+  var labels = ['voltage','current','power','freq'];
+  cards.forEach(function(c, i) { if (labels[i]) c.textContent = t(labels[i]); });
+}
+
+function updateOverlays() {
+  var ovMap = {
+    'ov-bode': 'runBode', 'ov-dcsweep': 'runDCSweep', 'ov-paramsweep': 'runParam',
+    'ov-fft': 'runFFT', 'ov-montecarlo': 'runMC', 'ov-tempsweep': 'runTemp',
+    'ov-noise': 'runNoise', 'ov-sensitivity': 'runSens', 'ov-worstcase': 'runWC'
+  };
+  for (var id in ovMap) {
+    var ov = document.getElementById(id);
+    if (ov) {
+      var btn = ov.querySelector('.run-btn');
+      if (btn) btn.textContent = t(ovMap[id]);
+    }
+  }
+}
+
+function updateCtxMenuLabels() {
+  var items = document.querySelectorAll('#ctx-menu .cm-item');
+  var keys = ['ctxEdit','ctxRotate','ctxFlipH',null,'ctxProbe','ctxCopy','ctxDelete','ctxBlock'];
+  var icons = {'ctxEdit':'&#9998; ','ctxRotate':'&#8635; ','ctxFlipH':'&#8644; ','ctxProbe':'&#9906; ','ctxCopy':'&#9112; ','ctxDelete':'&#10005; ','ctxBlock':'&#9635; '};
+  var ki = 0;
+  items.forEach(function(item) {
+    if (ki < keys.length && keys[ki] !== null) {
+      var keySpan = item.querySelector('.cm-key');
+      var keyHTML = keySpan ? keySpan.outerHTML : '';
+      item.innerHTML = (icons[keys[ki]] || '') + t(keys[ki]) + keyHTML;
+    }
+    ki++;
+  });
+}
 
 // ──────── GATE DRAWING HELPER ────────
 function drawGateBody(c, type, color) {
@@ -1641,7 +1823,7 @@ function doDuplicate() {
 // ──────── INSPECTOR ────────
 function updateInspector() {
   const el = document.getElementById('inspector');
-  if (!S.sel.length) { el.innerHTML = '<div class="insp-empty">Eleman seçilmedi</div>'; return; }
+  if (!S.sel.length) { el.innerHTML = '<div class="insp-empty">'+t('noSel')+'</div>'; return; }
   const p = S.parts.find(pp => pp.id === S.sel[0]); if (!p) { el.innerHTML = ''; return; }
   const def = COMP[p.type];
   el.innerHTML = `
@@ -3471,12 +3653,12 @@ function loadFromURL() {
 }
 
 // ──────── TUTORIAL ────────
-const TUT_STEPS = [
-  { title: 'VoltXAmpere\'a Hoş Geldiniz!', text: 'Ücretsiz, profesyonel devre simülatörü. Gerçek MNA çözücü, 4 kanallı osiloskop, 8 hazır devre. Hadi başlayalım!' },
-  { title: 'Eleman Seçin', text: 'Sol panelden bir eleman seçin veya 1-9 tuşlarına basın. Örneğin 1 = Direnç, 4 = DC Kaynak, 8 = Toprak.' },
-  { title: 'Devre Kurun', text: 'Canvas\'a tıklayarak elemanı yerleştirin. W tuşuyla kablo çizin — pin\'lere yaklaşınca yeşil snap glow göreceksiniz.' },
-  { title: 'Simülasyonu Başlatın', text: 'Space tuşuna basın! Kablolarda enerji partikülleri akmaya başlayacak, LED\'ler parlayacak.' },
-  { title: 'Sonuçları İzleyin', text: 'Osiloskopda dalga formları, ölçüm kartlarında V/I/P değerleri canlı güncellenir. Hazır devrelerle deneyin!' },
+var TUT_STEPS = [
+  { title: function(){return t('tutTitle');}, text: function(){return t('tutDesc');} },
+  { title: function(){return t('tutStep2');}, text: function(){return '';} },
+  { title: function(){return t('tutStep3');}, text: function(){return '';} },
+  { title: function(){return t('tutStep4');}, text: function(){return '';} },
+  { title: function(){return t('tutStep5');}, text: function(){return '';} },
 ];
 let tutStep = 0;
 
@@ -3487,9 +3669,14 @@ function startTutorial() {
 }
 
 function showTutStep() {
-  const s = TUT_STEPS[tutStep];
-  document.getElementById('tut-title').textContent = s.title;
-  document.getElementById('tut-text').textContent = s.text;
+  var s = TUT_STEPS[tutStep];
+  document.getElementById('tut-title').textContent = typeof s.title === 'function' ? s.title() : s.title;
+  document.getElementById('tut-text').textContent = typeof s.text === 'function' ? s.text() : s.text;
+  // Update tutorial button labels
+  var skipBtn = document.querySelector('.tut-btn-skip');
+  var nextBtn = document.querySelector('.tut-btn-next');
+  if (skipBtn) skipBtn.textContent = t('tutSkip');
+  if (nextBtn) nextBtn.textContent = t('tutNext');
   const dots = document.getElementById('tut-dots');
   dots.innerHTML = TUT_STEPS.map((_, i) => `<div class="step-dot${i === tutStep ? ' active' : ''}"></div>`).join('');
 }
@@ -4215,6 +4402,18 @@ if ('serviceWorker' in navigator) {
 // ──────── STARTUP ────────
 loadFromURL();
 
+// Initialize language
+(function() {
+  var lb = document.getElementById('lang-btn');
+  if (lb) lb.textContent = '\uD83C\uDF10 ' + currentLang.toUpperCase();
+  updateTopbarLabels();
+  updateTabLabels();
+  updateMeasLabels();
+  updateOverlays();
+  document.getElementById('sim-label').textContent = S.sim.running ? t('running') : t('stopped');
+  document.getElementById('btn-sim').innerHTML = (S.sim.running ? '&#9646;&#9646; ' + t('stop') : '&#9654; ' + t('start'));
+})();
+
 // Splash is dismissed by the failsafe script at the bottom of <body>
 
 // Tutorial on first visit
@@ -4331,7 +4530,7 @@ function ctxSaveBlock() {
 function rebuildPalette() {
   var el = document.getElementById('left');
   el.innerHTML = '';
-  var cats = { Passive:'Pasif (Passive)', Sources:'Kaynaklar (Sources)', Semi:'Yarıiletken (Semiconductor)', ICs:'Entegre (ICs)', Logic:'Lojik (Logic)', Control:'Kontrol (Control)', Blocks:'Özel Bloklar', Basic:'Temel (Basic)' };
+  var cats = { Passive:t('catPassive'), Sources:t('catSources'), Semi:t('catSemi'), ICs:t('catICs'), Logic:t('catLogic'), Control:t('catControl'), Blocks:t('catBlocks'), Basic:t('catBasic') };
   for (var ck in cats) {
     var cl = cats[ck];
     var items = Object.entries(COMP).filter(function(e){ return e[1].cat === ck; });
@@ -4350,7 +4549,7 @@ function rebuildPalette() {
     el.appendChild(hdr); el.appendChild(body);
   }
   var psec = document.createElement('div');
-  psec.innerHTML = '<div style="margin-top:16px;padding:8px;font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:1px;border-top:2px solid var(--accent)">&#9889; Hazır Devreler</div>';
+  psec.innerHTML = '<div style="margin-top:16px;padding:8px;font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:1px;border-top:2px solid var(--accent)">'+t('presets')+'</div>';
   el.appendChild(psec);
   PRESETS.forEach(function(pr) {
     var d = document.createElement('div'); d.className = 'comp-item';
