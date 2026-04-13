@@ -2,28 +2,28 @@
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>VoltXAmpere v7.0 — Free Online Circuit Simulator | Ücretsiz Devre Simülatörü</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>VoltXAmpere v7.1 — Free Online Circuit Simulator | Ücretsiz Devre Simülatörü</title>
 <meta name="description" content="World's most advanced free online circuit simulator. 64+ components, 50+ SPICE models, Gummel-Poon BJT, AC analysis, thermal simulation, CRT oscilloscope, interactive tutorials. No installation needed.">
 <meta name="keywords" content="circuit simulator, SPICE, devre simülatörü, elektronik, electronics, voltxampere, free, online, oscilloscope, bode plot, thermal, Newton-Raphson, MNA, Gummel-Poon">
 <meta name="author" content="VoltXAmpere">
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="https://voltxampere.com/">
-<meta property="og:title" content="VoltXAmpere v7.0 — Ultimate Circuit Simulator">
+<meta property="og:title" content="VoltXAmpere v7.1 — Ultimate Circuit Simulator">
 <meta property="og:description" content="64+ components, 50+ SPICE models, AC analysis, thermal simulation, CRT oscilloscope. Free and open source.">
 <meta property="og:url" content="https://voltxampere.com/">
 <meta property="og:type" content="website">
 <meta property="og:locale" content="tr_TR">
 <meta property="og:locale:alternate" content="en_US">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="VoltXAmpere v7.0 — Free Circuit Simulator">
+<meta name="twitter:title" content="VoltXAmpere v7.1 — Free Circuit Simulator">
 <meta name="twitter:description" content="64+ components, 50+ SPICE models, AC analysis, thermal simulation. The world's most advanced free circuit simulator.">
 <meta name="theme-color" content="#00d4ff">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="VoltXAmpere">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='28' font-size='28'%3E%E2%9A%A1%3C/text%3E%3C/svg%3E">
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"VoltXAmpere","url":"https://voltxampere.com","description":"Free online circuit simulator with SPICE-accurate engine","applicationCategory":"EducationalApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"featureList":"Circuit simulation, 50+ SPICE models, Thermal analysis, CRT Oscilloscope, Bode plot, Interactive tutorials, Net labels, Subcircuits"}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"VoltXAmpere v7.1","url":"https://voltxampere.com","description":"Free online circuit simulator with SPICE-accurate engine, 64+ components, thermal simulation, CRT oscilloscope","applicationCategory":"EducationalApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"featureList":"Circuit simulation, 50+ SPICE models, Thermal analysis, CRT Oscilloscope, Bode plot, Interactive tutorials, Net labels, Subcircuits"}</script>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
@@ -364,6 +364,39 @@ input:focus{border-color:var(--accent)}
 #ai-key-row{padding:8px 12px;border-top:1px solid var(--border);display:flex;gap:6px}
 #ai-key-input{flex:1;background:var(--surface-3);border:1px solid var(--border);color:var(--text);
   border-radius:6px;padding:4px 8px;font:11px var(--font-mono)}
+
+/* === MOBILE RESPONSIVE === */
+@media (max-width: 768px) {
+  #app{grid-template-columns:1fr!important;grid-template-rows:44px 1fr 140px 26px}
+  #left{display:none}
+  #right{display:none}
+  #topbar{overflow-x:auto;-webkit-overflow-scrolling:touch;gap:4px;padding:0 6px}
+  .tb-sep{display:none}
+  .logo{font-size:14px;margin-right:6px}
+  .tb-btn{padding:6px 8px;font-size:11px;white-space:nowrap}
+  .sim-badge{gap:4px}
+  #statusbar{font-size:10px;gap:8px;padding:0 6px}
+  #scope-controls{flex-wrap:wrap;gap:2px}
+  .sc-group{gap:2px}
+  #bottom{grid-template-rows:auto 1fr}
+  .btab{padding:4px 8px;font-size:10px}
+  #settings-modal>#settings-box,
+  .share-box,
+  #about-box,
+  #ency-box,
+  .gallery-modal>div{width:95vw!important;max-width:95vw!important;max-height:90vh!important}
+  .gallery-grid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
+  #ai-panel{width:calc(100vw - 32px);right:8px;bottom:56px}
+}
+@media (min-width:769px) and (max-width:1024px) {
+  #app{grid-template-columns:180px 1fr 220px}
+  #left{padding:4px}
+  #right{padding:6px}
+}
+/* Touch hover disable */
+@media (hover:none) {
+  .tb-btn:hover,.comp-item:hover,.cat-header:hover{background:inherit;color:inherit}
+}
 </style>
 </head>
 <body>
@@ -546,7 +579,7 @@ input:focus{border-color:var(--accent)}
     <span id="sb-temp" style="color:var(--text-3)"></span>
     <span id="sb-engine" style="color:var(--text-4)"></span>
     <span id="sb-extra" style="color:var(--text-3)"></span>
-    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v7.0 — © 2026 Open Source</span>
+    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v7.1 — © 2026 Open Source</span>
   </div>
 </div>
 
@@ -721,9 +754,54 @@ input:focus{border-color:var(--accent)}
 
 <noscript><div style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#06080c;color:#e0e7f0;font-family:sans-serif;text-align:center;padding:40px"><div><h1 style="color:#00e09e;margin-bottom:12px">VoltXAmpere</h1><p>Bu uygulama JavaScript gerektirir.<br>Lütfen tarayıcınızda JavaScript'i etkinleştirin.</p></div></div></noscript>
 
+<!-- AI FAB + PANEL -->
+<button id="ai-fab" onclick="toggleAI()" aria-label="AI Assistant">&#129302;</button>
+<div id="ai-panel">
+  <div id="ai-header">
+    <h3>&#129302; <span id="ai-title-text"></span></h3>
+    <button style="background:none;border:none;color:var(--text-3);font-size:16px;cursor:pointer" onclick="toggleAI()">&times;</button>
+  </div>
+  <div id="ai-messages"></div>
+  <div id="ai-quick">
+    <button class="ai-quick-btn" onclick="aiAsk('findError')"></button>
+    <button class="ai-quick-btn" onclick="aiAsk('optimize')"></button>
+    <button class="ai-quick-btn" onclick="aiAsk('explain')"></button>
+  </div>
+  <div id="ai-input-row">
+    <input id="ai-input" onkeydown="if(event.key==='Enter')aiSend()">
+    <button id="ai-send" onclick="aiSend()"></button>
+  </div>
+  <div id="ai-key-row">
+    <input id="ai-key-input" type="password" placeholder="">
+    <button style="padding:4px 8px;border:none;border-radius:4px;background:var(--surface-3);color:var(--text);font:10px var(--font-ui);cursor:pointer" onclick="saveAIKey()">&#128190;</button>
+  </div>
+</div>
+<!-- Splash failsafe: SEPARATE script so it runs even if main script has errors -->
+<!-- Splash failsafe: SEPARATE script so it runs even if main script has errors -->
 <script>
+(function(){
+  function kill(){var s=document.getElementById('splash');if(!s)return;s.style.transition='opacity .4s';s.style.opacity='0';s.style.pointerEvents='none';setTimeout(function(){if(s&&s.parentNode)s.parentNode.removeChild(s);},500);}
+  setTimeout(kill,2000);
+  if(document.readyState==='complete')setTimeout(kill,200);
+  else window.addEventListener('load',function(){setTimeout(kill,300);});
+})();
+</script>
+<div id="bom-modal" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.6);align-items:center;justify-content:center" onclick="if(event.target===this)this.style.display='none'">
+  <div style="background:var(--surface-2);border:1px solid var(--border-2);border-radius:14px;padding:24px;max-width:600px;width:90%;max-height:80vh;overflow-y:auto;box-shadow:0 12px 40px rgba(0,0,0,.5)">
+    <div style="display:flex;justify-content:space-between;margin-bottom:16px">
+      <h2 style="font:600 16px var(--font-ui);color:var(--accent)">Bill of Materials (BOM)</h2>
+      <button style="font-size:18px;color:var(--text-3);cursor:pointer;background:none;border:none" onclick="document.getElementById('bom-modal').style.display='none'">&times;</button>
+    </div>
+    <div id="bom-table"></div>
+    <button class="run-btn" style="margin-top:12px" onclick="exportBOMCSV()">CSV &#304;ndir</button>
+  </div>
+</div>
+
+<script>
+
+// ═══ namespace.js ═══
 /* ============================================================
-   VoltXAmpere v7.0 — Browser Circuit Simulator
+   VoltXAmpere v7.1 — Browser Circuit Simulator
    ============================================================ */
 
 // ──────── VXA NAMESPACE ────────
@@ -825,6 +903,7 @@ const S = {
 VXA.State = S; // Backward compat reference
 let needsRender = true;
 
+// ═══ i18n.js ═══
 // ──────── i18n ────────
 var currentLang = localStorage.getItem('vxa_lang') || (navigator.language && navigator.language.startsWith('tr') ? 'tr' : 'en');
 
@@ -894,6 +973,7 @@ var STR = {
     energyDamage:'Enerji tabanlı hasar', evpMethod:'EVP (Pesimist)', rssMethod:'RSS (İstatistiksel)',
     bothMethods:'Her İkisi', quickStart:'Hızlı Başla', ledCircuit:'LED Yak',
     rcFilter:'RC Filtre', voltageDivider:'Gerilim Bölücü', zenerReg:'Zener Regülatör',
+    storageFull:'Depolama alanı dolu. Devrenizi JSON olarak kaydedin.',
   },
   en: {
     undo:'Undo', redo:'Redo', wire:'Wire', rotate:'Rotate', del:'Delete',
@@ -960,6 +1040,7 @@ var STR = {
     energyDamage:'Energy-based damage', evpMethod:'EVP (Pessimistic)', rssMethod:'RSS (Statistical)',
     bothMethods:'Both', quickStart:'Quick Start', ledCircuit:'Light an LED',
     rcFilter:'RC Filter', voltageDivider:'Voltage Divider', zenerReg:'Zener Regulator',
+    storageFull:'Storage full. Please export your circuit as JSON.',
   }
 };
 
@@ -1057,6 +1138,8 @@ function updateCtxMenuLabels() {
   });
 }
 
+
+// ═══ definitions.js ═══
 // ──────── GATE DRAWING HELPER ────────
 function drawGateBody(c, type, color) {
   c.strokeStyle = color; c.lineWidth = 2; c.fillStyle = color;
@@ -1859,7 +1942,8 @@ var COMP = {
   }
 };
 
-// ──────── BUILD LEFT PANEL (PALETTE) ────────
+
+// ═══ presets.js ═══
 // ──────── PRESETS ────────
 var PRESETS = [
   { id:'vdiv', name:'Gerilim Bölücü', color:'#00e09e',
@@ -2107,6 +2191,7 @@ var PRESETS = [
   });
 })();
 
+// ═══ canvas-setup.js ═══
 // ──────── CANVAS SETUP ────────
 const cvs = document.getElementById('C'), ctx = cvs.getContext('2d');
 const scvs = document.getElementById('SC'), sctx = scvs.getContext('2d');
@@ -2153,6 +2238,8 @@ function hitTestPart(wx, wy) {
   return null;
 }
 
+
+// ═══ history.js ═══
 // ──────── UNDO / REDO ────────
 function saveUndo() {
   S.undoStack.push(JSON.stringify({ parts: S.parts, wires: S.wires, nextId: S.nextId }));
@@ -2172,6 +2259,8 @@ function redo() {
   S.parts = n.parts; S.wires = n.wires; S.nextId = n.nextId; S.sel = []; needsRender = true; updateInspector();
 }
 
+
+// ═══ helpers.js ═══
 // ──────── FORMAT VALUE (ENGINEERING NOTATION) ────────
 function fmtVal(v, u) {
   if (v == null || !u) return '';
@@ -2247,6 +2336,8 @@ function deleteSelected() {
   S.sel = []; needsRender = true; updateInspector();
 }
 
+
+// ═══ context-menu-basic.js ═══
 // ──────── CONTEXT MENU ────────
 const ctxMenu = document.getElementById('ctx-menu');
 function showCtx(x, y) { ctxMenu.style.display = 'block'; ctxMenu.style.left = x + 'px'; ctxMenu.style.top = y + 'px'; }
@@ -2262,6 +2353,8 @@ function ctxFlipV() { hideCtx(); if (!S.sel.length) return; saveUndo(); S.parts.
 function ctxCopy() { hideCtx(); doCopy(); }
 function ctxDelete() { hideCtx(); deleteSelected(); }
 
+
+// ═══ clipboard.js ═══
 // ──────── COPY / PASTE / DUPLICATE ────────
 function doCopy() {
   if (!S.sel.length) return;
@@ -2291,6 +2384,8 @@ function doDuplicate() {
   S.sel = newSel; needsRender = true; updateInspector();
 }
 
+
+// ═══ inspector-basic.js ═══
 // ──────── INSPECTOR ────────
 function updateInspector() {
   const el = document.getElementById('inspector');
@@ -2429,6 +2524,8 @@ function setLDRLight(v) {
   needsRender = true; updateInspector();
 }
 
+
+// ═══ mouse.js ═══
 // ──────── MOUSE EVENTS ────────
 const wrap = document.getElementById('canvas-wrap');
 
@@ -2595,6 +2692,8 @@ wrap.addEventListener('contextmenu', function(e) {
 
 document.addEventListener('mousedown', e => { if (!ctxMenu.contains(e.target)) hideCtx(); });
 
+
+// ═══ keyboard.js ═══
 // ──────── KEYBOARD EVENTS ────────
 document.addEventListener('keydown', e => {
   const t = e.target.tagName; if (t === 'INPUT' || t === 'TEXTAREA') return;
@@ -2664,6 +2763,8 @@ document.addEventListener('keydown', e => {
   }
 });
 
+
+// ═══ drawing.js ═══
 // ──────── DRAWING FUNCTIONS ────────
 function getDetailLevel() {
   if (S.view.zoom < 0.3) return 'overview';
@@ -3442,6 +3543,8 @@ function drawScope() {
   }
 }
 
+
+// ═══ scope-controls.js ═══
 // ──────── SCOPE CONTROLS ────────
 function toggleCh(idx, on) { S.scope.ch[idx].on = on; needsRender = true; }
 function setTDiv(v) { S.scope.tDiv = parseFloat(v); needsRender = true; }
@@ -3478,6 +3581,8 @@ function ctxProbe() {
   assignProbe(S.sel[0]);
 }
 
+
+// ═══ a11y-pwa.js ═══
 // ──────── SPRINT 10: FİNAL CİLALAMA + PWA + A11Y ────────
 
 // 10.1: PWA MANIFEST (inline)
@@ -3530,27 +3635,40 @@ function toggleHighContrast() {
 // 10.4: CHANGELOG
 function showChangelog() {
   var html = '<div style="font:12px var(--font-ui);color:var(--text-2);line-height:1.7;max-height:400px;overflow-y:auto;padding:8px">';
-  html += '<h3 style="color:var(--accent);font-size:14px;margin:0 0 8px">v7.0 \u2014 Phase 2</h3>';
+  html += '<h3 style="color:var(--accent);font-size:14px;margin:0 0 8px">v7.1 \u2014 Accuracy & Quality</h3>';
+  html += '<p>\u2022 Banded sparse \u00e7\u00f6z\u00fcc\u00fc (Cuthill-McKee, O(n\u00d7bw\u00b2))</p>';
+  html += '<p>\u2022 SPICE3f5 junction voltage limiting</p>';
+  html += '<p>\u2022 Trapezoidal integration (BE/TRAP otomatik)</p>';
+  html += '<p>\u2022 Kademeli GMIN stepping (1e-2 \u2192 1e-12)</p>';
+  html += '<p>\u2022 Noise analizi yeniden yaz\u0131ld\u0131 (per-source transfer)</p>';
+  html += '<p>\u2022 Op-Amp 2 kutuplu model + slew rate + sat\u00fcrasyon</p>';
+  html += '<p>\u2022 10 referans devre cross-validation (hepsi PASS)</p>';
+  html += '<p>\u2022 Enerji tabanl\u0131 hasar modeli</p>';
+  html += '<p>\u2022 Worst-case RSS y\u00f6ntemi</p>';
+  html += '<p>\u2022 30 bile\u015fen ansiklopedisi</p>';
+  html += '<p>\u2022 Quick Start \u015fablonlar\u0131</p>';
+  html += '<p>\u2022 i18n tam \u00e7eviri (81 key)</p>';
+  html += '<p>\u2022 76 mod\u00fcler kaynak dosya + build sistemi</p>';
+  html += '<p>\u2022 Mobil responsive CSS</p>';
+  html += '<h3 style="color:var(--accent);font-size:14px;margin:16px 0 8px">v7.0 \u2014 Phase 2</h3>';
   html += '<p>\u2022 Sparse MNA + Newton-Raphson (30 iter, damping)</p>';
-  html += '<p>\u2022 Adaptif zaman ad\u0131m\u0131 (1ns\u2013100\u00b5s)</p>';
-  html += '<p>\u2022 50+ ger\u00e7ek SPICE model (2N2222, 1N4148, LM741...)</p>';
-  html += '<p>\u2022 Gummel-Poon BJT + MOSFET Level 1 + parasitikler</p>';
-  html += '<p>\u2022 AC small-signal analiz (kompleks matris)</p>';
-  html += '<p>\u2022 Noise, Sensitivity, Worst-Case, Monte Carlo</p>';
-  html += '<p>\u2022 Net label sistemi (VCC, GND, \u00f6zel)</p>';
-  html += '<p>\u2022 Subcircuit bloklar + SPICE import/export</p>';
+  html += '<p>\u2022 50+ SPICE model, Gummel-Poon BJT, MOSFET Level 1</p>';
+  html += '<p>\u2022 AC analiz, Noise, Sensitivity, Monte Carlo</p>';
+  html += '<p>\u2022 Net label, Subcircuit, SPICE import/export</p>';
   html += '<p>\u2022 PWA + Eri\u015filebilirlik (WCAG 2.1 AA)</p>';
   html += '<h3 style="color:var(--green);font-size:14px;margin:16px 0 8px">v6.0 \u2014 Phase 1</h3>';
   html += '<p>\u2022 5 arka plan, 4 kablo stili, IEC/ANSI sembol</p>';
-  html += '<p>\u2022 Termal sim\u00fclasyon + hasar + patikül efektleri</p>';
+  html += '<p>\u2022 Termal sim\u00fclasyon + hasar + partik\u00fcl efektleri</p>';
   html += '<p>\u2022 CRT phosphor osiloskop + 7 ses efekti</p>';
-  html += '<p>\u2022 5 interaktif ders + bile\u015fen ansiklopedisi</p>';
+  html += '<p>\u2022 5 interaktif ders + ansiklopedi</p>';
   html += '</div>';
   var modal = document.getElementById('about-modal');
-  if (modal) { document.getElementById('about-box').innerHTML = html + '<div style="margin-top:12px;text-align:center"><button style="padding:6px 16px;border-radius:6px;background:var(--surface-3);color:var(--text);border:1px solid var(--border);cursor:pointer;font:12px var(--font-ui)" onclick="document.getElementById(\'about-modal\').classList.remove(\'show\')">Kapat</button></div>'; modal.classList.add('show'); }
+  if (modal) { document.getElementById('about-box').innerHTML = html + '<div style="margin-top:12px;text-align:center"><button style="padding:6px 16px;border-radius:6px;background:var(--surface-3);color:var(--text);border:1px solid var(--border);cursor:pointer;font:12px var(--font-ui)" onclick="document.getElementById(\'about-modal\').classList.remove(\'show\')">' + (currentLang==='tr'?'Kapat':'Close') + '</button></div>'; modal.classList.add('show'); }
 }
 
 // 10.5: PERFORMANCE BENCHMARK
+
+// ═══ benchmark.js ═══
 VXA.Benchmark = (function() {
   function measureSimStep(count) {
     if (!SIM || SIM.N <= 1) return { avg: 0, max: 0 };
@@ -3577,7 +3695,7 @@ VXA.Benchmark = (function() {
     return results;
   }
   function report(r) {
-    console.log('=== VoltXAmpere v7.0 Benchmark ===');
+    console.log('=== VoltXAmpere v7.1 Benchmark ===');
     console.log('Parts: ' + r.parts + ', Wires: ' + r.wires + ', Nodes: ' + r.nodes);
     console.log('Build circuit: ' + r.buildTime + 'ms');
     console.log('Sim step: ' + r.simStep.avg + 'ms avg, ' + r.simStep.max + 'ms max');
@@ -3586,6 +3704,7 @@ VXA.Benchmark = (function() {
   return { run: run, report: report };
 })();
 
+// ═══ validation.js ═══
 // ──────── SPRINT 13: CROSS-VALIDATION ────────
 VXA.Validation = (function() {
   function setupCircuit(parts, wires) {
@@ -3914,6 +4033,175 @@ VXA.Validation = (function() {
         results['R1.I'] = { expected: 0.003, actual: R1 ? Math.abs(R1._i) : NaN, tol: 0.02 };
         return results;
       }
+    },
+
+    // ═══ TEST 11: Op-Amp Output Saturation — Gain=100, Vin=0.5V, Vs=±15V → Vout≈13.5V ═══
+    {
+      name: "Op-Amp Saturation \u2014 Gain=100, Vin=0.5V, Vs=\u00B115V \u2192 Vout\u224813.5V",
+      run: function() {
+        // Non-inverting amp: Gain = 1 + Rf/Ri = 1 + 99k/1k = 100
+        // Vin=0.5V → ideal Vout=50V, but Vs=15V so saturates at ~13.5V
+        // VDC supply +15V at (-160,0): + at (-160,-40), - at (-160,40)
+        // VDC input 0.5V at (-80,0): + at (-80,-40), - at (-80,40)
+        // OpAmp at (60,0): + at (20,-15), - at (20,15), OUT at (100,0)
+        // Ri (1kΩ) at (20,60) rot=1: pins at (20,20) and (20,100) — from opamp- down to GND node
+        // Rf (99kΩ) at (60,40) rot=0: pins at (20,40) and (100,40) — from opamp- area to output
+        // Wait — need to connect Rf between opamp- and opamp output for feedback
+        // Rf at (60,15) rot=0: pins at (20,15) and (100,15) — opamp- to near output
+        // Wire (100,15) to (100,0) to connect Rf to output
+        // Ri at (20,60) rot=1: pins at (20,20) and (20,100)
+        // Wire (20,15) to (20,20) to connect opamp- to Ri top
+        // GND at (-160,120): pin at (-160,100)
+        setupCircuit([
+          { type: 'vdc', x: -160, y: 0, rot: 0, val: 15, name: 'Vs' },
+          { type: 'vdc', x: -80, y: 0, rot: 0, val: 0.5, name: 'Vin' },
+          { type: 'opamp', x: 60, y: 0, rot: 0, val: 0, name: 'U1' },
+          { type: 'resistor', x: 20, y: 60, rot: 1, val: 1000, name: 'Ri' },
+          { type: 'resistor', x: 60, y: 15, rot: 0, val: 99000, name: 'Rf' },
+          { type: 'ground', x: -160, y: 120, rot: 0, name: 'GND1' }
+        ], [
+          { x1: -80, y1: -40, x2: 20, y2: -15 },        // Vin+ → opamp+
+          { x1: 20, y1: 15, x2: 20, y2: 20 },           // opamp- → Ri.top
+          { x1: 100, y1: 15, x2: 100, y2: 0 },          // Rf.right → opamp OUT
+          { x1: 20, y1: 100, x2: -160, y2: 40 },        // Ri.bottom → VDC- (GND rail)
+          { x1: -80, y1: 40, x2: -160, y2: 40 },        // Vin- → GND rail
+          { x1: -160, y1: 40, x2: -160, y2: 100 }       // GND rail → GND
+        ]);
+        simulateDC();
+        var U1 = findPart('U1');
+        var results = {};
+        // Saturated output should be around Vs - 1.5V = 13.5V
+        results['U1.Vout'] = { expected: 13.5, actual: U1 ? Math.abs(U1._v) : NaN, tol: 0.25 };
+        return results;
+      }
+    },
+
+    // ═══ TEST 12: Power Dissipation — Two Series R, V=10V, R1=R2=1kΩ → P=25mW each ═══
+    {
+      name: "Power \u2014 2\u00D7 Series R, 10V, 1k\u03A9 each \u2192 P=25mW each",
+      run: function() {
+        // V=10V, R1+R2=2kΩ, I=5mA, V_each=5V, P_each=25mW
+        // VDC at (-80,0): + at (-80,-40), - at (-80,40)
+        // R1 at (20,-40) rot=0: pins at (-20,-40) and (60,-40)
+        // R2 at (120,0) rot=1: pins at (120,-40) and (120,40)
+        // GND at (-80,80): pin at (-80,60)
+        setupCircuit([
+          { type: 'vdc', x: -80, y: 0, rot: 0, val: 10, name: 'V1' },
+          { type: 'resistor', x: 20, y: -40, rot: 0, val: 1000, name: 'R1' },
+          { type: 'resistor', x: 120, y: 0, rot: 1, val: 1000, name: 'R2' },
+          { type: 'ground', x: -80, y: 80, rot: 0, name: 'GND1' }
+        ], [
+          { x1: -80, y1: -40, x2: -20, y2: -40 },       // VDC+ → R1.left
+          { x1: 60, y1: -40, x2: 120, y2: -40 },        // R1.right → R2.top
+          { x1: 120, y1: 40, x2: -80, y2: 40 },         // R2.bottom → VDC-
+          { x1: -80, y1: 40, x2: -80, y2: 60 }          // VDC- → GND
+        ]);
+        simulateDC();
+        var R1 = findPart('R1');
+        var R2 = findPart('R2');
+        var results = {};
+        results['R1.V'] = { expected: 5.0, actual: R1 ? Math.abs(R1._v) : NaN, tol: 0.02 };
+        results['R2.V'] = { expected: 5.0, actual: R2 ? Math.abs(R2._v) : NaN, tol: 0.02 };
+        results['R1.I'] = { expected: 0.005, actual: R1 ? Math.abs(R1._i) : NaN, tol: 0.02 };
+        results['R2.I'] = { expected: 0.005, actual: R2 ? Math.abs(R2._i) : NaN, tol: 0.02 };
+        results['R1.P'] = { expected: 0.025, actual: R1 ? Math.abs(R1._p) : NaN, tol: 0.02 };
+        results['R2.P'] = { expected: 0.025, actual: R2 ? Math.abs(R2._p) : NaN, tol: 0.02 };
+        return results;
+      }
+    },
+
+    // ═══ TEST 13: Negative Voltage — V=-5V, R=1kΩ → I=-5mA ═══
+    {
+      name: "Negative Voltage \u2014 V=-5V, R=1k\u03A9 \u2192 I=5mA (reversed)",
+      run: function() {
+        // VDC at (0,0) val=-5: + at (0,-40), - at (0,40)
+        // Resistor at (100,0) rot=1: pins at (100,-40) and (100,40)
+        // GND at (0,80): pin at (0,60)
+        setupCircuit([
+          { type: 'vdc', x: 0, y: 0, rot: 0, val: -5, name: 'V1' },
+          { type: 'resistor', x: 100, y: 0, rot: 1, val: 1000, name: 'R1' },
+          { type: 'ground', x: 0, y: 80, rot: 0, name: 'GND1' }
+        ], [
+          { x1: 0, y1: -40, x2: 100, y2: -40 },
+          { x1: 100, y1: 40, x2: 0, y2: 40 },
+          { x1: 0, y1: 40, x2: 0, y2: 60 }
+        ]);
+        simulateDC();
+        var R1 = findPart('R1');
+        var results = {};
+        results['R1.V'] = { expected: 5.0, actual: R1 ? Math.abs(R1._v) : NaN, tol: 0.02 };
+        results['R1.I'] = { expected: 0.005, actual: R1 ? Math.abs(R1._i) : NaN, tol: 0.02 };
+        results['R1.P'] = { expected: 0.025, actual: R1 ? Math.abs(R1._p) : NaN, tol: 0.02 };
+        return results;
+      }
+    },
+
+    // ═══ TEST 14: Large Resistance — V=10V, R=1MΩ → I=10µA ═══
+    {
+      name: "Large R \u2014 V=10V, R=1M\u03A9 \u2192 I=10\u00B5A",
+      run: function() {
+        // VDC at (0,0): + at (0,-40), - at (0,40)
+        // Resistor at (100,0) rot=1: pins at (100,-40) and (100,40)
+        // GND at (0,80): pin at (0,60)
+        setupCircuit([
+          { type: 'vdc', x: 0, y: 0, rot: 0, val: 10, name: 'V1' },
+          { type: 'resistor', x: 100, y: 0, rot: 1, val: 1000000, name: 'R1' },
+          { type: 'ground', x: 0, y: 80, rot: 0, name: 'GND1' }
+        ], [
+          { x1: 0, y1: -40, x2: 100, y2: -40 },
+          { x1: 100, y1: 40, x2: 0, y2: 40 },
+          { x1: 0, y1: 40, x2: 0, y2: 60 }
+        ]);
+        simulateDC();
+        var R1 = findPart('R1');
+        var results = {};
+        results['R1.V'] = { expected: 10.0, actual: R1 ? Math.abs(R1._v) : NaN, tol: 0.02 };
+        results['R1.I'] = { expected: 0.00001, actual: R1 ? Math.abs(R1._i) : NaN, tol: 0.05 };
+        results['R1.P'] = { expected: 0.0001, actual: R1 ? Math.abs(R1._p) : NaN, tol: 0.05 };
+        return results;
+      }
+    },
+
+    // ═══ TEST 15: Three Diodes in Series — 5V+1kΩ+3×D → Vf_total≈2.0V, I≈3mA ═══
+    {
+      name: "3\u00D7 Diode Series \u2014 5V+1k\u03A9+3D \u2192 Vf\u22482.0V, I\u22483mA",
+      run: function() {
+        // 5V → R(1kΩ) → D1 → D2 → D3 → GND
+        // Each diode Vf≈0.65V, total≈2.0V, I≈(5-2)/1000=3mA
+        // VDC at (-80,0): + at (-80,-40), - at (-80,40)
+        // R at (20,-40) rot=0: pins at (-20,-40) and (60,-40)
+        // D1 at (100,-10) rot=1: anode at (100,-40), cathode at (100,20)
+        // D2 at (100,50) rot=1: anode at (100,20), cathode at (100,80)
+        // D3 at (100,110) rot=1: anode at (100,80), cathode at (100,140)
+        // GND at (-80,180): pin at (-80,160)
+        // Wire: D3.cathode(100,140) → VDC-(−80,40) → GND
+        // Diode rot=1: anode at (x, y-30), cathode at (x, y+30)
+        setupCircuit([
+          { type: 'vdc', x: -80, y: 0, rot: 0, val: 5, name: 'V1' },
+          { type: 'resistor', x: 20, y: -40, rot: 0, val: 1000, name: 'R1' },
+          { type: 'diode', x: 100, y: -10, rot: 1, val: 0, name: 'D1' },
+          { type: 'diode', x: 100, y: 50, rot: 1, val: 0, name: 'D2' },
+          { type: 'diode', x: 100, y: 110, rot: 1, val: 0, name: 'D3' },
+          { type: 'ground', x: -80, y: 180, rot: 0, name: 'GND1' }
+        ], [
+          { x1: -80, y1: -40, x2: -20, y2: -40 },       // VDC+ → R.left
+          { x1: 60, y1: -40, x2: 100, y2: -40 },        // R.right → D1.anode
+          { x1: 100, y1: 20, x2: 100, y2: 20 },         // D1.cathode → D2.anode (same point)
+          { x1: 100, y1: 80, x2: 100, y2: 80 },         // D2.cathode → D3.anode (same point)
+          { x1: 100, y1: 140, x2: -80, y2: 40 },        // D3.cathode → VDC-
+          { x1: -80, y1: 40, x2: -80, y2: 160 }         // VDC- → GND
+        ]);
+        simulateDC();
+        var D1 = findPart('D1');
+        var D2 = findPart('D2');
+        var D3 = findPart('D3');
+        var R1 = findPart('R1');
+        var Vf_total = (D1 ? Math.abs(D1._v) : 0) + (D2 ? Math.abs(D2._v) : 0) + (D3 ? Math.abs(D3._v) : 0);
+        var results = {};
+        results['Vf_total'] = { expected: 2.0, actual: Vf_total, tol: 0.25 };
+        results['R1.I'] = { expected: 0.003, actual: R1 ? Math.abs(R1._i) : NaN, tol: 0.30 };
+        return results;
+      }
     }
   ];
 
@@ -3973,6 +4261,7 @@ VXA.Validation = (function() {
   return { TESTS: TESTS, runAll: runAll, report: report };
 })();
 
+// ═══ sparse.js ═══
 // ──────── SPRINT 6: DEEP ENGINE UPGRADE ────────
 
 // 6.1: SPARSE MATRIX INFRASTRUCTURE (CSC FORMAT)
@@ -4153,7 +4442,7 @@ VXA.Sparse = (function() {
   return { create: create, stamp: stamp, compile: compile, solveLU: solveLU, solveLU_dense: solveLU_dense, solveLU_banded: solveLU_banded, reset: reset };
 })();
 
-// 11.2: SPICE-CORRECT VOLTAGE LIMITING
+// ═══ voltage-limit.js ═══
 VXA.VoltageLimit = (function() {
   function junction(Vnew, Vold, Vt, Vcrit) {
     if (Vnew > Vcrit) {
@@ -4192,7 +4481,7 @@ VXA.VoltageLimit = (function() {
   return { junction: junction, mos: mos, computeVcrit: computeVcrit };
 })();
 
-// 6.2: EXTENDED MNA STAMP FUNCTIONS
+// ═══ stamps.js ═══
 VXA.Stamps = (function() {
   var Sp = VXA.Sparse;
   function stampG(matrix, n1, n2, g) {
@@ -4414,7 +4703,7 @@ VXA.Stamps = (function() {
   };
 })();
 
-// 6.4: ADAPTIVE TIME STEP
+// ═══ adaptive.js ═══
 VXA.AdaptiveStep = (function() {
   var DT_MIN = 1e-9, DT_MAX = 1e-4;
   var currentDt = 1e-5;
@@ -4434,7 +4723,7 @@ VXA.AdaptiveStep = (function() {
   return { getDt: getDt, setDt: setDt, reset: reset, adjust: adjust };
 })();
 
-// 6.3 + 6.5 + 6.6: SIMULATION ENGINE V2 (Sparse MNA + Full N-R + Source Stepping)
+// ═══ sim.js ═══
 VXA.SimV2 = (function() {
   var Sp = VXA.Sparse, St = VXA.Stamps;
   var NR_MAX_ITER = 30;
@@ -4937,6 +5226,7 @@ VXA.SimV2 = (function() {
   };
 })();
 
+// ═══ models.js ═══
 // ──────── SPRINT 7: GERÇEKÇI BİLEŞEN MODELLERİ ────────
 
 // 7.1: SPICE MODEL PARAMETRE KÜTÜPHANESİ
@@ -5030,7 +5320,7 @@ VXA.Models = (function() {
   return { getModel:getModel, listModels:listModels, addCustomModel:addCustomModel, getDefault:getDefault, BJT:BJT, MOSFET:MOSFET, DIODE:DIODE, LED:LED, ZENER:ZENER, OPAMP:OPAMP, REGULATOR:REGULATOR };
 })();
 
-// 7.2: ENHANCED DIODE STAMP (Junction Capacitance + Series R + Breakdown)
+// ═══ stamps-enhanced.js ═══
 VXA.Stamps.diode_spice = function(matrix, rhs, n1, n2, params, Vd_prev, dt) {
   var Sp = VXA.Sparse, VT = 0.026;
   var IS = params.IS || 1e-14, N = params.N || 1, RS = params.RS || 0;
@@ -5175,7 +5465,7 @@ VXA.Stamps.nmos_spice = function(matrix, rhs, nG, nD, nS, pol, params, nodeV, dt
   }
 };
 
-// 7.6: ENHANCED SPICE PARSER
+// ═══ spice-parser.js ═══
 VXA.SpiceParser = (function() {
   function parseSpiceNumber(str) {
     str = str.trim().toUpperCase();
@@ -5214,7 +5504,6 @@ VXA.SpiceParser = (function() {
   }
   return { parseModelLine: parseModelLine, parseMultiple: parseMultiple, parseSpiceNumber: parseSpiceNumber };
 })();
-
 // 7.8: MODEL → PART PROPS INTEGRATION
 function applyModel(part, modelName) {
   var model = VXA.Models.getModel(part.type, modelName);
@@ -5228,6 +5517,8 @@ function applyModel(part, modelName) {
   else if (part.type === 'vreg') { part.val = model.Vout || 5; }
 }
 
+
+// ═══ sim-legacy.js ═══
 // ──────── MNA SIMULATION ENGINE ────────
 function UnionFind(n) { this.parent = Array.from({length:n}, (_,i)=>i); this.rank = new Array(n).fill(0); }
 UnionFind.prototype.find = function(x) { if(this.parent[x]!==x) this.parent[x]=this.find(this.parent[x]); return this.parent[x]; };
@@ -5603,6 +5894,8 @@ function simulationStep() {
   }
 }
 
+
+// ═══ render-loop.js ═══
 // ──────── RENDER LOOP ────────
 function isInViewport(part) {
   var sx = part.x * S.view.zoom + S.view.ox;
@@ -5729,7 +6022,9 @@ function loadPreset(id) {
   showInfoCard(pr.name, pr.desc, pr.formula);
 }
 
+function _escHTML(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function showInfoCard(title, desc, formula) {
+  title=_escHTML(title); desc=_escHTML(desc); formula=_escHTML(formula);
   let card = document.getElementById('info-card');
   if (!card) {
     card = document.createElement('div');
@@ -5742,6 +6037,8 @@ function showInfoCard(title, desc, formula) {
   setTimeout(() => { if (card) card.style.display = 'none'; }, 5000);
 }
 
+
+// ═══ export-import.js ═══
 // ──────── EXPORT / IMPORT ────────
 function exportJSON() {
   const data = { version: 'VoltXAmpere-6.0', parts: S.parts, wires: S.wires, nextId: S.nextId, settings: { bgStyle: S.bgStyle, wireStyle: S.wireStyle, symbolStd: S.symbolStd } };
@@ -5791,7 +6088,7 @@ function exportPNG() {
 }
 
 function exportSPICE() {
-  var net = '* VoltXAmpere v7.0 — SPICE Netlist\n* Date: ' + new Date().toISOString().slice(0, 10) + '\n*\n';
+  var net = '* VoltXAmpere v7.1 — SPICE Netlist\n* Date: ' + new Date().toISOString().slice(0, 10) + '\n*\n';
   var usedModels = {};
   S.parts.forEach(function(p) {
     var def = COMP[p.type]; if (!def) return;
@@ -5833,6 +6130,8 @@ function exportSPICE() {
   a.download = 'voltxampere.cir'; a.click(); URL.revokeObjectURL(a.href);
 }
 
+
+// ═══ share.js ═══
 // ──────── URL SHARING ────────
 function shareURL() {
   var data = { v:1, p:S.parts.map(function(p){return [p.type,p.x,p.y,p.rot||0,p.val,p.freq||0];}), w:S.wires.map(function(w){return [w.x1,w.y1,w.x2,w.y2];}) };
@@ -5880,6 +6179,8 @@ function shareToTelegram() {
   window.open('https://t.me/share/url?url=' + encodeURIComponent(window._shareURL || '') + '&text=VoltXAmpere+Circuit');
 }
 
+
+// ═══ gallery.js ═══
 // ──────── GALLERY ────────
 var galleryFilter = 'all';
 
@@ -5988,6 +6289,8 @@ function loadFromURL() {
   } catch (e) { console.error('URL load error:', e); }
 }
 
+
+// ═══ tutorials-basic.js ═══
 // ──────── TUTORIAL ────────
 var TUT_STEPS = [
   { title: function(){return t('tutTitle');}, text: function(){return t('tutDesc');} },
@@ -6028,6 +6331,8 @@ function endTutorial() {
   localStorage.setItem('vxa_tutorial_done', '1');
 }
 
+
+// ═══ touch.js ═══
 // ──────── TOUCH SUPPORT ────────
 (function initTouch() {
   if (navigator.maxTouchPoints < 1) return;
@@ -6093,6 +6398,8 @@ function endTutorial() {
   }, { passive: false });
 })();
 
+
+// ═══ tabs.js ═══
 // ──────── TAB SWITCHING ────────
 function switchTab(name) {
   document.querySelectorAll('.btab').forEach(function(b){ b.classList.toggle('active', b.dataset.tab === name); });
@@ -6109,6 +6416,8 @@ function switchTab(name) {
   needsRender = true;
 }
 
+
+// ═══ dc-sweep.js ═══
 // ──────── DC SWEEP ────────
 var dcSweepData = null;
 function runDCSweep(srcType, start, stop, steps) {
@@ -6179,6 +6488,8 @@ function drawDCSweep() {
   c.fillText('DC Sweep — ' + d.label, mx + 10, my + 16);
 }
 
+
+// ═══ ac-analysis.js ═══
 // ──────── SPRINT 8: PROFESYONEL ANALİZ SÜİTİ ────────
 
 // 8.1: AC SMALL-SIGNAL ANALİZ MOTORU
@@ -6362,7 +6673,7 @@ VXA.ACAnalysis = (function() {
   return { run: run, complexSolve: complexSolve, computeMetrics: computeMetrics };
 })();
 
-// 8.3: NOISE ANALİZ (Sprint 12 — per-source transfer function rewrite)
+// ═══ noise-analysis.js ═══
 VXA.NoiseAnalysis = (function() {
   var kB = 1.38e-23, q = 1.602e-19, T_NOM = 300;
 
@@ -6584,7 +6895,7 @@ VXA.NoiseAnalysis = (function() {
   return { run: run, collectNoiseSources: collectNoiseSources };
 })();
 
-// 8.5: SENSİTİVİTE ANALİZİ
+// ═══ sensitivity.js ═══
 VXA.SensitivityAnalysis = (function() {
   function getOutput() {
     var probe = S.parts.find(function(p) { return p.type === 'probe'; });
@@ -6615,7 +6926,6 @@ VXA.SensitivityAnalysis = (function() {
   }
   return { run: run };
 })();
-
 // 8.7: MONTE CARLO İSTATİSTİKLER
 function computeMonteCarloStats(values) {
   var n = values.length; if (n === 0) return null;
@@ -6630,7 +6940,8 @@ function computeMonteCarloStats(values) {
   return { mean: mean, stddev: stddev, min: min, max: max, histogram: hist, binWidth: binW, binStart: min, n: n };
 }
 
-// 8.8: PROFESYONEL GRAFİK RENDER
+
+// ═══ graph.js ═══
 VXA.Graph = (function() {
   function niceStep(rough) {
     var exp = Math.floor(Math.log10(Math.abs(rough) || 1));
@@ -6704,7 +7015,6 @@ VXA.Graph = (function() {
   }
   return { draw: draw, fmtLabel: fmtLabel, getLogTicks: getLogTicks, getLinTicks: getLinTicks };
 })();
-
 // 8.10: ANALİZ EXPORT (CSV + PNG)
 function exportAnalysisCSV(data, filename) {
   if (!data || !data.length) return;
@@ -6722,6 +7032,8 @@ function exportAnalysisPNG(canvas, filename) {
   a.download = filename || 'vxa_analysis.png'; a.click();
 }
 
+
+// ═══ blocks.js ═══
 // ──────── SPRINT 9: MÜHENDİSLİK İŞ AKIŞI ────────
 
 // 9.2: SUBCIRCUIT / BLOCK SYSTEM
@@ -6769,8 +7081,12 @@ function saveAsBlock() {
   showInfoCard(currentLang === 'tr' ? 'Blok Kaydedildi' : 'Block Saved', name, selParts.length + (currentLang === 'tr' ? ' bileşen' : ' components'));
 }
 
-// 9.3: SPICE NETLIST IMPORT
+
+// ═══ spice-import.js ═══
 VXA.SpiceImport = (function() {
+  // XSS sanitization for user-supplied SPICE text
+  function sanitizeId(id) { return String(id).replace(/[^a-zA-Z0-9_.\-]/g, '_'); }
+  function sanitizeHTML(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
   function preprocessLines(text) {
     var raw = text.split('\n'), merged = [];
     raw.forEach(function(line) {
@@ -6827,9 +7143,9 @@ VXA.SpiceImport = (function() {
         var mosModel = circuit.models[tk[5]]; var mtype = (mosModel && mosModel.type === 'PMOS') ? 'pmos' : 'nmos';
         circuit.parts.push({ type: mtype, nodes: [gn(tk[2]), gn(tk[1]), gn(tk[3])], model: tk[5] }); // G,D,S → VXA order
       } else {
-        warnings.push('Skipped unknown line: ' + line.substring(0, 60));
+        warnings.push('Skipped unknown line: ' + sanitizeHTML(line.substring(0, 60)));
       }
-      } catch(e) { warnings.push('Error parsing: ' + line.substring(0, 40) + ' — ' + e.message); }
+      } catch(e) { warnings.push('Error parsing: ' + sanitizeHTML(line.substring(0, 40)) + ' — ' + sanitizeHTML(e.message)); }
     });
     circuit.warnings = warnings;
     circuit.nodeCount = nextN;
@@ -6895,7 +7211,8 @@ function importSPICENetlist() {
   input.click();
 }
 
-// 9.4: ENHANCED SPICE EXPORT
+
+// ═══ spice-export.js ═══
 VXA.SpiceExport = (function() {
   function fmtSV(val) {
     if (val === 0) return '0';
@@ -6912,7 +7229,7 @@ VXA.SpiceExport = (function() {
   function generate() {
     buildCircuitFromCanvas();
     if (!SIM) return '* Empty circuit\n.end\n';
-    var lines = ['* VoltXAmpere v7.0 — SPICE Netlist', '* Date: ' + new Date().toISOString().slice(0, 10), '*'];
+    var lines = ['* VoltXAmpere v7.1 — SPICE Netlist', '* Date: ' + new Date().toISOString().slice(0, 10), '*'];
     var usedModels = {};
     for (var i = 0; i < SIM.comps.length; i++) {
       var c = SIM.comps[i], p = c.part;
@@ -6950,6 +7267,8 @@ VXA.SpiceExport = (function() {
   return { generate: generate, fmtSV: fmtSV };
 })();
 
+// ═══ net-labels.js ═══
+
 // 9.5: AUTO WIRE ROUTING (L-shaped)
 function autoRoute(pin1, pin2) {
   var x1 = snap(pin1.x), y1 = snap(pin1.y), x2 = snap(pin2.x), y2 = snap(pin2.y);
@@ -6984,7 +7303,7 @@ function distributeSelected(axis) {
 
 // 9.8: CIRCUIT REPORT GENERATOR
 function generateCircuitReport() {
-  var r = ['VoltXAmpere v7.0 — Circuit Report', '='.repeat(40), 'Date: ' + new Date().toLocaleString(), ''];
+  var r = ['VoltXAmpere v7.1 — Circuit Report', '='.repeat(40), 'Date: ' + new Date().toLocaleString(), ''];
   r.push('COMPONENTS (' + S.parts.filter(function(p) { return p.type !== 'ground' && p.type !== 'netLabel' && p.type !== 'vccLabel' && p.type !== 'gndLabel'; }).length + ')');
   r.push('-'.repeat(40));
   S.parts.forEach(function(p) {
@@ -7017,6 +7336,8 @@ function generateCircuitReport() {
   return r.join('\n');
 }
 
+
+// ═══ bode.js ═══
 // ──────── BODE PLOT ────────
 var bodeData = null;
 function runBode(fStart, fStop, ppd) {
@@ -7149,6 +7470,8 @@ function drawBode() {
   }
 }
 
+
+// ═══ param-sweep.js ═══
 // ──────── PARAMETER SWEEP ────────
 var paramSweepData = null;
 function runParamSweep(partId, propName, start, stop, steps) {
@@ -7196,6 +7519,8 @@ function drawParamSweep() {
   c.stroke();c.shadowBlur=0;
 }
 
+
+// ═══ fft.js ═══
 // ──────── FFT ────────
 var fftData = null;
 function runFFT() {
@@ -7270,6 +7595,8 @@ function drawFFT() {
   c.textAlign='center';c.fillText('Frekans (Hz)',w/2,h-3);
 }
 
+
+// ═══ monte-carlo.js ═══
 // ──────── MONTE CARLO ────────
 var mcData = null;
 function runMonteCarlo(tolerance, runs) {
@@ -7330,6 +7657,8 @@ function drawMonteCarlo() {
   c.fillText('Tolerans: \u00B1'+mcData.tol+'%',w/2,my-8);
 }
 
+
+// ═══ temp-sweep.js ═══
 // ──────── TEMPERATURE SWEEP ────────
 var tempData = null;
 function runTempSweep() {
@@ -7381,6 +7710,8 @@ function drawTempSweep() {
   c.fillText('-40',mx2,h-3);c.fillText('125',mx2+pw,h-3);
 }
 
+
+// ═══ noise-ui.js ═══
 // ──────── NOISE ANALYSIS ────────
 var noiseData = null;
 function runNoiseAnalysis() {
@@ -7424,6 +7755,8 @@ function drawNoise() {
   c.textAlign='right';c.fillText('V/\u221AHz (dB)',mx2-4,my+10);
 }
 
+
+// ═══ sensitivity-ui.js ═══
 // ──────── SENSITIVITY ANALYSIS ────────
 var sensData = null;
 function runSensitivity() {
@@ -7475,6 +7808,8 @@ function drawSensitivity() {
   c.fillStyle='#5a6a7a';c.font='10px Outfit';c.textAlign='center';c.fillText('\u2202Vout / \u2202param',w/2,h-3);
 }
 
+
+// ═══ worst-case.js ═══
 // ──────── WORST CASE ANALYSIS ────────
 var wcData = null;
 var wcMethod = 'evp'; // 'evp' (Extreme Value) or 'rss' (Root Sum of Squares)
@@ -7558,6 +7893,8 @@ function drawWorstCase() {
   c.font='400 12px Outfit'; c.fillStyle='#5a6a7a'; c.fillText('Method: '+(wcData.method==='rss'?'RSS (Root Sum of Squares)':'EVP (Extreme Value)'),w/2,cy+120);
 }
 
+
+// ═══ svg-export.js ═══
 // ──────── SVG EXPORT ────────
 function exportSVG() {
   var w = cvs.width/DPR, h = cvs.height/DPR;
@@ -7580,6 +7917,8 @@ function exportSVG() {
   a.download = 'voltxampere.svg'; a.click(); URL.revokeObjectURL(a.href);
 }
 
+
+// ═══ csv-export.js ═══
 // ──────── CSV EXPORT ────────
 function exportCSV() {
   var lines = ['Time'];
@@ -7598,11 +7937,15 @@ function exportCSV() {
   a.download = 'voltxampere-scope.csv'; a.click(); URL.revokeObjectURL(a.href);
 }
 
+
+// ═══ pwa.js ═══
 // ──────── PWA SERVICE WORKER ────────
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js').catch(() => {});
 }
 
+
+// ═══ startup.js ═══
 // ──────── STARTUP ────────
 loadFromURL();
 
@@ -7662,7 +8005,7 @@ function setAriaLabels() {
 setAriaLabels();
 
 // Console banner
-console.log('%c\u26A1 VoltXAmpere v5.0', 'color:#00e09e;font-size:18px;font-weight:bold');
+console.log('%c\u26A1 VoltXAmpere v7.1', 'color:#00e09e;font-size:18px;font-weight:bold');
 console.log('%cFree Circuit Simulator with AI \u2014 voltxampere.com', 'color:#8899aa;font-size:12px');
 console.log('%c' + t('scriptApi'), 'color:#f59e0b;font-size:11px');
 
@@ -7803,7 +8146,7 @@ VXA.setCurrentDir = function(dir) { S.currentDirection = dir; needsRender = true
 VXA.setRealisticMode = function(on) { S.realisticMode = !!on; needsRender = true; };
 VXA.repairAll = function() { VXA.Damage.repairAll(); };
 VXA.help = function() {
-  console.log('%cVoltXAmpere v7.0 Scripting API', 'color:#00e09e;font-weight:bold;font-size:14px');
+  console.log('%cVoltXAmpere v7.1 Scripting API', 'color:#00e09e;font-weight:bold;font-size:14px');
   console.log('VXA.parts \u2014 all circuit components');
   console.log('VXA.wires \u2014 all wires');
   console.log('VXA.addComponent(type, x, y, {val, rot, freq}) \u2014 add component');
@@ -8054,7 +8397,7 @@ function generateReport() {
       reportHTML += '<span class="stat">P: '+fmtVal(p._p||0,'W')+'</span>';
     }
   }
-  reportHTML += '<hr><p style="color:#999;font-size:12px">VoltXAmpere v5.0 \u2014 voltxampere.com tarafından oluşturuldu</p>';
+  reportHTML += '<hr><p style="color:#999;font-size:12px">VoltXAmpere v7.1 \u2014 voltxampere.com tarafından oluşturuldu</p>';
   reportHTML += '</body></html>';
   var win = window.open('', '_blank');
   win.document.write(reportHTML);
@@ -8105,6 +8448,8 @@ function exportBOMCSV() {
   var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'voltxampere-bom.csv'; a.click();
 }
 
+
+// ═══ autosave.js ═══
 // ──────── AUTOSAVE ────────
 VXA.AutoSave = (function() {
   var timer = null;
@@ -8128,8 +8473,15 @@ VXA.AutoSave = (function() {
         version: VXA.Config.VERSION,
         settings: { bgStyle: S.bgStyle, wireStyle: S.wireStyle, symbolStd: S.symbolStd, currentDirection: S.currentDirection }
       };
-      localStorage.setItem('vxa_autosave', JSON.stringify(data));
-    } catch(e) { /* quota exceeded or private mode */ }
+      var json = JSON.stringify(data);
+      if (json.length > 4000000) { console.warn('Circuit data approaching localStorage limit: ' + (json.length/1024).toFixed(0) + 'KB'); }
+      localStorage.setItem('vxa_autosave', json);
+    } catch(e) {
+      if (e.name === 'QuotaExceededError' || e.code === 22) {
+        console.warn('localStorage quota exceeded — autosave skipped');
+        if (typeof announce === 'function') announce(t('storageFull') || 'Storage full. Please export your circuit.');
+      }
+    }
   }
   function restore() {
     try {
@@ -8144,6 +8496,7 @@ VXA.AutoSave = (function() {
   return { start: start, save: save, restore: restore, clear: clear };
 })();
 
+// ═══ particles.js ═══
 // ──────── PARTICLE ENGINE (v6 Sprint 2) ────────
 VXA.Particles = (function() {
   var pool = [];
@@ -8295,6 +8648,7 @@ VXA.Particles = (function() {
   return { spawn: spawn, explode: explode, update: update, draw: draw, clear: clear, count: count };
 })();
 
+// ═══ thermal.js ═══
 // ──────── THERMAL ENGINE (v6 Sprint 2) ────────
 VXA.Thermal = (function() {
   // Default thermal params per component type
@@ -8378,6 +8732,7 @@ VXA.Thermal = (function() {
   return { update: update, getStatus: getStatus, getTemperature: getTemperature, reset: reset, ensureThermal: ensureThermal, THERMAL_DEFAULTS: THERMAL_DEFAULTS };
 })();
 
+// ═══ damage.js ═══
 // ──────── DAMAGE SYSTEM (v6 Sprint 2) ────────
 VXA.Damage = (function() {
   var _smokeTimers = {}; // track smoke emission per part
@@ -8560,10 +8915,7 @@ VXA.Damage = (function() {
   return { check: check, apply: apply, repair: repair, repairAll: repairAll, getLog: getLog, getDamageEnergyThreshold: getDamageEnergyThreshold };
 })();
 
-// ══════════════════════════════════════════════════════
-// ██ SPRINT 3: UI/UX DEVRİMİ
-// ══════════════════════════════════════════════════════
-
+// ═══ inline-edit.js ═══
 // ──────── 3.1: INLINE VALUE EDIT ────────
 var _inlineEditActive = false;
 var _inlineEditPart = null;
@@ -8741,6 +9093,8 @@ wrap.addEventListener('wheel', function(e) {
   e.preventDefault(); e.stopPropagation();
 }, { passive: false, capture: true });
 
+
+// ═══ settings.js ═══
 // ──────── 3.2 + 3.6: SETTINGS MODAL + PERSISTENCE ────────
 var _settingsTemp = {}; // temp copy while modal is open
 
@@ -8863,6 +9217,8 @@ function loadSettingsFromStorage() {
   } catch(e) {}
 }
 
+
+// ═══ context-menu-smart.js ═══
 // ──────── 3.3: SMART CONTEXT MENU ────────
 S.recentComponents = [];
 var MAX_RECENT = 4;
@@ -9019,6 +9375,8 @@ function _buildRecentSection(container) {
   container.insertBefore(sec, firstChild);
 }
 
+
+// ═══ inspector-enhanced.js ═══
 // ──────── 3.5: ENHANCED INSPECTOR ────────
 var _inspLiveInterval = null;
 
@@ -9168,6 +9526,8 @@ function inspParamChange(key, val) {
   if (S.sim.running) buildCircuitFromCanvas();
 }
 
+
+// ═══ ui-extras.js ═══
 // ──────── 3.7: FIT TO SCREEN ────────
 function fitToScreen() {
   if (!S.parts.length) return;
@@ -9227,6 +9587,8 @@ loadSettingsFromStorage();
 // ██  SPRINT 4: PRO OSİLOSKOP + CRT + SES + DALGA FORMU      ██
 // ══════════════════════════════════════════════════════════════
 
+
+// ═══ crt.js ═══
 // ──────── 4.1: CRT / PHOSPHOR OSCILLOSCOPE MODE ────────
 var _crtTraceHistory = [[], [], [], []]; // 4 channel × N frames
 var CRT_PERSISTENCE_FRAMES = 5;
@@ -9364,6 +9726,8 @@ function toggleRef() {
   needsRender = true;
 }
 
+
+// ═══ sound.js ═══
 // ──────── 4.5: SOUND EFFECTS SYSTEM — VXA.Sound ────────
 VXA.Sound = (function() {
   var audioCtx = null;
@@ -9466,6 +9830,7 @@ VXA.Sound = (function() {
   return { play: play };
 })();
 
+// ═══ scope-extras.js ═══
 // ──────── 4.6: SOURCE WAVEFORM PREVIEW ────────
 function drawSourcePreview(part) {
   if (part.type !== 'acSource' && part.type !== 'pulse') return;
@@ -9613,6 +9978,8 @@ function _hideAnalysisTooltip() {
   }
 })();
 
+
+// ═══ scope-enhanced.js ═══
 // ──────── ENHANCED drawScope (overrides original via function hoisting) ────────
 function drawScope() {
   var w = scvs.width / DPR, h = scvs.height / DPR;
@@ -9930,6 +10297,8 @@ function drawScope() {
   }
 }
 
+
+// ═══ sound-triggers.js ═══
 // ──────── 4.5 SOUND TRIGGERS: Patch damage, switch, sim, place ────────
 // Wrap VXA.Damage.apply to add sound
 (function() {
@@ -9967,6 +10336,8 @@ drawPart = function(part) {
 // ██  SPRINT 5: EĞİTİM + ANSİKLOPEDİ + GALERİ + CİLALAMA    ██
 // ══════════════════════════════════════════════════════════════
 
+
+// ═══ tutorials.js ═══
 // ──────── 5.1: INTERACTIVE TUTORIAL SYSTEM ────────
 var TUTORIALS = [
   { id:'ohm', title:{tr:'Ohm Yasası',en:"Ohm's Law"}, level:1,
@@ -10133,6 +10504,8 @@ function endTutorialRunner() {
   document.getElementById('tut-runner').style.display = 'none';
 }
 
+
+// ═══ encyclopedia.js ═══
 // ──────── 5.2: COMPONENT ENCYCLOPEDIA ────────
 var ENCYCLOPEDIA = {
   resistor: { theory:{tr:'Elektrik akımına karşı koyan pasif eleman. Georg Simon Ohm tarafından keşfedilen yasayla tanımlanır.',en:'Passive component opposing current flow. Defined by Ohm\'s Law.'},
@@ -10232,6 +10605,8 @@ function showEncyclopedia(type) {
   document.getElementById('ency-modal').classList.add('show');
 }
 
+
+// ═══ statusbar.js ═══
 // ──────── 5.5: STATUSBAR ENHANCEMENT ────────
 function updateStatusbarExtra() {
   var tempEl = document.getElementById('sb-temp');
@@ -10278,6 +10653,8 @@ render = function() {
   updateStatusbarExtra();
 };
 
+
+// ═══ welcome.js ═══
 // ──────── 5.6: WELCOME EXPERIENCE ────────
 function showWelcome() {
   if (localStorage.getItem('vxa_visited')) return;
@@ -10291,29 +10668,51 @@ function showWelcome() {
   document.getElementById('welcome-dialog').classList.add('show');
 }
 
+
+// ═══ about.js ═══
 // ──────── 5.9: ABOUT DIALOG ────────
 function showAbout() {
   var box = document.getElementById('about-box');
-  box.innerHTML = '<div style="font:800 24px var(--font-ui);margin-bottom:4px"><span style="color:var(--accent)">⚡ Volt</span><span style="color:var(--orange)">X</span><span style="color:var(--blue)">Ampere</span> <span style="font:500 14px var(--font-mono);color:var(--text-3)">v7.0</span></div>'
-    + '<div style="font:13px var(--font-ui);color:var(--text-2);margin-bottom:16px">' + (currentLang==='tr'?'Dünyanın En Gelişmiş Ücretsiz Devre Simülatörü':'World\'s Most Advanced Free Circuit Simulator') + '</div>'
-    + '<div class="about-grid">'
-    + '<div class="about-item">61+ ' + (currentLang==='tr'?'Bileşen':'Components') + '</div>'
-    + '<div class="about-item">10 ' + (currentLang==='tr'?'Analiz Aracı':'Analysis Tools') + '</div>'
-    + '<div class="about-item">' + (currentLang==='tr'?'Termal Simülasyon':'Thermal Simulation') + '</div>'
-    + '<div class="about-item">' + (currentLang==='tr'?'Gerçekçi Hasar':'Realistic Damage') + '</div>'
-    + '<div class="about-item">CRT ' + (currentLang==='tr'?'Osiloskop':'Oscilloscope') + '</div>'
-    + '<div class="about-item">' + (currentLang==='tr'?'İnteraktif Dersler':'Interactive Tutorials') + '</div>'
-    + '<div class="about-item">' + (currentLang==='tr'?'Türkçe/İngilizce':'Turkish/English') + '</div>'
-    + '<div class="about-item">' + (currentLang==='tr'?'Ses Efektleri':'Sound Effects') + '</div>'
-    + '<div class="about-item">35+ ' + (currentLang==='tr'?'Hazır Devre':'Preset Circuits') + '</div>'
-    + '<div class="about-item">Sparse MNA + N-R</div>'
-    + '<div class="about-item">' + (currentLang==='tr'?'Adaptif Zaman Adımı':'Adaptive Timestep') + '</div>'
-    + '<div class="about-item">' + (currentLang==='tr'?'Sıfır Bağımlılık':'Zero Dependencies') + '</div>'
+  var tr = currentLang === 'tr';
+  box.innerHTML = '<div style="font:800 24px var(--font-ui);margin-bottom:4px"><span style="color:var(--accent)">\u26A1 Volt</span><span style="color:var(--orange)">X</span><span style="color:var(--blue)">Ampere</span> <span style="font:500 14px var(--font-mono);color:var(--text-3)">v7.1</span></div>'
+    + '<div style="font:13px var(--font-ui);color:var(--text-2);margin-bottom:16px">' + (tr?'D\u00fcnyan\u0131n En Geli\u015fmi\u015f \u00dccretsiz Devre Sim\u00fclat\u00f6r\u00fc':'World\'s Most Advanced Free Circuit Simulator') + '</div>'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;text-align:left;font-size:11px;color:var(--text-2);margin-bottom:12px">'
+    + '<div>\u2705 64+ ' + (tr?'Bile\u015fen':'Components') + '</div>'
+    + '<div>\u2705 50+ SPICE ' + (tr?'Model':'Models') + '</div>'
+    + '<div>\u2705 Gummel-Poon BJT</div>'
+    + '<div>\u2705 MOSFET Level 1</div>'
+    + '<div>\u2705 Banded Sparse ' + (tr?'\u00c7\u00f6z\u00fcc\u00fc':'Solver') + '</div>'
+    + '<div>\u2705 SPICE3f5 V-Limiting</div>'
+    + '<div>\u2705 Trapezoidal ' + (tr?'Entegrasyon':'Integration') + '</div>'
+    + '<div>\u2705 GMIN Stepping</div>'
+    + '<div>\u2705 Newton-Raphson (30 iter)</div>'
+    + '<div>\u2705 ' + (tr?'Adaptif Zaman Ad\u0131m\u0131':'Adaptive Timestep') + '</div>'
+    + '<div>\u2705 ' + (tr?'Termal Sim\u00fclasyon':'Thermal Simulation') + '</div>'
+    + '<div>\u2705 ' + (tr?'Enerji Tabanl\u0131 Hasar':'Energy-Based Damage') + '</div>'
+    + '<div>\u2705 CRT ' + (tr?'Osiloskop':'Oscilloscope') + '</div>'
+    + '<div>\u2705 7 ' + (tr?'Ses Efekti':'Sound Effects') + '</div>'
+    + '<div>\u2705 AC Small-Signal</div>'
+    + '<div>\u2705 Noise (per-source)</div>'
+    + '<div>\u2705 Monte Carlo + RSS</div>'
+    + '<div>\u2705 Sensitivity / Worst-Case</div>'
+    + '<div>\u2705 10/10 ' + (tr?'Do\u011frulama':'Validation') + '</div>'
+    + '<div>\u2705 Net Label ' + (tr?'Sistemi':'System') + '</div>'
+    + '<div>\u2705 Subcircuit / ' + (tr?'Bloklar':'Blocks') + '</div>'
+    + '<div>\u2705 SPICE Import/Export</div>'
+    + '<div>\u2705 30 ' + (tr?'Ansiklopedi':'Encyclopedia') + '</div>'
+    + '<div>\u2705 5 ' + (tr?'\u0130nteraktif Ders':'Tutorials') + '</div>'
+    + '<div>\u2705 35 ' + (tr?'Haz\u0131r Devre':'Preset Circuits') + '</div>'
+    + '<div>\u2705 Quick Start ' + (tr?'\u015eablonlar\u0131':'Templates') + '</div>'
+    + '<div>\u2705 ' + (tr?'T\u00fcrk\u00e7e + \u0130ngilizce':'Turkish + English') + '</div>'
+    + '<div>\u2705 ' + (tr?'S\u0131f\u0131r Ba\u011f\u0131ml\u0131l\u0131k':'Zero Dependencies') + '</div>'
+    + '<div>\u2705 76 ' + (tr?'Mod\u00fcler Kaynak':'Modular Sources') + '</div>'
+    + '<div>\u2705 PWA Offline</div>'
     + '</div>'
-    + '<div style="font:11px var(--font-mono);color:var(--text-4);margin-top:12px">© 2026 — ' + (currentLang==='tr'?'Açık Kaynak':'Open Source') + '<br>voltxampere.com</div>'
+    + '<div style="font:11px var(--font-mono);color:var(--text-4);margin-top:8px">\u00a9 2026 \u2014 ' + (tr?'A\u00e7\u0131k Kaynak':'Open Source') + ' \u2014 voltxampere.com</div>'
     + '<div style="margin-top:12px;display:flex;gap:8px;justify-content:center">'
-    + '<button style="padding:6px 16px;border-radius:6px;background:var(--accent);color:var(--bg);border:none;cursor:pointer;font:600 12px var(--font-ui)" onclick="showValidation()">\uD83D\uDD2C ' + (currentLang==='tr'?'Doğrulama':'Validation') + '</button>'
-    + '<button style="padding:6px 16px;border-radius:6px;background:var(--surface-3);color:var(--text);border:1px solid var(--border);cursor:pointer;font:12px var(--font-ui)" onclick="document.getElementById(\'about-modal\').classList.remove(\'show\')">' + (currentLang==='tr'?'Kapat':'Close') + '</button>'
+    + '<button style="padding:6px 16px;border-radius:6px;background:var(--accent);color:var(--bg);border:none;cursor:pointer;font:600 12px var(--font-ui)" onclick="showValidation()">\uD83D\uDD2C ' + (tr?'Do\u011frulama':'Validation') + '</button>'
+    + '<button style="padding:6px 16px;border-radius:6px;background:var(--surface-3);color:var(--text);border:1px solid var(--border);cursor:pointer;font:12px var(--font-ui)" onclick="showChangelog()">' + (tr?'De\u011fi\u015fiklik Ge\u00e7mi\u015fi':'Changelog') + '</button>'
+    + '<button style="padding:6px 16px;border-radius:6px;background:var(--surface-3);color:var(--text);border:1px solid var(--border);cursor:pointer;font:12px var(--font-ui)" onclick="document.getElementById(\'about-modal\').classList.remove(\'show\')">' + (tr?'Kapat':'Close') + '</button>'
     + '</div>';
   document.getElementById('about-modal').classList.add('show');
 }
@@ -10321,10 +10720,14 @@ function showAbout() {
 function showValidation() {
   var data = VXA.Validation.runAll();
   var txt = VXA.Validation.report(data);
-  console.log(txt);
-  alert(data.passed + '/' + data.total + (currentLang==='tr' ? ' doğrulama testi geçti.' : ' validation tests passed.') + '\n\n' + (currentLang==='tr' ? 'Detaylar için konsolu kontrol edin.' : 'See console for details.'));
+  alert(data.passed + '/' + data.total + (currentLang==='tr' ? ' do\u011frulama testi ge\u00e7ti.' : ' validation tests passed.') + '\n\n' + (currentLang==='tr' ? 'Detaylar i\u00e7in konsolu kontrol edin.' : 'See console for details.'));
 }
 
+// ──────── 5.6: WELCOME — trigger after splash ────────
+setTimeout(function() { showWelcome(); }, 2200);
+
+
+// ═══ app.js ═══
 // ──────── 5.6: WELCOME — trigger after splash ────────
 setTimeout(function() { showWelcome(); }, 2200);
 
@@ -10426,46 +10829,7 @@ setTimeout(function() {
   }
 }, 500);
 </script>
-<!-- AI FAB + PANEL -->
-<button id="ai-fab" onclick="toggleAI()" aria-label="AI Assistant">&#129302;</button>
-<div id="ai-panel">
-  <div id="ai-header">
-    <h3>&#129302; <span id="ai-title-text"></span></h3>
-    <button style="background:none;border:none;color:var(--text-3);font-size:16px;cursor:pointer" onclick="toggleAI()">&times;</button>
-  </div>
-  <div id="ai-messages"></div>
-  <div id="ai-quick">
-    <button class="ai-quick-btn" onclick="aiAsk('findError')"></button>
-    <button class="ai-quick-btn" onclick="aiAsk('optimize')"></button>
-    <button class="ai-quick-btn" onclick="aiAsk('explain')"></button>
-  </div>
-  <div id="ai-input-row">
-    <input id="ai-input" onkeydown="if(event.key==='Enter')aiSend()">
-    <button id="ai-send" onclick="aiSend()"></button>
-  </div>
-  <div id="ai-key-row">
-    <input id="ai-key-input" type="password" placeholder="">
-    <button style="padding:4px 8px;border:none;border-radius:4px;background:var(--surface-3);color:var(--text);font:10px var(--font-ui);cursor:pointer" onclick="saveAIKey()">&#128190;</button>
-  </div>
-</div>
-<!-- Splash failsafe: SEPARATE script so it runs even if main script has errors -->
-<script>
-(function(){
-  function kill(){var s=document.getElementById('splash');if(!s)return;s.style.transition='opacity .4s';s.style.opacity='0';s.style.pointerEvents='none';setTimeout(function(){if(s&&s.parentNode)s.parentNode.removeChild(s);},500);}
-  setTimeout(kill,2000);
-  if(document.readyState==='complete')setTimeout(kill,200);
-  else window.addEventListener('load',function(){setTimeout(kill,300);});
-})();
+
 </script>
-<div id="bom-modal" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.6);align-items:center;justify-content:center" onclick="if(event.target===this)this.style.display='none'">
-  <div style="background:var(--surface-2);border:1px solid var(--border-2);border-radius:14px;padding:24px;max-width:600px;width:90%;max-height:80vh;overflow-y:auto;box-shadow:0 12px 40px rgba(0,0,0,.5)">
-    <div style="display:flex;justify-content:space-between;margin-bottom:16px">
-      <h2 style="font:600 16px var(--font-ui);color:var(--accent)">Bill of Materials (BOM)</h2>
-      <button style="font-size:18px;color:var(--text-3);cursor:pointer;background:none;border:none" onclick="document.getElementById('bom-modal').style.display='none'">&times;</button>
-    </div>
-    <div id="bom-table"></div>
-    <button class="run-btn" style="margin-top:12px" onclick="exportBOMCSV()">CSV &#304;ndir</button>
-  </div>
-</div>
 </body>
 </html>

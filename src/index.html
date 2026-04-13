@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>VoltXAmpere v7.1 — Free Online Circuit Simulator | Ücretsiz Devre Simülatörü</title>
+<meta name="description" content="World's most advanced free online circuit simulator. 64+ components, 50+ SPICE models, Gummel-Poon BJT, AC analysis, thermal simulation, CRT oscilloscope, interactive tutorials. No installation needed.">
+<meta name="keywords" content="circuit simulator, SPICE, devre simülatörü, elektronik, electronics, voltxampere, free, online, oscilloscope, bode plot, thermal, Newton-Raphson, MNA, Gummel-Poon">
+<meta name="author" content="VoltXAmpere">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://voltxampere.com/">
+<meta property="og:title" content="VoltXAmpere v7.1 — Ultimate Circuit Simulator">
+<meta property="og:description" content="64+ components, 50+ SPICE models, AC analysis, thermal simulation, CRT oscilloscope. Free and open source.">
+<meta property="og:url" content="https://voltxampere.com/">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="tr_TR">
+<meta property="og:locale:alternate" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="VoltXAmpere v7.1 — Free Circuit Simulator">
+<meta name="twitter:description" content="64+ components, 50+ SPICE models, AC analysis, thermal simulation. The world's most advanced free circuit simulator.">
+<meta name="theme-color" content="#00d4ff">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="VoltXAmpere">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='28' font-size='28'%3E%E2%9A%A1%3C/text%3E%3C/svg%3E">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"VoltXAmpere v7.1","url":"https://voltxampere.com","description":"Free online circuit simulator with SPICE-accurate engine, 64+ components, thermal simulation, CRT oscilloscope","applicationCategory":"EducationalApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"featureList":"Circuit simulation, 50+ SPICE models, Thermal analysis, CRT Oscilloscope, Bode plot, Interactive tutorials, Net labels, Subcircuits"}</script>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* __CSS_PLACEHOLDER__ */
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- TOPBAR -->
+  <div id="topbar" role="toolbar" aria-label="Circuit tools">
+    <div class="logo"><span class="v">Volt</span><span class="x">X</span><span class="a">Ampere</span></div>
+    <button class="tb-btn" onclick="undo()" title="Geri Al (Ctrl+Z)">&#8630; Geri Al</button>
+    <button class="tb-btn" onclick="redo()" title="Yinele (Ctrl+Y)">&#8631; Yinele</button>
+    <div class="tb-sep"></div>
+    <button class="tb-btn" id="btn-wire" onclick="toggleWire()" title="Kablo (W)">&#9866; Kablo</button>
+    <button class="tb-btn" onclick="rotateSelected()" title="Döndür (R)">&#8635; Döndür</button>
+    <button class="tb-btn" onclick="deleteSelected()" title="Sil (Del)">&#10005; Sil</button>
+    <div class="tb-sep"></div>
+    <button class="tb-btn" onclick="exportJSON()" title="Kaydet (Ctrl+S)">&#128190; Kaydet</button>
+    <button class="tb-btn" onclick="importJSON()" title="Aç (Ctrl+O)">&#128194; Aç</button>
+    <button class="tb-btn" onclick="importSpiceModels()" title="SPICE Model Yükle">&#9881; .model</button>
+    <button class="tb-btn" onclick="exportPNG()" title="PNG İndir">&#128247; PNG</button>
+    <button class="tb-btn" onclick="exportSVG()" title="SVG İndir">SVG</button>
+    <button class="tb-btn" onclick="exportCSV()" title="CSV İndir">CSV</button>
+    <button class="tb-btn" onclick="showBOM()" title="BOM">&#128203; BOM</button>
+    <button class="tb-btn" onclick="showGallery()" title="Gallery">&#128218; <span class="tb-gallery-label"></span></button>
+    <button class="tb-btn" onclick="generateReport()" title="Rapor">&#128196; Rapor</button>
+    <button class="tb-btn" onclick="shareURL()" title="Paylaş">&#128279; Paylaş</button>
+    <div class="tb-sep"></div>
+    <button class="tb-btn" id="btn-vmap" onclick="S.voltageMap=!S.voltageMap;needsRender=true">&#9889; Renk Haritası</button>
+    <button class="tb-btn" onclick="showTutorialList()" title="Dersler">&#128214; Dersler</button>
+    <button class="tb-btn" onclick="openSettings()" title="Ayarlar">&#9881; Ayarlar</button>
+    <button class="tb-btn" id="btn-realistic" onclick="toggleRealisticBtn()" title="Gerçekçi Mod (Shift+R)">&#128737; Gerçekçi</button>
+    <button class="tb-btn" onclick="cycleBgBtn()" title="Arka Plan (B)">&#127912; Arka Plan</button>
+    <button class="tb-btn" onclick="fitToScreen()" title="Sığdır (Ctrl+Shift+F)">&#128208; Sığdır</button>
+    <div class="sim-badge">
+      <button class="tb-btn" style="font-size:10px" onclick="simStep()" title="Tek Ad&#305;m">&#9193; Ad&#305;m</button>
+      <button class="tb-btn" style="font-size:10px" onclick="simBookmark()" title="Yer &#304;mi">&#128278; &#304;&#351;aretle</button>
+      <button class="tb-btn" style="font-size:10px" onclick="simGotoBookmark()" title="Yer &#304;mine Git">&#8617; Geri</button>
+      <select id="sim-speed" onchange="S.sim.speed=parseFloat(this.value)" style="background:var(--surface-3);border:1px solid var(--border);color:var(--text);border-radius:4px;padding:2px 4px;font:11px var(--font-mono);cursor:pointer">
+        <option value="0.1">0.1x</option><option value="0.5">0.5x</option><option value="1" selected>1x</option><option value="2">2x</option><option value="5">5x</option><option value="10">10x</option>
+      </select>
+      <span class="tb-badge" id="sim-label">DURDURULDU</span>
+      <div class="sim-dot" id="sim-dot"></div>
+      <button class="tb-btn" id="btn-sim" onclick="toggleSim()">&#9654; Başlat</button>
+      <button class="tb-btn" id="lang-btn" onclick="setLanguage(currentLang==='tr'?'en':'tr')" title="TR/EN" style="margin-left:8px">🌐 TR</button>
+      <button class="tb-btn" onclick="changeFontSize(-1)" aria-label="Decrease font" title="A-">A-</button>
+      <button class="tb-btn" onclick="changeFontSize(1)" aria-label="Increase font" title="A+">A+</button>
+      <button class="tb-btn" id="btn-hc" onclick="toggleHighContrast()" aria-label="High contrast" title="High Contrast">🔲</button>
+    </div>
+  </div>
+
+  <!-- LEFT PANEL -->
+  <div id="left"></div>
+
+  <!-- CANVAS -->
+  <div id="canvas-wrap"><canvas id="C"></canvas><canvas id="minimap" width="160" height="100" style="position:absolute;bottom:8px;right:8px;width:160px;height:100px;background:rgba(11,15,21,0.9);border:1px solid var(--border-2);border-radius:6px;z-index:5;cursor:pointer"></canvas></div>
+
+  <!-- RIGHT PANEL -->
+  <div id="right">
+    <div id="inspector"><div class="insp-empty">Eleman seçilmedi</div></div>
+    <div class="mcard"><div class="mcard-label">GERİLİM (V)</div><div class="mcard-val" id="m-v" style="color:var(--accent)">&#8212; V</div></div>
+    <div class="mcard"><div class="mcard-label">AKIM (A)</div><div class="mcard-val" id="m-i" style="color:var(--blue)">&#8212; A</div></div>
+    <div class="mcard"><div class="mcard-label">GÜÇ (W)</div><div class="mcard-val" id="m-p" style="color:var(--orange)">&#8212; W</div></div>
+    <div class="mcard"><div class="mcard-label">FREKANS</div><div class="mcard-val" id="m-f" style="color:var(--purple)">&#8212; Hz</div></div>
+  </div>
+
+  <!-- BOTTOM -->
+  <div id="bottom" style="display:grid;grid-template-rows:auto 1fr;grid-template-columns:1fr">
+    <div style="display:flex;gap:2px;padding:3px 8px;background:var(--surface-2);border-bottom:1px solid var(--border)">
+      <button class="btab active" data-tab="scope" onclick="switchTab('scope')">Osiloskop</button>
+      <button class="btab" data-tab="bode" onclick="switchTab('bode')">Bode Plot</button>
+      <button class="btab" data-tab="dcsweep" onclick="switchTab('dcsweep')">DC Sweep</button>
+      <button class="btab" data-tab="paramsweep" onclick="switchTab('paramsweep')">Param Sweep</button>
+      <button class="btab" data-tab="fft" onclick="switchTab('fft')">FFT</button>
+      <button class="btab" data-tab="montecarlo" onclick="switchTab('montecarlo')">Monte Carlo</button>
+      <button class="btab" data-tab="tempsweep" onclick="switchTab('tempsweep')">S&#305;cakl&#305;k</button>
+      <button class="btab" data-tab="noise" onclick="switchTab('noise')">G&#252;r&#252;lt&#252;</button>
+      <button class="btab" data-tab="sensitivity" onclick="switchTab('sensitivity')">Duyarl&#305;l&#305;k</button>
+      <button class="btab" data-tab="worstcase" onclick="switchTab('worstcase')">Worst Case</button>
+    </div>
+    <div id="tab-scope" class="tab-panel active" style="grid-template-columns:1fr 200px">
+      <div id="scope-wrap">
+        <canvas id="SC"></canvas>
+        <div class="crt-scanlines" id="crt-scanlines"></div>
+        <div class="crt-vignette" id="crt-vignette"></div>
+        <div class="scope-cursor-info" id="scope-cursor-info" style="display:none"></div>
+        <div id="scope-controls">
+          <div class="sc-group">
+            <label class="sc-ch" style="--c:#00e09e"><input type="checkbox" checked onchange="toggleCh(0,this.checked)"> KN1</label>
+            <label class="sc-ch" style="--c:#3b82f6"><input type="checkbox" checked onchange="toggleCh(1,this.checked)"> KN2</label>
+            <label class="sc-ch" style="--c:#f59e0b"><input type="checkbox" onchange="toggleCh(2,this.checked)"> KN3</label>
+            <label class="sc-ch" style="--c:#a855f7"><input type="checkbox" onchange="toggleCh(3,this.checked)"> KN4</label>
+          </div>
+          <div class="sc-group">
+            <span class="sc-label">Zaman/div</span>
+            <select id="sc-tdiv" onchange="setTDiv(this.value)">
+              <option value="1e-6">1 &micro;s</option>
+              <option value="1e-5">10 &micro;s</option>
+              <option value="1e-4">100 &micro;s</option>
+              <option value="1e-3" selected>1 ms</option>
+              <option value="1e-2">10 ms</option>
+              <option value="0.1">100 ms</option>
+            </select>
+          </div>
+          <div class="sc-group">
+            <span class="sc-label">V/div</span>
+            <select id="sc-vdiv" onchange="setVDiv(this.value)">
+              <option value="0">Oto</option>
+              <option value="0.01">10 mV</option>
+              <option value="0.1">100 mV</option>
+              <option value="1">1 V</option>
+              <option value="2" selected>2 V</option>
+              <option value="5">5 V</option>
+              <option value="10">10 V</option>
+            </select>
+          </div>
+          <div class="sc-group">
+            <span class="sc-label">Trigger</span>
+            <select id="sc-trig" onchange="setTrigMode(this.value)">
+              <option value="auto" selected>Oto</option>
+              <option value="normal">Normal</option>
+              <option value="single">Tek At&#305;&#351;</option>
+            </select>
+            <select id="sc-trigedge" onchange="setTrigEdge(this.value)">
+              <option value="rising">&uarr; Y&uuml;kselen</option>
+              <option value="falling">&darr; D&uuml;&#351;en</option>
+            </select>
+          </div>
+          <div class="sc-group">
+            <button class="tb-btn" style="font-size:10px;padding:2px 6px" onclick="toggleScopeMode('xy')">X-Y</button>
+            <button class="tb-btn" style="font-size:10px;padding:2px 6px" onclick="toggleScopeMode('roll')">Roll</button>
+            <button class="tb-btn" style="font-size:10px;padding:2px 6px" onclick="S.scope.persist=!S.scope.persist;needsRender=true">Persist</button>
+            <button class="tb-btn" style="font-size:10px;padding:2px 6px" id="btn-crt" onclick="toggleCRT()">CRT</button>
+            <button class="tb-btn" style="font-size:10px;padding:2px 6px" onclick="toggleCursors()">Cursor</button>
+            <button class="tb-btn" style="font-size:10px;padding:2px 6px" id="btn-ref" onclick="toggleRef()">REF</button>
+            <button class="sc-export-btn" onclick="exportScopeCSV()" title="CSV">&#128229;</button>
+            <button class="sc-export-btn" onclick="exportScopePNG()" title="PNG">&#128247;</button>
+          </div>
+          <div class="sc-group">
+            <span class="sc-label">Math</span>
+            <select id="sc-math" onchange="S.scope.math=this.value;needsRender=true" style="background:var(--surface-3);border:1px solid var(--border);color:var(--text);border-radius:4px;padding:2px;font:10px var(--font-mono)">
+              <option value="">Kapal&#305;</option>
+              <option value="add">KN1+KN2</option>
+              <option value="sub">KN1-KN2</option>
+              <option value="mul">KN1&times;KN2</option>
+              <option value="dvdt">dV/dt</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div id="scope-side">
+        <div class="scope-card"><div class="lbl">Vpp</div><div class="val" id="sc-vpp" style="color:var(--accent)">&#8212;</div></div>
+        <div class="scope-card"><div class="lbl">Vrms</div><div class="val" id="sc-vrms" style="color:var(--blue)">&#8212;</div></div>
+        <div class="scope-card"><div class="lbl">Vmin</div><div class="val" id="sc-vmin" style="color:var(--cyan)">&#8212;</div></div>
+        <div class="scope-card"><div class="lbl">Vmax</div><div class="val" id="sc-vmax" style="color:var(--yellow)">&#8212;</div></div>
+        <div class="scope-card"><div class="lbl">Frekans</div><div class="val" id="sc-freq" style="color:var(--purple)">&#8212;</div></div>
+        <div class="scope-card"><div class="lbl">Periyot</div><div class="val" id="sc-per" style="color:var(--cyan)">&#8212;</div></div>
+        <div class="scope-card"><div class="lbl">Duty</div><div class="val" id="sc-duty" style="color:var(--pink)">&#8212;</div></div>
+        <div class="scope-card"><div class="lbl">Pavg</div><div class="val" id="sc-pavg" style="color:var(--orange)">&#8212;</div></div>
+        <div class="scope-card"><div class="lbl">Rise T</div><div class="val" id="sc-rise" style="color:var(--green)">&#8212;</div></div>
+        <div class="scope-card"><div class="lbl">Fall T</div><div class="val" id="sc-fall" style="color:var(--orange)">&#8212;</div></div>
+        <div class="scope-card"><div class="lbl">Phase</div><div class="val" id="sc-phase" style="color:var(--pink)">&#8212;</div></div>
+        <div class="scope-card"><div class="lbl">THD</div><div class="val" id="sc-thd" style="color:var(--purple)">&#8212;</div></div>
+      </div>
+    </div>
+    <div id="tab-bode" class="tab-panel" style="position:relative"><canvas id="BODE" style="width:100%;height:100%"></canvas><div class="tab-overlay" id="ov-bode"><p>AC devre kurun, sim&uuml;lasyonu ba&scedil;lat&inodot;n</p><button class="run-btn" onclick="runBode()">&#9654; Bode Analizi Ba&scedil;lat</button></div></div>
+    <div id="tab-dcsweep" class="tab-panel" style="position:relative"><canvas id="DCSW" style="width:100%;height:100%"></canvas><div class="tab-overlay" id="ov-dcsweep"><p>DC kaynak ekleyin</p><button class="run-btn" onclick="runDCSweep('vdc',0,10,50)">&#9654; DC Sweep Ba&scedil;lat</button></div></div>
+    <div id="tab-paramsweep" class="tab-panel" style="position:relative"><canvas id="PSWEEP" style="width:100%;height:100%"></canvas><div class="tab-overlay" id="ov-paramsweep"><p>Bir bile&scedil;en se&ccedil;in</p><button class="run-btn" onclick="if(S.sel[0])runParamSweep(S.sel[0],'val',100,10000,20)">&#9654; Param Sweep Ba&scedil;lat</button></div></div>
+    <div id="tab-fft" class="tab-panel" style="position:relative"><canvas id="FFTC" style="width:100%;height:100%"></canvas><div class="tab-overlay" id="ov-fft"><p>Sim&uuml;lasyonu &ccedil;al&inodot;&scedil;t&inodot;r&inodot;n</p><button class="run-btn" onclick="runFFT()">&#9654; FFT Hesapla</button></div></div>
+    <div id="tab-montecarlo" class="tab-panel" style="position:relative"><canvas id="MCC" style="width:100%;height:100%"></canvas><div class="tab-overlay" id="ov-montecarlo"><p>Devre kurun, tolerans analizi yap&inodot;n</p><button class="run-btn" onclick="runMonteCarlo(10,200)">&#9654; Monte Carlo (&plusmn;10%, 200x)</button></div></div>
+    <div id="tab-tempsweep" class="tab-panel" style="position:relative"><canvas id="TSWEEP" style="width:100%;height:100%"></canvas><div class="tab-overlay" id="ov-tempsweep"><p>S&inodot;cakl&inodot;k etkisini g&ouml;r&uuml;n</p><button class="run-btn" onclick="runTempSweep()">&#9654; S&inodot;cakl&inodot;k Taramas&inodot; (-40&deg;C&#8594;125&deg;C)</button></div></div>
+    <div id="tab-noise" class="tab-panel" style="position:relative"><canvas id="NOISEC" style="width:100%;height:100%"></canvas><div class="tab-overlay" id="ov-noise"><p>Diren&ccedil;li devre kurun</p><button class="run-btn" onclick="runNoiseAnalysis()">&#9654; G&uuml;r&uuml;lt&uuml; Analizi Ba&scedil;lat</button></div></div>
+    <div id="tab-sensitivity" class="tab-panel" style="position:relative"><canvas id="SENSC" style="width:100%;height:100%"></canvas><div class="tab-overlay" id="ov-sensitivity"><p>Hangi bile&scedil;en en kritik?</p><button class="run-btn" onclick="runSensitivity()">&#9654; Duyarl&inodot;l&inodot;k Analizi</button></div></div>
+    <div id="tab-worstcase" class="tab-panel" style="position:relative"><canvas id="WCC" style="width:100%;height:100%"></canvas><div class="tab-overlay" id="ov-worstcase"><p>Tolerans u&ccedil;lar&inodot;n&inodot; test edin</p><button class="run-btn" onclick="runWorstCase('evp')">&#9654; EVP (&plusmn;10%)</button> <button class="run-btn" onclick="runWorstCase('rss')" style="margin-left:6px">&#9654; RSS (&plusmn;10%)</button></div></div>
+  </div>
+
+  <!-- STATUSBAR -->
+  <div id="statusbar">
+    <span id="sb-time">t=0.000s</span>
+    <span id="sb-dt">dt=1.00ms</span>
+    <span id="sb-nodes">0 parts &middot; 0 wires</span>
+    <span id="sb-fps">0 fps</span>
+    <span id="sb-temp" style="color:var(--text-3)"></span>
+    <span id="sb-engine" style="color:var(--text-4)"></span>
+    <span id="sb-extra" style="color:var(--text-3)"></span>
+    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v7.1 — © 2026 Open Source</span>
+  </div>
+</div>
+
+<!-- CONTEXT MENU -->
+<div id="ctx-menu">
+  <div class="cm-item" onclick="ctxEditVal()">&#9998; Değer Düzenle<span class="cm-key">E</span></div>
+  <div class="cm-item" onclick="ctxRotate()">&#8635; Döndür<span class="cm-key">R</span></div>
+  <div class="cm-item" onclick="ctxFlipH()">&#8644; Flip H<span class="cm-key">H</span></div>
+  <div class="cm-item" onclick="ctxFlipV()">&#8645; Flip V</div>
+  <div class="cm-sep"></div>
+  <div class="cm-item" onclick="ctxProbe()">&#9906; Scope'a G&ouml;nder<span class="cm-key">P</span></div>
+  <div class="cm-sep"></div>
+  <div class="cm-item" onclick="ctxCopy()">&#9112; Kopyala<span class="cm-key">Ctrl+C</span></div>
+  <div class="cm-item" onclick="ctxDelete()" style="color:var(--red)">&#10005; Sil<span class="cm-key">Del</span></div>
+  <div class="cm-sep"></div>
+  <div class="cm-item" onclick="ctxSaveBlock()">&#9635; Blok Kaydet</div>
+</div>
+
+<!-- INLINE EDIT -->
+<div id="inline-edit"></div>
+
+<!-- SETTINGS MODAL -->
+<div id="settings-modal" onclick="if(event.target===this)closeSettings()">
+  <div id="settings-box">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <h2>⚙ Ayarlar</h2>
+      <button style="font-size:18px;color:var(--text-3);cursor:pointer;background:none;border:none" onclick="closeSettings()">&times;</button>
+    </div>
+    <div id="settings-body"></div>
+    <div class="set-actions">
+      <button class="set-btn-cancel" onclick="closeSettings()">İptal</button>
+      <button class="set-btn-save" onclick="applySettings()">Kaydet</button>
+    </div>
+  </div>
+</div>
+
+<!-- SHARE MODAL -->
+<div id="share-modal" class="share-modal" onclick="if(event.target===this)this.classList.remove('show')">
+  <div class="share-box">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <h3 style="font:600 16px var(--font-ui);color:var(--accent)" id="share-title-h"></h3>
+      <button style="font-size:18px;color:var(--text-3);cursor:pointer;background:none;border:none" onclick="document.getElementById('share-modal').classList.remove('show')">&times;</button>
+    </div>
+    <div class="share-section"><h4 id="sh-url-label"></h4><div class="share-row"><div class="share-input" id="share-url-text"></div><button class="share-copy" onclick="copyShareURL()">&#128203;</button></div></div>
+    <div class="share-section"><h4 id="sh-embed-label"></h4><div class="share-row"><div class="share-input" id="share-embed-text"></div><button class="share-copy" onclick="copyEmbed()">&#128203;</button></div></div>
+    <div class="share-section"><h4 id="sh-qr-label"></h4><div><img id="share-qr-img" style="width:150px;height:150px;border-radius:8px;background:#fff;padding:8px"></div></div>
+    <div class="share-section"><h4 id="sh-social-label"></h4><div class="social-btns"><button class="social-btn tw" onclick="shareToTwitter()">Twitter</button><button class="social-btn wa" onclick="shareToWhatsApp()">WhatsApp</button><button class="social-btn li" onclick="shareToLinkedIn()">LinkedIn</button><button class="social-btn tg" onclick="shareToTelegram()">Telegram</button></div></div>
+  </div>
+</div>
+
+<!-- GALLERY MODAL -->
+<div id="gallery-modal" class="gallery-modal" onclick="if(event.target===this)this.classList.remove('show')">
+  <div style="height:100%;display:flex;flex-direction:column;background:var(--surface)">
+    <div class="gallery-header">
+      <h2 id="gallery-title-h"></h2>
+      <input class="gallery-search" id="gallery-search" oninput="filterGallery()" placeholder="">
+      <button style="font-size:20px;color:var(--text-3);cursor:pointer;background:none;border:none" onclick="document.getElementById('gallery-modal').classList.remove('show')">&times;</button>
+    </div>
+    <div class="gallery-filters" id="gallery-filters"></div>
+    <div class="gallery-grid" id="gallery-grid"></div>
+  </div>
+</div>
+
+<!-- EMBED BADGE -->
+<a id="embed-badge" href="https://voltxampere.com" target="_blank"></a>
+
+<!-- SPLASH SCREEN -->
+<div id="splash">
+  <div class="logo-big"><span style="color:var(--accent)">Volt</span><span style="color:var(--orange)">X</span><span style="color:var(--blue)">Ampere</span></div>
+  <div class="loading">Yükleniyor...</div>
+</div>
+
+<!-- TUTORIAL OVERLAY -->
+<div id="tutorial-overlay">
+  <div id="tutorial-backdrop"></div>
+  <div id="tutorial-card">
+    <h3 id="tut-title"></h3>
+    <p id="tut-text"></p>
+    <div class="step-dots" id="tut-dots"></div>
+    <div style="display:flex;gap:10px;justify-content:center">
+      <button class="tut-btn tut-btn-skip" onclick="endTutorial()">Atla</button>
+      <button class="tut-btn tut-btn-next" onclick="nextTutStep()">İleri</button>
+    </div>
+  </div>
+</div>
+
+<!-- TUTORIAL LIST MODAL -->
+<div id="tutorial-list-modal" onclick="if(event.target===this)this.classList.remove('show')">
+  <div id="tutorial-list-box"></div>
+</div>
+
+<!-- TUTORIAL RUNNER -->
+<div id="tut-runner"></div>
+
+<!-- ENCYCLOPEDIA MODAL -->
+<div id="ency-modal" onclick="if(event.target===this)this.classList.remove('show')">
+  <div id="ency-box"></div>
+</div>
+
+<!-- ABOUT MODAL -->
+<div id="about-modal" onclick="if(event.target===this)this.classList.remove('show')">
+  <div id="about-box"></div>
+</div>
+
+<!-- WELCOME DIALOG -->
+<div id="welcome-dialog" onclick="if(event.target===this)this.classList.remove('show')">
+  <div id="welcome-box"></div>
+</div>
+
+<!-- SHORTCUTS MODAL -->
+<div id="shortcuts-modal" onclick="if(event.target===this)this.classList.remove('show')">
+  <div id="shortcuts-box">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <h2>Klavye Kısayolları</h2>
+      <button style="font-size:20px;color:var(--text-3);cursor:pointer;background:none;border:none" onclick="document.getElementById('shortcuts-modal').classList.remove('show')">&times;</button>
+    </div>
+    <div class="sc-grid">
+      <div class="sc-cat"><h4>Simülasyon</h4>
+        <div class="sc-row"><kbd>Space</kbd><span>Başlat / Durdur</span></div>
+      </div>
+      <div class="sc-cat"><h4>Hızlı Eleman</h4>
+        <div class="sc-row"><kbd>1</kbd><span>Direnç</span></div>
+        <div class="sc-row"><kbd>2</kbd><span>Kapasitör</span></div>
+        <div class="sc-row"><kbd>3</kbd><span>Bobbin</span></div>
+        <div class="sc-row"><kbd>4</kbd><span>DC Kaynak</span></div>
+        <div class="sc-row"><kbd>5</kbd><span>AC Kaynak</span></div>
+        <div class="sc-row"><kbd>6</kbd><span>Diyot</span></div>
+        <div class="sc-row"><kbd>7</kbd><span>LED</span></div>
+        <div class="sc-row"><kbd>8</kbd><span>Toprak</span></div>
+        <div class="sc-row"><kbd>9</kbd><span>Anahtar</span></div>
+      </div>
+      <div class="sc-cat"><h4>Araçlar</h4>
+        <div class="sc-row"><kbd>W</kbd><span>Kablo çiz</span></div>
+        <div class="sc-row"><kbd>R</kbd><span>Döndür (90°)</span></div>
+        <div class="sc-row"><kbd>H</kbd><span>Yatay çevir</span></div>
+        <div class="sc-row"><kbd>E</kbd><span>Değer düzenle (inline)</span></div>
+        <div class="sc-row"><kbd>P</kbd><span>Scope probe</span></div>
+        <div class="sc-row"><kbd>G</kbd><span>Gerilim renk haritası</span></div>
+        <div class="sc-row"><kbd>B</kbd><span>Arka plan değiştir</span></div>
+        <div class="sc-row"><kbd>Esc</kbd><span>İptal</span></div>
+      </div>
+      <div class="sc-cat"><h4>Düzenleme</h4>
+        <div class="sc-row"><kbd>Del</kbd><span>Sil</span></div>
+        <div class="sc-row"><kbd>Ctrl+Z</kbd><span>Geri al</span></div>
+        <div class="sc-row"><kbd>Ctrl+Y</kbd><span>Yinele</span></div>
+        <div class="sc-row"><kbd>Ctrl+C</kbd><span>Kopyala</span></div>
+        <div class="sc-row"><kbd>Ctrl+V</kbd><span>Yapıştır</span></div>
+        <div class="sc-row"><kbd>Ctrl+D</kbd><span>Çoğalt</span></div>
+        <div class="sc-row"><kbd>Ctrl+A</kbd><span>Tümünü seç</span></div>
+      </div>
+      <div class="sc-cat"><h4>Görünüm</h4>
+        <div class="sc-row"><kbd>+ / -</kbd><span>Yakınlaştır / Uzaklaştır</span></div>
+        <div class="sc-row"><kbd>Ctrl+0</kbd><span>Zoom sıfırla</span></div>
+        <div class="sc-row"><kbd>Ctrl+Shift+F</kbd><span>Sığdır</span></div>
+      </div>
+      <div class="sc-cat"><h4>Toggle (v6.0)</h4>
+        <div class="sc-row"><kbd>Shift+W</kbd><span>Kablo stili</span></div>
+        <div class="sc-row"><kbd>Shift+S</kbd><span>IEC / ANSI sembol</span></div>
+        <div class="sc-row"><kbd>Shift+D</kbd><span>Akım yönü</span></div>
+        <div class="sc-row"><kbd>Shift+R</kbd><span>Gerçekçi mod</span></div>
+        <div class="sc-row"><kbd>Dbl-Click</kbd><span>Inline değer düzenle</span></div>
+        <div class="sc-row"><kbd>Scroll</kbd><span>E12 değer adımı (seçili bileşen)</span></div>
+      </div>
+      <div class="sc-cat"><h4>Dosya</h4>
+        <div class="sc-row"><kbd>Ctrl+S</kbd><span>Kaydet (JSON)</span></div>
+        <div class="sc-row"><kbd>Ctrl+O</kbd><span>Aç</span></div>
+        <div class="sc-row"><kbd>?</kbd><span>Bu pencere</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<noscript><div style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#06080c;color:#e0e7f0;font-family:sans-serif;text-align:center;padding:40px"><div><h1 style="color:#00e09e;margin-bottom:12px">VoltXAmpere</h1><p>Bu uygulama JavaScript gerektirir.<br>Lütfen tarayıcınızda JavaScript'i etkinleştirin.</p></div></div></noscript>
+
+<!-- AI FAB + PANEL -->
+<button id="ai-fab" onclick="toggleAI()" aria-label="AI Assistant">&#129302;</button>
+<div id="ai-panel">
+  <div id="ai-header">
+    <h3>&#129302; <span id="ai-title-text"></span></h3>
+    <button style="background:none;border:none;color:var(--text-3);font-size:16px;cursor:pointer" onclick="toggleAI()">&times;</button>
+  </div>
+  <div id="ai-messages"></div>
+  <div id="ai-quick">
+    <button class="ai-quick-btn" onclick="aiAsk('findError')"></button>
+    <button class="ai-quick-btn" onclick="aiAsk('optimize')"></button>
+    <button class="ai-quick-btn" onclick="aiAsk('explain')"></button>
+  </div>
+  <div id="ai-input-row">
+    <input id="ai-input" onkeydown="if(event.key==='Enter')aiSend()">
+    <button id="ai-send" onclick="aiSend()"></button>
+  </div>
+  <div id="ai-key-row">
+    <input id="ai-key-input" type="password" placeholder="">
+    <button style="padding:4px 8px;border:none;border-radius:4px;background:var(--surface-3);color:var(--text);font:10px var(--font-ui);cursor:pointer" onclick="saveAIKey()">&#128190;</button>
+  </div>
+</div>
+<!-- Splash failsafe: SEPARATE script so it runs even if main script has errors -->
+<!-- Splash failsafe: SEPARATE script so it runs even if main script has errors -->
+<script>
+(function(){
+  function kill(){var s=document.getElementById('splash');if(!s)return;s.style.transition='opacity .4s';s.style.opacity='0';s.style.pointerEvents='none';setTimeout(function(){if(s&&s.parentNode)s.parentNode.removeChild(s);},500);}
+  setTimeout(kill,2000);
+  if(document.readyState==='complete')setTimeout(kill,200);
+  else window.addEventListener('load',function(){setTimeout(kill,300);});
+})();
+</script>
+<div id="bom-modal" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.6);align-items:center;justify-content:center" onclick="if(event.target===this)this.style.display='none'">
+  <div style="background:var(--surface-2);border:1px solid var(--border-2);border-radius:14px;padding:24px;max-width:600px;width:90%;max-height:80vh;overflow-y:auto;box-shadow:0 12px 40px rgba(0,0,0,.5)">
+    <div style="display:flex;justify-content:space-between;margin-bottom:16px">
+      <h2 style="font:600 16px var(--font-ui);color:var(--accent)">Bill of Materials (BOM)</h2>
+      <button style="font-size:18px;color:var(--text-3);cursor:pointer;background:none;border:none" onclick="document.getElementById('bom-modal').style.display='none'">&times;</button>
+    </div>
+    <div id="bom-table"></div>
+    <button class="run-btn" style="margin-top:12px" onclick="exportBOMCSV()">CSV &#304;ndir</button>
+  </div>
+</div>
+
+<script>
+/* __JS_PLACEHOLDER__ */
+</script>
+</body>
+</html>

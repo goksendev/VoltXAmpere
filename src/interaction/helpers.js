@@ -1,0 +1,74 @@
+// ──────── FORMAT VALUE (ENGINEERING NOTATION) ────────
+function fmtVal(v, u) {
+  if (v == null || !u) return '';
+  const abs = Math.abs(v);
+  if (abs >= 1e9) return (v / 1e9).toPrecision(3) + 'G' + u;
+  if (abs >= 1e6) return (v / 1e6).toPrecision(3) + 'M' + u;
+  if (abs >= 1e3) return (v / 1e3).toPrecision(3) + 'k' + u;
+  if (abs >= 1) return v.toPrecision(3) + u;
+  if (abs >= 1e-3) return (v * 1e3).toPrecision(3) + 'm' + u;
+  if (abs >= 1e-6) return (v * 1e6).toPrecision(3) + '\u00B5' + u;
+  if (abs >= 1e-9) return (v * 1e9).toPrecision(3) + 'n' + u;
+  if (abs >= 1e-12) return (v * 1e12).toPrecision(3) + 'p' + u;
+  return v.toExponential(2) + u;
+}
+
+// ──────── NAME COUNTER ────────
+const _nc = {};
+function nextName(type) { const en = COMP[type].en; _nc[en] = (_nc[en] || 0) + 1; return en + _nc[en]; }
+
+// ──────── MODE ACTIONS ────────
+function startPlace(type) {
+  S.mode = 'place'; S.placingType = type; S.placeRot = 0; S.sel = [];
+  S.wireStart = null; S.wirePreview = null;
+  document.getElementById('btn-wire').classList.remove('active');
+  needsRender = true; updateInspector();
+}
+function toggleWire() {
+  if (S.mode === 'wire') {
+    S.mode = 'select'; S.wireStart = null; S.wirePreview = null;
+    document.getElementById('btn-wire').classList.remove('active');
+  } else {
+    S.mode = 'wire'; S.placingType = null; S.wireStart = null;
+    document.getElementById('btn-wire').classList.add('active');
+  }
+  needsRender = true;
+}
+function toggleSim() {
+  S.sim.running = !S.sim.running;
+  document.getElementById('sim-dot').classList.toggle('on', S.sim.running);
+  document.getElementById('sim-label').textContent = S.sim.running ? 'ÇALIŞIYOR' : 'DURDURULDU';
+  document.getElementById('btn-sim').innerHTML = S.sim.running ? '&#9646;&#9646; Durdur' : '&#9654; Başlat';
+  if (S.sim.running) {
+    S.sim.error = '';
+    VXA.AdaptiveStep.reset();
+    buildCircuitFromCanvas();
+    VXA.SimV2.findDCOperatingPoint();
+  }
+  if (typeof announce === 'function') announce(S.sim.running ? 'Sim\u00fclasyon ba\u015flad\u0131' : 'Sim\u00fclasyon durduruldu');
+}
+
+// ──────── SELECTION ACTIONS ────────
+function rotateSelected() {
+  if (S.mode === 'place') { S.placeRot = (S.placeRot + 1) % 4; needsRender = true; return; }
+  if (!S.sel.length) return; saveUndo();
+  S.parts.filter(p => S.sel.includes(p.id)).forEach(p => p.rot = ((p.rot || 0) + 1) % 4);
+  needsRender = true; updateInspector();
+}
+function deleteSelected() {
+  if (!S.sel.length) return; saveUndo();
+  // remove wires connected to deleted parts
+  S.wires = S.wires.filter(w => {
+    for (const id of S.sel) {
+      const p = S.parts.find(pp => pp.id === id); if (!p) continue;
+      const pins = getPartPins(p);
+      for (const pin of pins) {
+        if ((Math.abs(w.x1 - pin.x) < 3 && Math.abs(w.y1 - pin.y) < 3) ||
+            (Math.abs(w.x2 - pin.x) < 3 && Math.abs(w.y2 - pin.y) < 3)) return false;
+      }
+    }
+    return true;
+  });
+  S.parts = S.parts.filter(p => !S.sel.includes(p.id));
+  S.sel = []; needsRender = true; updateInspector();
+}
