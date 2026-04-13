@@ -3,18 +3,21 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>VoltXAmpere v3.0 — Devrenizi Hissedin | Devre Simülatörü</title>
-<meta name="description" content="Ücretsiz online elektrik-elektronik devre simülatörü. Gerçek MNA çözücü, 4 kanallı osiloskop, Bode analizi, 40+ bileşen. Falstad alternatifi.">
+<title>VoltXAmpere v4.0 — Free Online Circuit Simulator | Ücretsiz Devre Simülatörü</title>
+<meta name="description" content="Free online circuit simulator with 61 components, 10 analysis types, pro oscilloscope. No signup required. SPICE-class MNA engine. Ücretsiz online devre simülatörü.">
 <meta name="keywords" content="devre simülatörü, circuit simulator, elektronik, SPICE, osiloskop, MNA, falstad, ücretsiz, online, VoltXAmpere">
 <meta name="author" content="VoltXAmpere">
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="https://voltxampere.com/">
-<meta property="og:title" content="VoltXAmpere — Devrenizi Hissedin">
-<meta property="og:description" content="Ücretsiz online devre simülatörü. Gerçek MNA motor, 4 kanallı osiloskop, 8 hazır devre.">
+<meta property="og:title" content="VoltXAmpere — Free Online Circuit Simulator">
+<meta property="og:description" content="61 components, 10 analysis types, pro oscilloscope. Free, no signup. SPICE-class browser simulator.">
 <meta property="og:url" content="https://voltxampere.com/">
 <meta property="og:type" content="website">
+<meta property="og:locale" content="en_US">
+<meta property="og:locale:alternate" content="tr_TR">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="VoltXAmpere — Devrenizi Hissedin">
+<meta name="twitter:title" content="VoltXAmpere — Free Circuit Simulator">
+<meta name="twitter:description" content="61 components, 10 analyses, pro oscilloscope. Free & open source.">
 <meta name="theme-color" content="#06080c">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -204,12 +207,14 @@ input:focus{border-color:var(--accent)}
 #embed-badge{display:none;position:fixed;bottom:8px;left:8px;z-index:10;font:500 11px var(--font-ui);color:var(--accent);opacity:.7;text-decoration:none}
 #embed-badge:hover{opacity:1}
 .embed-mode #embed-badge{display:block}
+.high-contrast{--border:#ffffff40;--border-2:#ffffff60;--text:#ffffff;--text-2:#dddddd;--text-3:#aaaaaa;--accent:#00ff88}
+.high-contrast canvas{filter:contrast(1.2)}
 </style>
 </head>
 <body>
 <div id="app">
   <!-- TOPBAR -->
-  <div id="topbar">
+  <div id="topbar" role="toolbar" aria-label="Circuit tools">
     <div class="logo"><span class="v">Volt</span><span class="x">X</span><span class="a">Ampere</span></div>
     <button class="tb-btn" onclick="undo()" title="Geri Al (Ctrl+Z)">&#8630; Geri Al</button>
     <button class="tb-btn" onclick="redo()" title="Yinele (Ctrl+Y)">&#8631; Yinele</button>
@@ -241,6 +246,9 @@ input:focus{border-color:var(--accent)}
       <div class="sim-dot" id="sim-dot"></div>
       <button class="tb-btn" id="btn-sim" onclick="toggleSim()">&#9654; Başlat</button>
       <button class="tb-btn" id="lang-btn" onclick="setLanguage(currentLang==='tr'?'en':'tr')" title="TR/EN" style="margin-left:8px">🌐 TR</button>
+      <button class="tb-btn" onclick="changeFontSize(-1)" aria-label="Decrease font" title="A-">A-</button>
+      <button class="tb-btn" onclick="changeFontSize(1)" aria-label="Increase font" title="A+">A+</button>
+      <button class="tb-btn" id="btn-hc" onclick="toggleHighContrast()" aria-label="High contrast" title="High Contrast">🔲</button>
     </div>
   </div>
 
@@ -365,7 +373,7 @@ input:focus{border-color:var(--accent)}
     <span id="sb-dt">dt=1.00ms</span>
     <span id="sb-nodes">0 parts &middot; 0 wires</span>
     <span id="sb-fps">0 fps</span>
-    <span style="margin-left:auto;color:var(--text-4)">VoltXAmpere v3.0</span>
+    <span style="margin-left:auto;color:var(--text-4)">VoltXAmpere v4.0 — © 2026 Open Source</span>
   </div>
 </div>
 
@@ -492,7 +500,7 @@ input:focus{border-color:var(--accent)}
 
 <script>
 /* ============================================================
-   VoltXAmpere v1.0 — Browser Circuit Simulator
+   VoltXAmpere v4.0 — Browser Circuit Simulator
    ============================================================ */
 
 // ──────── CONSTANTS & STATE ────────
@@ -533,7 +541,8 @@ const S = {
   subcircuits: {},
   hierarchyStack: [],
   groups: [],
-  fps: 0, _fc: 0, _ft: performance.now()
+  fps: 0, _fc: 0, _ft: performance.now(),
+  reducedMotion: window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches
 };
 let needsRender = true;
 
@@ -2323,7 +2332,7 @@ function drawWire(w) {
   ctx.lineWidth = 2;
   ctx.beginPath(); ctx.moveTo(w.x1, w.y1); ctx.quadraticCurveTo(mx, my, w.x2, w.y2); ctx.stroke();
   // energy particles
-  if (S.sim.running && cur > 1e-6) {
+  if (!S.reducedMotion && S.sim.running && cur > 1e-6) {
     const speed = Math.min(cur * 200, 3);
     const dir = (w._current || 0) > 0 ? 1 : -1;
     const t = ((Date.now() * speed * dir / 1000) % 1 + 1) % 1;
@@ -2392,7 +2401,7 @@ function drawSelBox() {
 function drawSnapGlow() {
   if (!S.hoveredPin) return;
   const p = S.hoveredPin, t = Date.now() / 500;
-  const r = 10 + 2 * Math.sin(t * Math.PI * 2);
+  const r = S.reducedMotion ? 10 : (10 + 2 * Math.sin(t * Math.PI * 2));
   ctx.save();
   ctx.shadowColor = '#00e09e'; ctx.shadowBlur = 15;
   ctx.strokeStyle = 'rgba(0,224,158,0.6)'; ctx.lineWidth = 1.5;
@@ -2856,6 +2865,14 @@ function buildCircuitFromCanvas() {
 }
 
 const GMIN = 1e-12, SIM_DT = 1e-5, SUBSTEPS = 15;
+function getAdaptiveSubsteps() {
+  var n = S.parts.length;
+  var hasNL = S.parts.some(function(p) {
+    return ['diode','led','zener','schottky','npn','pnp','nmos','pmos','njfet','pjfet','scr','triac','diac','igbt'].indexOf(p.type) >= 0;
+  });
+  var base = n < 5 ? 5 : n < 20 ? 10 : n < 50 ? 15 : 20;
+  return hasNL ? base + 5 : base;
+}
 const DIODE_IS = 1e-14, DIODE_N = 1, VT = 0.026;
 
 var DIODE_MODELS = {
@@ -3494,7 +3511,7 @@ function solveStep(dt) {
 function simulationStep() {
   if (!S.sim.running || !SIM) return;
   try {
-    const steps = Math.max(1, Math.round(SUBSTEPS * (S.sim.speed || 1)));
+    const steps = Math.max(1, Math.round(getAdaptiveSubsteps() * (S.sim.speed || 1)));
     for (let i = 0; i < steps; i++) {
       S.sim.t += SIM_DT;
       solveStep(SIM_DT);
@@ -3509,6 +3526,13 @@ function simulationStep() {
 }
 
 // ──────── RENDER LOOP ────────
+function isInViewport(part) {
+  var sx = part.x * S.view.zoom + S.view.ox;
+  var sy = part.y * S.view.zoom + S.view.oy;
+  var cw = cvs.width / DPR, ch = cvs.height / DPR;
+  return sx > -120 && sx < cw + 120 && sy > -120 && sy < ch + 120;
+}
+
 function render() {
   const w = cvs.width / DPR, h = cvs.height / DPR;
   ctx.clearRect(0, 0, w, h);
@@ -3536,7 +3560,7 @@ function render() {
     }
   }
 
-  S.parts.forEach(drawPart);
+  S.parts.forEach(function(p) { if (isInViewport(p)) drawPart(p); });
   drawGhostPreview();
   drawSelBox();
   drawSnapGlow();
@@ -4628,9 +4652,38 @@ if (!localStorage.getItem('vxa_tutorial_done')) {
   setTimeout(startTutorial, 1200);
 }
 
+// ──────── ACCESSIBILITY & UI ENHANCEMENTS ────────
+function changeFontSize(delta) {
+  var current = parseFloat(getComputedStyle(document.documentElement).fontSize) || 13;
+  var newSize = Math.max(10, Math.min(20, current + delta));
+  document.documentElement.style.fontSize = newSize + 'px';
+  localStorage.setItem('vxa_fontSize', newSize);
+}
+(function() {
+  var saved = localStorage.getItem('vxa_fontSize');
+  if (saved) document.documentElement.style.fontSize = saved + 'px';
+})();
+
+function toggleHighContrast() {
+  document.body.classList.toggle('high-contrast');
+  localStorage.setItem('vxa_hc', document.body.classList.contains('high-contrast') ? '1' : '0');
+}
+(function() { if (localStorage.getItem('vxa_hc') === '1') document.body.classList.add('high-contrast'); })();
+
+function setAriaLabels() {
+  document.querySelectorAll('#topbar .tb-btn').forEach(function(btn) {
+    if (btn.title) btn.setAttribute('aria-label', btn.title);
+    btn.setAttribute('tabindex', '0');
+  });
+  document.querySelectorAll('#topbar button').forEach(function(btn) {
+    if (!btn.getAttribute('aria-label') && btn.title) btn.setAttribute('aria-label', btn.title);
+  });
+}
+setAriaLabels();
+
 // Console banner
-console.log('%c⚡ VoltXAmpere v3.0', 'color:#00e09e;font-size:18px;font-weight:bold');
-console.log('%cDevrenizi Hissedin — voltxampere.com', 'color:#8899aa;font-size:12px');
+console.log('%c⚡ VoltXAmpere v4.0', 'color:#00e09e;font-size:18px;font-weight:bold');
+console.log('%cFree Circuit Simulator — voltxampere.com', 'color:#8899aa;font-size:12px');
 
 // ──────── RENDER LOOP ────────
 // ──────── MINIMAP ────────
@@ -4825,7 +4878,7 @@ function generateReport() {
       reportHTML += '<span class="stat">P: '+fmtVal(p._p||0,'W')+'</span>';
     }
   }
-  reportHTML += '<hr><p style="color:#999;font-size:12px">VoltXAmpere v3.0 \u2014 voltxampere.com tarafından oluşturuldu</p>';
+  reportHTML += '<hr><p style="color:#999;font-size:12px">VoltXAmpere v4.0 \u2014 voltxampere.com tarafından oluşturuldu</p>';
   reportHTML += '</body></html>';
   var win = window.open('', '_blank');
   win.document.write(reportHTML);
