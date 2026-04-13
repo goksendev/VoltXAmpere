@@ -161,6 +161,49 @@ input:focus{border-color:var(--accent)}
   .comp-item{padding:10px 12px 10px 24px;font-size:14px}
   .cat-header{padding:10px 12px}
 }
+/* SHARE MODAL */
+.share-modal{display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.6);align-items:center;justify-content:center}
+.share-modal.show{display:flex}
+.share-box{background:var(--surface-2);border:1px solid var(--border-2);border-radius:14px;padding:24px 28px;max-width:520px;width:90%;box-shadow:0 12px 40px rgba(0,0,0,.5)}
+.share-section{margin:14px 0}
+.share-section h4{font:600 11px var(--font-ui);color:var(--text-3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+.share-row{display:flex;gap:6px;align-items:center}
+.share-input{flex:1;background:var(--surface-3);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 10px;font:11px var(--font-mono);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.share-copy{padding:6px 12px;border:none;border-radius:6px;background:var(--accent);color:var(--bg);font:600 11px var(--font-ui);cursor:pointer}
+.share-copy:hover{box-shadow:0 0 10px var(--accent-glow)}
+.social-btns{display:flex;gap:8px;flex-wrap:wrap}
+.social-btn{padding:6px 14px;border:none;border-radius:6px;font:500 12px var(--font-ui);cursor:pointer;color:#fff}
+.social-btn.tw{background:#1da1f2}.social-btn.wa{background:#25d366}
+.social-btn.li{background:#0077b5}.social-btn.tg{background:#0088cc}
+
+/* GALLERY MODAL */
+.gallery-modal{display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.7)}
+.gallery-modal.show{display:flex;flex-direction:column}
+.gallery-header{padding:16px 24px;display:flex;align-items:center;gap:16px;border-bottom:1px solid var(--border)}
+.gallery-header h2{font:600 18px var(--font-ui);color:var(--accent);flex:1}
+.gallery-search{background:var(--surface-3);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 12px;font:12px var(--font-ui);width:200px}
+.gallery-filters{padding:8px 24px;display:flex;gap:6px;flex-wrap:wrap}
+.gallery-filter-btn{padding:4px 12px;border:1px solid var(--border);border-radius:20px;background:transparent;color:var(--text-2);font:500 11px var(--font-ui);cursor:pointer}
+.gallery-filter-btn.active{background:var(--accent-dim);border-color:var(--accent);color:var(--accent)}
+.gallery-grid{flex:1;overflow-y:auto;padding:16px 24px;display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}
+.gallery-card{background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:14px;cursor:pointer;transition:.15s}
+.gallery-card:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:0 4px 20px rgba(0,0,0,.3)}
+.gallery-card .gc-name{font:600 13px var(--font-ui);color:var(--text);margin-bottom:4px;display:flex;align-items:center;gap:6px}
+.gallery-card .gc-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.gallery-card .gc-desc{font:11px var(--font-ui);color:var(--text-3);margin-bottom:8px;line-height:1.4}
+.gallery-card .gc-meta{display:flex;justify-content:space-between;font:10px var(--font-mono);color:var(--text-4)}
+.gallery-card .gc-load{margin-top:8px;width:100%;padding:5px;border:none;border-radius:6px;background:var(--accent-dim);color:var(--accent);font:600 11px var(--font-ui);cursor:pointer}
+.gallery-card .gc-load:hover{background:var(--accent);color:var(--bg)}
+
+/* EMBED MODE */
+.embed-mode #topbar{display:none!important}
+.embed-mode #left{display:none!important}
+.embed-mode #right{display:none!important}
+.embed-mode #app{grid-template-columns:1fr!important}
+.embed-mode #statusbar{display:none!important}
+#embed-badge{display:none;position:fixed;bottom:8px;left:8px;z-index:10;font:500 11px var(--font-ui);color:var(--accent);opacity:.7;text-decoration:none}
+#embed-badge:hover{opacity:1}
+.embed-mode #embed-badge{display:block}
 </style>
 </head>
 <body>
@@ -182,6 +225,7 @@ input:focus{border-color:var(--accent)}
     <button class="tb-btn" onclick="exportSVG()" title="SVG İndir">SVG</button>
     <button class="tb-btn" onclick="exportCSV()" title="CSV İndir">CSV</button>
     <button class="tb-btn" onclick="showBOM()" title="BOM">&#128203; BOM</button>
+    <button class="tb-btn" onclick="showGallery()" title="Gallery">&#128218; <span class="tb-gallery-label"></span></button>
     <button class="tb-btn" onclick="generateReport()" title="Rapor">&#128196; Rapor</button>
     <button class="tb-btn" onclick="shareURL()" title="Paylaş">&#128279; Paylaş</button>
     <div class="tb-sep"></div>
@@ -340,6 +384,36 @@ input:focus{border-color:var(--accent)}
   <div class="cm-item" onclick="ctxSaveBlock()">&#9635; Blok Kaydet</div>
 </div>
 
+<!-- SHARE MODAL -->
+<div id="share-modal" class="share-modal" onclick="if(event.target===this)this.classList.remove('show')">
+  <div class="share-box">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <h3 style="font:600 16px var(--font-ui);color:var(--accent)" id="share-title-h"></h3>
+      <button style="font-size:18px;color:var(--text-3);cursor:pointer;background:none;border:none" onclick="document.getElementById('share-modal').classList.remove('show')">&times;</button>
+    </div>
+    <div class="share-section"><h4 id="sh-url-label"></h4><div class="share-row"><div class="share-input" id="share-url-text"></div><button class="share-copy" onclick="copyShareURL()">&#128203;</button></div></div>
+    <div class="share-section"><h4 id="sh-embed-label"></h4><div class="share-row"><div class="share-input" id="share-embed-text"></div><button class="share-copy" onclick="copyEmbed()">&#128203;</button></div></div>
+    <div class="share-section"><h4 id="sh-qr-label"></h4><div><img id="share-qr-img" style="width:150px;height:150px;border-radius:8px;background:#fff;padding:8px"></div></div>
+    <div class="share-section"><h4 id="sh-social-label"></h4><div class="social-btns"><button class="social-btn tw" onclick="shareToTwitter()">Twitter</button><button class="social-btn wa" onclick="shareToWhatsApp()">WhatsApp</button><button class="social-btn li" onclick="shareToLinkedIn()">LinkedIn</button><button class="social-btn tg" onclick="shareToTelegram()">Telegram</button></div></div>
+  </div>
+</div>
+
+<!-- GALLERY MODAL -->
+<div id="gallery-modal" class="gallery-modal" onclick="if(event.target===this)this.classList.remove('show')">
+  <div style="height:100%;display:flex;flex-direction:column;background:var(--surface)">
+    <div class="gallery-header">
+      <h2 id="gallery-title-h"></h2>
+      <input class="gallery-search" id="gallery-search" oninput="filterGallery()" placeholder="">
+      <button style="font-size:20px;color:var(--text-3);cursor:pointer;background:none;border:none" onclick="document.getElementById('gallery-modal').classList.remove('show')">&times;</button>
+    </div>
+    <div class="gallery-filters" id="gallery-filters"></div>
+    <div class="gallery-grid" id="gallery-grid"></div>
+  </div>
+</div>
+
+<!-- EMBED BADGE -->
+<a id="embed-badge" href="https://voltxampere.com" target="_blank"></a>
+
 <!-- SPLASH SCREEN -->
 <div id="splash">
   <div class="logo-big"><span style="color:var(--accent)">Volt</span><span style="color:var(--orange)">X</span><span style="color:var(--blue)">Ampere</span></div>
@@ -497,9 +571,13 @@ var STR = {
     close:'Kapat', presets:'⚡ HAZIR DEVRELER',
     loading:'Yükleniyor...', parts:'eleman', wires:'kablo',
     shareTitle:'Devreyi Paylaş', shareURL:'Paylaşım Linki',
-    shareEmbed:'Embed Kodu', shareQR:'QR Kod', copied:'Kopyalandı!',
+    shareEmbed:'Embed Kodu', shareQR:'QR Kod', shareSocial:'Sosyal Medya', copied:'Kopyalandı!',
+    embedOpen:'VoltXAmpere\'da Aç',
     galleryTitle:'Devre Galerisi', gallerySearch:'Devre ara...',
-    galleryLoad:'Yükle', galleryAll:'Tümü',
+    galleryLoad:'Yükle', galleryAll:'Tümü', galleryBasic:'Temel',
+    galleryFilter:'Filtre', galleryAmp:'Yükselteç', galleryDigital:'Dijital',
+    galleryPower:'Güç', gallerySensor:'Sensör', galleryAnalysis:'Analiz',
+    diffEasy:'Kolay', diffMedium:'Orta', diffHard:'Zor',
     bomTitle:'Malzeme Listesi (BOM)', bomRef:'Referans', bomType:'Tip',
     bomValue:'Değer', bomCount:'Adet', bomTotal:'Toplam',
     reportTitle:'Devre Raporu', reportDate:'Tarih', reportSchema:'Devre Şeması',
@@ -541,9 +619,13 @@ var STR = {
     close:'Close', presets:'⚡ EXAMPLE CIRCUITS',
     loading:'Loading...', parts:'parts', wires:'wires',
     shareTitle:'Share Circuit', shareURL:'Share Link',
-    shareEmbed:'Embed Code', shareQR:'QR Code', copied:'Copied!',
+    shareEmbed:'Embed Code', shareQR:'QR Code', shareSocial:'Social Media', copied:'Copied!',
+    embedOpen:'Open in VoltXAmpere',
     galleryTitle:'Circuit Gallery', gallerySearch:'Search circuits...',
-    galleryLoad:'Load', galleryAll:'All',
+    galleryLoad:'Load', galleryAll:'All', galleryBasic:'Basic',
+    galleryFilter:'Filter', galleryAmp:'Amplifier', galleryDigital:'Digital',
+    galleryPower:'Power', gallerySensor:'Sensor', galleryAnalysis:'Analysis',
+    diffEasy:'Easy', diffMedium:'Medium', diffHard:'Hard',
     bomTitle:'Bill of Materials', bomRef:'Reference', bomType:'Type',
     bomValue:'Value', bomCount:'Qty', bomTotal:'Total',
     reportTitle:'Circuit Report', reportDate:'Date', reportSchema:'Schematic',
@@ -573,6 +655,12 @@ function setLanguage(lang) {
   document.getElementById('sim-label').textContent = S.sim.running ? t('running') : t('stopped');
   document.getElementById('btn-sim').innerHTML = (S.sim.running ? '&#9646;&#9646; ' + t('stop') : '&#9654; ' + t('start'));
   updateMeasLabels();
+  // Update gallery button label
+  var gbl = document.querySelector('.tb-gallery-label');
+  if (gbl) gbl.textContent = t('gallery');
+  // Update embed badge
+  var eb = document.getElementById('embed-badge');
+  if (eb) eb.textContent = t('embedOpen');
   needsRender = true;
 }
 
@@ -3611,15 +3699,127 @@ function exportSPICE() {
 
 // ──────── URL SHARING ────────
 function shareURL() {
-  const data = { v: 1, p: S.parts.map(p => [p.type, p.x, p.y, p.rot||0, p.val, p.freq||0]), w: S.wires.map(w => [w.x1, w.y1, w.x2, w.y2]) };
-  const encoded = btoa(JSON.stringify(data));
-  const url = location.origin + location.pathname + '#circuit=' + encoded;
-  navigator.clipboard.writeText(url).then(() => {
-    showInfoCard('Paylaşım Linki Kopyalandı', 'Link panoya kopyalandı. Yapıştırarak paylaşabilirsiniz.', url.substring(0, 60) + '...');
-  }).catch(() => {
-    prompt('Linki kopyalayın:', url);
+  var data = { v:1, p:S.parts.map(function(p){return [p.type,p.x,p.y,p.rot||0,p.val,p.freq||0];}), w:S.wires.map(function(w){return [w.x1,w.y1,w.x2,w.y2];}) };
+  var encoded = btoa(JSON.stringify(data));
+  var url = location.origin + location.pathname + '#circuit=' + encoded;
+  var embedUrl = url + '&embed=1';
+  var embedCode = '<iframe src="'+embedUrl+'" width="100%" height="600" frameborder="0"></iframe>';
+  // Update modal content
+  document.getElementById('share-title-h').textContent = t('shareTitle');
+  document.getElementById('sh-url-label').textContent = '\uD83D\uDD17 ' + t('shareURL');
+  document.getElementById('share-url-text').textContent = url;
+  document.getElementById('sh-embed-label').textContent = '</> ' + t('shareEmbed');
+  document.getElementById('share-embed-text').textContent = embedCode;
+  document.getElementById('sh-qr-label').textContent = '\uD83D\uDCF1 ' + t('shareQR');
+  document.getElementById('sh-social-label').textContent = '\uD83C\uDF10 ' + t('shareSocial');
+  // QR code via Google Charts API
+  document.getElementById('share-qr-img').src = 'https://chart.googleapis.com/chart?cht=qr&chs=150x150&chl=' + encodeURIComponent(url);
+  // Store URL for social sharing
+  window._shareURL = url;
+  // Show modal
+  document.getElementById('share-modal').classList.add('show');
+}
+
+function copyShareURL() {
+  navigator.clipboard.writeText(window._shareURL || '').then(function() {
+    showInfoCard(t('copied'), '', '');
   });
 }
+function copyEmbed() {
+  var text = document.getElementById('share-embed-text').textContent;
+  navigator.clipboard.writeText(text).then(function() {
+    showInfoCard(t('copied'), '', '');
+  });
+}
+function shareToTwitter() {
+  window.open('https://twitter.com/intent/tweet?text=' + encodeURIComponent('Check out this circuit!') + '&url=' + encodeURIComponent(window._shareURL || ''));
+}
+function shareToWhatsApp() {
+  window.open('https://wa.me/?text=' + encodeURIComponent('Check out this circuit: ' + (window._shareURL || '')));
+}
+function shareToLinkedIn() {
+  window.open('https://www.linkedin.com/sharing/share-offsite/?url=' + encodeURIComponent(window._shareURL || ''));
+}
+function shareToTelegram() {
+  window.open('https://t.me/share/url?url=' + encodeURIComponent(window._shareURL || '') + '&text=VoltXAmpere+Circuit');
+}
+
+// ──────── GALLERY ────────
+var galleryFilter = 'all';
+
+(function enrichPresets() {
+  var catMap = {
+    'vdiv':'basic','rclp':'filter','led':'basic','halfwave':'power','rccharge':'basic',
+    'rlc':'filter','serpar':'basic','rl':'basic','ce-amp':'amplifier','npn-sw':'digital',
+    'cmos-inv':'digital','inv-opamp':'amplifier','noninv-opamp':'amplifier',
+    'zener-reg':'power','vreg-7805':'power','logic-demo':'digital','trafo':'power',
+    'dep-src':'analysis','dc-sweep-led':'analysis','bode-rc':'analysis',
+    'jfet-cs':'amplifier','scr-phase':'power','param-sweep-rc':'analysis',
+    'fft-square':'analysis','dff-toggle':'digital','lissajous':'analysis',
+    'diff-meas':'analysis','ntc-sensor':'sensor','ldr-sensor':'sensor',
+    'pot-divider':'basic','mc-rc':'analysis','crystal-osc':'filter',
+    'dc-motor':'power','sens-demo':'analysis','wc-demo':'analysis'
+  };
+  var diffMap = {
+    'vdiv':1,'rclp':1,'led':1,'halfwave':2,'rccharge':1,'rlc':2,'serpar':1,'rl':1,
+    'ce-amp':2,'npn-sw':2,'cmos-inv':2,'inv-opamp':2,'noninv-opamp':2,
+    'zener-reg':2,'vreg-7805':1,'logic-demo':1,'trafo':2,
+    'dep-src':2,'dc-sweep-led':1,'bode-rc':2,
+    'jfet-cs':3,'scr-phase':3,'param-sweep-rc':2,'fft-square':2,
+    'dff-toggle':2,'lissajous':2,'diff-meas':2,
+    'ntc-sensor':1,'ldr-sensor':1,'pot-divider':1,'mc-rc':2,
+    'crystal-osc':3,'dc-motor':2,'sens-demo':2,'wc-demo':2
+  };
+  PRESETS.forEach(function(pr) {
+    pr.category = catMap[pr.id] || 'basic';
+    pr.difficulty = diffMap[pr.id] || 1;
+    pr.componentCount = pr.parts ? pr.parts.length : 0;
+  });
+})();
+
+function showGallery() {
+  document.getElementById('gallery-title-h').textContent = t('galleryTitle');
+  document.getElementById('gallery-search').placeholder = t('gallerySearch');
+  var fDiv = document.getElementById('gallery-filters');
+  var cats = [
+    ['all', t('galleryAll')], ['basic', t('galleryBasic')], ['filter', t('galleryFilter')],
+    ['amplifier', t('galleryAmp')], ['digital', t('galleryDigital')], ['power', t('galleryPower')],
+    ['sensor', t('gallerySensor')], ['analysis', t('galleryAnalysis')]
+  ];
+  fDiv.innerHTML = '';
+  cats.forEach(function(c) {
+    var btn = document.createElement('button');
+    btn.className = 'gallery-filter-btn' + (galleryFilter === c[0] ? ' active' : '');
+    btn.textContent = c[1];
+    btn.onclick = function() { galleryFilter = c[0]; showGallery(); };
+    fDiv.appendChild(btn);
+  });
+  var grid = document.getElementById('gallery-grid');
+  var search = (document.getElementById('gallery-search').value || '').toLowerCase();
+  grid.innerHTML = '';
+  PRESETS.forEach(function(pr) {
+    if (galleryFilter !== 'all' && pr.category !== galleryFilter) return;
+    var name = typeof pr.name === 'object' ? (pr.name[currentLang] || pr.name.tr || pr.name) : pr.name;
+    var desc = typeof pr.desc === 'object' ? (pr.desc[currentLang] || pr.desc.tr || pr.desc) : pr.desc;
+    if (search && name.toLowerCase().indexOf(search) === -1 && (desc||'').toLowerCase().indexOf(search) === -1) return;
+    var stars = pr.difficulty === 1 ? '\u2B50' : pr.difficulty === 2 ? '\u2B50\u2B50' : '\u2B50\u2B50\u2B50';
+    var diffLabel = pr.difficulty === 1 ? t('diffEasy') : pr.difficulty === 2 ? t('diffMedium') : t('diffHard');
+    var card = document.createElement('div');
+    card.className = 'gallery-card';
+    card.innerHTML = '<div class="gc-name"><span class="gc-dot" style="background:'+(pr.color||'#888')+'"></span>'+name+'</div>'
+      + '<div class="gc-desc">'+(desc||'')+'</div>'
+      + '<div class="gc-meta"><span>'+stars+' '+diffLabel+'</span><span>'+pr.componentCount+' '+t('parts')+'</span></div>'
+      + '<button class="gc-load" data-id="'+pr.id+'">'+t('galleryLoad')+'</button>';
+    card.querySelector('.gc-load').addEventListener('click', function() {
+      loadPreset(this.getAttribute('data-id'));
+      document.getElementById('gallery-modal').classList.remove('show');
+    });
+    grid.appendChild(card);
+  });
+  document.getElementById('gallery-modal').classList.add('show');
+}
+
+function filterGallery() { showGallery(); }
 
 function loadFromURL() {
   if (!location.hash.startsWith('#circuit=')) return;
@@ -4401,6 +4601,13 @@ if ('serviceWorker' in navigator) {
 
 // ──────── STARTUP ────────
 loadFromURL();
+
+// Embed mode detection
+if (location.search.includes('embed=1') || location.hash.includes('embed=1')) {
+  document.body.classList.add('embed-mode');
+  var eb = document.getElementById('embed-badge');
+  if (eb) eb.textContent = t('embedOpen');
+}
 
 // Initialize language
 (function() {
