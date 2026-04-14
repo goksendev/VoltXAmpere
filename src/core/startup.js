@@ -319,20 +319,20 @@ function drawMinimap() {
   var mc = document.getElementById('minimap');
   if (!mc || !S.parts.length) return;
   var mctx = mc.getContext('2d');
-  var mw = 160, mh = 100;
+  var mw = 200, mh = 130; // 50% bigger
+  mc.width = mw; mc.height = mh;
+  mc.style.width = mw + 'px'; mc.style.height = mh + 'px';
   mctx.clearRect(0, 0, mw, mh);
-  mctx.fillStyle = 'rgba(11,15,21,0.9)';
+  mctx.fillStyle = '#1a1a30'; // slightly brighter bg
   mctx.fillRect(0, 0, mw, mh);
+  mctx.strokeStyle = '#333'; mctx.lineWidth = 1;
+  mctx.strokeRect(0, 0, mw, mh);
   var mnx=Infinity,mny=Infinity,mxx=-Infinity,mxy=-Infinity;
   S.parts.forEach(function(p){mnx=Math.min(mnx,p.x-60);mny=Math.min(mny,p.y-60);mxx=Math.max(mxx,p.x+60);mxy=Math.max(mxy,p.y+60);});
   var bw=mxx-mnx||200, bh=mxy-mny||200;
   var scale = Math.min(mw/bw, mh/bh) * 0.85;
   var ox = mw/2 - (mnx+bw/2)*scale, oy = mh/2 - (mny+bh/2)*scale;
-  S.parts.forEach(function(p) {
-    var def = COMP[p.type];
-    mctx.fillStyle = def ? def.color : '#888';
-    mctx.fillRect(p.x*scale+ox-1, p.y*scale+oy-1, 3, 3);
-  });
+  // Wires
   mctx.strokeStyle = '#3a4a5a'; mctx.lineWidth = 0.5;
   S.wires.forEach(function(w) {
     mctx.beginPath();
@@ -340,11 +340,20 @@ function drawMinimap() {
     mctx.lineTo(w.x2*scale+ox, w.y2*scale+oy);
     mctx.stroke();
   });
+  // Parts as colored dots (bigger)
+  S.parts.forEach(function(p) {
+    var def = COMP[p.type];
+    mctx.fillStyle = def ? def.color : '#888';
+    mctx.fillRect(p.x*scale+ox-2, p.y*scale+oy-2, 4, 4);
+  });
+  // Viewport rectangle — filled + strong border
   var cw = cvs.width/DPR, ch = cvs.height/DPR;
   var vx1 = (-S.view.ox/S.view.zoom)*scale+ox;
   var vy1 = (-S.view.oy/S.view.zoom)*scale+oy;
   var vw = (cw/S.view.zoom)*scale, vh = (ch/S.view.zoom)*scale;
-  mctx.strokeStyle = '#00e09e'; mctx.lineWidth = 1;
+  mctx.fillStyle = 'rgba(0,224,158,0.06)';
+  mctx.fillRect(vx1, vy1, vw, vh);
+  mctx.strokeStyle = '#00e09e'; mctx.lineWidth = 2;
   mctx.strokeRect(vx1, vy1, vw, vh);
 }
 document.getElementById('minimap').addEventListener('click', function(e) {

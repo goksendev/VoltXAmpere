@@ -68,17 +68,21 @@ VXA.SpiceImport = (function() {
   }
   function placeCircuit(circuit) {
     saveUndo();
-    var cols = Math.max(1, Math.ceil(Math.sqrt(circuit.parts.length))), sp = 80;
+    // Wider spacing for 3-pin components, auto-detect layout
+    var n = circuit.parts.length;
+    var cols = Math.max(1, Math.ceil(Math.sqrt(n)));
+    var spX = 160, spY = 120; // wider spacing for reliable wiring
     var idMap = {};
     circuit.parts.forEach(function(cp, idx) {
       var col = idx % cols, row = Math.floor(idx / cols);
-      var p = { id: S.nextId++, type: cp.type, name: nextName(cp.type), x: snap(200 + col * sp), y: snap(100 + row * sp), rot: 0, val: cp.val || COMP[cp.type].def, flipH: false, flipV: false };
-      if (cp.model) { p.model = cp.model; applyModel(p, cp.model); }
+      var def = COMP[cp.type];
+      var p = { id: S.nextId++, type: cp.type, name: nextName(cp.type), x: snap(200 + col * spX), y: snap(100 + row * spY), rot: 0, val: cp.val || (def ? def.def : 0), flipH: false, flipV: false };
+      if (cp.model) { p.model = cp.model; if (typeof applyModel === 'function') applyModel(p, cp.model); }
       if (cp.freq) p.freq = cp.freq;
       S.parts.push(p);
       idMap[idx] = p;
     });
-    // Auto-connect by SPICE nodes
+    // Auto-connect by SPICE nodes — use star wiring through junction point
     var nodePositions = {};
     circuit.parts.forEach(function(cp, idx) {
       var part = idMap[idx]; if (!part) return;
@@ -89,17 +93,29 @@ VXA.SpiceImport = (function() {
         nodePositions[nodeIdx].push({ x: pins[pinIdx].x, y: pins[pinIdx].y });
       });
     });
+    // Wire each node's pins via star topology (all connect to first pin)
     Object.keys(nodePositions).forEach(function(nodeIdx) {
       var positions = nodePositions[nodeIdx]; if (positions.length < 2) return;
-      for (var i = 0; i < positions.length - 1; i++) {
-        S.wires.push({ x1: snap(positions[i].x), y1: snap(positions[i].y), x2: snap(positions[i + 1].x), y2: snap(positions[i + 1].y) });
+      var hub = positions[0]; // star hub
+      for (var i = 1; i < positions.length; i++) {
+        var px = snap(positions[i].x), py = snap(positions[i].y);
+        var hx = snap(hub.x), hy = snap(hub.y);
+        if (px === hx && py === hy) continue; // same point
+        // Use L-shaped wire (manhattan) for clean routing
+        if (px !== hx && py !== hy) {
+          S.wires.push({ x1: hx, y1: hy, x2: px, y2: hy }); // horizontal
+          S.wires.push({ x1: px, y1: hy, x2: px, y2: py }); // vertical
+        } else {
+          S.wires.push({ x1: hx, y1: hy, x2: px, y2: py }); // straight
+        }
       }
     });
     // Add ground for node 0
     if (nodePositions[0] && nodePositions[0].length > 0) {
       var gp = nodePositions[0][0];
-      S.parts.push({ id: S.nextId++, type: 'ground', name: 'GND', x: snap(gp.x), y: snap(gp.y + 40), rot: 0, val: 0, flipH: false, flipV: false });
-      S.wires.push({ x1: snap(gp.x), y1: snap(gp.y), x2: snap(gp.x), y2: snap(gp.y + 20) });
+      var gy = snap(gp.y + 60);
+      S.parts.push({ id: S.nextId++, type: 'ground', name: 'GND', x: snap(gp.x), y: gy, rot: 0, val: 0, flipH: false, flipV: false });
+      S.wires.push({ x1: snap(gp.x), y1: snap(gp.y), x2: snap(gp.x), y2: gy - 20 });
     }
     fitToScreen();
     needsRender = true; updateInspector();

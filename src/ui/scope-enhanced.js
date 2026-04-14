@@ -36,6 +36,28 @@ function drawScope() {
     sctx.setLineDash([]);
   }
 
+  // ── Axis labels ──
+  sctx.font = '9px "JetBrains Mono", monospace'; sctx.fillStyle = '#555';
+  // X-axis: time labels
+  var tTotal = (S.scope.tDiv || 0.001) * 10; // total time across 10 divisions
+  sctx.textAlign = 'center'; sctx.textBaseline = 'top';
+  for (var xi = 0; xi <= 10; xi += 2) {
+    var tx = w * xi / 10;
+    var tVal = tTotal * xi / 10;
+    var tLbl = tVal < 0.001 ? (tVal*1e6).toFixed(0)+'\u00B5s' : tVal < 1 ? (tVal*1e3).toFixed(1)+'ms' : tVal.toFixed(2)+'s';
+    sctx.fillText(tLbl, tx, plotH + 2);
+  }
+  // Y-axis: voltage labels (use first active channel's vDiv)
+  var yVDiv = 2; // fallback
+  for (var yi = 0; yi < 4; yi++) { if (S.scope.ch[yi].on) { yVDiv = S.scope.ch[yi].vDiv > 0 ? S.scope.ch[yi].vDiv : 2; break; } }
+  sctx.textAlign = 'right'; sctx.textBaseline = 'middle';
+  for (var yj = 0; yj <= 8; yj += 2) {
+    var yPos = plotH * yj / 8;
+    var vVal = (4 - yj) * yVDiv; // center=0, top=+4*vDiv, bottom=-4*vDiv
+    var vLbl = Math.abs(vVal) < 0.01 ? '0' : (vVal >= 1000 ? (vVal/1000).toFixed(0)+'kV' : vVal >= 1 ? vVal.toFixed(0)+'V' : (vVal*1000).toFixed(0)+'mV');
+    sctx.fillText(vLbl, w - 4, yPos);
+  }
+
   // Draw each active channel
   var firstActiveBuf = null, firstActivePtr = 0;
 
@@ -44,7 +66,7 @@ function drawScope() {
     if (!ch.on) continue;
 
     var buf = ch.buf, ptr = S.scope.ptr;
-    var vd = ch.vDiv || 2;
+    var vd = ch.vDiv !== undefined ? ch.vDiv : 2;
     var mn = Infinity, mx = -Infinity;
     for (var i = 0; i < 600; i++) { var v = buf[(ptr + i) % 600]; if (v < mn) mn = v; if (v > mx) mx = v; }
     var autoVDiv = vd;

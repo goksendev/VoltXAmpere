@@ -7755,17 +7755,21 @@ VXA.SpiceImport = (function() {
   }
   function placeCircuit(circuit) {
     saveUndo();
-    var cols = Math.max(1, Math.ceil(Math.sqrt(circuit.parts.length))), sp = 80;
+    // Wider spacing for 3-pin components, auto-detect layout
+    var n = circuit.parts.length;
+    var cols = Math.max(1, Math.ceil(Math.sqrt(n)));
+    var spX = 160, spY = 120; // wider spacing for reliable wiring
     var idMap = {};
     circuit.parts.forEach(function(cp, idx) {
       var col = idx % cols, row = Math.floor(idx / cols);
-      var p = { id: S.nextId++, type: cp.type, name: nextName(cp.type), x: snap(200 + col * sp), y: snap(100 + row * sp), rot: 0, val: cp.val || COMP[cp.type].def, flipH: false, flipV: false };
-      if (cp.model) { p.model = cp.model; applyModel(p, cp.model); }
+      var def = COMP[cp.type];
+      var p = { id: S.nextId++, type: cp.type, name: nextName(cp.type), x: snap(200 + col * spX), y: snap(100 + row * spY), rot: 0, val: cp.val || (def ? def.def : 0), flipH: false, flipV: false };
+      if (cp.model) { p.model = cp.model; if (typeof applyModel === 'function') applyModel(p, cp.model); }
       if (cp.freq) p.freq = cp.freq;
       S.parts.push(p);
       idMap[idx] = p;
     });
-    // Auto-connect by SPICE nodes
+    // Auto-connect by SPICE nodes — use star wiring through junction point
     var nodePositions = {};
     circuit.parts.forEach(function(cp, idx) {
       var part = idMap[idx]; if (!part) return;
@@ -7776,17 +7780,29 @@ VXA.SpiceImport = (function() {
         nodePositions[nodeIdx].push({ x: pins[pinIdx].x, y: pins[pinIdx].y });
       });
     });
+    // Wire each node's pins via star topology (all connect to first pin)
     Object.keys(nodePositions).forEach(function(nodeIdx) {
       var positions = nodePositions[nodeIdx]; if (positions.length < 2) return;
-      for (var i = 0; i < positions.length - 1; i++) {
-        S.wires.push({ x1: snap(positions[i].x), y1: snap(positions[i].y), x2: snap(positions[i + 1].x), y2: snap(positions[i + 1].y) });
+      var hub = positions[0]; // star hub
+      for (var i = 1; i < positions.length; i++) {
+        var px = snap(positions[i].x), py = snap(positions[i].y);
+        var hx = snap(hub.x), hy = snap(hub.y);
+        if (px === hx && py === hy) continue; // same point
+        // Use L-shaped wire (manhattan) for clean routing
+        if (px !== hx && py !== hy) {
+          S.wires.push({ x1: hx, y1: hy, x2: px, y2: hy }); // horizontal
+          S.wires.push({ x1: px, y1: hy, x2: px, y2: py }); // vertical
+        } else {
+          S.wires.push({ x1: hx, y1: hy, x2: px, y2: py }); // straight
+        }
       }
     });
     // Add ground for node 0
     if (nodePositions[0] && nodePositions[0].length > 0) {
       var gp = nodePositions[0][0];
-      S.parts.push({ id: S.nextId++, type: 'ground', name: 'GND', x: snap(gp.x), y: snap(gp.y + 40), rot: 0, val: 0, flipH: false, flipV: false });
-      S.wires.push({ x1: snap(gp.x), y1: snap(gp.y), x2: snap(gp.x), y2: snap(gp.y + 20) });
+      var gy = snap(gp.y + 60);
+      S.parts.push({ id: S.nextId++, type: 'ground', name: 'GND', x: snap(gp.x), y: gy, rot: 0, val: 0, flipH: false, flipV: false });
+      S.wires.push({ x1: snap(gp.x), y1: snap(gp.y), x2: snap(gp.x), y2: gy - 20 });
     }
     fitToScreen();
     needsRender = true; updateInspector();
@@ -8869,20 +8885,20 @@ function drawMinimap() {
   var mc = document.getElementById('minimap');
   if (!mc || !S.parts.length) return;
   var mctx = mc.getContext('2d');
-  var mw = 160, mh = 100;
+  var mw = 200, mh = 130; // 50% bigger
+  mc.width = mw; mc.height = mh;
+  mc.style.width = mw + 'px'; mc.style.height = mh + 'px';
   mctx.clearRect(0, 0, mw, mh);
-  mctx.fillStyle = 'rgba(11,15,21,0.9)';
+  mctx.fillStyle = '#1a1a30'; // slightly brighter bg
   mctx.fillRect(0, 0, mw, mh);
+  mctx.strokeStyle = '#333'; mctx.lineWidth = 1;
+  mctx.strokeRect(0, 0, mw, mh);
   var mnx=Infinity,mny=Infinity,mxx=-Infinity,mxy=-Infinity;
   S.parts.forEach(function(p){mnx=Math.min(mnx,p.x-60);mny=Math.min(mny,p.y-60);mxx=Math.max(mxx,p.x+60);mxy=Math.max(mxy,p.y+60);});
   var bw=mxx-mnx||200, bh=mxy-mny||200;
   var scale = Math.min(mw/bw, mh/bh) * 0.85;
   var ox = mw/2 - (mnx+bw/2)*scale, oy = mh/2 - (mny+bh/2)*scale;
-  S.parts.forEach(function(p) {
-    var def = COMP[p.type];
-    mctx.fillStyle = def ? def.color : '#888';
-    mctx.fillRect(p.x*scale+ox-1, p.y*scale+oy-1, 3, 3);
-  });
+  // Wires
   mctx.strokeStyle = '#3a4a5a'; mctx.lineWidth = 0.5;
   S.wires.forEach(function(w) {
     mctx.beginPath();
@@ -8890,11 +8906,20 @@ function drawMinimap() {
     mctx.lineTo(w.x2*scale+ox, w.y2*scale+oy);
     mctx.stroke();
   });
+  // Parts as colored dots (bigger)
+  S.parts.forEach(function(p) {
+    var def = COMP[p.type];
+    mctx.fillStyle = def ? def.color : '#888';
+    mctx.fillRect(p.x*scale+ox-2, p.y*scale+oy-2, 4, 4);
+  });
+  // Viewport rectangle — filled + strong border
   var cw = cvs.width/DPR, ch = cvs.height/DPR;
   var vx1 = (-S.view.ox/S.view.zoom)*scale+ox;
   var vy1 = (-S.view.oy/S.view.zoom)*scale+oy;
   var vw = (cw/S.view.zoom)*scale, vh = (ch/S.view.zoom)*scale;
-  mctx.strokeStyle = '#00e09e'; mctx.lineWidth = 1;
+  mctx.fillStyle = 'rgba(0,224,158,0.06)';
+  mctx.fillRect(vx1, vy1, vw, vh);
+  mctx.strokeStyle = '#00e09e'; mctx.lineWidth = 2;
   mctx.strokeRect(vx1, vy1, vw, vh);
 }
 document.getElementById('minimap').addEventListener('click', function(e) {
@@ -14117,6 +14142,28 @@ function drawScope() {
     sctx.setLineDash([]);
   }
 
+  // ── Axis labels ──
+  sctx.font = '9px "JetBrains Mono", monospace'; sctx.fillStyle = '#555';
+  // X-axis: time labels
+  var tTotal = (S.scope.tDiv || 0.001) * 10; // total time across 10 divisions
+  sctx.textAlign = 'center'; sctx.textBaseline = 'top';
+  for (var xi = 0; xi <= 10; xi += 2) {
+    var tx = w * xi / 10;
+    var tVal = tTotal * xi / 10;
+    var tLbl = tVal < 0.001 ? (tVal*1e6).toFixed(0)+'\u00B5s' : tVal < 1 ? (tVal*1e3).toFixed(1)+'ms' : tVal.toFixed(2)+'s';
+    sctx.fillText(tLbl, tx, plotH + 2);
+  }
+  // Y-axis: voltage labels (use first active channel's vDiv)
+  var yVDiv = 2; // fallback
+  for (var yi = 0; yi < 4; yi++) { if (S.scope.ch[yi].on) { yVDiv = S.scope.ch[yi].vDiv > 0 ? S.scope.ch[yi].vDiv : 2; break; } }
+  sctx.textAlign = 'right'; sctx.textBaseline = 'middle';
+  for (var yj = 0; yj <= 8; yj += 2) {
+    var yPos = plotH * yj / 8;
+    var vVal = (4 - yj) * yVDiv; // center=0, top=+4*vDiv, bottom=-4*vDiv
+    var vLbl = Math.abs(vVal) < 0.01 ? '0' : (vVal >= 1000 ? (vVal/1000).toFixed(0)+'kV' : vVal >= 1 ? vVal.toFixed(0)+'V' : (vVal*1000).toFixed(0)+'mV');
+    sctx.fillText(vLbl, w - 4, yPos);
+  }
+
   // Draw each active channel
   var firstActiveBuf = null, firstActivePtr = 0;
 
@@ -14125,7 +14172,7 @@ function drawScope() {
     if (!ch.on) continue;
 
     var buf = ch.buf, ptr = S.scope.ptr;
-    var vd = ch.vDiv || 2;
+    var vd = ch.vDiv !== undefined ? ch.vDiv : 2;
     var mn = Infinity, mx = -Infinity;
     for (var i = 0; i < 600; i++) { var v = buf[(ptr + i) % 600]; if (v < mn) mn = v; if (v > mx) mx = v; }
     var autoVDiv = vd;
