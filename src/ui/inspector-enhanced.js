@@ -160,7 +160,13 @@ function inspParamChange(key, val) {
   saveUndo();
   var v = parseEngVal(val);
   if (key === 'freq') p.freq = v;
-  else p.val = v;
+  else {
+    // Minimum value clamp for resistive components
+    if (p.type === 'potentiometer' || p.type === 'resistor' || p.type === 'ntc' || p.type === 'ptc' || p.type === 'ldr') {
+      v = Math.max(1, v);
+    }
+    p.val = v;
+  }
   needsRender = true;
   if (S.sim.running) buildCircuitFromCanvas();
 }

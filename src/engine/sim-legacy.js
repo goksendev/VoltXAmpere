@@ -213,9 +213,9 @@ function buildCircuitFromCanvas() {
     }
     else if (p.type === 'potentiometer') {
       var wpos = p.wiper !== undefined ? p.wiper : 0.5;
-      var rTotal = p.val || 10000;
-      comps.push({type:'R', n1:nodes[0], n2:nodes[1], val:rTotal*(1-wpos), part:p});
-      comps.push({type:'R', n1:nodes[1], n2:nodes[2], val:rTotal*wpos + 0.1, part:p});
+      var rTotal = Math.max(1, p.val || 10000);
+      comps.push({type:'R', n1:nodes[0], n2:nodes[1], val:Math.max(1, rTotal*(1-wpos)), part:p});
+      comps.push({type:'R', n1:nodes[1], n2:nodes[2], val:Math.max(1, rTotal*wpos), part:p});
     }
     else if (p.type === 'ntc') {
       var Tk = (p.temperature !== undefined ? p.temperature : 25) + 273.15;
