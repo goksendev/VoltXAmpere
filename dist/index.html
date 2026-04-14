@@ -7799,21 +7799,15 @@ VXA.SpiceImport = (function() {
         nodePositions[nodeIdx].push({ x: pins[pinIdx].x, y: pins[pinIdx].y });
       });
     });
-    // Wire each node's pins via star topology (all connect to first pin)
+    // Wire each node's pins — direct pin-to-pin (chain topology)
     Object.keys(nodePositions).forEach(function(nodeIdx) {
       var positions = nodePositions[nodeIdx]; if (positions.length < 2) return;
-      var hub = positions[0]; // star hub
-      for (var i = 1; i < positions.length; i++) {
-        var px = snap(positions[i].x), py = snap(positions[i].y);
-        var hx = snap(hub.x), hy = snap(hub.y);
-        if (px === hx && py === hy) continue; // same point
-        // Use L-shaped wire (manhattan) for clean routing
-        if (px !== hx && py !== hy) {
-          S.wires.push({ x1: hx, y1: hy, x2: px, y2: hy }); // horizontal
-          S.wires.push({ x1: px, y1: hy, x2: px, y2: py }); // vertical
-        } else {
-          S.wires.push({ x1: hx, y1: hy, x2: px, y2: py }); // straight
-        }
+      for (var i = 0; i < positions.length - 1; i++) {
+        var ax = Math.round(positions[i].x), ay = Math.round(positions[i].y);
+        var bx = Math.round(positions[i+1].x), by = Math.round(positions[i+1].y);
+        if (ax === bx && ay === by) continue;
+        // Direct wire from pin A to pin B (buildCircuit uses coordinate key matching)
+        S.wires.push({ x1: ax, y1: ay, x2: bx, y2: by });
       }
     });
     // Add ground for node 0
