@@ -143,6 +143,13 @@ wrap.addEventListener('mousedown', e => {
 
   // SELECT MODE — hit test
   const hit = hitTestPart(w.x, w.y);
+  // Sprint 27a: Push Button — press on mousedown
+  if (hit && hit.type === 'pushButton' && !e.ctrlKey && !e.metaKey) {
+    hit.closed = true;
+    S._pushBtnActive = hit;
+    if (S.sim.running && typeof buildCircuitFromCanvas === 'function') buildCircuitFromCanvas();
+    needsRender = true;
+  }
   if (hit) {
     if (e.ctrlKey || e.metaKey) {
       const idx = S.sel.indexOf(hit.id);
@@ -188,6 +195,13 @@ wrap.addEventListener('mousedown', e => {
 wrap.addEventListener('mouseup', (e) => {
   // Breadboard mode: redirect mouse events
   if (VXA.Breadboard && VXA.Breadboard.isActive()) { VXA.Breadboard.handleMouseUp(e); return; }
+  // Sprint 27a: Push Button release
+  if (S._pushBtnActive) {
+    S._pushBtnActive.closed = false;
+    S._pushBtnActive = null;
+    if (S.sim.running && typeof buildCircuitFromCanvas === 'function') buildCircuitFromCanvas();
+    needsRender = true;
+  }
   // Sprint 14: Probe drop
   if (VXA.Probes && VXA.Probes.isDragging()) {
     var _pw = s2w(S.mouse.x, S.mouse.y);

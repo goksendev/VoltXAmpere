@@ -106,6 +106,8 @@ var STR = {
     breadboard:'Breadboard', breadboard_view:'Breadboard Görünümü', breadboard_back:'Şematiğe dön',
     tabPoleZero:'Kutup-Sıfır', tabContour2D:'2D Sweep', tabTransferFunc:'H(s)',
     runPoleZero:'▶ Kutup-Sıfır Analizi', runContour2D:'▶ 2D Sweep Başlat', runTransferFunc:'▶ H(s) Göster',
+    compSearch:'Bileşen ara...', noSearchResult:'Sonuç bulunamadı', timer555:'555 Zamanlayıcı',
+    pushButton:'Buton', buzzer:'Buzzer',
   },
   en: {
     undo:'Undo', redo:'Redo', wire:'Wire', rotate:'Rotate', del:'Delete',
@@ -211,6 +213,8 @@ var STR = {
     breadboard:'Breadboard', breadboard_view:'Breadboard View', breadboard_back:'Back to schematic',
     tabPoleZero:'Pole-Zero', tabContour2D:'2D Sweep', tabTransferFunc:'H(s)',
     runPoleZero:'\u25B6 Pole-Zero Analysis', runContour2D:'\u25B6 Run 2D Sweep', runTransferFunc:'\u25B6 Show H(s)',
+    compSearch:'Search components...', noSearchResult:'No results found', timer555:'555 Timer',
+    pushButton:'Push Button', buzzer:'Buzzer',
   }
 };
 

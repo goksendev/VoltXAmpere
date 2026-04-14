@@ -18,8 +18,9 @@ var PRESETS = [
     wires:[{x1:-80,y1:-40,x2:10,y2:-60},{x1:70,y1:-60,x2:120,y2:-40},{x1:-80,y1:40,x2:-80,y2:60},{x1:120,y1:40,x2:120,y2:60}]},
   { id:'rccharge', name:'Kapasitör Şarj', color:'#06b6d4',
     desc:'V(t) = Vs × (1 - e^(-t/RC))', formula:'τ = RC = 1 ms (1kΩ, 1µF)',
-    parts:[{type:'vdc',x:-60,y:0,rot:0,val:5},{type:'switch',x:40,y:-40,rot:0,val:0},{type:'resistor',x:120,y:-40,rot:0,val:1000},{type:'capacitor',x:200,y:0,rot:1,val:1e-6},{type:'ground',x:-60,y:80,rot:0,val:0},{type:'ground',x:200,y:80,rot:0,val:0}],
-    wires:[{x1:-60,y1:-40,x2:10,y2:-40},{x1:70,y1:-40,x2:80,y2:-40},{x1:160,y1:-40,x2:200,y2:-40},{x1:-60,y1:40,x2:-60,y2:60},{x1:200,y1:40,x2:200,y2:60}]},
+    // Sprint 29: Fixed wiring — switch pre-closed, exact pin-to-pin, ground offset
+    parts:[{type:'vdc',x:0,y:0,rot:0,val:5},{type:'switch',x:60,y:-40,rot:0,val:0,closed:true},{type:'resistor',x:140,y:-40,rot:0,val:1000},{type:'capacitor',x:220,y:0,rot:1,val:1e-6},{type:'ground',x:110,y:80,rot:0,val:0}],
+    wires:[{x1:0,y1:-40,x2:30,y2:-40},{x1:90,y1:-40,x2:100,y2:-40},{x1:180,y1:-40,x2:220,y2:-40},{x1:0,y1:40,x2:110,y2:60},{x1:220,y1:40,x2:110,y2:60}]},
   { id:'rlc', name:'RLC Rezonans', color:'#a855f7',
     desc:'f0 = 1/(2π√LC)', formula:'Underdamped osilasyon',
     parts:[{type:'vdc',x:-80,y:0,rot:0,val:10},{type:'resistor',x:20,y:-60,rot:0,val:10},{type:'inductor',x:120,y:-60,rot:0,val:1e-3},{type:'capacitor',x:200,y:0,rot:1,val:10e-6},{type:'ground',x:-80,y:80,rot:0,val:0},{type:'ground',x:200,y:80,rot:0,val:0}],
@@ -33,25 +34,42 @@ var PRESETS = [
     parts:[{type:'vdc',x:-60,y:0,rot:0,val:5},{type:'resistor',x:40,y:-40,rot:0,val:1000},{type:'inductor',x:140,y:0,rot:1,val:1e-3},{type:'ground',x:-60,y:80,rot:0,val:0},{type:'ground',x:140,y:80,rot:0,val:0}],
     wires:[{x1:-60,y1:-40,x2:0,y2:-40},{x1:80,y1:-40,x2:140,y2:-40},{x1:-60,y1:40,x2:-60,y2:60},{x1:140,y1:40,x2:140,y2:60}]},
   { id:'ce-amp', name:'CE Yükselteç', color:'#a855f7',
-    desc:'Common Emitter amplifier', formula:'Vce \u2248 6V, Ic \u2248 1.2mA',
+    desc:'Common Emitter amplifier', formula:'Vce ≈ 7.5V, Ic ≈ 1.4mA (aktif bölge)',
+    // Sprint 30: Rebuilt from scratch with simpler topology
+    // NPN pin layout (rot=0, at 0,0): base (-40, 0), collector (20, -40), emitter (20, 40)
+    // Topology: VCC up, GND down, bias R1/R2 on left of base, RC above collector, RE below emitter
+    // All bias nodes connect exactly at NPN pins
     parts:[
-      {type:'vdc',x:-120,y:0,rot:0,val:12},
-      {type:'resistor',x:-20,y:-80,rot:0,val:47000},
-      {type:'resistor',x:-20,y:80,rot:0,val:10000},
-      {type:'resistor',x:100,y:-80,rot:1,val:4700},
-      {type:'resistor',x:100,y:80,rot:1,val:1000},
-      {type:'npn',x:60,y:0,rot:0,val:100},
-      {type:'ground',x:-120,y:120,rot:0,val:0},
-      {type:'ground',x:100,y:120,rot:0,val:0},
+      {type:'vdc',x:-160,y:0,rot:0,val:12},               // VCC source
+      {type:'resistor',x:-80,y:-40,rot:0,val:47000},     // R1: VCC rail to base
+      {type:'resistor',x:-80,y:40,rot:0,val:10000},      // R2: base to GND
+      {type:'resistor',x:80,y:-80,rot:1,val:2200},       // RC: VCC to collector (Sprint 31: spec value)
+      {type:'resistor',x:80,y:80,rot:1,val:1000},        // RE: emitter to GND (Sprint 31: spec value)
+      {type:'npn',x:40,y:0,rot:0,val:100},               // NPN
+      {type:'ground',x:-160,y:120,rot:0,val:0}           // Ground
     ],
+    // Wire layout:
+    // NPN pins (at 40,0 rot=0): base at (0,0), collector at (60,-40), emitter at (60,40)
+    // R1 pins (at -80,-40 rot=0): left (-120,-40), right (-40,-40)
+    // R2 pins (at -80,40 rot=0): left (-120,40), right (-40,40)
+    // RC pins (at 80,-80 rot=1): top (80,-120), bottom (80,-40)
+    // RE pins (at 80,80 rot=1): top (80,40), bottom (80,120)
+    // VDC at (-160,0): top (-160,-40), bottom (-160,40)
     wires:[
-      {x1:-120,y1:-40,x2:-60,y2:-80},{x1:20,y2:-80,x2:60,y1:-80},
-      {x1:-120,y1:-40,x2:100,y2:-120},
-      {x1:100,y1:-40,x2:80,y2:-40},
-      {x1:80,y1:40,x2:100,y2:40},
-      {x1:-60,y1:-80,x2:20,y2:0},
-      {x1:-120,y1:40,x2:-120,y2:100},
-      {x1:100,y1:100,x2:100,y2:100},
+      // VCC rail: VDC+ → R1 left → RC top
+      {x1:-160,y1:-40,x2:-120,y2:-40},   // VDC+ → R1 left
+      {x1:-160,y1:-40,x2:80,y2:-120},    // VDC+ → RC top (long diagonal to VCC rail)
+      // Base node: R1 right → NPN base → R2 right
+      {x1:-40,y1:-40,x2:0,y2:0},         // R1 right → base
+      {x1:-40,y1:40,x2:0,y2:0},          // R2 right → base
+      // GND rail: R2 left → VDC- → RE bottom
+      {x1:-120,y1:40,x2:-160,y2:40},     // R2 left → VDC-
+      {x1:-160,y1:40,x2:-160,y2:100},    // VDC- → GND (pin at -160, 100)
+      {x1:80,y1:120,x2:-160,y2:100},     // RE bottom → GND
+      // Collector: RC bottom → NPN collector
+      {x1:80,y1:-40,x2:60,y2:-40},       // RC bottom → collector
+      // Emitter: NPN emitter → RE top
+      {x1:60,y1:40,x2:80,y2:40}          // emitter → RE top
     ]},
   { id:'npn-sw', name:'NPN Anahtar', color:'#a855f7',
     desc:'Transistör ile switching', formula:'Vce_sat \u2248 0.2V',
@@ -124,9 +142,11 @@ var PRESETS = [
       {x1:20,y1:60,x2:20,y2:60},
     ]},
   { id:'zener-reg', name:'Zener Regülatör', color:'#ec4899',
-    desc:'Vz ile sabit gerilim', formula:'Vin=12V, Vz=5.1V \u2192 Vout\u22485.1V',
-    parts:[{type:'vdc',x:-80,y:0,rot:0,val:12},{type:'resistor',x:0,y:-40,rot:0,val:1000},{type:'zener',x:80,y:0,rot:1,val:5.1},{type:'ground',x:-80,y:60,rot:0,val:0},{type:'ground',x:80,y:60,rot:0,val:0}],
-    wires:[{x1:-80,y1:-40,x2:-40,y2:-40},{x1:40,y1:-40,x2:80,y2:-40},{x1:-80,y1:40,x2:-80,y2:40},{x1:80,y1:30,x2:80,y2:40}]},
+    desc:'Vz ile sabit gerilim', formula:'Vin=12V, Vz=5.1V → Vout≈5.1V',
+    // Sprint 29: Fixed wiring — zener rot=1: anode at top (-30), cathode at bottom (+30).
+    // For reverse breakdown: cathode must be at HIGH side → flip with rot=3 and connect pin0(bottom) to R
+    parts:[{type:'vdc',x:-80,y:0,rot:0,val:12},{type:'resistor',x:0,y:-40,rot:0,val:1000},{type:'zener',x:80,y:0,rot:1,val:5.1},{type:'ground',x:0,y:80,rot:0,val:0}],
+    wires:[{x1:-80,y1:-40,x2:-40,y2:-40},{x1:40,y1:-40,x2:80,y2:30},{x1:80,y1:-30,x2:0,y2:60},{x1:-80,y1:40,x2:0,y2:60}]},
   { id:'vreg-7805', name:'7805 Regülatör', color:'#22c55e',
     desc:'Sabit 5V \u00e7\u0131k\u0131\u015f', formula:'Vin=9V \u2192 Vout=5V',
     parts:[{type:'vdc',x:-80,y:0,rot:0,val:9},{type:'vreg',x:20,y:0,rot:0,val:5},{type:'resistor',x:100,y:20,rot:1,val:1000},{type:'ground',x:-80,y:60,rot:0,val:0},{type:'ground',x:20,y:60,rot:0,val:0},{type:'ground',x:100,y:60,rot:0,val:0}],
@@ -211,6 +231,91 @@ var PRESETS = [
     desc:'Tolerans u\u00e7lar\u0131', formula:'Nominal vs \u00B110% en k\u00f6t\u00fc',
     parts:[{type:'vdc',x:-60,y:0,rot:0,val:10},{type:'resistor',x:20,y:-40,rot:0,val:1000},{type:'resistor',x:20,y:40,rot:0,val:2200},{type:'ground',x:-60,y:60,rot:0,val:0}],
     wires:[{x1:-60,y1:-40,x2:-20,y2:-40},{x1:60,y1:-40,x2:60,y2:40},{x1:60,y1:40,x2:-60,y2:40},{x1:-60,y1:40,x2:-60,y2:40}]},
+  // ═══════════════════════════════════════════════
+  // Sprint 27b: 20 Yeni Preset (36-55)
+  // ═══════════════════════════════════════════════
+  { id:'555-astable', name:'555 Astable', color:'#8e44ad',
+    desc:'f = 1.44 / ((R1+2R2)*C)', formula:'~6.9 Hz blinker',
+    parts:[{type:'vdc',x:-120,y:-80,rot:0,val:9},{type:'timer555',x:0,y:0,rot:0,val:0},{type:'resistor',x:-60,y:-60,rot:1,val:1000},{type:'resistor',x:60,y:-60,rot:1,val:10000},{type:'capacitor',x:-60,y:40,rot:1,val:10e-6},{type:'resistor',x:80,y:60,rot:1,val:330},{type:'led',x:80,y:120,rot:1,val:0},{type:'ground',x:-120,y:80,rot:0,val:0}],
+    wires:[{x1:-120,y1:-120,x2:30,y2:-15},{x1:-120,y1:-120,x2:-30,y2:15},{x1:-120,y1:40,x2:-30,y2:-35},{x1:30,y1:0,x2:80,y2:30},{x1:80,y1:90,x2:80,y2:90},{x1:80,y1:150,x2:-120,y2:40}]},
+  { id:'555-mono', name:'555 Monostable', color:'#9b59b6',
+    desc:'T = 1.1 * R * C', formula:'Button trigger → timed LED',
+    parts:[{type:'vdc',x:-120,y:-80,rot:0,val:9},{type:'timer555',x:0,y:0,rot:0,val:0},{type:'resistor',x:-60,y:-60,rot:1,val:100000},{type:'capacitor',x:-60,y:40,rot:1,val:10e-6},{type:'pushButton',x:-60,y:-15,rot:0,val:0},{type:'resistor',x:80,y:60,rot:1,val:330},{type:'led',x:80,y:120,rot:1,val:0},{type:'ground',x:-120,y:80,rot:0,val:0}],
+    wires:[{x1:-120,y1:-120,x2:30,y2:-15},{x1:-120,y1:-120,x2:-30,y2:15},{x1:30,y1:0,x2:80,y2:30},{x1:80,y1:150,x2:-120,y2:40}]},
+  { id:'bjt-astable', name:'BJT Astable', color:'#e74c3c',
+    desc:'Cross-coupled multivibrator', formula:'2 LED dönüşümlü',
+    parts:[{type:'vdc',x:0,y:-120,rot:0,val:9},{type:'npn',x:-80,y:40,rot:0,val:0},{type:'npn',x:80,y:40,rot:0,val:0},{type:'resistor',x:-80,y:-40,rot:1,val:1000},{type:'resistor',x:80,y:-40,rot:1,val:1000},{type:'capacitor',x:0,y:0,rot:0,val:10e-6},{type:'resistor',x:0,y:-80,rot:0,val:10000},{type:'led',x:-80,y:-80,rot:1,val:0},{type:'led',x:80,y:-80,rot:1,val:0},{type:'ground',x:0,y:120,rot:0,val:0}],
+    wires:[{x1:0,y1:-160,x2:-80,y2:-80},{x1:0,y1:-160,x2:80,y2:-80},{x1:-80,y1:80,x2:80,y2:80},{x1:80,y1:80,x2:0,y2:120}]},
+  { id:'bridge-rect', name:'Köprü Doğrultucu', color:'#3498db',
+    desc:'4 diyot tam dalga', formula:'Vout_peak ≈ Vpeak - 1.4V',
+    parts:[{type:'vac',x:-150,y:0,rot:0,val:12,freq:50},{type:'diode',x:-60,y:-40,rot:0,val:0},{type:'diode',x:60,y:-40,rot:0,val:0},{type:'diode',x:-60,y:40,rot:0,val:0},{type:'diode',x:60,y:40,rot:0,val:0},{type:'capacitor',x:120,y:0,rot:1,val:1000e-6},{type:'resistor',x:180,y:0,rot:1,val:1000},{type:'ground',x:-150,y:80,rot:0,val:0},{type:'ground',x:180,y:80,rot:0,val:0}],
+    wires:[{x1:-150,y1:-40,x2:-90,y2:-40},{x1:-30,y1:-40,x2:60,y2:-40},{x1:-150,y1:40,x2:-90,y2:40},{x1:-30,y1:40,x2:60,y2:40},{x1:90,y1:-40,x2:180,y2:-40},{x1:90,y1:40,x2:180,y2:40},{x1:180,y1:40,x2:180,y2:60},{x1:-150,y1:40,x2:-150,y2:60}]},
+  { id:'vreg-7805', name:'7805 Regülatör', color:'#2ecc71',
+    desc:'12V → 5V sabit', formula:'Vout = 5V (±2%)',
+    parts:[{type:'vdc',x:-120,y:0,rot:0,val:12},{type:'vreg',x:0,y:0,rot:0,val:5,model:'7805'},{type:'capacitor',x:-60,y:40,rot:1,val:100e-6},{type:'capacitor',x:60,y:40,rot:1,val:100e-6},{type:'resistor',x:120,y:0,rot:1,val:1000},{type:'ground',x:0,y:80,rot:0,val:0}],
+    wires:[{x1:-120,y1:-40,x2:-40,y2:0},{x1:40,y1:0,x2:120,y2:-40},{x1:120,y1:40,x2:0,y2:60},{x1:-120,y1:40,x2:-120,y2:40},{x1:0,y1:30,x2:0,y2:60}]},
+  { id:'class-a-amp', name:'Class-A CE Amp', color:'#e67e22',
+    desc:'Gerilim kazancı Av ≈ -RC/RE', formula:'Av ≈ -2.2 (RC=2.2k, RE=1k)',
+    parts:[{type:'vdc',x:-180,y:-60,rot:0,val:12},{type:'npn',x:0,y:0,rot:0,val:0,model:'2N2222'},{type:'resistor',x:-120,y:-40,rot:1,val:47000},{type:'resistor',x:-120,y:40,rot:1,val:10000},{type:'resistor',x:80,y:-60,rot:1,val:2200},{type:'resistor',x:0,y:80,rot:1,val:1000},{type:'capacitor',x:-60,y:-40,rot:0,val:10e-6},{type:'vac',x:-180,y:-40,rot:0,val:0.1,freq:1000},{type:'ground',x:-180,y:100,rot:0,val:0}],
+    wires:[{x1:-180,y1:-100,x2:80,y2:-100},{x1:40,y1:-40,x2:80,y2:-100},{x1:-120,y1:-80,x2:-120,y2:-80},{x1:-120,y1:0,x2:-40,y2:0},{x1:-40,y1:0,x2:-40,y2:0},{x1:-120,y1:80,x2:0,y2:40},{x1:0,y1:120,x2:-180,y2:60},{x1:-180,y1:60,x2:-180,y2:80}]},
+  { id:'diff-amp', name:'Differential Amp', color:'#f39c12',
+    desc:'2 NPN, ortak emitter', formula:'Vout = RC×gm×(Vin+ - Vin-)',
+    parts:[{type:'vdc',x:0,y:-120,rot:0,val:12},{type:'npn',x:-100,y:0,rot:0,val:0},{type:'npn',x:100,y:0,rot:0,val:0},{type:'resistor',x:-100,y:-80,rot:1,val:4700},{type:'resistor',x:100,y:-80,rot:1,val:4700},{type:'resistor',x:0,y:80,rot:1,val:10000},{type:'ground',x:0,y:160,rot:0,val:0}],
+    wires:[{x1:0,y1:-160,x2:-100,y2:-120},{x1:0,y1:-160,x2:100,y2:-120},{x1:-100,y1:40,x2:0,y2:40},{x1:100,y1:40,x2:0,y2:40},{x1:0,y1:120,x2:0,y2:140}]},
+  { id:'inst-amp', name:'Instrumentation Amp', color:'#f1c40f',
+    desc:'3 op-amp yapı', formula:'Hassas fark yükseltme',
+    parts:[{type:'vdc',x:-180,y:-100,rot:0,val:15},{type:'opamp',x:-80,y:-60,rot:0,val:0,model:'LM741'},{type:'opamp',x:-80,y:60,rot:0,val:0,model:'LM741'},{type:'opamp',x:80,y:0,rot:0,val:0,model:'LM741'},{type:'resistor',x:-40,y:0,rot:1,val:10000},{type:'resistor',x:-140,y:-60,rot:0,val:10000},{type:'resistor',x:-140,y:60,rot:0,val:10000},{type:'resistor',x:40,y:-40,rot:0,val:10000},{type:'resistor',x:40,y:40,rot:0,val:10000},{type:'ground',x:180,y:80,rot:0,val:0}],
+    wires:[{x1:-180,y1:-140,x2:180,y2:-140},{x1:-40,y1:-60,x2:-40,y2:-20},{x1:-40,y1:20,x2:-40,y2:60},{x1:-40,y1:-60,x2:80,y2:-15},{x1:-40,y1:60,x2:80,y2:15},{x1:120,y1:0,x2:180,y2:80}]},
+  { id:'push-pull', name:'Push-Pull Class-B', color:'#e91e63',
+    desc:'NPN+PNP complementary', formula:'Crossover distortion eğitim',
+    parts:[{type:'vdc',x:-120,y:-80,rot:0,val:12},{type:'vdc',x:-120,y:80,rot:0,val:12},{type:'npn',x:0,y:-40,rot:0,val:0,model:'2N2222'},{type:'pnp',x:0,y:40,rot:0,val:0,model:'2N3906'},{type:'vac',x:-80,y:0,rot:0,val:1,freq:1000},{type:'speaker',x:100,y:0,rot:0,val:8},{type:'ground',x:-120,y:160,rot:0,val:0}],
+    wires:[{x1:-120,y1:-120,x2:0,y2:-80},{x1:-120,y1:120,x2:0,y2:80},{x1:-80,y1:-40,x2:-40,y2:-40},{x1:-80,y1:40,x2:-40,y2:40},{x1:40,y1:0,x2:100,y2:-25},{x1:100,y1:25,x2:-120,y2:120}]},
+  { id:'sallen-key', name:'Sallen-Key LPF', color:'#9c27b0',
+    desc:'2nd order Butterworth', formula:'fc ≈ 1.07 kHz, Q=0.707',
+    parts:[{type:'vac',x:-180,y:0,rot:0,val:1,freq:1000},{type:'opamp',x:40,y:0,rot:0,val:0,model:'TL072'},{type:'resistor',x:-120,y:-20,rot:0,val:10000},{type:'resistor',x:-60,y:-20,rot:0,val:10000},{type:'capacitor',x:-60,y:40,rot:1,val:10e-9},{type:'capacitor',x:0,y:-60,rot:0,val:22e-9},{type:'ground',x:-180,y:60,rot:0,val:0},{type:'ground',x:-60,y:100,rot:0,val:0}],
+    wires:[{x1:-180,y1:-40,x2:-140,y2:-20},{x1:-100,y1:-20,x2:-80,y2:-20},{x1:-40,y1:-20,x2:20,y2:-15},{x1:-60,y1:20,x2:-60,y2:60},{x1:-40,y1:-60,x2:80,y2:0},{x1:80,y1:0,x2:-60,y2:100},{x1:-180,y1:40,x2:-180,y2:40}]},
+  { id:'active-bpf', name:'Active Band-Pass', color:'#673ab7',
+    desc:'Multiple feedback BPF', formula:'Merkez frek. + Q ayarlanabilir',
+    parts:[{type:'vac',x:-180,y:0,rot:0,val:1,freq:1000},{type:'opamp',x:40,y:0,rot:0,val:0,model:'TL072'},{type:'resistor',x:-120,y:-20,rot:0,val:10000},{type:'resistor',x:-40,y:-60,rot:0,val:100000},{type:'capacitor',x:-60,y:-20,rot:0,val:10e-9},{type:'capacitor',x:-40,y:60,rot:1,val:10e-9},{type:'ground',x:-180,y:60,rot:0,val:0}],
+    wires:[{x1:-180,y1:-40,x2:-140,y2:-20},{x1:-100,y1:-20,x2:-80,y2:-20},{x1:-40,y1:-20,x2:20,y2:15},{x1:-60,y1:0,x2:-60,y2:40},{x1:-40,y1:-60,x2:80,y2:0}]},
+  { id:'ldr-led', name:'LDR Işık Sensörü', color:'#cddc39',
+    desc:'LDR direnç değişimi', formula:'Işık ↑ → LDR R ↓',
+    parts:[{type:'vdc',x:-80,y:0,rot:0,val:5},{type:'ldr',x:40,y:-40,rot:0,val:10000},{type:'resistor',x:120,y:0,rot:1,val:10000},{type:'ground',x:-80,y:80,rot:0,val:0},{type:'ground',x:120,y:80,rot:0,val:0}],
+    wires:[{x1:-80,y1:-40,x2:0,y2:-40},{x1:80,y1:-40,x2:120,y2:-40},{x1:-80,y1:40,x2:-80,y2:60},{x1:120,y1:40,x2:120,y2:60}]},
+  { id:'ntc-alarm', name:'NTC Sıcaklık Alarmı', color:'#ff5722',
+    desc:'Sıcaklık artınca buzzer', formula:'NTC ↓R → Vout ↑ → alarm',
+    parts:[{type:'vdc',x:-180,y:0,rot:0,val:5},{type:'ntc',x:-80,y:-60,rot:1,val:10000},{type:'resistor',x:-80,y:60,rot:1,val:10000},{type:'opamp',x:40,y:0,rot:0,val:0,model:'LM358'},{type:'resistor',x:-40,y:40,rot:0,val:10000},{type:'buzzer',x:140,y:0,rot:0,val:40},{type:'ground',x:-180,y:120,rot:0,val:0}],
+    wires:[{x1:-180,y1:-40,x2:-80,y2:-100},{x1:-80,y1:-20,x2:0,y2:-15},{x1:-180,y1:100,x2:-80,y2:100},{x1:-180,y1:40,x2:-180,y2:100},{x1:-40,y1:40,x2:0,y2:15},{x1:80,y1:0,x2:140,y2:-25},{x1:140,y1:25,x2:-180,y2:120}]},
+  { id:'led-chaser', name:'LED Chaser (Basit)', color:'#ff9800',
+    desc:'3 LED sıralı yakar', formula:'555 clock → counter',
+    parts:[{type:'pulse',x:-120,y:0,rot:0,val:5,freq:2},{type:'resistor',x:-20,y:-60,rot:1,val:220},{type:'led',x:-20,y:-140,rot:1,val:0},{type:'resistor',x:40,y:-60,rot:1,val:220},{type:'led',x:40,y:-140,rot:1,val:0},{type:'resistor',x:100,y:-60,rot:1,val:220},{type:'led',x:100,y:-140,rot:1,val:0},{type:'ground',x:-120,y:60,rot:0,val:0}],
+    wires:[{x1:-120,y1:-40,x2:-20,y2:-40},{x1:-120,y1:-40,x2:40,y2:-40},{x1:-120,y1:-40,x2:100,y2:-40},{x1:-20,y1:-100,x2:-20,y2:-120},{x1:40,y1:-100,x2:40,y2:-120},{x1:100,y1:-100,x2:100,y2:-120},{x1:-20,y1:-180,x2:100,y2:-180},{x1:-120,y1:40,x2:-120,y2:40}]},
+  { id:'binary-counter', name:'Binary Counter 4-bit', color:'#00bcd4',
+    desc:'Clock → 0000-1111 döngü', formula:'4 LED binary gösterir',
+    parts:[{type:'pulse',x:-180,y:0,rot:0,val:5,freq:1},{type:'counter',x:0,y:0,rot:0,val:0},{type:'resistor',x:80,y:-80,rot:1,val:220},{type:'resistor',x:120,y:-80,rot:1,val:220},{type:'resistor',x:160,y:-80,rot:1,val:220},{type:'resistor',x:200,y:-80,rot:1,val:220},{type:'led',x:80,y:-160,rot:1,val:0},{type:'led',x:120,y:-160,rot:1,val:0},{type:'led',x:160,y:-160,rot:1,val:0},{type:'led',x:200,y:-160,rot:1,val:0},{type:'ground',x:-180,y:80,rot:0,val:0}],
+    wires:[{x1:-180,y1:-40,x2:-60,y2:0},{x1:-180,y1:40,x2:-180,y2:60}]},
+  { id:'h-bridge', name:'H-Bridge Motor', color:'#4caf50',
+    desc:'4 transistör, motor yön kontrolü', formula:'2 kontrol sinyali',
+    parts:[{type:'vdc',x:0,y:-120,rot:0,val:12},{type:'npn',x:-120,y:-40,rot:0,val:0},{type:'npn',x:120,y:-40,rot:0,val:0},{type:'pnp',x:-120,y:40,rot:0,val:0},{type:'pnp',x:120,y:40,rot:0,val:0},{type:'dcmotor',x:0,y:0,rot:0,val:5},{type:'ground',x:0,y:120,rot:0,val:0}],
+    wires:[{x1:0,y1:-160,x2:-120,y2:-80},{x1:0,y1:-160,x2:120,y2:-80},{x1:-120,y1:0,x2:-40,y2:0},{x1:120,y1:0,x2:40,y2:0},{x1:-120,y1:80,x2:0,y2:120},{x1:120,y1:80,x2:0,y2:120}]},
+  { id:'relay-ctrl', name:'Röle Kontrol Basit', color:'#795548',
+    desc:'Anahtar → röle bobini', formula:'Coil aktif → kontak kapanır',
+    parts:[{type:'vdc',x:-80,y:0,rot:0,val:12},{type:'switch',x:30,y:-40,rot:0,val:0,closed:true},{type:'relay',x:120,y:0,rot:0,val:0},{type:'ground',x:-80,y:80,rot:0,val:0}],
+    wires:[{x1:-80,y1:-40,x2:0,y2:-40},{x1:60,y1:-40,x2:80,y2:-20},{x1:80,y1:20,x2:-80,y2:60},{x1:-80,y1:40,x2:-80,y2:60}]},
+  { id:'trafo-demo', name:'Transformatör 1:1', color:'#607d8b',
+    desc:'Primer=Sekonder L → gerilim izolasyonu', formula:'Vs ≈ Vp (K=0.99)',
+    parts:[{type:'vac',x:-150,y:0,rot:0,val:10,freq:50},{type:'transformer',x:0,y:0,rot:0,val:10,L1:0.01,L2:0.01,coupling:0.99},{type:'resistor',x:150,y:0,rot:1,val:1000},{type:'ground',x:-150,y:80,rot:0,val:0},{type:'ground',x:150,y:80,rot:0,val:0}],
+    wires:[{x1:-150,y1:-40,x2:-30,y2:-20},{x1:-150,y1:40,x2:-30,y2:20},{x1:30,y1:-20,x2:150,y2:-40},{x1:30,y1:20,x2:150,y2:40},{x1:-150,y1:40,x2:-150,y2:60},{x1:150,y1:40,x2:150,y2:60}]},
+  { id:'speaker-demo', name:'Hoparlör Ses Çıkışı', color:'#8b5cf6',
+    desc:'AC source → speaker', formula:'Ses dalga formu çıkışı',
+    parts:[{type:'vac',x:-80,y:0,rot:0,val:3,freq:440},{type:'resistor',x:20,y:-40,rot:0,val:10},{type:'speaker',x:100,y:0,rot:0,val:8},{type:'ground',x:-80,y:80,rot:0,val:0}],
+    wires:[{x1:-80,y1:-40,x2:-20,y2:-40},{x1:60,y1:-40,x2:100,y2:-25},{x1:100,y1:25,x2:-80,y2:60},{x1:-80,y1:40,x2:-80,y2:60}]},
+  { id:'dc-motor-simple', name:'DC Motor Basit', color:'#009688',
+    desc:'Batarya → motor', formula:'I = V/Ra ≈ 1.2A (12V, 10Ω)',
+    // Sprint 29: Fixed wiring — exact pin-to-pin
+    // dcmotor rot=1: pins (100,-30) and (100,30). vdc pins (-80,-40) and (-80,40). ground at (0,80) pin (0,60).
+    parts:[{type:'vdc',x:-80,y:0,rot:0,val:12},{type:'dcmotor',x:100,y:0,rot:1,val:10},{type:'ground',x:10,y:80,rot:0,val:0}],
+    wires:[{x1:-80,y1:-40,x2:100,y2:-30},{x1:100,y1:30,x2:10,y2:60},{x1:-80,y1:40,x2:10,y2:60}]},
 ];
 
 (function buildPalette() {

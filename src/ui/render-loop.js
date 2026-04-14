@@ -161,7 +161,12 @@ function loadPreset(id) {
   S.parts = []; S.wires = []; S.nextId = 1; S.sel = [];
   if (S.sim.running) toggleSim();
   pr.parts.forEach(p => {
-    var newPart = { id: S.nextId++, type: p.type, name: nextName(p.type), x: p.x, y: p.y, rot: p.rot || 0, val: p.val, freq: p.freq || 0, flipH: false, flipV: false, closed: false };
+    // Sprint 29: Respect preset's closed + wiper fields (don't hardcode)
+    var newPart = { id: S.nextId++, type: p.type, name: nextName(p.type), x: p.x, y: p.y, rot: p.rot || 0, val: p.val, freq: p.freq || 0, flipH: false, flipV: false, closed: p.closed === true };
+    if (p.wiper !== undefined) newPart.wiper = p.wiper;
+    if (p.L1 !== undefined) newPart.L1 = p.L1;
+    if (p.L2 !== undefined) newPart.L2 = p.L2;
+    if (p.coupling !== undefined) newPart.coupling = p.coupling;
     // Sprint 24: Apply model from preset or default
     if (p.model) { newPart.model = p.model; if (typeof applyModel === 'function') applyModel(newPart, p.model); }
     else { var defModel = VXA.Models && VXA.Models.getDefault ? VXA.Models.getDefault(p.type) : null; if (defModel) { newPart.model = defModel; if (typeof applyModel === 'function') applyModel(newPart, defModel); } }

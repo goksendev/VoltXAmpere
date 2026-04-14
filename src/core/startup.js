@@ -425,7 +425,8 @@ function ctxSaveBlock() {
 }
 
 function rebuildPalette() {
-  var el = document.getElementById('left');
+  // Sprint 27a: Render into #comp-panel-body (keeps search input at top)
+  var el = document.getElementById('comp-panel-body') || document.getElementById('left');
   el.innerHTML = '';
   var cats = { Passive:t('catPassive'), Sources:t('catSources'), Semi:t('catSemi'), ICs:t('catICs'), Logic:t('catLogic'), Mixed:t('catMixed'), Control:t('catControl'), Blocks:t('catBlocks'), Basic:t('catBasic') };
   for (var ck in cats) {
@@ -493,6 +494,141 @@ function simGotoBookmark() {
   if (simBookmarkState.nodeV) S._nodeVoltages = new Float64Array(simBookmarkState.nodeV);
   needsRender = true;
   document.getElementById('sb-time').textContent = 't='+(S.sim.t*1000).toFixed(3)+'ms';
+}
+
+// ──────── SPRINT 27a: COMPONENT SEARCH ────────
+var COMP_SEARCH_ALIASES = {
+  resistor: ['resistor','direnç','direnc','r','ohm','rezistör'],
+  capacitor: ['capacitor','kapasitör','kapasitor','kondansatör','kondansator','c','cap','farad'],
+  inductor: ['inductor','bobin','indüktör','induktor','l','henry','coil'],
+  vdc: ['vdc','dc','dc source','pil','battery','batarya','kaynak'],
+  vac: ['vac','ac','ac source','alternatif'],
+  pulse: ['pulse','darbe','kare dalga','square'],
+  potentiometer: ['potentiometer','pot','potansiyometre','trimpot','ayarlı direnç','ayarli direnc'],
+  ntc: ['ntc','thermistor','termistör','termistor','sıcaklık sensörü'],
+  ptc: ['ptc','positive thermistor'],
+  ldr: ['ldr','photoresistor','fotorezistör','ışık sensörü','isik sensoru'],
+  diode: ['diode','diyot','d','1n4148','1n4007','rectifier'],
+  led: ['led','light emitting','ışık','isik'],
+  zener: ['zener','regulator diode','zener diyot'],
+  npn: ['npn','transistor','transistör','bjt','2n2222','2n3904','bc547'],
+  pnp: ['pnp','transistor','transistör','bjt','2n3906'],
+  nmos: ['nmos','mosfet','n-channel','2n7000','irf540'],
+  pmos: ['pmos','mosfet','p-channel','irf9540'],
+  opamp: ['opamp','op-amp','işlemsel yükselteç','operational amplifier','lm741','tl072'],
+  timer555: ['timer555','555','ne555','timer','zamanlayıcı','zamanlayici'],
+  vreg: ['vreg','regulator','regülatör','7805','7812','lm317'],
+  switch: ['switch','anahtar','toggle','sw'],
+  pushButton: ['pushbutton','buton','button','push','anlık anahtar','anlik anahtar','pb'],
+  buzzer: ['buzzer','piezo','ses','zil','beeper'],
+  ground: ['ground','toprak','gnd','şase'],
+  vcvs: ['vcvs','voltage controlled voltage','bağımlı kaynak'],
+  vccs: ['vccs','voltage controlled current','transkonduktans'],
+  ccvs: ['ccvs','current controlled voltage','transimpedans'],
+  cccs: ['cccs','current controlled current','akım aynası'],
+  fuse: ['fuse','sigorta'],
+  relay: ['relay','röle','kontaktör'],
+  crystal: ['crystal','kristal','osilatör','xtal','quartz'],
+  and: ['and','ve','kapı','gate'],
+  or: ['or','veya','kapı'],
+  not: ['not','değil','inverter'],
+  nand: ['nand','ve-değil'],
+  nor: ['nor','veya-değil'],
+  xor: ['xor','özel-veya','exclusive'],
+  schottky: ['schottky','1n5819','bat54'],
+  njfet: ['njfet','jfet','j-fet'],
+  pjfet: ['pjfet','jfet p-channel'],
+  transformer: ['transformer','trafo','dönüştürücü'],
+  dcmotor: ['dcmotor','dc motor','motor']
+};
+
+function _matchComp(compKey, def, query) {
+  var q = query.toLowerCase().trim();
+  if (!q) return true;
+  if (compKey.toLowerCase().indexOf(q) >= 0) return true;
+  if (def.name && def.name.toLowerCase().indexOf(q) >= 0) return true;
+  if (def.en && def.en.toLowerCase().indexOf(q) >= 0) return true;
+  var aliases = COMP_SEARCH_ALIASES[compKey] || [];
+  for (var i = 0; i < aliases.length; i++) {
+    if (aliases[i].indexOf(q) >= 0) return true;
+  }
+  return false;
+}
+
+var _compSearchDebounce = null;
+function filterComponents(query) {
+  if (_compSearchDebounce) clearTimeout(_compSearchDebounce);
+  _compSearchDebounce = setTimeout(function() { _doFilterComponents(query); }, 150);
+}
+
+function _doFilterComponents(query) {
+  var el = document.getElementById('comp-panel-body');
+  if (!el) return;
+  query = (query || '').trim();
+
+  if (!query) {
+    // Restore normal category view
+    rebuildPalette();
+    return;
+  }
+
+  // Flat search results
+  el.innerHTML = '';
+  var matches = [];
+  for (var k in COMP) {
+    if (_matchComp(k, COMP[k], query)) matches.push([k, COMP[k]]);
+  }
+
+  if (matches.length === 0) {
+    var empty = document.createElement('div');
+    empty.style.cssText = 'padding:20px 12px;text-align:center;color:var(--text-3);font-size:12px';
+    empty.textContent = (typeof currentLang !== 'undefined' && currentLang === 'tr') ? 'Sonuç bulunamadı' : 'No results found';
+    el.appendChild(empty);
+    return;
+  }
+
+  var hdr = document.createElement('div');
+  hdr.className = 'cat-header open';
+  hdr.innerHTML = '<span>' + matches.length + ' sonuç / results</span>';
+  el.appendChild(hdr);
+
+  var body = document.createElement('div');
+  body.className = 'cat-body';
+  body.style.maxHeight = '80vh';
+  matches.forEach(function(entry) {
+    var k = entry[0], v = entry[1];
+    var d = document.createElement('div'); d.className = 'comp-item';
+    var mc = document.createElement('canvas');
+    mc.width = 24; mc.height = 18; mc.style.cssText = 'width:24px;height:18px;margin-right:6px;vertical-align:middle;flex-shrink:0';
+    (function(canvas, drawFn) {
+      requestAnimationFrame(function() {
+        try {
+          var ctx2 = canvas.getContext('2d');
+          ctx2.save(); ctx2.translate(12, 9); ctx2.scale(0.27, 0.27);
+          drawFn(ctx2, 20, { val: 0, type: '' });
+          ctx2.restore();
+        } catch(err) {}
+      });
+    })(mc, v.draw.bind(v));
+    var span = document.createElement('span');
+    span.style.cssText = 'display:flex;align-items:center';
+    span.appendChild(mc);
+    span.appendChild(document.createTextNode(v.name));
+    d.appendChild(span);
+    d.addEventListener('click', function() { startPlace(k); });
+    body.appendChild(d);
+  });
+  el.appendChild(body);
+}
+
+// Keyboard shortcut: "/" to focus search
+if (typeof document !== 'undefined') {
+  document.addEventListener('keydown', function(e) {
+    if (e.key === '/' && document.activeElement && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
+      var inp = document.getElementById('comp-search-input');
+      if (inp) { e.preventDefault(); inp.focus(); inp.select(); }
+    }
+  });
 }
 
 // ──────── CIRCUIT REPORT ────────

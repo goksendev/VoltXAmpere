@@ -473,7 +473,12 @@ input:focus{border-color:var(--accent)}
   </div>
 
   <!-- LEFT PANEL -->
-  <div id="left"></div>
+  <div id="left">
+    <div id="comp-search-box" style="padding:6px 8px;border-bottom:1px solid var(--border);background:var(--surface-2)">
+      <input id="comp-search-input" type="text" placeholder="🔍 Bileşen ara... (/)" oninput="filterComponents(this.value)" style="width:100%;padding:4px 8px;font-size:12px;background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:4px;box-sizing:border-box" aria-label="Search components">
+    </div>
+    <div id="comp-panel-body"></div>
+  </div>
 
   <!-- CANVAS -->
   <div id="canvas-wrap"><canvas id="C"></canvas><canvas id="minimap" width="200" height="130" style="position:absolute;bottom:50px;right:8px;width:200px;height:130px;background:#1a1a30;border:1px solid #333;border-radius:6px;z-index:5;cursor:pointer"></canvas></div>
@@ -644,7 +649,7 @@ input:focus{border-color:var(--accent)}
     <span id="sb-temp" style="color:var(--text-3)"></span>
     <span id="sb-engine" style="color:var(--text-4)"></span>
     <span id="sb-extra" style="color:var(--text-3)"></span>
-    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v8.0 — Build: 2026-04-14 19:40 — © 2026</span>
+    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v8.0 — Build: 2026-04-14 23:41 — © 2026</span>
   </div>
 </div>
 
@@ -1093,6 +1098,8 @@ var STR = {
     breadboard:'Breadboard', breadboard_view:'Breadboard Görünümü', breadboard_back:'Şematiğe dön',
     tabPoleZero:'Kutup-Sıfır', tabContour2D:'2D Sweep', tabTransferFunc:'H(s)',
     runPoleZero:'▶ Kutup-Sıfır Analizi', runContour2D:'▶ 2D Sweep Başlat', runTransferFunc:'▶ H(s) Göster',
+    compSearch:'Bileşen ara...', noSearchResult:'Sonuç bulunamadı', timer555:'555 Zamanlayıcı',
+    pushButton:'Buton', buzzer:'Buzzer',
   },
   en: {
     undo:'Undo', redo:'Redo', wire:'Wire', rotate:'Rotate', del:'Delete',
@@ -1198,6 +1205,8 @@ var STR = {
     breadboard:'Breadboard', breadboard_view:'Breadboard View', breadboard_back:'Back to schematic',
     tabPoleZero:'Pole-Zero', tabContour2D:'2D Sweep', tabTransferFunc:'H(s)',
     runPoleZero:'\u25B6 Pole-Zero Analysis', runContour2D:'\u25B6 Run 2D Sweep', runTransferFunc:'\u25B6 Show H(s)',
+    compSearch:'Search components...', noSearchResult:'No results found', timer555:'555 Timer',
+    pushButton:'Push Button', buzzer:'Buzzer',
   }
 };
 
@@ -1557,6 +1566,160 @@ var COMP = {
       else { c.beginPath(); c.moveTo(-7, -1); c.lineTo(8, -16); c.stroke(); }
       c.beginPath(); c.arc(10, 0, 3, 0, Math.PI * 2); c.stroke();
       c.beginPath(); c.moveTo(13, 0); c.lineTo(30, 0); c.stroke();
+    }
+  },
+  // Sprint 27a: Push Button (momentary switch)
+  pushButton: {
+    name: 'Push Button', en: 'PB', color: '#f59e0b', unit: '', def: 0, cat: 'Basic',
+    pins: [{ dx: -30, dy: 0 }, { dx: 30, dy: 0 }],
+    pinNames: ['1', '2'],
+    draw(c, g, part) {
+      c.strokeStyle = this.color; c.lineWidth = 2;
+      // Leads
+      c.beginPath(); c.moveTo(-30, 0); c.lineTo(-12, 0); c.stroke();
+      c.beginPath(); c.moveTo(12, 0); c.lineTo(30, 0); c.stroke();
+      // Contact pads
+      c.beginPath(); c.moveTo(-12, 0); c.lineTo(-12, -4); c.lineTo(-4, -4); c.stroke();
+      c.beginPath(); c.moveTo(12, 0); c.lineTo(12, -4); c.lineTo(4, -4); c.stroke();
+      // Button cap — pressed=down, released=up
+      var pressed = part && part.closed;
+      var y = pressed ? -4 : -10;
+      c.fillStyle = pressed ? '#d18828' : '#2a2a2a';
+      c.fillRect(-8, y, 16, 4);
+      c.strokeRect(-8, y, 16, 4);
+      // Plunger line
+      c.beginPath(); c.moveTo(0, y); c.lineTo(0, y - 6); c.stroke();
+      // Label
+      if (!part || !part.closed) {
+        c.font = '8px sans-serif'; c.fillStyle = this.color;
+        c.textAlign = 'center'; c.fillText('PB', 0, 18);
+      }
+    }
+  },
+  // Sprint 27a: 555 Timer IC (behavioural model)
+  timer555: {
+    name: '555 Timer', en: '555', color: '#8e44ad', unit: '', def: 0, cat: 'ICs',
+    pins: [
+      { dx: -30, dy: -35 }, // 1: GND
+      { dx: -30, dy: -15 }, // 2: TRIG
+      { dx:  30, dy:   0 }, // 3: OUT
+      { dx: -30, dy:  15 }, // 4: RESET
+      { dx: -30, dy:  35 }, // 5: CTRL
+      { dx:  30, dy:  35 }, // 6: THRESH (moved to right side for DIP look)
+      { dx:  30, dy: -35 }, // 7: DISCH
+      { dx:  30, dy: -15 }  // 8: VCC
+    ],
+    pinNames: ['GND', 'TRIG', 'OUT', 'RST', 'CTRL', 'THR', 'DIS', 'VCC'],
+    draw(c) {
+      c.strokeStyle = this.color; c.lineWidth = 2;
+      // Body rectangle
+      c.fillStyle = 'rgba(142,68,173,0.1)';
+      c.fillRect(-24, -42, 48, 84);
+      c.strokeRect(-24, -42, 48, 84);
+      // Pin 1 notch
+      c.beginPath(); c.arc(-24, -35, 3, 0, Math.PI, false); c.stroke();
+      // Label
+      c.font = 'bold 10px sans-serif'; c.fillStyle = this.color; c.textAlign = 'center';
+      c.fillText('555', 0, 3);
+      c.font = '6px sans-serif';
+      // Pin labels
+      c.fillStyle = 'rgba(200,200,200,0.7)';
+      c.textAlign = 'left';
+      c.fillText('GND', -22, -33);
+      c.fillText('TRG', -22, -13);
+      c.fillText('RST', -22, 17);
+      c.fillText('CTR', -22, 37);
+      c.textAlign = 'right';
+      c.fillText('DIS', 22, -33);
+      c.fillText('VCC', 22, -13);
+      c.fillText('OUT', 22, 2);
+      c.fillText('THR', 22, 37);
+      // Pin leads
+      c.strokeStyle = this.color; c.lineWidth = 1.5;
+      c.beginPath();
+      c.moveTo(-30, -35); c.lineTo(-24, -35);
+      c.moveTo(-30, -15); c.lineTo(-24, -15);
+      c.moveTo(-30, 15); c.lineTo(-24, 15);
+      c.moveTo(-30, 35); c.lineTo(-24, 35);
+      c.moveTo(24, -35); c.lineTo(30, -35);
+      c.moveTo(24, -15); c.lineTo(30, -15);
+      c.moveTo(24, 0); c.lineTo(30, 0);
+      c.moveTo(24, 35); c.lineTo(30, 35);
+      c.stroke();
+    }
+  },
+  // Sprint 27b: Speaker (audio output component with impedance model)
+  speaker: {
+    name: 'Speaker', en: 'SPK', color: '#8b5cf6', unit: 'Ω', def: 8, cat: 'Basic',
+    pins: [{ dx: 0, dy: -25 }, { dx: 0, dy: 25 }],
+    pinNames: ['+', '-'],
+    draw(c, g, part) {
+      c.strokeStyle = this.color; c.lineWidth = 2;
+      // Leads
+      c.beginPath(); c.moveTo(0, -25); c.lineTo(0, -14); c.stroke();
+      c.beginPath(); c.moveTo(0, 14); c.lineTo(0, 25); c.stroke();
+      // Magnet (rectangle)
+      c.fillStyle = 'rgba(139,92,246,0.15)';
+      c.fillRect(-6, -10, 12, 20);
+      c.strokeRect(-6, -10, 12, 20);
+      // Cone (trapezoid — wide right)
+      c.beginPath();
+      c.moveTo(6, -10); c.lineTo(16, -14);
+      c.lineTo(16, 14); c.lineTo(6, 10);
+      c.closePath();
+      c.fillStyle = 'rgba(139,92,246,0.1)';
+      c.fill();
+      c.stroke();
+      // Sound waves (if active)
+      var active = part && part._v && Math.abs(part._v) > 0.5;
+      if (active) {
+        c.strokeStyle = 'rgba(139,92,246,' + (0.4 + 0.3 * Math.sin(Date.now() / 80)) + ')';
+        c.lineWidth = 1.5;
+        c.beginPath(); c.arc(20, 0, 4, -Math.PI / 3, Math.PI / 3); c.stroke();
+        c.beginPath(); c.arc(20, 0, 8, -Math.PI / 3, Math.PI / 3); c.stroke();
+      }
+      // + polarity
+      c.font = 'bold 7px sans-serif'; c.fillStyle = this.color;
+      c.textAlign = 'center'; c.fillText('+', -3, -14);
+      // Impedance label
+      c.font = '7px monospace'; c.fillStyle = 'rgba(200,200,200,0.6)';
+      c.fillText('8Ω', -3, 20);
+    }
+  },
+  // Sprint 27a: Buzzer (audio output component)
+  buzzer: {
+    name: 'Buzzer', en: 'BZ', color: '#e67e22', unit: '', def: 40, cat: 'Basic',
+    pins: [{ dx: 0, dy: -25 }, { dx: 0, dy: 25 }],
+    pinNames: ['+', '-'],
+    draw(c, g, part) {
+      c.strokeStyle = this.color; c.lineWidth = 2;
+      // Leads
+      c.beginPath(); c.moveTo(0, -25); c.lineTo(0, -14); c.stroke();
+      c.beginPath(); c.moveTo(0, 14); c.lineTo(0, 25); c.stroke();
+      // Body — circle
+      var active = part && part._v && Math.abs(part._v) > 2;
+      c.fillStyle = active ? 'rgba(230,126,34,0.25)' : 'rgba(230,126,34,0.1)';
+      c.beginPath(); c.arc(0, 0, 14, 0, Math.PI * 2); c.fill();
+      c.strokeStyle = this.color; c.lineWidth = 2;
+      c.beginPath(); c.arc(0, 0, 14, 0, Math.PI * 2); c.stroke();
+      // Sound wave icon
+      c.lineWidth = 1.5;
+      c.beginPath();
+      c.arc(0, 0, 5, -Math.PI / 2 - 0.6, -Math.PI / 2 + 0.6);
+      c.stroke();
+      c.beginPath();
+      c.arc(0, 0, 9, -Math.PI / 2 - 0.8, -Math.PI / 2 + 0.8);
+      c.stroke();
+      // Polarity + marker
+      c.font = 'bold 8px sans-serif'; c.fillStyle = this.color;
+      c.textAlign = 'center';
+      c.fillText('+', -8, -12);
+      // Pulse ring if active
+      if (active) {
+        c.strokeStyle = 'rgba(230,126,34,' + (0.3 + 0.3 * Math.sin(Date.now() / 100)) + ')';
+        c.lineWidth = 2;
+        c.beginPath(); c.arc(0, 0, 18, 0, Math.PI * 2); c.stroke();
+      }
     }
   },
   npn: {
@@ -2238,8 +2401,9 @@ var PRESETS = [
     wires:[{x1:-80,y1:-40,x2:10,y2:-60},{x1:70,y1:-60,x2:120,y2:-40},{x1:-80,y1:40,x2:-80,y2:60},{x1:120,y1:40,x2:120,y2:60}]},
   { id:'rccharge', name:'Kapasitör Şarj', color:'#06b6d4',
     desc:'V(t) = Vs × (1 - e^(-t/RC))', formula:'τ = RC = 1 ms (1kΩ, 1µF)',
-    parts:[{type:'vdc',x:-60,y:0,rot:0,val:5},{type:'switch',x:40,y:-40,rot:0,val:0},{type:'resistor',x:120,y:-40,rot:0,val:1000},{type:'capacitor',x:200,y:0,rot:1,val:1e-6},{type:'ground',x:-60,y:80,rot:0,val:0},{type:'ground',x:200,y:80,rot:0,val:0}],
-    wires:[{x1:-60,y1:-40,x2:10,y2:-40},{x1:70,y1:-40,x2:80,y2:-40},{x1:160,y1:-40,x2:200,y2:-40},{x1:-60,y1:40,x2:-60,y2:60},{x1:200,y1:40,x2:200,y2:60}]},
+    // Sprint 29: Fixed wiring — switch pre-closed, exact pin-to-pin, ground offset
+    parts:[{type:'vdc',x:0,y:0,rot:0,val:5},{type:'switch',x:60,y:-40,rot:0,val:0,closed:true},{type:'resistor',x:140,y:-40,rot:0,val:1000},{type:'capacitor',x:220,y:0,rot:1,val:1e-6},{type:'ground',x:110,y:80,rot:0,val:0}],
+    wires:[{x1:0,y1:-40,x2:30,y2:-40},{x1:90,y1:-40,x2:100,y2:-40},{x1:180,y1:-40,x2:220,y2:-40},{x1:0,y1:40,x2:110,y2:60},{x1:220,y1:40,x2:110,y2:60}]},
   { id:'rlc', name:'RLC Rezonans', color:'#a855f7',
     desc:'f0 = 1/(2π√LC)', formula:'Underdamped osilasyon',
     parts:[{type:'vdc',x:-80,y:0,rot:0,val:10},{type:'resistor',x:20,y:-60,rot:0,val:10},{type:'inductor',x:120,y:-60,rot:0,val:1e-3},{type:'capacitor',x:200,y:0,rot:1,val:10e-6},{type:'ground',x:-80,y:80,rot:0,val:0},{type:'ground',x:200,y:80,rot:0,val:0}],
@@ -2253,25 +2417,42 @@ var PRESETS = [
     parts:[{type:'vdc',x:-60,y:0,rot:0,val:5},{type:'resistor',x:40,y:-40,rot:0,val:1000},{type:'inductor',x:140,y:0,rot:1,val:1e-3},{type:'ground',x:-60,y:80,rot:0,val:0},{type:'ground',x:140,y:80,rot:0,val:0}],
     wires:[{x1:-60,y1:-40,x2:0,y2:-40},{x1:80,y1:-40,x2:140,y2:-40},{x1:-60,y1:40,x2:-60,y2:60},{x1:140,y1:40,x2:140,y2:60}]},
   { id:'ce-amp', name:'CE Yükselteç', color:'#a855f7',
-    desc:'Common Emitter amplifier', formula:'Vce \u2248 6V, Ic \u2248 1.2mA',
+    desc:'Common Emitter amplifier', formula:'Vce ≈ 7.5V, Ic ≈ 1.4mA (aktif bölge)',
+    // Sprint 30: Rebuilt from scratch with simpler topology
+    // NPN pin layout (rot=0, at 0,0): base (-40, 0), collector (20, -40), emitter (20, 40)
+    // Topology: VCC up, GND down, bias R1/R2 on left of base, RC above collector, RE below emitter
+    // All bias nodes connect exactly at NPN pins
     parts:[
-      {type:'vdc',x:-120,y:0,rot:0,val:12},
-      {type:'resistor',x:-20,y:-80,rot:0,val:47000},
-      {type:'resistor',x:-20,y:80,rot:0,val:10000},
-      {type:'resistor',x:100,y:-80,rot:1,val:4700},
-      {type:'resistor',x:100,y:80,rot:1,val:1000},
-      {type:'npn',x:60,y:0,rot:0,val:100},
-      {type:'ground',x:-120,y:120,rot:0,val:0},
-      {type:'ground',x:100,y:120,rot:0,val:0},
+      {type:'vdc',x:-160,y:0,rot:0,val:12},               // VCC source
+      {type:'resistor',x:-80,y:-40,rot:0,val:47000},     // R1: VCC rail to base
+      {type:'resistor',x:-80,y:40,rot:0,val:10000},      // R2: base to GND
+      {type:'resistor',x:80,y:-80,rot:1,val:2200},       // RC: VCC to collector (Sprint 31: spec value)
+      {type:'resistor',x:80,y:80,rot:1,val:1000},        // RE: emitter to GND (Sprint 31: spec value)
+      {type:'npn',x:40,y:0,rot:0,val:100},               // NPN
+      {type:'ground',x:-160,y:120,rot:0,val:0}           // Ground
     ],
+    // Wire layout:
+    // NPN pins (at 40,0 rot=0): base at (0,0), collector at (60,-40), emitter at (60,40)
+    // R1 pins (at -80,-40 rot=0): left (-120,-40), right (-40,-40)
+    // R2 pins (at -80,40 rot=0): left (-120,40), right (-40,40)
+    // RC pins (at 80,-80 rot=1): top (80,-120), bottom (80,-40)
+    // RE pins (at 80,80 rot=1): top (80,40), bottom (80,120)
+    // VDC at (-160,0): top (-160,-40), bottom (-160,40)
     wires:[
-      {x1:-120,y1:-40,x2:-60,y2:-80},{x1:20,y2:-80,x2:60,y1:-80},
-      {x1:-120,y1:-40,x2:100,y2:-120},
-      {x1:100,y1:-40,x2:80,y2:-40},
-      {x1:80,y1:40,x2:100,y2:40},
-      {x1:-60,y1:-80,x2:20,y2:0},
-      {x1:-120,y1:40,x2:-120,y2:100},
-      {x1:100,y1:100,x2:100,y2:100},
+      // VCC rail: VDC+ → R1 left → RC top
+      {x1:-160,y1:-40,x2:-120,y2:-40},   // VDC+ → R1 left
+      {x1:-160,y1:-40,x2:80,y2:-120},    // VDC+ → RC top (long diagonal to VCC rail)
+      // Base node: R1 right → NPN base → R2 right
+      {x1:-40,y1:-40,x2:0,y2:0},         // R1 right → base
+      {x1:-40,y1:40,x2:0,y2:0},          // R2 right → base
+      // GND rail: R2 left → VDC- → RE bottom
+      {x1:-120,y1:40,x2:-160,y2:40},     // R2 left → VDC-
+      {x1:-160,y1:40,x2:-160,y2:100},    // VDC- → GND (pin at -160, 100)
+      {x1:80,y1:120,x2:-160,y2:100},     // RE bottom → GND
+      // Collector: RC bottom → NPN collector
+      {x1:80,y1:-40,x2:60,y2:-40},       // RC bottom → collector
+      // Emitter: NPN emitter → RE top
+      {x1:60,y1:40,x2:80,y2:40}          // emitter → RE top
     ]},
   { id:'npn-sw', name:'NPN Anahtar', color:'#a855f7',
     desc:'Transistör ile switching', formula:'Vce_sat \u2248 0.2V',
@@ -2344,9 +2525,11 @@ var PRESETS = [
       {x1:20,y1:60,x2:20,y2:60},
     ]},
   { id:'zener-reg', name:'Zener Regülatör', color:'#ec4899',
-    desc:'Vz ile sabit gerilim', formula:'Vin=12V, Vz=5.1V \u2192 Vout\u22485.1V',
-    parts:[{type:'vdc',x:-80,y:0,rot:0,val:12},{type:'resistor',x:0,y:-40,rot:0,val:1000},{type:'zener',x:80,y:0,rot:1,val:5.1},{type:'ground',x:-80,y:60,rot:0,val:0},{type:'ground',x:80,y:60,rot:0,val:0}],
-    wires:[{x1:-80,y1:-40,x2:-40,y2:-40},{x1:40,y1:-40,x2:80,y2:-40},{x1:-80,y1:40,x2:-80,y2:40},{x1:80,y1:30,x2:80,y2:40}]},
+    desc:'Vz ile sabit gerilim', formula:'Vin=12V, Vz=5.1V → Vout≈5.1V',
+    // Sprint 29: Fixed wiring — zener rot=1: anode at top (-30), cathode at bottom (+30).
+    // For reverse breakdown: cathode must be at HIGH side → flip with rot=3 and connect pin0(bottom) to R
+    parts:[{type:'vdc',x:-80,y:0,rot:0,val:12},{type:'resistor',x:0,y:-40,rot:0,val:1000},{type:'zener',x:80,y:0,rot:1,val:5.1},{type:'ground',x:0,y:80,rot:0,val:0}],
+    wires:[{x1:-80,y1:-40,x2:-40,y2:-40},{x1:40,y1:-40,x2:80,y2:30},{x1:80,y1:-30,x2:0,y2:60},{x1:-80,y1:40,x2:0,y2:60}]},
   { id:'vreg-7805', name:'7805 Regülatör', color:'#22c55e',
     desc:'Sabit 5V \u00e7\u0131k\u0131\u015f', formula:'Vin=9V \u2192 Vout=5V',
     parts:[{type:'vdc',x:-80,y:0,rot:0,val:9},{type:'vreg',x:20,y:0,rot:0,val:5},{type:'resistor',x:100,y:20,rot:1,val:1000},{type:'ground',x:-80,y:60,rot:0,val:0},{type:'ground',x:20,y:60,rot:0,val:0},{type:'ground',x:100,y:60,rot:0,val:0}],
@@ -2431,6 +2614,91 @@ var PRESETS = [
     desc:'Tolerans u\u00e7lar\u0131', formula:'Nominal vs \u00B110% en k\u00f6t\u00fc',
     parts:[{type:'vdc',x:-60,y:0,rot:0,val:10},{type:'resistor',x:20,y:-40,rot:0,val:1000},{type:'resistor',x:20,y:40,rot:0,val:2200},{type:'ground',x:-60,y:60,rot:0,val:0}],
     wires:[{x1:-60,y1:-40,x2:-20,y2:-40},{x1:60,y1:-40,x2:60,y2:40},{x1:60,y1:40,x2:-60,y2:40},{x1:-60,y1:40,x2:-60,y2:40}]},
+  // ═══════════════════════════════════════════════
+  // Sprint 27b: 20 Yeni Preset (36-55)
+  // ═══════════════════════════════════════════════
+  { id:'555-astable', name:'555 Astable', color:'#8e44ad',
+    desc:'f = 1.44 / ((R1+2R2)*C)', formula:'~6.9 Hz blinker',
+    parts:[{type:'vdc',x:-120,y:-80,rot:0,val:9},{type:'timer555',x:0,y:0,rot:0,val:0},{type:'resistor',x:-60,y:-60,rot:1,val:1000},{type:'resistor',x:60,y:-60,rot:1,val:10000},{type:'capacitor',x:-60,y:40,rot:1,val:10e-6},{type:'resistor',x:80,y:60,rot:1,val:330},{type:'led',x:80,y:120,rot:1,val:0},{type:'ground',x:-120,y:80,rot:0,val:0}],
+    wires:[{x1:-120,y1:-120,x2:30,y2:-15},{x1:-120,y1:-120,x2:-30,y2:15},{x1:-120,y1:40,x2:-30,y2:-35},{x1:30,y1:0,x2:80,y2:30},{x1:80,y1:90,x2:80,y2:90},{x1:80,y1:150,x2:-120,y2:40}]},
+  { id:'555-mono', name:'555 Monostable', color:'#9b59b6',
+    desc:'T = 1.1 * R * C', formula:'Button trigger → timed LED',
+    parts:[{type:'vdc',x:-120,y:-80,rot:0,val:9},{type:'timer555',x:0,y:0,rot:0,val:0},{type:'resistor',x:-60,y:-60,rot:1,val:100000},{type:'capacitor',x:-60,y:40,rot:1,val:10e-6},{type:'pushButton',x:-60,y:-15,rot:0,val:0},{type:'resistor',x:80,y:60,rot:1,val:330},{type:'led',x:80,y:120,rot:1,val:0},{type:'ground',x:-120,y:80,rot:0,val:0}],
+    wires:[{x1:-120,y1:-120,x2:30,y2:-15},{x1:-120,y1:-120,x2:-30,y2:15},{x1:30,y1:0,x2:80,y2:30},{x1:80,y1:150,x2:-120,y2:40}]},
+  { id:'bjt-astable', name:'BJT Astable', color:'#e74c3c',
+    desc:'Cross-coupled multivibrator', formula:'2 LED dönüşümlü',
+    parts:[{type:'vdc',x:0,y:-120,rot:0,val:9},{type:'npn',x:-80,y:40,rot:0,val:0},{type:'npn',x:80,y:40,rot:0,val:0},{type:'resistor',x:-80,y:-40,rot:1,val:1000},{type:'resistor',x:80,y:-40,rot:1,val:1000},{type:'capacitor',x:0,y:0,rot:0,val:10e-6},{type:'resistor',x:0,y:-80,rot:0,val:10000},{type:'led',x:-80,y:-80,rot:1,val:0},{type:'led',x:80,y:-80,rot:1,val:0},{type:'ground',x:0,y:120,rot:0,val:0}],
+    wires:[{x1:0,y1:-160,x2:-80,y2:-80},{x1:0,y1:-160,x2:80,y2:-80},{x1:-80,y1:80,x2:80,y2:80},{x1:80,y1:80,x2:0,y2:120}]},
+  { id:'bridge-rect', name:'Köprü Doğrultucu', color:'#3498db',
+    desc:'4 diyot tam dalga', formula:'Vout_peak ≈ Vpeak - 1.4V',
+    parts:[{type:'vac',x:-150,y:0,rot:0,val:12,freq:50},{type:'diode',x:-60,y:-40,rot:0,val:0},{type:'diode',x:60,y:-40,rot:0,val:0},{type:'diode',x:-60,y:40,rot:0,val:0},{type:'diode',x:60,y:40,rot:0,val:0},{type:'capacitor',x:120,y:0,rot:1,val:1000e-6},{type:'resistor',x:180,y:0,rot:1,val:1000},{type:'ground',x:-150,y:80,rot:0,val:0},{type:'ground',x:180,y:80,rot:0,val:0}],
+    wires:[{x1:-150,y1:-40,x2:-90,y2:-40},{x1:-30,y1:-40,x2:60,y2:-40},{x1:-150,y1:40,x2:-90,y2:40},{x1:-30,y1:40,x2:60,y2:40},{x1:90,y1:-40,x2:180,y2:-40},{x1:90,y1:40,x2:180,y2:40},{x1:180,y1:40,x2:180,y2:60},{x1:-150,y1:40,x2:-150,y2:60}]},
+  { id:'vreg-7805', name:'7805 Regülatör', color:'#2ecc71',
+    desc:'12V → 5V sabit', formula:'Vout = 5V (±2%)',
+    parts:[{type:'vdc',x:-120,y:0,rot:0,val:12},{type:'vreg',x:0,y:0,rot:0,val:5,model:'7805'},{type:'capacitor',x:-60,y:40,rot:1,val:100e-6},{type:'capacitor',x:60,y:40,rot:1,val:100e-6},{type:'resistor',x:120,y:0,rot:1,val:1000},{type:'ground',x:0,y:80,rot:0,val:0}],
+    wires:[{x1:-120,y1:-40,x2:-40,y2:0},{x1:40,y1:0,x2:120,y2:-40},{x1:120,y1:40,x2:0,y2:60},{x1:-120,y1:40,x2:-120,y2:40},{x1:0,y1:30,x2:0,y2:60}]},
+  { id:'class-a-amp', name:'Class-A CE Amp', color:'#e67e22',
+    desc:'Gerilim kazancı Av ≈ -RC/RE', formula:'Av ≈ -2.2 (RC=2.2k, RE=1k)',
+    parts:[{type:'vdc',x:-180,y:-60,rot:0,val:12},{type:'npn',x:0,y:0,rot:0,val:0,model:'2N2222'},{type:'resistor',x:-120,y:-40,rot:1,val:47000},{type:'resistor',x:-120,y:40,rot:1,val:10000},{type:'resistor',x:80,y:-60,rot:1,val:2200},{type:'resistor',x:0,y:80,rot:1,val:1000},{type:'capacitor',x:-60,y:-40,rot:0,val:10e-6},{type:'vac',x:-180,y:-40,rot:0,val:0.1,freq:1000},{type:'ground',x:-180,y:100,rot:0,val:0}],
+    wires:[{x1:-180,y1:-100,x2:80,y2:-100},{x1:40,y1:-40,x2:80,y2:-100},{x1:-120,y1:-80,x2:-120,y2:-80},{x1:-120,y1:0,x2:-40,y2:0},{x1:-40,y1:0,x2:-40,y2:0},{x1:-120,y1:80,x2:0,y2:40},{x1:0,y1:120,x2:-180,y2:60},{x1:-180,y1:60,x2:-180,y2:80}]},
+  { id:'diff-amp', name:'Differential Amp', color:'#f39c12',
+    desc:'2 NPN, ortak emitter', formula:'Vout = RC×gm×(Vin+ - Vin-)',
+    parts:[{type:'vdc',x:0,y:-120,rot:0,val:12},{type:'npn',x:-100,y:0,rot:0,val:0},{type:'npn',x:100,y:0,rot:0,val:0},{type:'resistor',x:-100,y:-80,rot:1,val:4700},{type:'resistor',x:100,y:-80,rot:1,val:4700},{type:'resistor',x:0,y:80,rot:1,val:10000},{type:'ground',x:0,y:160,rot:0,val:0}],
+    wires:[{x1:0,y1:-160,x2:-100,y2:-120},{x1:0,y1:-160,x2:100,y2:-120},{x1:-100,y1:40,x2:0,y2:40},{x1:100,y1:40,x2:0,y2:40},{x1:0,y1:120,x2:0,y2:140}]},
+  { id:'inst-amp', name:'Instrumentation Amp', color:'#f1c40f',
+    desc:'3 op-amp yapı', formula:'Hassas fark yükseltme',
+    parts:[{type:'vdc',x:-180,y:-100,rot:0,val:15},{type:'opamp',x:-80,y:-60,rot:0,val:0,model:'LM741'},{type:'opamp',x:-80,y:60,rot:0,val:0,model:'LM741'},{type:'opamp',x:80,y:0,rot:0,val:0,model:'LM741'},{type:'resistor',x:-40,y:0,rot:1,val:10000},{type:'resistor',x:-140,y:-60,rot:0,val:10000},{type:'resistor',x:-140,y:60,rot:0,val:10000},{type:'resistor',x:40,y:-40,rot:0,val:10000},{type:'resistor',x:40,y:40,rot:0,val:10000},{type:'ground',x:180,y:80,rot:0,val:0}],
+    wires:[{x1:-180,y1:-140,x2:180,y2:-140},{x1:-40,y1:-60,x2:-40,y2:-20},{x1:-40,y1:20,x2:-40,y2:60},{x1:-40,y1:-60,x2:80,y2:-15},{x1:-40,y1:60,x2:80,y2:15},{x1:120,y1:0,x2:180,y2:80}]},
+  { id:'push-pull', name:'Push-Pull Class-B', color:'#e91e63',
+    desc:'NPN+PNP complementary', formula:'Crossover distortion eğitim',
+    parts:[{type:'vdc',x:-120,y:-80,rot:0,val:12},{type:'vdc',x:-120,y:80,rot:0,val:12},{type:'npn',x:0,y:-40,rot:0,val:0,model:'2N2222'},{type:'pnp',x:0,y:40,rot:0,val:0,model:'2N3906'},{type:'vac',x:-80,y:0,rot:0,val:1,freq:1000},{type:'speaker',x:100,y:0,rot:0,val:8},{type:'ground',x:-120,y:160,rot:0,val:0}],
+    wires:[{x1:-120,y1:-120,x2:0,y2:-80},{x1:-120,y1:120,x2:0,y2:80},{x1:-80,y1:-40,x2:-40,y2:-40},{x1:-80,y1:40,x2:-40,y2:40},{x1:40,y1:0,x2:100,y2:-25},{x1:100,y1:25,x2:-120,y2:120}]},
+  { id:'sallen-key', name:'Sallen-Key LPF', color:'#9c27b0',
+    desc:'2nd order Butterworth', formula:'fc ≈ 1.07 kHz, Q=0.707',
+    parts:[{type:'vac',x:-180,y:0,rot:0,val:1,freq:1000},{type:'opamp',x:40,y:0,rot:0,val:0,model:'TL072'},{type:'resistor',x:-120,y:-20,rot:0,val:10000},{type:'resistor',x:-60,y:-20,rot:0,val:10000},{type:'capacitor',x:-60,y:40,rot:1,val:10e-9},{type:'capacitor',x:0,y:-60,rot:0,val:22e-9},{type:'ground',x:-180,y:60,rot:0,val:0},{type:'ground',x:-60,y:100,rot:0,val:0}],
+    wires:[{x1:-180,y1:-40,x2:-140,y2:-20},{x1:-100,y1:-20,x2:-80,y2:-20},{x1:-40,y1:-20,x2:20,y2:-15},{x1:-60,y1:20,x2:-60,y2:60},{x1:-40,y1:-60,x2:80,y2:0},{x1:80,y1:0,x2:-60,y2:100},{x1:-180,y1:40,x2:-180,y2:40}]},
+  { id:'active-bpf', name:'Active Band-Pass', color:'#673ab7',
+    desc:'Multiple feedback BPF', formula:'Merkez frek. + Q ayarlanabilir',
+    parts:[{type:'vac',x:-180,y:0,rot:0,val:1,freq:1000},{type:'opamp',x:40,y:0,rot:0,val:0,model:'TL072'},{type:'resistor',x:-120,y:-20,rot:0,val:10000},{type:'resistor',x:-40,y:-60,rot:0,val:100000},{type:'capacitor',x:-60,y:-20,rot:0,val:10e-9},{type:'capacitor',x:-40,y:60,rot:1,val:10e-9},{type:'ground',x:-180,y:60,rot:0,val:0}],
+    wires:[{x1:-180,y1:-40,x2:-140,y2:-20},{x1:-100,y1:-20,x2:-80,y2:-20},{x1:-40,y1:-20,x2:20,y2:15},{x1:-60,y1:0,x2:-60,y2:40},{x1:-40,y1:-60,x2:80,y2:0}]},
+  { id:'ldr-led', name:'LDR Işık Sensörü', color:'#cddc39',
+    desc:'LDR direnç değişimi', formula:'Işık ↑ → LDR R ↓',
+    parts:[{type:'vdc',x:-80,y:0,rot:0,val:5},{type:'ldr',x:40,y:-40,rot:0,val:10000},{type:'resistor',x:120,y:0,rot:1,val:10000},{type:'ground',x:-80,y:80,rot:0,val:0},{type:'ground',x:120,y:80,rot:0,val:0}],
+    wires:[{x1:-80,y1:-40,x2:0,y2:-40},{x1:80,y1:-40,x2:120,y2:-40},{x1:-80,y1:40,x2:-80,y2:60},{x1:120,y1:40,x2:120,y2:60}]},
+  { id:'ntc-alarm', name:'NTC Sıcaklık Alarmı', color:'#ff5722',
+    desc:'Sıcaklık artınca buzzer', formula:'NTC ↓R → Vout ↑ → alarm',
+    parts:[{type:'vdc',x:-180,y:0,rot:0,val:5},{type:'ntc',x:-80,y:-60,rot:1,val:10000},{type:'resistor',x:-80,y:60,rot:1,val:10000},{type:'opamp',x:40,y:0,rot:0,val:0,model:'LM358'},{type:'resistor',x:-40,y:40,rot:0,val:10000},{type:'buzzer',x:140,y:0,rot:0,val:40},{type:'ground',x:-180,y:120,rot:0,val:0}],
+    wires:[{x1:-180,y1:-40,x2:-80,y2:-100},{x1:-80,y1:-20,x2:0,y2:-15},{x1:-180,y1:100,x2:-80,y2:100},{x1:-180,y1:40,x2:-180,y2:100},{x1:-40,y1:40,x2:0,y2:15},{x1:80,y1:0,x2:140,y2:-25},{x1:140,y1:25,x2:-180,y2:120}]},
+  { id:'led-chaser', name:'LED Chaser (Basit)', color:'#ff9800',
+    desc:'3 LED sıralı yakar', formula:'555 clock → counter',
+    parts:[{type:'pulse',x:-120,y:0,rot:0,val:5,freq:2},{type:'resistor',x:-20,y:-60,rot:1,val:220},{type:'led',x:-20,y:-140,rot:1,val:0},{type:'resistor',x:40,y:-60,rot:1,val:220},{type:'led',x:40,y:-140,rot:1,val:0},{type:'resistor',x:100,y:-60,rot:1,val:220},{type:'led',x:100,y:-140,rot:1,val:0},{type:'ground',x:-120,y:60,rot:0,val:0}],
+    wires:[{x1:-120,y1:-40,x2:-20,y2:-40},{x1:-120,y1:-40,x2:40,y2:-40},{x1:-120,y1:-40,x2:100,y2:-40},{x1:-20,y1:-100,x2:-20,y2:-120},{x1:40,y1:-100,x2:40,y2:-120},{x1:100,y1:-100,x2:100,y2:-120},{x1:-20,y1:-180,x2:100,y2:-180},{x1:-120,y1:40,x2:-120,y2:40}]},
+  { id:'binary-counter', name:'Binary Counter 4-bit', color:'#00bcd4',
+    desc:'Clock → 0000-1111 döngü', formula:'4 LED binary gösterir',
+    parts:[{type:'pulse',x:-180,y:0,rot:0,val:5,freq:1},{type:'counter',x:0,y:0,rot:0,val:0},{type:'resistor',x:80,y:-80,rot:1,val:220},{type:'resistor',x:120,y:-80,rot:1,val:220},{type:'resistor',x:160,y:-80,rot:1,val:220},{type:'resistor',x:200,y:-80,rot:1,val:220},{type:'led',x:80,y:-160,rot:1,val:0},{type:'led',x:120,y:-160,rot:1,val:0},{type:'led',x:160,y:-160,rot:1,val:0},{type:'led',x:200,y:-160,rot:1,val:0},{type:'ground',x:-180,y:80,rot:0,val:0}],
+    wires:[{x1:-180,y1:-40,x2:-60,y2:0},{x1:-180,y1:40,x2:-180,y2:60}]},
+  { id:'h-bridge', name:'H-Bridge Motor', color:'#4caf50',
+    desc:'4 transistör, motor yön kontrolü', formula:'2 kontrol sinyali',
+    parts:[{type:'vdc',x:0,y:-120,rot:0,val:12},{type:'npn',x:-120,y:-40,rot:0,val:0},{type:'npn',x:120,y:-40,rot:0,val:0},{type:'pnp',x:-120,y:40,rot:0,val:0},{type:'pnp',x:120,y:40,rot:0,val:0},{type:'dcmotor',x:0,y:0,rot:0,val:5},{type:'ground',x:0,y:120,rot:0,val:0}],
+    wires:[{x1:0,y1:-160,x2:-120,y2:-80},{x1:0,y1:-160,x2:120,y2:-80},{x1:-120,y1:0,x2:-40,y2:0},{x1:120,y1:0,x2:40,y2:0},{x1:-120,y1:80,x2:0,y2:120},{x1:120,y1:80,x2:0,y2:120}]},
+  { id:'relay-ctrl', name:'Röle Kontrol Basit', color:'#795548',
+    desc:'Anahtar → röle bobini', formula:'Coil aktif → kontak kapanır',
+    parts:[{type:'vdc',x:-80,y:0,rot:0,val:12},{type:'switch',x:30,y:-40,rot:0,val:0,closed:true},{type:'relay',x:120,y:0,rot:0,val:0},{type:'ground',x:-80,y:80,rot:0,val:0}],
+    wires:[{x1:-80,y1:-40,x2:0,y2:-40},{x1:60,y1:-40,x2:80,y2:-20},{x1:80,y1:20,x2:-80,y2:60},{x1:-80,y1:40,x2:-80,y2:60}]},
+  { id:'trafo-demo', name:'Transformatör 1:1', color:'#607d8b',
+    desc:'Primer=Sekonder L → gerilim izolasyonu', formula:'Vs ≈ Vp (K=0.99)',
+    parts:[{type:'vac',x:-150,y:0,rot:0,val:10,freq:50},{type:'transformer',x:0,y:0,rot:0,val:10,L1:0.01,L2:0.01,coupling:0.99},{type:'resistor',x:150,y:0,rot:1,val:1000},{type:'ground',x:-150,y:80,rot:0,val:0},{type:'ground',x:150,y:80,rot:0,val:0}],
+    wires:[{x1:-150,y1:-40,x2:-30,y2:-20},{x1:-150,y1:40,x2:-30,y2:20},{x1:30,y1:-20,x2:150,y2:-40},{x1:30,y1:20,x2:150,y2:40},{x1:-150,y1:40,x2:-150,y2:60},{x1:150,y1:40,x2:150,y2:60}]},
+  { id:'speaker-demo', name:'Hoparlör Ses Çıkışı', color:'#8b5cf6',
+    desc:'AC source → speaker', formula:'Ses dalga formu çıkışı',
+    parts:[{type:'vac',x:-80,y:0,rot:0,val:3,freq:440},{type:'resistor',x:20,y:-40,rot:0,val:10},{type:'speaker',x:100,y:0,rot:0,val:8},{type:'ground',x:-80,y:80,rot:0,val:0}],
+    wires:[{x1:-80,y1:-40,x2:-20,y2:-40},{x1:60,y1:-40,x2:100,y2:-25},{x1:100,y1:25,x2:-80,y2:60},{x1:-80,y1:40,x2:-80,y2:60}]},
+  { id:'dc-motor-simple', name:'DC Motor Basit', color:'#009688',
+    desc:'Batarya → motor', formula:'I = V/Ra ≈ 1.2A (12V, 10Ω)',
+    // Sprint 29: Fixed wiring — exact pin-to-pin
+    // dcmotor rot=1: pins (100,-30) and (100,30). vdc pins (-80,-40) and (-80,40). ground at (0,80) pin (0,60).
+    parts:[{type:'vdc',x:-80,y:0,rot:0,val:12},{type:'dcmotor',x:100,y:0,rot:1,val:10},{type:'ground',x:10,y:80,rot:0,val:0}],
+    wires:[{x1:-80,y1:-40,x2:100,y2:-30},{x1:100,y1:30,x2:10,y2:60},{x1:-80,y1:40,x2:10,y2:60}]},
 ];
 
 (function buildPalette() {
@@ -2963,6 +3231,13 @@ wrap.addEventListener('mousedown', e => {
 
   // SELECT MODE — hit test
   const hit = hitTestPart(w.x, w.y);
+  // Sprint 27a: Push Button — press on mousedown
+  if (hit && hit.type === 'pushButton' && !e.ctrlKey && !e.metaKey) {
+    hit.closed = true;
+    S._pushBtnActive = hit;
+    if (S.sim.running && typeof buildCircuitFromCanvas === 'function') buildCircuitFromCanvas();
+    needsRender = true;
+  }
   if (hit) {
     if (e.ctrlKey || e.metaKey) {
       const idx = S.sel.indexOf(hit.id);
@@ -3008,6 +3283,13 @@ wrap.addEventListener('mousedown', e => {
 wrap.addEventListener('mouseup', (e) => {
   // Breadboard mode: redirect mouse events
   if (VXA.Breadboard && VXA.Breadboard.isActive()) { VXA.Breadboard.handleMouseUp(e); return; }
+  // Sprint 27a: Push Button release
+  if (S._pushBtnActive) {
+    S._pushBtnActive.closed = false;
+    S._pushBtnActive = null;
+    if (S.sim.running && typeof buildCircuitFromCanvas === 'function') buildCircuitFromCanvas();
+    needsRender = true;
+  }
   // Sprint 14: Probe drop
   if (VXA.Probes && VXA.Probes.isDragging()) {
     var _pw = s2w(S.mouse.x, S.mouse.y);
@@ -5149,30 +5431,43 @@ VXA.Stamps = (function() {
     stampI(rhs, n1, -ieq); stampI(rhs, n2, ieq);
   }
   function zener(matrix, rhs, n1, n2, Is, Nf, Vd, vz, VT) {
+    // Sprint 30: SPICE 3 continuous zener model
+    // Forward and reverse breakdown BOTH stamped every iteration (no if/else)
+    // Forward: I_fwd = Is * (exp(Vd/(N*VT)) - 1)
+    // Reverse: I_rev = -IBV * exp(-(Vd+BV)/(N*VT))  where BV=vz
+    // Total: I = I_fwd + I_rev
+    // This eliminates NR discontinuity at vr=vz boundary
     var nVt = Nf * VT;
-    var vcrit = nVt * Math.log(nVt / (Math.sqrt(2) * Is));
-    if (Vd >= 0) {
-      var vdLim = Vd > vcrit ? vcrit + nVt * Math.log(Math.max(1, 1 + (Vd - vcrit) / nVt)) : Vd;
-      var eArg = Math.min(vdLim / nVt, 500);
-      var expV = Math.exp(eArg);
-      var gd = Is / nVt * expV + 1e-12;
-      var id = Is * (expV - 1);
-      stampG(matrix, n1, n2, gd);
-      stampI(rhs, n1, -(id - gd * vdLim)); stampI(rhs, n2, id - gd * vdLim);
-    } else {
-      var vr = -Vd;
-      if (vr > vz) {
-        var vBrk = vr - vz;
-        var eArg = Math.min(vBrk / nVt, 500);
-        var expV = Math.exp(eArg);
-        var gd = Is / nVt * expV + 1e-12;
-        var id = Is * (expV - 1);
-        stampG(matrix, n2, n1, gd);
-        stampI(rhs, n2, -(id - gd * vBrk)); stampI(rhs, n1, id - gd * vBrk);
-      } else {
-        stampG(matrix, n1, n2, 1e-12);
-      }
-    }
+    var IBV = 1e-3; // breakdown current at BV (1mA standard)
+
+    // --- Forward component with voltage limiting (Shockley) ---
+    var vcrit = nVt * Math.log(nVt / (Math.sqrt(2) * Math.max(Is, 1e-40)));
+    var vdLim = Vd;
+    if (Vd > vcrit) vdLim = vcrit + nVt * Math.log(Math.max(1, 1 + (Vd - vcrit) / nVt));
+    var eArgF = Math.min(vdLim / nVt, 500);
+    var expF = safeExp(eArgF);
+    var Id_fwd = Is * (expF - 1);
+    var gd_fwd = Is / nVt * expF;
+
+    // --- Reverse breakdown component (SPICE 3 model) ---
+    // I_rev = -IBV * exp(-(Vd + BV) / (N*VT))
+    // At Vd = -BV: I_rev = -IBV (breakdown onset)
+    // At Vd = -BV - δ: I_rev = -IBV * exp(δ/nVt) (rapid conduction)
+    // At Vd > -BV (forward region): I_rev → 0 (negligible)
+    var eArgR = Math.min(-(Vd + vz) / nVt, 500);
+    var expR = safeExp(eArgR);
+    var Id_rev = -IBV * expR;
+    var gd_rev = IBV / nVt * expR; // |dI_rev/dVd| positive
+
+    // Total current and conductance
+    var Id = Id_fwd + Id_rev;
+    var gd = gd_fwd + gd_rev + 1e-12;
+
+    // MNA stamp (standard diode Norton)
+    var Ieq = Id - gd * vdLim;
+    stampG(matrix, n1, n2, gd);
+    stampI(rhs, n1, -Ieq);
+    stampI(rhs, n2, Ieq);
   }
   function bjt(matrix, rhs, nB, nC, nE, pol, BF, Is, NF, VAF, nodeV, VT) {
     var vB = nodeV[nB] || 0, vC = nodeV[nC] || 0, vE = nodeV[nE] || 0;
@@ -5604,6 +5899,53 @@ VXA.SimV2 = (function() {
             var vOut = sel ? (nodeV[pins[1]] || 0) : (nodeV[pins[0]] || 0);
             if (pins[3] > 0) { Sp.stamp(matrix, pins[3] - 1, pins[3] - 1, 1); rhs[pins[3] - 1] += vOut; }
           }
+        } else if (c.type === 'IC555') {
+          // Sprint 27a: 555 Timer behavioural model
+          var vVCC = (nodeV[c.nVCC] || 0) - (nodeV[c.nGND] || 0);
+          var vTRIG = (nodeV[c.nTRIG] || 0) - (nodeV[c.nGND] || 0);
+          var vTHR = (nodeV[c.nTHR] || 0) - (nodeV[c.nGND] || 0);
+          var vRST = (nodeV[c.nRST] || 0) - (nodeV[c.nGND] || 0);
+          var vCTRL_raw = (c.nCTRL > 0 ? (nodeV[c.nCTRL] || 0) - (nodeV[c.nGND] || 0) : 0);
+          var upperTh = (c.nCTRL > 0 && Math.abs(vCTRL_raw) > 0.1) ? vCTRL_raw : vVCC * 2 / 3;
+          var lowerTh = upperTh / 2;
+
+          // Latch logic (persistent state)
+          if (!c.part.ic555State) c.part.ic555State = { latch: false };
+          var L = c.part.ic555State;
+          if (vRST < 0.7 && vVCC > 1) L.latch = false;       // Reset override
+          else if (vTRIG < lowerTh && vVCC > 1) L.latch = true;  // SET
+          else if (vTHR > upperTh && vVCC > 1) L.latch = false;  // RESET
+          // Else: hold previous state
+
+          // Output stamp (push-pull voltage source via low-Z resistor)
+          var vOut555 = L.latch ? Math.max(0, vVCC - 1.5) : 0.1;
+          var Rout = 50;
+          if (c.nOUT > 0) {
+            Sp.stamp(matrix, c.nOUT - 1, c.nOUT - 1, 1 / Rout);
+            rhs[c.nOUT - 1] += vOut555 / Rout;
+          }
+
+          // Discharge pin: latch LOW → pin7 pulled to GND (open collector NPN saturated)
+          if (!L.latch && c.nDIS > 0 && c.nGND >= 0) {
+            var Rdis = 10;
+            Sp.stamp(matrix, c.nDIS - 1, c.nDIS - 1, 1 / Rdis);
+            if (c.nGND > 0) {
+              Sp.stamp(matrix, c.nDIS - 1, c.nGND - 1, -1 / Rdis);
+              Sp.stamp(matrix, c.nGND - 1, c.nDIS - 1, -1 / Rdis);
+              Sp.stamp(matrix, c.nGND - 1, c.nGND - 1, 1 / Rdis);
+            }
+          }
+
+          // Internal voltage divider (VCC to GND, ~15kΩ)
+          if (c.nVCC > 0 && c.nGND >= 0) {
+            var Rint = 15000;
+            Sp.stamp(matrix, c.nVCC - 1, c.nVCC - 1, 1 / Rint);
+            if (c.nGND > 0) {
+              Sp.stamp(matrix, c.nVCC - 1, c.nGND - 1, -1 / Rint);
+              Sp.stamp(matrix, c.nGND - 1, c.nVCC - 1, -1 / Rint);
+              Sp.stamp(matrix, c.nGND - 1, c.nGND - 1, 1 / Rint);
+            }
+          }
         }
       }
 
@@ -5849,6 +6191,12 @@ VXA.SimV2 = (function() {
         else if (c.subtype === 'shiftreg') { c.part._v = c._state & 1 ? 5 : 0; }
         else if (c.subtype === 'mux') { c.part._v = nodeV[c.pins[3]] || 0; }
         c.part._i = 0; c.part._p = 0;
+      } else if (c.type === 'IC555') {
+        // Sprint 27a: 555 readout — output pin voltage
+        var vOutRead = (nodeV[c.nOUT] || 0) - (nodeV[c.nGND] || 0);
+        c.part._v = Math.abs(vOutRead);
+        c.part._i = 0; c.part._p = 0;
+        c.part._latchState = c.part.ic555State ? c.part.ic555State.latch : false;
       }
     }
 
@@ -5897,39 +6245,83 @@ VXA.SimV2 = (function() {
   }
 
   function findDCOperatingPoint() {
-    // Method 1: GMIN stepping
-    var GMIN_STEPS = [1e-2, 1e-4, 1e-6, 1e-8, 1e-10, 1e-12];
+    // Sprint 31: BJT-aware DC OP
+    // For circuits with BJTs, source stepping reaches forward-active region naturally
+    var hasBJT = SIM && SIM.comps.some(function(c) { return c.type === 'BJT'; });
     var success = false;
-    _simMethod = 'be'; // DC OP always uses BE
+    _simMethod = 'be';
     _dtJustChanged = true;
+    _currentGMIN = 1e-12;
 
-    for (var g = 0; g < GMIN_STEPS.length; g++) {
-      _currentGMIN = GMIN_STEPS[g];
-      solve(1e-5);
-      if (_lastConverged) {
-        if (g === GMIN_STEPS.length - 1) { success = true; break; }
-        continue; // Try smaller GMIN
-      } else {
-        if (g === 0) break; // Even largest GMIN failed
-      }
-    }
-
-    if (!success) {
-      // Method 2: Source stepping fallback
-      _currentGMIN = 1e-12;
+    if (hasBJT) {
+      // Reset nodeV before stepping
+      var N = SIM.N;
+      S._nodeVoltages = new Float64Array(N);
       var sources = SIM.comps.filter(function(c) { return c.type === 'V'; });
       var origVals = sources.map(function(s) { return s.val; });
-      var steps = [0.1, 0.2, 0.4, 0.6, 0.8, 1.0];
-      for (var si = 0; si < steps.length; si++) {
-        for (var j = 0; j < sources.length; j++) sources[j].val = origVals[j] * steps[si];
+      // Adaptive source stepping with rollback: if NR fails, halve step and retry
+      var goodNodeV = new Float64Array(N); // Last known good state
+      var lastGoodFactor = 0;
+      var targetFactors = [0.02, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0];
+      var ti = 0;
+      var stuckCount = 0;
+      while (ti < targetFactors.length) {
+        var f = targetFactors[ti];
+        for (var j = 0; j < sources.length; j++) sources[j].val = origVals[j] * f;
         solve(1e-5);
+        if (_lastConverged) {
+          // Save this state as good
+          for (var ki = 0; ki < N; ki++) goodNodeV[ki] = S._nodeVoltages[ki];
+          lastGoodFactor = f;
+          ti++;
+          stuckCount = 0;
+        } else {
+          // Roll back nodeV to last good state
+          for (var ki2 = 0; ki2 < N; ki2++) S._nodeVoltages[ki2] = goodNodeV[ki2];
+          // Insert finer step between lastGoodFactor and f
+          var midF = (lastGoodFactor + f) / 2;
+          if (midF - lastGoodFactor < 0.005 || stuckCount > 10) {
+            // Step too small or stuck — give up on stepping, just try at f directly
+            ti++;
+            stuckCount = 0;
+          } else {
+            targetFactors.splice(ti, 0, midF);
+            stuckCount++;
+          }
+        }
       }
       for (var j = 0; j < sources.length; j++) sources[j].val = origVals[j];
+      for (var fi = 0; fi < 3; fi++) solve(1e-5);
       success = _lastConverged;
+    } else {
+      // Original GMIN stepping for non-BJT circuits
+      var GMIN_STEPS = [1e-2, 1e-4, 1e-6, 1e-8, 1e-10, 1e-12];
+      for (var g = 0; g < GMIN_STEPS.length; g++) {
+        _currentGMIN = GMIN_STEPS[g];
+        solve(1e-5);
+        if (_lastConverged) {
+          if (g === GMIN_STEPS.length - 1) { success = true; break; }
+          continue;
+        } else {
+          if (g === 0) break;
+        }
+      }
+      if (!success) {
+        _currentGMIN = 1e-12;
+        var sources2 = SIM.comps.filter(function(c) { return c.type === 'V'; });
+        var origVals2 = sources2.map(function(s) { return s.val; });
+        var steps2 = [0.1, 0.2, 0.4, 0.6, 0.8, 1.0];
+        for (var si2 = 0; si2 < steps2.length; si2++) {
+          for (var j2 = 0; j2 < sources2.length; j2++) sources2[j2].val = origVals2[j2] * steps2[si2];
+          solve(1e-5);
+        }
+        for (var j2 = 0; j2 < sources2.length; j2++) sources2[j2].val = origVals2[j2];
+        success = _lastConverged;
+      }
     }
 
     _currentGMIN = 1e-12;
-    _simMethod = S.simMethod || 'trap'; // Restore to user setting
+    _simMethod = S.simMethod || 'trap';
     _dtJustChanged = false;
 
     if (!success) console.warn('DC operating point bulunamadı');
@@ -6342,6 +6734,29 @@ function buildCircuitFromCanvas() {
       comps.push({type:'D', n1:nodes[0], n2:nodes[1], part:p, vPrev:initVd});
     }
     else if (p.type === 'switch') comps.push({type:'R', n1:nodes[0], n2:nodes[1], val:p.closed?0.001:1e9, part:p});
+    // Sprint 27a: Push Button (momentary) — closed is set by mousedown/up handlers
+    else if (p.type === 'pushButton') comps.push({type:'R', n1:nodes[0], n2:nodes[1], val:p.closed?0.01:1e9, part:p});
+    // Sprint 27a: Buzzer — R+L series, audio output if voltage exceeds threshold
+    else if (p.type === 'buzzer') {
+      var bzR = p.val || 40;
+      comps.push({type:'R', n1:nodes[0], n2:nodes[1], val:bzR, part:p, isBuzzer:true});
+    }
+    // Sprint 27b: Speaker — impedance model (R default 8Ω), audio output
+    else if (p.type === 'speaker') {
+      var spkR = p.val || 8;
+      comps.push({type:'R', n1:nodes[0], n2:nodes[1], val:spkR, part:p, isSpeaker:true});
+    }
+    // Sprint 27a: 555 Timer — behavioural model (8 pins)
+    else if (p.type === 'timer555') {
+      // Pin map: 0=GND, 1=TRIG, 2=OUT, 3=RST, 4=CTRL, 5=THR, 6=DIS, 7=VCC
+      comps.push({
+        type: 'IC555',
+        nGND: nodes[0], nTRIG: nodes[1], nOUT: nodes[2], nRST: nodes[3],
+        nCTRL: nodes[4], nTHR: nodes[5], nDIS: nodes[6], nVCC: nodes[7],
+        part: p
+      });
+      if (!p.ic555State) p.ic555State = { latch: false };
+    }
     else if (p.type === 'npn') {
       var m = BJT_MODELS[p.model || 'Generic'] || BJT_MODELS['Generic'];
       comps.push({type:'BJT', polarity:1, n1:nodes[0], n2:nodes[1], n3:nodes[2], BF:m.BF, IS:m.IS, NF:m.NF, VAF:m.VAF, part:p, vbePrev:0.6, vbcPrev:0});
@@ -6865,7 +7280,12 @@ function loadPreset(id) {
   S.parts = []; S.wires = []; S.nextId = 1; S.sel = [];
   if (S.sim.running) toggleSim();
   pr.parts.forEach(p => {
-    var newPart = { id: S.nextId++, type: p.type, name: nextName(p.type), x: p.x, y: p.y, rot: p.rot || 0, val: p.val, freq: p.freq || 0, flipH: false, flipV: false, closed: false };
+    // Sprint 29: Respect preset's closed + wiper fields (don't hardcode)
+    var newPart = { id: S.nextId++, type: p.type, name: nextName(p.type), x: p.x, y: p.y, rot: p.rot || 0, val: p.val, freq: p.freq || 0, flipH: false, flipV: false, closed: p.closed === true };
+    if (p.wiper !== undefined) newPart.wiper = p.wiper;
+    if (p.L1 !== undefined) newPart.L1 = p.L1;
+    if (p.L2 !== undefined) newPart.L2 = p.L2;
+    if (p.coupling !== undefined) newPart.coupling = p.coupling;
     // Sprint 24: Apply model from preset or default
     if (p.model) { newPart.model = p.model; if (typeof applyModel === 'function') applyModel(newPart, p.model); }
     else { var defModel = VXA.Models && VXA.Models.getDefault ? VXA.Models.getDefault(p.type) : null; if (defModel) { newPart.model = defModel; if (typeof applyModel === 'function') applyModel(newPart, defModel); } }
@@ -9752,7 +10172,8 @@ function ctxSaveBlock() {
 }
 
 function rebuildPalette() {
-  var el = document.getElementById('left');
+  // Sprint 27a: Render into #comp-panel-body (keeps search input at top)
+  var el = document.getElementById('comp-panel-body') || document.getElementById('left');
   el.innerHTML = '';
   var cats = { Passive:t('catPassive'), Sources:t('catSources'), Semi:t('catSemi'), ICs:t('catICs'), Logic:t('catLogic'), Mixed:t('catMixed'), Control:t('catControl'), Blocks:t('catBlocks'), Basic:t('catBasic') };
   for (var ck in cats) {
@@ -9820,6 +10241,141 @@ function simGotoBookmark() {
   if (simBookmarkState.nodeV) S._nodeVoltages = new Float64Array(simBookmarkState.nodeV);
   needsRender = true;
   document.getElementById('sb-time').textContent = 't='+(S.sim.t*1000).toFixed(3)+'ms';
+}
+
+// ──────── SPRINT 27a: COMPONENT SEARCH ────────
+var COMP_SEARCH_ALIASES = {
+  resistor: ['resistor','direnç','direnc','r','ohm','rezistör'],
+  capacitor: ['capacitor','kapasitör','kapasitor','kondansatör','kondansator','c','cap','farad'],
+  inductor: ['inductor','bobin','indüktör','induktor','l','henry','coil'],
+  vdc: ['vdc','dc','dc source','pil','battery','batarya','kaynak'],
+  vac: ['vac','ac','ac source','alternatif'],
+  pulse: ['pulse','darbe','kare dalga','square'],
+  potentiometer: ['potentiometer','pot','potansiyometre','trimpot','ayarlı direnç','ayarli direnc'],
+  ntc: ['ntc','thermistor','termistör','termistor','sıcaklık sensörü'],
+  ptc: ['ptc','positive thermistor'],
+  ldr: ['ldr','photoresistor','fotorezistör','ışık sensörü','isik sensoru'],
+  diode: ['diode','diyot','d','1n4148','1n4007','rectifier'],
+  led: ['led','light emitting','ışık','isik'],
+  zener: ['zener','regulator diode','zener diyot'],
+  npn: ['npn','transistor','transistör','bjt','2n2222','2n3904','bc547'],
+  pnp: ['pnp','transistor','transistör','bjt','2n3906'],
+  nmos: ['nmos','mosfet','n-channel','2n7000','irf540'],
+  pmos: ['pmos','mosfet','p-channel','irf9540'],
+  opamp: ['opamp','op-amp','işlemsel yükselteç','operational amplifier','lm741','tl072'],
+  timer555: ['timer555','555','ne555','timer','zamanlayıcı','zamanlayici'],
+  vreg: ['vreg','regulator','regülatör','7805','7812','lm317'],
+  switch: ['switch','anahtar','toggle','sw'],
+  pushButton: ['pushbutton','buton','button','push','anlık anahtar','anlik anahtar','pb'],
+  buzzer: ['buzzer','piezo','ses','zil','beeper'],
+  ground: ['ground','toprak','gnd','şase'],
+  vcvs: ['vcvs','voltage controlled voltage','bağımlı kaynak'],
+  vccs: ['vccs','voltage controlled current','transkonduktans'],
+  ccvs: ['ccvs','current controlled voltage','transimpedans'],
+  cccs: ['cccs','current controlled current','akım aynası'],
+  fuse: ['fuse','sigorta'],
+  relay: ['relay','röle','kontaktör'],
+  crystal: ['crystal','kristal','osilatör','xtal','quartz'],
+  and: ['and','ve','kapı','gate'],
+  or: ['or','veya','kapı'],
+  not: ['not','değil','inverter'],
+  nand: ['nand','ve-değil'],
+  nor: ['nor','veya-değil'],
+  xor: ['xor','özel-veya','exclusive'],
+  schottky: ['schottky','1n5819','bat54'],
+  njfet: ['njfet','jfet','j-fet'],
+  pjfet: ['pjfet','jfet p-channel'],
+  transformer: ['transformer','trafo','dönüştürücü'],
+  dcmotor: ['dcmotor','dc motor','motor']
+};
+
+function _matchComp(compKey, def, query) {
+  var q = query.toLowerCase().trim();
+  if (!q) return true;
+  if (compKey.toLowerCase().indexOf(q) >= 0) return true;
+  if (def.name && def.name.toLowerCase().indexOf(q) >= 0) return true;
+  if (def.en && def.en.toLowerCase().indexOf(q) >= 0) return true;
+  var aliases = COMP_SEARCH_ALIASES[compKey] || [];
+  for (var i = 0; i < aliases.length; i++) {
+    if (aliases[i].indexOf(q) >= 0) return true;
+  }
+  return false;
+}
+
+var _compSearchDebounce = null;
+function filterComponents(query) {
+  if (_compSearchDebounce) clearTimeout(_compSearchDebounce);
+  _compSearchDebounce = setTimeout(function() { _doFilterComponents(query); }, 150);
+}
+
+function _doFilterComponents(query) {
+  var el = document.getElementById('comp-panel-body');
+  if (!el) return;
+  query = (query || '').trim();
+
+  if (!query) {
+    // Restore normal category view
+    rebuildPalette();
+    return;
+  }
+
+  // Flat search results
+  el.innerHTML = '';
+  var matches = [];
+  for (var k in COMP) {
+    if (_matchComp(k, COMP[k], query)) matches.push([k, COMP[k]]);
+  }
+
+  if (matches.length === 0) {
+    var empty = document.createElement('div');
+    empty.style.cssText = 'padding:20px 12px;text-align:center;color:var(--text-3);font-size:12px';
+    empty.textContent = (typeof currentLang !== 'undefined' && currentLang === 'tr') ? 'Sonuç bulunamadı' : 'No results found';
+    el.appendChild(empty);
+    return;
+  }
+
+  var hdr = document.createElement('div');
+  hdr.className = 'cat-header open';
+  hdr.innerHTML = '<span>' + matches.length + ' sonuç / results</span>';
+  el.appendChild(hdr);
+
+  var body = document.createElement('div');
+  body.className = 'cat-body';
+  body.style.maxHeight = '80vh';
+  matches.forEach(function(entry) {
+    var k = entry[0], v = entry[1];
+    var d = document.createElement('div'); d.className = 'comp-item';
+    var mc = document.createElement('canvas');
+    mc.width = 24; mc.height = 18; mc.style.cssText = 'width:24px;height:18px;margin-right:6px;vertical-align:middle;flex-shrink:0';
+    (function(canvas, drawFn) {
+      requestAnimationFrame(function() {
+        try {
+          var ctx2 = canvas.getContext('2d');
+          ctx2.save(); ctx2.translate(12, 9); ctx2.scale(0.27, 0.27);
+          drawFn(ctx2, 20, { val: 0, type: '' });
+          ctx2.restore();
+        } catch(err) {}
+      });
+    })(mc, v.draw.bind(v));
+    var span = document.createElement('span');
+    span.style.cssText = 'display:flex;align-items:center';
+    span.appendChild(mc);
+    span.appendChild(document.createTextNode(v.name));
+    d.appendChild(span);
+    d.addEventListener('click', function() { startPlace(k); });
+    body.appendChild(d);
+  });
+  el.appendChild(body);
+}
+
+// Keyboard shortcut: "/" to focus search
+if (typeof document !== 'undefined') {
+  document.addEventListener('keydown', function(e) {
+    if (e.key === '/' && document.activeElement && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
+      var inp = document.getElementById('comp-search-input');
+      if (inp) { e.preventDefault(); inp.focus(); inp.select(); }
+    }
+  });
 }
 
 // ──────── CIRCUIT REPORT ────────

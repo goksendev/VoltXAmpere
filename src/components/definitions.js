@@ -260,6 +260,160 @@ var COMP = {
       c.beginPath(); c.moveTo(13, 0); c.lineTo(30, 0); c.stroke();
     }
   },
+  // Sprint 27a: Push Button (momentary switch)
+  pushButton: {
+    name: 'Push Button', en: 'PB', color: '#f59e0b', unit: '', def: 0, cat: 'Basic',
+    pins: [{ dx: -30, dy: 0 }, { dx: 30, dy: 0 }],
+    pinNames: ['1', '2'],
+    draw(c, g, part) {
+      c.strokeStyle = this.color; c.lineWidth = 2;
+      // Leads
+      c.beginPath(); c.moveTo(-30, 0); c.lineTo(-12, 0); c.stroke();
+      c.beginPath(); c.moveTo(12, 0); c.lineTo(30, 0); c.stroke();
+      // Contact pads
+      c.beginPath(); c.moveTo(-12, 0); c.lineTo(-12, -4); c.lineTo(-4, -4); c.stroke();
+      c.beginPath(); c.moveTo(12, 0); c.lineTo(12, -4); c.lineTo(4, -4); c.stroke();
+      // Button cap — pressed=down, released=up
+      var pressed = part && part.closed;
+      var y = pressed ? -4 : -10;
+      c.fillStyle = pressed ? '#d18828' : '#2a2a2a';
+      c.fillRect(-8, y, 16, 4);
+      c.strokeRect(-8, y, 16, 4);
+      // Plunger line
+      c.beginPath(); c.moveTo(0, y); c.lineTo(0, y - 6); c.stroke();
+      // Label
+      if (!part || !part.closed) {
+        c.font = '8px sans-serif'; c.fillStyle = this.color;
+        c.textAlign = 'center'; c.fillText('PB', 0, 18);
+      }
+    }
+  },
+  // Sprint 27a: 555 Timer IC (behavioural model)
+  timer555: {
+    name: '555 Timer', en: '555', color: '#8e44ad', unit: '', def: 0, cat: 'ICs',
+    pins: [
+      { dx: -30, dy: -35 }, // 1: GND
+      { dx: -30, dy: -15 }, // 2: TRIG
+      { dx:  30, dy:   0 }, // 3: OUT
+      { dx: -30, dy:  15 }, // 4: RESET
+      { dx: -30, dy:  35 }, // 5: CTRL
+      { dx:  30, dy:  35 }, // 6: THRESH (moved to right side for DIP look)
+      { dx:  30, dy: -35 }, // 7: DISCH
+      { dx:  30, dy: -15 }  // 8: VCC
+    ],
+    pinNames: ['GND', 'TRIG', 'OUT', 'RST', 'CTRL', 'THR', 'DIS', 'VCC'],
+    draw(c) {
+      c.strokeStyle = this.color; c.lineWidth = 2;
+      // Body rectangle
+      c.fillStyle = 'rgba(142,68,173,0.1)';
+      c.fillRect(-24, -42, 48, 84);
+      c.strokeRect(-24, -42, 48, 84);
+      // Pin 1 notch
+      c.beginPath(); c.arc(-24, -35, 3, 0, Math.PI, false); c.stroke();
+      // Label
+      c.font = 'bold 10px sans-serif'; c.fillStyle = this.color; c.textAlign = 'center';
+      c.fillText('555', 0, 3);
+      c.font = '6px sans-serif';
+      // Pin labels
+      c.fillStyle = 'rgba(200,200,200,0.7)';
+      c.textAlign = 'left';
+      c.fillText('GND', -22, -33);
+      c.fillText('TRG', -22, -13);
+      c.fillText('RST', -22, 17);
+      c.fillText('CTR', -22, 37);
+      c.textAlign = 'right';
+      c.fillText('DIS', 22, -33);
+      c.fillText('VCC', 22, -13);
+      c.fillText('OUT', 22, 2);
+      c.fillText('THR', 22, 37);
+      // Pin leads
+      c.strokeStyle = this.color; c.lineWidth = 1.5;
+      c.beginPath();
+      c.moveTo(-30, -35); c.lineTo(-24, -35);
+      c.moveTo(-30, -15); c.lineTo(-24, -15);
+      c.moveTo(-30, 15); c.lineTo(-24, 15);
+      c.moveTo(-30, 35); c.lineTo(-24, 35);
+      c.moveTo(24, -35); c.lineTo(30, -35);
+      c.moveTo(24, -15); c.lineTo(30, -15);
+      c.moveTo(24, 0); c.lineTo(30, 0);
+      c.moveTo(24, 35); c.lineTo(30, 35);
+      c.stroke();
+    }
+  },
+  // Sprint 27b: Speaker (audio output component with impedance model)
+  speaker: {
+    name: 'Speaker', en: 'SPK', color: '#8b5cf6', unit: 'Ω', def: 8, cat: 'Basic',
+    pins: [{ dx: 0, dy: -25 }, { dx: 0, dy: 25 }],
+    pinNames: ['+', '-'],
+    draw(c, g, part) {
+      c.strokeStyle = this.color; c.lineWidth = 2;
+      // Leads
+      c.beginPath(); c.moveTo(0, -25); c.lineTo(0, -14); c.stroke();
+      c.beginPath(); c.moveTo(0, 14); c.lineTo(0, 25); c.stroke();
+      // Magnet (rectangle)
+      c.fillStyle = 'rgba(139,92,246,0.15)';
+      c.fillRect(-6, -10, 12, 20);
+      c.strokeRect(-6, -10, 12, 20);
+      // Cone (trapezoid — wide right)
+      c.beginPath();
+      c.moveTo(6, -10); c.lineTo(16, -14);
+      c.lineTo(16, 14); c.lineTo(6, 10);
+      c.closePath();
+      c.fillStyle = 'rgba(139,92,246,0.1)';
+      c.fill();
+      c.stroke();
+      // Sound waves (if active)
+      var active = part && part._v && Math.abs(part._v) > 0.5;
+      if (active) {
+        c.strokeStyle = 'rgba(139,92,246,' + (0.4 + 0.3 * Math.sin(Date.now() / 80)) + ')';
+        c.lineWidth = 1.5;
+        c.beginPath(); c.arc(20, 0, 4, -Math.PI / 3, Math.PI / 3); c.stroke();
+        c.beginPath(); c.arc(20, 0, 8, -Math.PI / 3, Math.PI / 3); c.stroke();
+      }
+      // + polarity
+      c.font = 'bold 7px sans-serif'; c.fillStyle = this.color;
+      c.textAlign = 'center'; c.fillText('+', -3, -14);
+      // Impedance label
+      c.font = '7px monospace'; c.fillStyle = 'rgba(200,200,200,0.6)';
+      c.fillText('8Ω', -3, 20);
+    }
+  },
+  // Sprint 27a: Buzzer (audio output component)
+  buzzer: {
+    name: 'Buzzer', en: 'BZ', color: '#e67e22', unit: '', def: 40, cat: 'Basic',
+    pins: [{ dx: 0, dy: -25 }, { dx: 0, dy: 25 }],
+    pinNames: ['+', '-'],
+    draw(c, g, part) {
+      c.strokeStyle = this.color; c.lineWidth = 2;
+      // Leads
+      c.beginPath(); c.moveTo(0, -25); c.lineTo(0, -14); c.stroke();
+      c.beginPath(); c.moveTo(0, 14); c.lineTo(0, 25); c.stroke();
+      // Body — circle
+      var active = part && part._v && Math.abs(part._v) > 2;
+      c.fillStyle = active ? 'rgba(230,126,34,0.25)' : 'rgba(230,126,34,0.1)';
+      c.beginPath(); c.arc(0, 0, 14, 0, Math.PI * 2); c.fill();
+      c.strokeStyle = this.color; c.lineWidth = 2;
+      c.beginPath(); c.arc(0, 0, 14, 0, Math.PI * 2); c.stroke();
+      // Sound wave icon
+      c.lineWidth = 1.5;
+      c.beginPath();
+      c.arc(0, 0, 5, -Math.PI / 2 - 0.6, -Math.PI / 2 + 0.6);
+      c.stroke();
+      c.beginPath();
+      c.arc(0, 0, 9, -Math.PI / 2 - 0.8, -Math.PI / 2 + 0.8);
+      c.stroke();
+      // Polarity + marker
+      c.font = 'bold 8px sans-serif'; c.fillStyle = this.color;
+      c.textAlign = 'center';
+      c.fillText('+', -8, -12);
+      // Pulse ring if active
+      if (active) {
+        c.strokeStyle = 'rgba(230,126,34,' + (0.3 + 0.3 * Math.sin(Date.now() / 100)) + ')';
+        c.lineWidth = 2;
+        c.beginPath(); c.arc(0, 0, 18, 0, Math.PI * 2); c.stroke();
+      }
+    }
+  },
   npn: {
     name: 'NPN Transistör', en: 'NPN', color: '#a855f7', unit: '', def: 100, cat: 'Semi',
     pins: [{ dx: -40, dy: 0 }, { dx: 20, dy: -40 }, { dx: 20, dy: 40 }],

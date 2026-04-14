@@ -95,6 +95,29 @@ function buildCircuitFromCanvas() {
       comps.push({type:'D', n1:nodes[0], n2:nodes[1], part:p, vPrev:initVd});
     }
     else if (p.type === 'switch') comps.push({type:'R', n1:nodes[0], n2:nodes[1], val:p.closed?0.001:1e9, part:p});
+    // Sprint 27a: Push Button (momentary) — closed is set by mousedown/up handlers
+    else if (p.type === 'pushButton') comps.push({type:'R', n1:nodes[0], n2:nodes[1], val:p.closed?0.01:1e9, part:p});
+    // Sprint 27a: Buzzer — R+L series, audio output if voltage exceeds threshold
+    else if (p.type === 'buzzer') {
+      var bzR = p.val || 40;
+      comps.push({type:'R', n1:nodes[0], n2:nodes[1], val:bzR, part:p, isBuzzer:true});
+    }
+    // Sprint 27b: Speaker — impedance model (R default 8Ω), audio output
+    else if (p.type === 'speaker') {
+      var spkR = p.val || 8;
+      comps.push({type:'R', n1:nodes[0], n2:nodes[1], val:spkR, part:p, isSpeaker:true});
+    }
+    // Sprint 27a: 555 Timer — behavioural model (8 pins)
+    else if (p.type === 'timer555') {
+      // Pin map: 0=GND, 1=TRIG, 2=OUT, 3=RST, 4=CTRL, 5=THR, 6=DIS, 7=VCC
+      comps.push({
+        type: 'IC555',
+        nGND: nodes[0], nTRIG: nodes[1], nOUT: nodes[2], nRST: nodes[3],
+        nCTRL: nodes[4], nTHR: nodes[5], nDIS: nodes[6], nVCC: nodes[7],
+        part: p
+      });
+      if (!p.ic555State) p.ic555State = { latch: false };
+    }
     else if (p.type === 'npn') {
       var m = BJT_MODELS[p.model || 'Generic'] || BJT_MODELS['Generic'];
       comps.push({type:'BJT', polarity:1, n1:nodes[0], n2:nodes[1], n3:nodes[2], BF:m.BF, IS:m.IS, NF:m.NF, VAF:m.VAF, part:p, vbePrev:0.6, vbcPrev:0});

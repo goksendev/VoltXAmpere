@@ -46,30 +46,43 @@ VXA.Stamps = (function() {
     stampI(rhs, n1, -ieq); stampI(rhs, n2, ieq);
   }
   function zener(matrix, rhs, n1, n2, Is, Nf, Vd, vz, VT) {
+    // Sprint 30: SPICE 3 continuous zener model
+    // Forward and reverse breakdown BOTH stamped every iteration (no if/else)
+    // Forward: I_fwd = Is * (exp(Vd/(N*VT)) - 1)
+    // Reverse: I_rev = -IBV * exp(-(Vd+BV)/(N*VT))  where BV=vz
+    // Total: I = I_fwd + I_rev
+    // This eliminates NR discontinuity at vr=vz boundary
     var nVt = Nf * VT;
-    var vcrit = nVt * Math.log(nVt / (Math.sqrt(2) * Is));
-    if (Vd >= 0) {
-      var vdLim = Vd > vcrit ? vcrit + nVt * Math.log(Math.max(1, 1 + (Vd - vcrit) / nVt)) : Vd;
-      var eArg = Math.min(vdLim / nVt, 500);
-      var expV = Math.exp(eArg);
-      var gd = Is / nVt * expV + 1e-12;
-      var id = Is * (expV - 1);
-      stampG(matrix, n1, n2, gd);
-      stampI(rhs, n1, -(id - gd * vdLim)); stampI(rhs, n2, id - gd * vdLim);
-    } else {
-      var vr = -Vd;
-      if (vr > vz) {
-        var vBrk = vr - vz;
-        var eArg = Math.min(vBrk / nVt, 500);
-        var expV = Math.exp(eArg);
-        var gd = Is / nVt * expV + 1e-12;
-        var id = Is * (expV - 1);
-        stampG(matrix, n2, n1, gd);
-        stampI(rhs, n2, -(id - gd * vBrk)); stampI(rhs, n1, id - gd * vBrk);
-      } else {
-        stampG(matrix, n1, n2, 1e-12);
-      }
-    }
+    var IBV = 1e-3; // breakdown current at BV (1mA standard)
+
+    // --- Forward component with voltage limiting (Shockley) ---
+    var vcrit = nVt * Math.log(nVt / (Math.sqrt(2) * Math.max(Is, 1e-40)));
+    var vdLim = Vd;
+    if (Vd > vcrit) vdLim = vcrit + nVt * Math.log(Math.max(1, 1 + (Vd - vcrit) / nVt));
+    var eArgF = Math.min(vdLim / nVt, 500);
+    var expF = safeExp(eArgF);
+    var Id_fwd = Is * (expF - 1);
+    var gd_fwd = Is / nVt * expF;
+
+    // --- Reverse breakdown component (SPICE 3 model) ---
+    // I_rev = -IBV * exp(-(Vd + BV) / (N*VT))
+    // At Vd = -BV: I_rev = -IBV (breakdown onset)
+    // At Vd = -BV - δ: I_rev = -IBV * exp(δ/nVt) (rapid conduction)
+    // At Vd > -BV (forward region): I_rev → 0 (negligible)
+    var eArgR = Math.min(-(Vd + vz) / nVt, 500);
+    var expR = safeExp(eArgR);
+    var Id_rev = -IBV * expR;
+    var gd_rev = IBV / nVt * expR; // |dI_rev/dVd| positive
+
+    // Total current and conductance
+    var Id = Id_fwd + Id_rev;
+    var gd = gd_fwd + gd_rev + 1e-12;
+
+    // MNA stamp (standard diode Norton)
+    var Ieq = Id - gd * vdLim;
+    stampG(matrix, n1, n2, gd);
+    stampI(rhs, n1, -Ieq);
+    stampI(rhs, n2, Ieq);
   }
   function bjt(matrix, rhs, nB, nC, nE, pol, BF, Is, NF, VAF, nodeV, VT) {
     var vB = nodeV[nB] || 0, vC = nodeV[nC] || 0, vE = nodeV[nE] || 0;

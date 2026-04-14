@@ -239,6 +239,53 @@ VXA.SimV2 = (function() {
             var vOut = sel ? (nodeV[pins[1]] || 0) : (nodeV[pins[0]] || 0);
             if (pins[3] > 0) { Sp.stamp(matrix, pins[3] - 1, pins[3] - 1, 1); rhs[pins[3] - 1] += vOut; }
           }
+        } else if (c.type === 'IC555') {
+          // Sprint 27a: 555 Timer behavioural model
+          var vVCC = (nodeV[c.nVCC] || 0) - (nodeV[c.nGND] || 0);
+          var vTRIG = (nodeV[c.nTRIG] || 0) - (nodeV[c.nGND] || 0);
+          var vTHR = (nodeV[c.nTHR] || 0) - (nodeV[c.nGND] || 0);
+          var vRST = (nodeV[c.nRST] || 0) - (nodeV[c.nGND] || 0);
+          var vCTRL_raw = (c.nCTRL > 0 ? (nodeV[c.nCTRL] || 0) - (nodeV[c.nGND] || 0) : 0);
+          var upperTh = (c.nCTRL > 0 && Math.abs(vCTRL_raw) > 0.1) ? vCTRL_raw : vVCC * 2 / 3;
+          var lowerTh = upperTh / 2;
+
+          // Latch logic (persistent state)
+          if (!c.part.ic555State) c.part.ic555State = { latch: false };
+          var L = c.part.ic555State;
+          if (vRST < 0.7 && vVCC > 1) L.latch = false;       // Reset override
+          else if (vTRIG < lowerTh && vVCC > 1) L.latch = true;  // SET
+          else if (vTHR > upperTh && vVCC > 1) L.latch = false;  // RESET
+          // Else: hold previous state
+
+          // Output stamp (push-pull voltage source via low-Z resistor)
+          var vOut555 = L.latch ? Math.max(0, vVCC - 1.5) : 0.1;
+          var Rout = 50;
+          if (c.nOUT > 0) {
+            Sp.stamp(matrix, c.nOUT - 1, c.nOUT - 1, 1 / Rout);
+            rhs[c.nOUT - 1] += vOut555 / Rout;
+          }
+
+          // Discharge pin: latch LOW → pin7 pulled to GND (open collector NPN saturated)
+          if (!L.latch && c.nDIS > 0 && c.nGND >= 0) {
+            var Rdis = 10;
+            Sp.stamp(matrix, c.nDIS - 1, c.nDIS - 1, 1 / Rdis);
+            if (c.nGND > 0) {
+              Sp.stamp(matrix, c.nDIS - 1, c.nGND - 1, -1 / Rdis);
+              Sp.stamp(matrix, c.nGND - 1, c.nDIS - 1, -1 / Rdis);
+              Sp.stamp(matrix, c.nGND - 1, c.nGND - 1, 1 / Rdis);
+            }
+          }
+
+          // Internal voltage divider (VCC to GND, ~15kΩ)
+          if (c.nVCC > 0 && c.nGND >= 0) {
+            var Rint = 15000;
+            Sp.stamp(matrix, c.nVCC - 1, c.nVCC - 1, 1 / Rint);
+            if (c.nGND > 0) {
+              Sp.stamp(matrix, c.nVCC - 1, c.nGND - 1, -1 / Rint);
+              Sp.stamp(matrix, c.nGND - 1, c.nVCC - 1, -1 / Rint);
+              Sp.stamp(matrix, c.nGND - 1, c.nGND - 1, 1 / Rint);
+            }
+          }
         }
       }
 
@@ -484,6 +531,12 @@ VXA.SimV2 = (function() {
         else if (c.subtype === 'shiftreg') { c.part._v = c._state & 1 ? 5 : 0; }
         else if (c.subtype === 'mux') { c.part._v = nodeV[c.pins[3]] || 0; }
         c.part._i = 0; c.part._p = 0;
+      } else if (c.type === 'IC555') {
+        // Sprint 27a: 555 readout — output pin voltage
+        var vOutRead = (nodeV[c.nOUT] || 0) - (nodeV[c.nGND] || 0);
+        c.part._v = Math.abs(vOutRead);
+        c.part._i = 0; c.part._p = 0;
+        c.part._latchState = c.part.ic555State ? c.part.ic555State.latch : false;
       }
     }
 
@@ -532,39 +585,83 @@ VXA.SimV2 = (function() {
   }
 
   function findDCOperatingPoint() {
-    // Method 1: GMIN stepping
-    var GMIN_STEPS = [1e-2, 1e-4, 1e-6, 1e-8, 1e-10, 1e-12];
+    // Sprint 31: BJT-aware DC OP
+    // For circuits with BJTs, source stepping reaches forward-active region naturally
+    var hasBJT = SIM && SIM.comps.some(function(c) { return c.type === 'BJT'; });
     var success = false;
-    _simMethod = 'be'; // DC OP always uses BE
+    _simMethod = 'be';
     _dtJustChanged = true;
+    _currentGMIN = 1e-12;
 
-    for (var g = 0; g < GMIN_STEPS.length; g++) {
-      _currentGMIN = GMIN_STEPS[g];
-      solve(1e-5);
-      if (_lastConverged) {
-        if (g === GMIN_STEPS.length - 1) { success = true; break; }
-        continue; // Try smaller GMIN
-      } else {
-        if (g === 0) break; // Even largest GMIN failed
-      }
-    }
-
-    if (!success) {
-      // Method 2: Source stepping fallback
-      _currentGMIN = 1e-12;
+    if (hasBJT) {
+      // Reset nodeV before stepping
+      var N = SIM.N;
+      S._nodeVoltages = new Float64Array(N);
       var sources = SIM.comps.filter(function(c) { return c.type === 'V'; });
       var origVals = sources.map(function(s) { return s.val; });
-      var steps = [0.1, 0.2, 0.4, 0.6, 0.8, 1.0];
-      for (var si = 0; si < steps.length; si++) {
-        for (var j = 0; j < sources.length; j++) sources[j].val = origVals[j] * steps[si];
+      // Adaptive source stepping with rollback: if NR fails, halve step and retry
+      var goodNodeV = new Float64Array(N); // Last known good state
+      var lastGoodFactor = 0;
+      var targetFactors = [0.02, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0];
+      var ti = 0;
+      var stuckCount = 0;
+      while (ti < targetFactors.length) {
+        var f = targetFactors[ti];
+        for (var j = 0; j < sources.length; j++) sources[j].val = origVals[j] * f;
         solve(1e-5);
+        if (_lastConverged) {
+          // Save this state as good
+          for (var ki = 0; ki < N; ki++) goodNodeV[ki] = S._nodeVoltages[ki];
+          lastGoodFactor = f;
+          ti++;
+          stuckCount = 0;
+        } else {
+          // Roll back nodeV to last good state
+          for (var ki2 = 0; ki2 < N; ki2++) S._nodeVoltages[ki2] = goodNodeV[ki2];
+          // Insert finer step between lastGoodFactor and f
+          var midF = (lastGoodFactor + f) / 2;
+          if (midF - lastGoodFactor < 0.005 || stuckCount > 10) {
+            // Step too small or stuck — give up on stepping, just try at f directly
+            ti++;
+            stuckCount = 0;
+          } else {
+            targetFactors.splice(ti, 0, midF);
+            stuckCount++;
+          }
+        }
       }
       for (var j = 0; j < sources.length; j++) sources[j].val = origVals[j];
+      for (var fi = 0; fi < 3; fi++) solve(1e-5);
       success = _lastConverged;
+    } else {
+      // Original GMIN stepping for non-BJT circuits
+      var GMIN_STEPS = [1e-2, 1e-4, 1e-6, 1e-8, 1e-10, 1e-12];
+      for (var g = 0; g < GMIN_STEPS.length; g++) {
+        _currentGMIN = GMIN_STEPS[g];
+        solve(1e-5);
+        if (_lastConverged) {
+          if (g === GMIN_STEPS.length - 1) { success = true; break; }
+          continue;
+        } else {
+          if (g === 0) break;
+        }
+      }
+      if (!success) {
+        _currentGMIN = 1e-12;
+        var sources2 = SIM.comps.filter(function(c) { return c.type === 'V'; });
+        var origVals2 = sources2.map(function(s) { return s.val; });
+        var steps2 = [0.1, 0.2, 0.4, 0.6, 0.8, 1.0];
+        for (var si2 = 0; si2 < steps2.length; si2++) {
+          for (var j2 = 0; j2 < sources2.length; j2++) sources2[j2].val = origVals2[j2] * steps2[si2];
+          solve(1e-5);
+        }
+        for (var j2 = 0; j2 < sources2.length; j2++) sources2[j2].val = origVals2[j2];
+        success = _lastConverged;
+      }
     }
 
     _currentGMIN = 1e-12;
-    _simMethod = S.simMethod || 'trap'; // Restore to user setting
+    _simMethod = S.simMethod || 'trap';
     _dtJustChanged = false;
 
     if (!success) console.warn('DC operating point bulunamadı');
