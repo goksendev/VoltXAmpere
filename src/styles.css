@@ -369,3 +369,20 @@ input:focus{border-color:var(--accent)}
 @media (hover:none) {
   .tb-btn:hover,.comp-item:hover,.cat-header:hover{background:inherit;color:inherit}
 }
+/* === TIMELINE BAR (Sprint 11) === */
+#timeline-bar{display:flex;align-items:center;gap:8px;padding:4px 8px;background:var(--bg);border-top:1px solid var(--border-2);height:40px;user-select:none}
+#tl-controls{display:flex;gap:2px}
+#tl-controls button{background:none;border:1px solid var(--border-2);color:var(--text-2);width:28px;height:28px;border-radius:4px;cursor:pointer;font-size:10px;display:flex;align-items:center;justify-content:center;padding:0}
+#tl-controls button:hover{background:var(--surface-3);color:var(--text)}
+#tl-controls button:active{background:var(--surface-2)}
+#tl-scrubber{flex:1;position:relative;height:32px;cursor:pointer;border-radius:4px;overflow:hidden}
+#tl-canvas{width:100%;height:32px;background:var(--surface)}
+#tl-playhead{position:absolute;top:0;left:0;width:2px;height:32px;background:var(--accent);pointer-events:none;transition:left 0.03s linear}
+#tl-time{font:11px var(--font-mono);color:var(--text-3);white-space:nowrap;min-width:130px;text-align:right}
+#tl-time span{vertical-align:middle}
+#tl-current{color:var(--accent)}
+@media (max-width:768px){
+  #timeline-bar{gap:4px;padding:2px 4px;height:36px}
+  #tl-controls button{width:24px;height:24px;font-size:8px}
+  #tl-time{font-size:9px;min-width:100px}
+}

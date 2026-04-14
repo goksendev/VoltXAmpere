@@ -26,7 +26,8 @@ document.addEventListener('keydown', e => {
     if (S.sel.length) { var ep = S.parts.find(function(pp){return pp.id===S.sel[0];}); if (ep) openInlineEdit(ep); }
     return;
   }
-  if (k === 'p') { ctxProbe(); return; }
+  if (k === 'p' && !e.shiftKey) { if (VXA.Probes && VXA.Probes.isActive()) { VXA.Probes.toggle(); return; } ctxProbe(); return; }
+  if (k === 'p' && e.shiftKey) { if (typeof toggleProbeMode === 'function') toggleProbeMode(); return; }
   if (k === 't' && !e.ctrlKey) {
     var text = prompt('Not metni:', '');
     if (text) {

@@ -58,7 +58,10 @@
     <button class="tb-btn" id="btn-realistic" onclick="toggleRealisticBtn()" title="Gerçekçi Mod (Shift+R)">&#128737; Gerçekçi</button>
     <button class="tb-btn" onclick="cycleBgBtn()" title="Arka Plan (B)">&#127912; Arka Plan</button>
     <button class="tb-btn" onclick="fitToScreen()" title="Sığdır (Ctrl+Shift+F)">&#128208; Sığdır</button>
+    <button class="tb-btn" id="btn-chaos" onclick="toggleChaosPanel()" title="Kaos Testi (Shift+K)" style="color:#ff8800">⚡ Kaos</button>
+    <button class="tb-btn" id="btn-probes" onclick="toggleProbeMode()" title="Prob Modu (Shift+P)" style="color:#4a9eff">🔌 Prob</button>
     <div class="sim-badge">
+      <button class="tb-btn" style="font-size:10px" onclick="if(typeof _tlEnterPlayback==='function')_tlEnterPlayback()" title="Time Machine (M)" id="btn-timemachine">&#9194; Rewind</button>
       <button class="tb-btn" style="font-size:10px" onclick="simStep()" title="Tek Ad&#305;m">&#9193; Ad&#305;m</button>
       <button class="tb-btn" style="font-size:10px" onclick="simBookmark()" title="Yer &#304;mi">&#128278; &#304;&#351;aretle</button>
       <button class="tb-btn" style="font-size:10px" onclick="simGotoBookmark()" title="Yer &#304;mine Git">&#8617; Geri</button>
@@ -103,6 +106,7 @@
       <button class="btab" data-tab="noise" onclick="switchTab('noise')">G&#252;r&#252;lt&#252;</button>
       <button class="btab" data-tab="sensitivity" onclick="switchTab('sensitivity')">Duyarl&#305;l&#305;k</button>
       <button class="btab" data-tab="worstcase" onclick="switchTab('worstcase')">Worst Case</button>
+      <button class="btab" data-tab="timing" onclick="switchTab('timing')">Timing</button>
     </div>
     <div id="tab-scope" class="tab-panel active" style="grid-template-columns:1fr 200px">
       <div id="scope-wrap">
@@ -198,6 +202,29 @@
     <div id="tab-noise" class="tab-panel" style="position:relative"><canvas id="NOISEC" style="width:100%;height:100%"></canvas><div class="tab-overlay" id="ov-noise"><p>Diren&ccedil;li devre kurun</p><button class="run-btn" onclick="runNoiseAnalysis()">&#9654; G&uuml;r&uuml;lt&uuml; Analizi Ba&scedil;lat</button></div></div>
     <div id="tab-sensitivity" class="tab-panel" style="position:relative"><canvas id="SENSC" style="width:100%;height:100%"></canvas><div class="tab-overlay" id="ov-sensitivity"><p>Hangi bile&scedil;en en kritik?</p><button class="run-btn" onclick="runSensitivity()">&#9654; Duyarl&inodot;l&inodot;k Analizi</button></div></div>
     <div id="tab-worstcase" class="tab-panel" style="position:relative"><canvas id="WCC" style="width:100%;height:100%"></canvas><div class="tab-overlay" id="ov-worstcase"><p>Tolerans u&ccedil;lar&inodot;n&inodot; test edin</p><button class="run-btn" onclick="runWorstCase('evp')">&#9654; EVP (&plusmn;10%)</button> <button class="run-btn" onclick="runWorstCase('rss')" style="margin-left:6px">&#9654; RSS (&plusmn;10%)</button></div></div>
+    <div id="tab-timing" class="tab-panel" style="position:relative"><canvas id="TIMING" style="width:100%;height:100%"></canvas><div class="tab-overlay" id="ov-timing"><p>Dijital devre kurun, sim&uuml;lasyonu ba&scedil;lat&inodot;n</p><button class="run-btn" onclick="if(VXA.Digital)VXA.Digital.init(S.parts)">&#9654; Timing Kaydet</button></div></div>
+  </div>
+
+  <!-- TIMELINE BAR (Sprint 11: Time Machine) -->
+  <div id="timeline-bar" style="display:none;">
+    <div id="tl-controls">
+      <button id="tl-step-back" title="Step Back (,)">&#9664;&#9664;</button>
+      <button id="tl-back" title="Rewind">&#9664;</button>
+      <button id="tl-play-pause" title="Play/Pause">&#9654;</button>
+      <button id="tl-forward" title="Forward">&#9654;</button>
+      <button id="tl-step-fwd" title="Step Forward (.)">&#9654;&#9654;</button>
+      <button id="tl-bookmark" title="Bookmark">&#9873;</button>
+      <button id="tl-exit" title="Exit (Esc)">&#10005;</button>
+    </div>
+    <div id="tl-scrubber">
+      <canvas id="tl-canvas" height="32"></canvas>
+      <div id="tl-playhead"></div>
+    </div>
+    <div id="tl-time">
+      <span id="tl-current">0s</span>
+      <span>/</span>
+      <span id="tl-total">0s</span>
+    </div>
   </div>
 
   <!-- STATUSBAR -->

@@ -39,6 +39,24 @@ function render() {
   drawSnapGlow();
   drawVoltageMap();
 
+  // Sprint 14: Flash effects (world coords)
+  if (typeof drawFlashEffects === 'function') drawFlashEffects(ctx);
+
+  // Sprint 14: Formula overlay on hovered part
+  if (S.hovered && !S.drag.active && S.mode !== 'wire' && S.mode !== 'place' && typeof drawFormulaOverlay === 'function') {
+    drawFormulaOverlay(ctx, S.hovered);
+  } else if (!S.hovered) {
+    _formulaLastHoveredId = null;
+  }
+
+  // Sprint 14: Probe drawing
+  if (VXA.Probes && VXA.Probes.isActive()) {
+    VXA.Probes.draw(ctx);
+  }
+
+  // Sprint 16: Error overlay on canvas
+  if (typeof drawErrorOverlay === 'function') drawErrorOverlay(ctx);
+
   // Groups
   S.groups.forEach(function(g) {
     var gp = S.parts.filter(function(p){ return g.partIds.includes(p.id); });
@@ -71,8 +89,23 @@ function render() {
 
   ctx.restore();
 
-  // simulation step
-  if (S.sim.running) simulationStep();
+  // simulation step (skip during TimeMachine playback)
+  if (VXA.TimeMachine && VXA.TimeMachine.isPlayback()) {
+    var _tmSnap = VXA.TimeMachine.getCurrentSnapshot();
+    if (_tmSnap) {
+      for (var _tmi = 0; _tmi < _tmSnap.c.length; _tmi++) {
+        var _tmsc = _tmSnap.c[_tmi];
+        var _tmp = S.parts.find(function(pp) { return pp.id === _tmsc.id; });
+        if (_tmp) {
+          _tmp._v = _tmsc.v; _tmp._i = _tmsc.i;
+          _tmp.damaged = _tmsc.damaged;
+          _tmp.ledBrightness = _tmsc.ledBrightness;
+        }
+      }
+    }
+  } else if (S.sim.running) {
+    simulationStep();
+  }
   drawScope();
   drawMinimap();
 

@@ -202,7 +202,14 @@ VXA.SimV2 = (function() {
           var vd = Math.abs((nodeV[c.n1] || 0) - (nodeV[c.n2] || 0));
           St.stampG(matrix, c.n1, c.n2, 1 / (vd > c.vbo ? 0.1 : 1e8));
         } else if (c.type === 'COMP') {
-          var vOut = (nodeV[c.nP] || 0) > (nodeV[c.nN] || 0) ? 5 : 0;
+          var _cvp = nodeV[c.nP] || 0, _cvn = nodeV[c.nN] || 0;
+          var _chyst = (c.part && c.part.props && c.part.props.hysteresis) || 0.01;
+          var _cprev = c.part ? (c.part._compOutput || false) : false;
+          var _cnew = _cprev;
+          if (_cvp > _cvn + _chyst) _cnew = true;
+          else if (_cvp < _cvn - _chyst) _cnew = false;
+          if (c.part) { c.part._compOutput = _cnew; c.part._compVp = _cvp; c.part._compVn = _cvn; }
+          var vOut = _cnew ? 5 : 0;
           if (c.nO > 0) { Sp.stamp(matrix, c.nO - 1, c.nO - 1, 1); rhs[c.nO - 1] += vOut; }
         } else if (c.type === 'DIGI') {
           var pins = c.pins, thresh = 2.5, vH = 5, vL = 0;
@@ -406,7 +413,7 @@ VXA.SimV2 = (function() {
       } else if (c.type === 'DIAC') {
         var vdiac = Math.abs((nodeV[c.n1] || 0) - (nodeV[c.n2] || 0)); c.part._v = vdiac; c.part._i = vdiac > c.vbo ? vdiac / 0.1 : 0; c.part._p = vdiac * c.part._i;
       } else if (c.type === 'COMP') {
-        c.part._v = (nodeV[c.nP] || 0) > (nodeV[c.nN] || 0) ? 5 : 0; c.part._i = 0; c.part._p = 0;
+        c.part._v = c.part._compOutput ? 5 : 0; c.part._i = 0; c.part._p = 0;
       } else if (c.type === 'DIGI') {
         if (c.subtype === 'dff') { c.part._v = c._q ? 5 : 0; }
         else if (c.subtype === 'counter') { c.part._v = c._count; }

@@ -36,6 +36,8 @@ wrap.addEventListener('mousemove', e => {
   }
   // box select
   if (S.selBox) { S.selBox.x2 = w.x; S.selBox.y2 = w.y; needsRender = true; }
+  // Sprint 14: Probe drag
+  if (VXA.Probes && VXA.Probes.isDragging()) { VXA.Probes.onDrag(w.x, w.y); needsRender = true; }
   // wire preview
   if (S.mode === 'wire' && S.wireStart) { S.wirePreview = { x: w.x, y: w.y }; needsRender = true; }
   if (S.mode === 'place') needsRender = true;
@@ -62,22 +64,44 @@ wrap.addEventListener('mousedown', e => {
     var defModel = VXA.Models.getDefault(S.placingType);
     if (defModel) { p.model = defModel; applyModel(p, defModel); }
     S.parts.push(p); S.sel = [p.id]; needsRender = true; updateInspector();
-    if (typeof VXA !== 'undefined' && VXA.Sound) VXA.Sound.play('click');
+    if (typeof VXA !== 'undefined' && VXA.Sound) VXA.Sound.play('click', p.x, p.y);
     return;
+  }
+
+  // Sprint 14: Probe mode — drag handling
+  if (VXA.Probes && VXA.Probes.isActive()) {
+    var probeHit = VXA.Probes.hitTest(w.x, w.y);
+    if (probeHit) {
+      VXA.Probes.startDrag(probeHit);
+      return;
+    }
+    // Click in probe mode without hitting a probe → place red then black
+    var pState = VXA.Probes.getState();
+    if (!pState.probes.red.attached) { VXA.Probes.startDrag('red'); VXA.Probes.onDrag(w.x, w.y); VXA.Probes.onDrop(w.x, w.y); return; }
+    if (!pState.probes.black.attached) { VXA.Probes.startDrag('black'); VXA.Probes.onDrag(w.x, w.y); VXA.Probes.onDrop(w.x, w.y); return; }
   }
 
   // WIRE MODE
   if (S.mode === 'wire') {
     const pin = S.hoveredPin;
     const tx = pin ? pin.x : snap(w.x), ty = pin ? pin.y : snap(w.y);
-    if (!S.wireStart) { S.wireStart = { x: tx, y: ty }; }
+    if (!S.wireStart) {
+      S.wireStart = { x: tx, y: ty };
+      if (typeof resetWireLag === 'function') resetWireLag();
+    }
     else {
       if (Math.abs(tx - S.wireStart.x) < 2 && Math.abs(ty - S.wireStart.y) < 2) {
-        S.wireStart = null; S.wirePreview = null; needsRender = true; return;
+        S.wireStart = null; S.wirePreview = null;
+        if (typeof resetWireLag === 'function') resetWireLag();
+        needsRender = true; return;
       }
       saveUndo();
       S.wires.push({ x1: S.wireStart.x, y1: S.wireStart.y, x2: tx, y2: ty });
-      S.wireStart = { x: tx, y: ty }; S.wirePreview = null; needsRender = true;
+      // Sprint 14: Flash effect on connection
+      if (typeof onWireConnected === 'function') onWireConnected(tx, ty);
+      S.wireStart = { x: tx, y: ty }; S.wirePreview = null;
+      if (typeof resetWireLag === 'function') resetWireLag();
+      needsRender = true;
     }
     return;
   }
@@ -103,6 +127,11 @@ wrap.addEventListener('mousedown', e => {
 });
 
 wrap.addEventListener('mouseup', () => {
+  // Sprint 14: Probe drop
+  if (VXA.Probes && VXA.Probes.isDragging()) {
+    var _pw = s2w(S.mouse.x, S.mouse.y);
+    VXA.Probes.onDrop(_pw.x, _pw.y);
+  }
   if (S.drag.active) { S.drag.active = false; S.drag.type = null; }
   if (S.selBox) {
     const b = S.selBox;
@@ -124,7 +153,7 @@ wrap.addEventListener('dblclick', () => {
   var w2 = s2w(S.mouse.x, S.mouse.y), hit = hitTestPart(w2.x, w2.y);
   if (hit && hit.type === 'switch') {
     saveUndo(); hit.closed = !hit.closed; needsRender = true;
-    if (typeof VXA !== 'undefined' && VXA.Sound) VXA.Sound.play('switch');
+    if (typeof VXA !== 'undefined' && VXA.Sound) VXA.Sound.play('switch', hit.x, hit.y);
     if (S.sim.running) buildCircuitFromCanvas();
     return;
   }

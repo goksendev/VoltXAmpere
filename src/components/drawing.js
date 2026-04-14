@@ -199,6 +199,12 @@ function drawPart(part) {
 
   ctx.save(); ctx.translate(part.x + thermalShakeX, part.y + thermalShakeY); ctx.rotate(rot);
 
+  // Sprint 14: Capacitor breathing effect
+  var _capBreath = (typeof getCapacitorBreathing === 'function') ? getCapacitorBreathing(part) : null;
+  if (_capBreath) {
+    ctx.scale(_capBreath.scale, _capBreath.scale);
+  }
+
   // Damaged parts: draw in grey
   if (part.damaged && !part._explodeAnim?.active && !part._burnAnim?.active) {
     ctx.globalAlpha = 0.6;
@@ -400,42 +406,112 @@ function drawWire(w) {
   var cur = Math.abs(w._current || 0);
   var style = S.wireStyle || 'catenary';
 
-  ctx.strokeStyle = cur > 0.5 ? '#f59e0b' : cur > 1e-6 ? '#00e09e' : '#3a4a5a';
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(w.x1, w.y1);
-
-  var sag, mx, my;
-  switch (style) {
-    case 'manhattan':
-      // Right-angle routing: horizontal then vertical
-      var midX = (w.x1 + w.x2) / 2;
-      ctx.lineTo(midX, w.y1);
-      ctx.lineTo(midX, w.y2);
-      ctx.lineTo(w.x2, w.y2);
-      break;
-
-    case 'straight':
-      ctx.lineTo(w.x2, w.y2);
-      break;
-
-    case 'spline':
-      // Smooth bezier curve
-      var dx = w.x2 - w.x1, dy = w.y2 - w.y1;
-      var cx1 = w.x1 + dx * 0.33, cy1 = w.y1;
-      var cx2 = w.x2 - dx * 0.33, cy2 = w.y2;
-      ctx.bezierCurveTo(cx1, cy1, cx2, cy2, w.x2, w.y2);
-      break;
-
-    case 'catenary':
-    default:
-      sag = Math.min(dist * 0.1, 25);
-      mx = (w.x1 + w.x2) / 2;
-      my = (w.y1 + w.y2) / 2 + sag;
-      ctx.quadraticCurveTo(mx, my, w.x2, w.y2);
-      break;
+  // Sprint 12: Akım bazlı renk değişimi
+  var wireRatio = Math.min(1, cur / 1.0);
+  var wireColor;
+  if (wireRatio > 0.8) wireColor = '#ff3333';
+  else if (wireRatio > 0.5) {
+    var r = Math.min(255, 100 + wireRatio * 200);
+    var g = Math.max(50, 200 - wireRatio * 200);
+    wireColor = 'rgb(' + Math.round(r) + ',' + Math.round(g) + ',50)';
+  } else {
+    wireColor = cur > 0.5 ? '#f59e0b' : cur > 1e-6 ? '#00e09e' : '#3a4a5a';
   }
-  ctx.stroke();
+
+  ctx.strokeStyle = wireColor;
+  ctx.lineWidth = 2;
+
+  // Sprint 12: Kablo titreşim efekti
+  var vibrate = S.sim.running && S.realisticMode && wireRatio > 0.15 && !S.reducedMotion;
+
+  if (vibrate && dist > 10) {
+    var now = Date.now();
+    var freq = 8 + wireRatio * 30;
+    var amp = 0.5 + wireRatio * 3;
+    if (wireRatio > 0.9) { freq = 50; amp = 5; }
+
+    // Kablo yönüne dik birim vektör
+    var wdx = w.x2 - w.x1, wdy = w.y2 - w.y1;
+    var len = Math.sqrt(wdx * wdx + wdy * wdy);
+    var nx = -wdy / len, ny = wdx / len;
+
+    var segments = Math.max(5, Math.round(len / 15));
+
+    // Glow efekti (yüksek akım)
+    if (wireRatio > 0.8) {
+      ctx.save();
+      ctx.globalAlpha = 0.2;
+      ctx.lineWidth = 6;
+      ctx.strokeStyle = '#ff0000';
+      ctx.beginPath();
+      for (var gs = 0; gs <= segments; gs++) {
+        var gt = gs / segments;
+        var gpx = w.x1 + wdx * gt;
+        var gpy = w.y1 + wdy * gt;
+        var gEnv = Math.sin(gt * Math.PI);
+        var gVib = Math.sin(now * freq / 1000 * Math.PI * 2 + gs * 0.8) * amp * gEnv;
+        gpx += nx * gVib; gpy += ny * gVib;
+        if (gs === 0) ctx.moveTo(gpx, gpy); else ctx.lineTo(gpx, gpy);
+      }
+      ctx.stroke();
+      ctx.restore();
+      ctx.strokeStyle = wireColor;
+      ctx.lineWidth = 2;
+    }
+
+    // Ana kablo titreşimli çizim
+    ctx.beginPath();
+    for (var s = 0; s <= segments; s++) {
+      var t = s / segments;
+      var px, py;
+      // Kablo stili bazında pozisyon hesapla
+      if (style === 'catenary') {
+        var sag2 = Math.min(dist * 0.1, 25);
+        var mx2 = (w.x1 + w.x2) / 2, my2 = (w.y1 + w.y2) / 2 + sag2;
+        px = (1-t)*(1-t)*w.x1 + 2*(1-t)*t*mx2 + t*t*w.x2;
+        py = (1-t)*(1-t)*w.y1 + 2*(1-t)*t*my2 + t*t*w.y2;
+      } else {
+        px = w.x1 + wdx * t;
+        py = w.y1 + wdy * t;
+      }
+      var envelope = Math.sin(t * Math.PI);
+      var vibOffset = Math.sin(now * freq / 1000 * Math.PI * 2 + s * 0.8) * amp * envelope;
+      px += nx * vibOffset; py += ny * vibOffset;
+      if (s === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+  } else {
+    // Normal kablo çizim (titreşimsiz)
+    ctx.beginPath();
+    ctx.moveTo(w.x1, w.y1);
+
+    var sag, mx, my;
+    switch (style) {
+      case 'manhattan':
+        var midX = (w.x1 + w.x2) / 2;
+        ctx.lineTo(midX, w.y1);
+        ctx.lineTo(midX, w.y2);
+        ctx.lineTo(w.x2, w.y2);
+        break;
+      case 'straight':
+        ctx.lineTo(w.x2, w.y2);
+        break;
+      case 'spline':
+        var dx = w.x2 - w.x1, dy = w.y2 - w.y1;
+        var cx1 = w.x1 + dx * 0.33, cy1 = w.y1;
+        var cx2 = w.x2 - dx * 0.33, cy2 = w.y2;
+        ctx.bezierCurveTo(cx1, cy1, cx2, cy2, w.x2, w.y2);
+        break;
+      case 'catenary':
+      default:
+        sag = Math.min(dist * 0.1, 25);
+        mx = (w.x1 + w.x2) / 2;
+        my = (w.y1 + w.y2) / 2 + sag;
+        ctx.quadraticCurveTo(mx, my, w.x2, w.y2);
+        break;
+    }
+    ctx.stroke();
+  }
 
   // Enhanced current flow animation
   if (!S.reducedMotion && S.sim.running && S.animationsOn && cur > 1e-6) {
@@ -530,26 +606,51 @@ function drawWirePreview() {
   var s = S.wireStart;
   var pin = S.hoveredPin;
   var tx = pin ? pin.x : snap(S.wirePreview.x), ty = pin ? pin.y : snap(S.wirePreview.y);
-  var dist = Math.hypot(tx - s.x, ty - s.y);
+
+  // Sprint 14: Elastic bezier with lag
+  if (typeof updateWireLag === 'function') updateWireLag(tx, ty);
+  var lagX = (typeof _wireLag !== 'undefined' && _wireLag.init) ? _wireLag.x : tx;
+  var lagY = (typeof _wireLag !== 'undefined' && _wireLag.init) ? _wireLag.y : ty;
+
+  // Sprint 14: Pin magnetic snap glow
+  if (pin && typeof _roundRect === 'function') {
+    var proximity = 1 - (Math.hypot(tx - S.wirePreview.x, ty - S.wirePreview.y) / 18);
+    if (proximity > 0) {
+      var glowR = 8 + proximity * 8;
+      var glowA = 0.2 + proximity * 0.5;
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(pin.x, pin.y, glowR, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(74, 158, 255, ' + glowA + ')';
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  var dist = Math.hypot(lagX - s.x, lagY - s.y);
   ctx.strokeStyle = '#00e09e'; ctx.lineWidth = 1.5; ctx.setLineDash([6, 4]);
   ctx.beginPath(); ctx.moveTo(s.x, s.y);
+
+  // Elastic bezier: use lag point as control point
+  var midX = (s.x + lagX) / 2;
+  var midY = (s.y + lagY) / 2;
+
   switch (S.wireStyle) {
     case 'manhattan':
-      var midX = (s.x + tx) / 2;
-      ctx.lineTo(midX, s.y); ctx.lineTo(midX, ty); ctx.lineTo(tx, ty);
+      ctx.lineTo(midX, s.y); ctx.lineTo(midX, lagY); ctx.lineTo(lagX, lagY);
       break;
     case 'straight':
-      ctx.lineTo(tx, ty);
+      ctx.quadraticCurveTo(midX, s.y, lagX, lagY);
       break;
     case 'spline':
-      var dx = tx - s.x;
-      ctx.bezierCurveTo(s.x + dx * 0.33, s.y, tx - dx * 0.33, ty, tx, ty);
+      var dx = lagX - s.x;
+      ctx.bezierCurveTo(s.x + dx * 0.33, s.y, lagX - dx * 0.33, lagY, lagX, lagY);
       break;
     case 'catenary':
     default:
       var sag = Math.min(dist * 0.1, 25);
-      var mx = (s.x + tx) / 2, my = (s.y + ty) / 2 + sag;
-      ctx.quadraticCurveTo(mx, my, tx, ty);
+      var mx = midX, my = midY + sag;
+      ctx.quadraticCurveTo(mx, my, lagX, lagY);
       break;
   }
   ctx.stroke();

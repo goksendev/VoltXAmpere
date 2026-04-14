@@ -704,16 +704,31 @@ var COMP = {
     }
   },
   comparator: {
-    name: 'Kar\u015f\u0131la\u015ft\u0131r\u0131c\u0131', en: 'Comparator', color: '#f59e0b', unit: '', def: 0, cat: 'ICs',
-    pins: [{ dx: -40, dy: -15 }, { dx: -40, dy: 15 }, { dx: 40, dy: 0 }],
+    name: 'Komparatör', en: 'Comparator', color: '#22c55e', unit: '', def: 0, cat: 'Mixed',
+    pins: [
+      { dx: -30, dy: -12 },   // Pin 0: V+ (non-inverting)
+      { dx: -30, dy: 12 },    // Pin 1: V- (inverting)
+      { dx: 30, dy: 0 },      // Pin 2: OUT (dijital)
+      { dx: 0, dy: -25 },     // Pin 3: VCC
+      { dx: 0, dy: 25 }       // Pin 4: GND
+    ],
     draw(c) {
-      c.strokeStyle = this.color; c.lineWidth = 2;
-      c.beginPath(); c.moveTo(-20,-24); c.lineTo(-20,24); c.lineTo(22,0); c.closePath(); c.stroke();
-      c.beginPath(); c.moveTo(-40,-15); c.lineTo(-20,-15); c.moveTo(-40,15); c.lineTo(-20,15); c.stroke();
-      c.beginPath(); c.moveTo(22,0); c.lineTo(40,0); c.stroke();
-      c.font='bold 10px sans-serif'; c.fillStyle=this.color; c.textAlign='center';
-      c.fillText('+', -15, -11); c.fillText('\u2212', -15, 19);
-      c.lineWidth=1; c.beginPath(); c.moveTo(26,-6); c.lineTo(26,-3); c.lineTo(30,-3); c.lineTo(30,3); c.lineTo(34,3); c.lineTo(34,6); c.stroke();
+      c.strokeStyle = this.color; c.lineWidth = 1.5;
+      // Op-amp benzeri üçgen
+      c.beginPath();
+      c.moveTo(-20, -25); c.lineTo(20, 0); c.lineTo(-20, 25); c.closePath();
+      c.fillStyle = '#1a2a1a'; c.fill(); c.stroke();
+      // + ve - işaretleri
+      c.fillStyle = '#aaffaa';
+      c.font = 'bold 10px monospace'; c.textAlign = 'center'; c.textBaseline = 'middle';
+      c.fillText('+', -12, -10); c.fillText('\u2212', -12, 10);
+      // Pin çizgileri
+      c.strokeStyle = '#aaaaaa'; c.lineWidth = 1;
+      c.beginPath(); c.moveTo(-20, -12); c.lineTo(-30, -12); c.stroke();
+      c.beginPath(); c.moveTo(-20, 12); c.lineTo(-30, 12); c.stroke();
+      c.beginPath(); c.moveTo(20, 0); c.lineTo(30, 0); c.stroke();
+      c.beginPath(); c.moveTo(0, -16); c.lineTo(0, -25); c.stroke();
+      c.beginPath(); c.moveTo(0, 16); c.lineTo(0, 25); c.stroke();
     }
   },
   crystal: {
@@ -796,6 +811,108 @@ var COMP = {
       c.beginPath(); c.moveTo(-10, 0); c.lineTo(10, 0); c.stroke();
       c.beginPath(); c.moveTo(-6, 5); c.lineTo(6, 5); c.stroke();
       c.beginPath(); c.moveTo(-2, 10); c.lineTo(2, 10); c.stroke();
+    }
+  },
+  // Sprint 18: Mixed-Signal Components
+  adc: {
+    name: 'ADC (8-bit)', en: 'ADC', color: '#06d6a0', unit: '', def: 0, cat: 'Mixed',
+    pins: [
+      { dx: -40, dy: 0 },     // Pin 0: AIN
+      { dx: -40, dy: -20 },   // Pin 1: VREF+
+      { dx: -40, dy: 20 },    // Pin 2: GND
+      { dx: 40, dy: -35 },    // Pin 3: D0 (LSB)
+      { dx: 40, dy: -25 },    // Pin 4: D1
+      { dx: 40, dy: -15 },    // Pin 5: D2
+      { dx: 40, dy: -5 },     // Pin 6: D3
+      { dx: 40, dy: 5 },      // Pin 7: D4
+      { dx: 40, dy: 15 },     // Pin 8: D5
+      { dx: 40, dy: 25 },     // Pin 9: D6
+      { dx: 40, dy: 35 },     // Pin 10: D7 (MSB)
+      { dx: -40, dy: -35 }    // Pin 11: CLK
+    ],
+    draw(c) {
+      c.strokeStyle = this.color; c.lineWidth = 1.5;
+      c.fillStyle = '#1a2a3a';
+      c.fillRect(-30, -40, 60, 80);
+      c.strokeRect(-30, -40, 60, 80);
+      c.fillStyle = '#aaddff';
+      c.font = 'bold 9px monospace'; c.textAlign = 'center'; c.textBaseline = 'middle';
+      c.fillText('ADC', 0, -6);
+      c.font = '7px monospace';
+      c.fillText('8-bit', 0, 6);
+      c.strokeStyle = '#ffaa44'; c.lineWidth = 1;
+      c.beginPath(); c.moveTo(-30, 0); c.lineTo(-40, 0); c.stroke();
+      c.beginPath(); c.moveTo(-30, -20); c.lineTo(-40, -20); c.stroke();
+      c.beginPath(); c.moveTo(-30, 20); c.lineTo(-40, 20); c.stroke();
+      c.beginPath(); c.moveTo(-30, -35); c.lineTo(-40, -35); c.stroke();
+      c.strokeStyle = '#44ff44';
+      for (var i = 0; i < 8; i++) {
+        var py = -35 + i * 10;
+        c.beginPath(); c.moveTo(30, py); c.lineTo(40, py); c.stroke();
+      }
+    }
+  },
+  dac: {
+    name: 'DAC (8-bit)', en: 'DAC', color: '#b388ff', unit: '', def: 0, cat: 'Mixed',
+    pins: [
+      { dx: -40, dy: -35 },   // Pin 0: D0 (LSB)
+      { dx: -40, dy: -25 },   // Pin 1: D1
+      { dx: -40, dy: -15 },   // Pin 2: D2
+      { dx: -40, dy: -5 },    // Pin 3: D3
+      { dx: -40, dy: 5 },     // Pin 4: D4
+      { dx: -40, dy: 15 },    // Pin 5: D5
+      { dx: -40, dy: 25 },    // Pin 6: D6
+      { dx: -40, dy: 35 },    // Pin 7: D7 (MSB)
+      { dx: 40, dy: 0 },      // Pin 8: AOUT
+      { dx: 40, dy: -20 },    // Pin 9: VREF+
+      { dx: 40, dy: 20 }      // Pin 10: GND
+    ],
+    draw(c) {
+      c.strokeStyle = this.color; c.lineWidth = 1.5;
+      c.fillStyle = '#2a1a3a';
+      c.fillRect(-30, -40, 60, 80);
+      c.strokeRect(-30, -40, 60, 80);
+      c.fillStyle = '#ddaaff';
+      c.font = 'bold 9px monospace'; c.textAlign = 'center'; c.textBaseline = 'middle';
+      c.fillText('DAC', 0, -6);
+      c.font = '7px monospace';
+      c.fillText('8-bit', 0, 6);
+      c.strokeStyle = '#44ff44'; c.lineWidth = 1;
+      for (var i = 0; i < 8; i++) {
+        var py = -35 + i * 10;
+        c.beginPath(); c.moveTo(-30, py); c.lineTo(-40, py); c.stroke();
+      }
+      c.strokeStyle = '#ffaa44';
+      c.beginPath(); c.moveTo(30, 0); c.lineTo(40, 0); c.stroke();
+      c.beginPath(); c.moveTo(30, -20); c.lineTo(40, -20); c.stroke();
+      c.beginPath(); c.moveTo(30, 20); c.lineTo(40, 20); c.stroke();
+    }
+  },
+  pwmGen: {
+    name: 'PWM \u00dcreteci', en: 'PWM', color: '#ffd166', unit: '', def: 0, cat: 'Mixed',
+    pins: [
+      { dx: -30, dy: 0 },     // Pin 0: CTRL
+      { dx: 30, dy: 0 },      // Pin 1: OUT
+      { dx: 0, dy: -20 },     // Pin 2: VCC
+      { dx: 0, dy: 20 }       // Pin 3: GND
+    ],
+    draw(c) {
+      c.strokeStyle = this.color; c.lineWidth = 1.5;
+      c.fillStyle = '#2a2a1a';
+      c.fillRect(-25, -18, 50, 36);
+      c.strokeRect(-25, -18, 50, 36);
+      c.strokeStyle = '#ffff44'; c.lineWidth = 1.2;
+      c.beginPath();
+      c.moveTo(-12, 8); c.lineTo(-12, -4); c.lineTo(0, -4); c.lineTo(0, 8); c.lineTo(12, 8);
+      c.stroke();
+      c.fillStyle = '#ffffaa';
+      c.font = '7px monospace'; c.textAlign = 'center'; c.textBaseline = 'middle';
+      c.fillText('PWM', 0, -12);
+      c.strokeStyle = '#aaaaaa'; c.lineWidth = 1;
+      c.beginPath(); c.moveTo(-25, 0); c.lineTo(-30, 0); c.stroke();
+      c.beginPath(); c.moveTo(25, 0); c.lineTo(30, 0); c.stroke();
+      c.beginPath(); c.moveTo(0, -18); c.lineTo(0, -20); c.stroke();
+      c.beginPath(); c.moveTo(0, 18); c.lineTo(0, 20); c.stroke();
     }
   }
 };

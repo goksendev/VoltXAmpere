@@ -397,6 +397,23 @@ input:focus{border-color:var(--accent)}
 @media (hover:none) {
   .tb-btn:hover,.comp-item:hover,.cat-header:hover{background:inherit;color:inherit}
 }
+/* === TIMELINE BAR (Sprint 11) === */
+#timeline-bar{display:flex;align-items:center;gap:8px;padding:4px 8px;background:var(--bg);border-top:1px solid var(--border-2);height:40px;user-select:none}
+#tl-controls{display:flex;gap:2px}
+#tl-controls button{background:none;border:1px solid var(--border-2);color:var(--text-2);width:28px;height:28px;border-radius:4px;cursor:pointer;font-size:10px;display:flex;align-items:center;justify-content:center;padding:0}
+#tl-controls button:hover{background:var(--surface-3);color:var(--text)}
+#tl-controls button:active{background:var(--surface-2)}
+#tl-scrubber{flex:1;position:relative;height:32px;cursor:pointer;border-radius:4px;overflow:hidden}
+#tl-canvas{width:100%;height:32px;background:var(--surface)}
+#tl-playhead{position:absolute;top:0;left:0;width:2px;height:32px;background:var(--accent);pointer-events:none;transition:left 0.03s linear}
+#tl-time{font:11px var(--font-mono);color:var(--text-3);white-space:nowrap;min-width:130px;text-align:right}
+#tl-time span{vertical-align:middle}
+#tl-current{color:var(--accent)}
+@media (max-width:768px){
+  #timeline-bar{gap:4px;padding:2px 4px;height:36px}
+  #tl-controls button{width:24px;height:24px;font-size:8px}
+  #tl-time{font-size:9px;min-width:100px}
+}
 </style>
 </head>
 <body>
@@ -428,7 +445,10 @@ input:focus{border-color:var(--accent)}
     <button class="tb-btn" id="btn-realistic" onclick="toggleRealisticBtn()" title="Gerçekçi Mod (Shift+R)">&#128737; Gerçekçi</button>
     <button class="tb-btn" onclick="cycleBgBtn()" title="Arka Plan (B)">&#127912; Arka Plan</button>
     <button class="tb-btn" onclick="fitToScreen()" title="Sığdır (Ctrl+Shift+F)">&#128208; Sığdır</button>
+    <button class="tb-btn" id="btn-chaos" onclick="toggleChaosPanel()" title="Kaos Testi (Shift+K)" style="color:#ff8800">⚡ Kaos</button>
+    <button class="tb-btn" id="btn-probes" onclick="toggleProbeMode()" title="Prob Modu (Shift+P)" style="color:#4a9eff">🔌 Prob</button>
     <div class="sim-badge">
+      <button class="tb-btn" style="font-size:10px" onclick="if(typeof _tlEnterPlayback==='function')_tlEnterPlayback()" title="Time Machine (M)" id="btn-timemachine">&#9194; Rewind</button>
       <button class="tb-btn" style="font-size:10px" onclick="simStep()" title="Tek Ad&#305;m">&#9193; Ad&#305;m</button>
       <button class="tb-btn" style="font-size:10px" onclick="simBookmark()" title="Yer &#304;mi">&#128278; &#304;&#351;aretle</button>
       <button class="tb-btn" style="font-size:10px" onclick="simGotoBookmark()" title="Yer &#304;mine Git">&#8617; Geri</button>
@@ -473,6 +493,7 @@ input:focus{border-color:var(--accent)}
       <button class="btab" data-tab="noise" onclick="switchTab('noise')">G&#252;r&#252;lt&#252;</button>
       <button class="btab" data-tab="sensitivity" onclick="switchTab('sensitivity')">Duyarl&#305;l&#305;k</button>
       <button class="btab" data-tab="worstcase" onclick="switchTab('worstcase')">Worst Case</button>
+      <button class="btab" data-tab="timing" onclick="switchTab('timing')">Timing</button>
     </div>
     <div id="tab-scope" class="tab-panel active" style="grid-template-columns:1fr 200px">
       <div id="scope-wrap">
@@ -568,6 +589,29 @@ input:focus{border-color:var(--accent)}
     <div id="tab-noise" class="tab-panel" style="position:relative"><canvas id="NOISEC" style="width:100%;height:100%"></canvas><div class="tab-overlay" id="ov-noise"><p>Diren&ccedil;li devre kurun</p><button class="run-btn" onclick="runNoiseAnalysis()">&#9654; G&uuml;r&uuml;lt&uuml; Analizi Ba&scedil;lat</button></div></div>
     <div id="tab-sensitivity" class="tab-panel" style="position:relative"><canvas id="SENSC" style="width:100%;height:100%"></canvas><div class="tab-overlay" id="ov-sensitivity"><p>Hangi bile&scedil;en en kritik?</p><button class="run-btn" onclick="runSensitivity()">&#9654; Duyarl&inodot;l&inodot;k Analizi</button></div></div>
     <div id="tab-worstcase" class="tab-panel" style="position:relative"><canvas id="WCC" style="width:100%;height:100%"></canvas><div class="tab-overlay" id="ov-worstcase"><p>Tolerans u&ccedil;lar&inodot;n&inodot; test edin</p><button class="run-btn" onclick="runWorstCase('evp')">&#9654; EVP (&plusmn;10%)</button> <button class="run-btn" onclick="runWorstCase('rss')" style="margin-left:6px">&#9654; RSS (&plusmn;10%)</button></div></div>
+    <div id="tab-timing" class="tab-panel" style="position:relative"><canvas id="TIMING" style="width:100%;height:100%"></canvas><div class="tab-overlay" id="ov-timing"><p>Dijital devre kurun, sim&uuml;lasyonu ba&scedil;lat&inodot;n</p><button class="run-btn" onclick="if(VXA.Digital)VXA.Digital.init(S.parts)">&#9654; Timing Kaydet</button></div></div>
+  </div>
+
+  <!-- TIMELINE BAR (Sprint 11: Time Machine) -->
+  <div id="timeline-bar" style="display:none;">
+    <div id="tl-controls">
+      <button id="tl-step-back" title="Step Back (,)">&#9664;&#9664;</button>
+      <button id="tl-back" title="Rewind">&#9664;</button>
+      <button id="tl-play-pause" title="Play/Pause">&#9654;</button>
+      <button id="tl-forward" title="Forward">&#9654;</button>
+      <button id="tl-step-fwd" title="Step Forward (.)">&#9654;&#9654;</button>
+      <button id="tl-bookmark" title="Bookmark">&#9873;</button>
+      <button id="tl-exit" title="Exit (Esc)">&#10005;</button>
+    </div>
+    <div id="tl-scrubber">
+      <canvas id="tl-canvas" height="32"></canvas>
+      <div id="tl-playhead"></div>
+    </div>
+    <div id="tl-time">
+      <span id="tl-current">0s</span>
+      <span>/</span>
+      <span id="tl-total">0s</span>
+    </div>
   </div>
 
   <!-- STATUSBAR -->
@@ -974,6 +1018,34 @@ var STR = {
     bothMethods:'Her İkisi', quickStart:'Hızlı Başla', ledCircuit:'LED Yak',
     rcFilter:'RC Filtre', voltageDivider:'Gerilim Bölücü', zenerReg:'Zener Regülatör',
     storageFull:'Depolama alanı dolu. Devrenizi JSON olarak kaydedin.',
+    timeMachine:'Zaman Makinesi', playback:'Oynatma', bookmarkName:'Yer imi adı:',
+    exitPlayback:'Oynatmadan Çık', stepBack:'Bir Kare Geri', stepForward:'Bir Kare İleri',
+    rewind:'Geri Sar', timeMachineEnabled:'Zaman Makinesi aktif',
+    spatialAudio:'Mekansal Ses', humActive:'aktif uğultu', wireVibration:'Kablo Titreşimi',
+    chaosTest:'Kaos Testi', chaosStart:'Testi Başlat', chaosStop:'Durdur',
+    chaosSeverity:'Şiddet', chaosDuration:'Süre', chaosScore:'Sağlamlık Puanı',
+    chaosWeakPoints:'Zayıf Noktalar', chaosDownload:'Raporu İndir',
+    chaosRunning:'Test çalışıyor...', chaosNoScenario:'En az bir senaryo seçin',
+    chaosMode:'Kaos Modu',
+    formulaOverlay:'Formül Gösterimi', probeMode:'Prob Modu',
+    aiToolUse:'Araç Kullanımı', aiCircuitBuilt:'Devre oluşturuldu',
+    aiKeyLabel:'Anthropic API Anahtarı', aiKeySaved:'API anahtarı kaydedildi!',
+    errorDetection:'Hata Tespiti', noErrors:'Hata bulunamadı!',
+    errorsFound:'sorun tespit edildi', autoFix:'Otomatik Düzelt', fixApplied:'Düzeltme uygulandı',
+    digital:'Dijital', gates:'Kapılar', flipFlops:'Flip-Flop', complex:'Kompleks',
+    timingDiagram:'Zamanlama Diyagramı', clockFrequency:'Saat Frekansı',
+    propagationDelay:'Yayılma Gecikmesi', tabTiming:'Timing',
+    probeRed:'Kırmızı Prob (+)', probeBlack:'Siyah Prob (\u2212)',
+    probeMeasurement:'Ölçüm', magneticSnap:'Mıknatıs Tutma',
+    mixed_signal:'Mixed-Signal', catMixed:'Mixed-Signal',
+    adc_8bit:'ADC (8-bit)', dac_8bit:'DAC (8-bit)',
+    comparator_ms:'Komparatör', pwm_generator:'PWM Üreteci',
+    sampling_rate:'Örnekleme Hızı', settling_time:'Yerleşme Süresi',
+    hysteresis:'Histerezis', response_time:'Tepki Süresi',
+    frequency_ms:'Frekans', duty_cycle:'Görev Döngüsü', amplitude:'Genlik',
+    digital_output:'Dijital Çıkış', digital_input:'Dijital Giriş',
+    analog_input:'Analog Giriş', analog_output:'Analog Çıkış',
+    benchmark_running:'Performans testi çalışıyor...', benchmark_complete:'Performans testi tamamlandı',
   },
   en: {
     undo:'Undo', redo:'Redo', wire:'Wire', rotate:'Rotate', del:'Delete',
@@ -1041,6 +1113,34 @@ var STR = {
     bothMethods:'Both', quickStart:'Quick Start', ledCircuit:'Light an LED',
     rcFilter:'RC Filter', voltageDivider:'Voltage Divider', zenerReg:'Zener Regulator',
     storageFull:'Storage full. Please export your circuit as JSON.',
+    timeMachine:'Time Machine', playback:'Playback', bookmarkName:'Bookmark name:',
+    exitPlayback:'Exit Playback', stepBack:'Step Back', stepForward:'Step Forward',
+    rewind:'Rewind', timeMachineEnabled:'Time Machine enabled',
+    spatialAudio:'Spatial Audio', humActive:'active hum', wireVibration:'Wire Vibration',
+    chaosTest:'Chaos Test', chaosStart:'Start Test', chaosStop:'Stop',
+    chaosSeverity:'Severity', chaosDuration:'Duration', chaosScore:'Robustness Score',
+    chaosWeakPoints:'Weak Points', chaosDownload:'Download Report',
+    chaosRunning:'Test running...', chaosNoScenario:'Select at least one scenario',
+    chaosMode:'Chaos Mode',
+    formulaOverlay:'Formula Overlay', probeMode:'Probe Mode',
+    aiToolUse:'Tool Use', aiCircuitBuilt:'Circuit built',
+    aiKeyLabel:'Anthropic API Key', aiKeySaved:'API key saved!',
+    errorDetection:'Error Detection', noErrors:'No errors found!',
+    errorsFound:'issues detected', autoFix:'Auto Fix', fixApplied:'Fix applied',
+    digital:'Digital', gates:'Gates', flipFlops:'Flip-Flops', complex:'Complex',
+    timingDiagram:'Timing Diagram', clockFrequency:'Clock Frequency',
+    propagationDelay:'Propagation Delay', tabTiming:'Timing',
+    probeRed:'Red Probe (+)', probeBlack:'Black Probe (\u2212)',
+    probeMeasurement:'Measurement', magneticSnap:'Magnetic Snap',
+    mixed_signal:'Mixed-Signal', catMixed:'Mixed-Signal',
+    adc_8bit:'ADC (8-bit)', dac_8bit:'DAC (8-bit)',
+    comparator_ms:'Comparator', pwm_generator:'PWM Generator',
+    sampling_rate:'Sampling Rate', settling_time:'Settling Time',
+    hysteresis:'Hysteresis', response_time:'Response Time',
+    frequency_ms:'Frequency', duty_cycle:'Duty Cycle', amplitude:'Amplitude',
+    digital_output:'Digital Output', digital_input:'Digital Input',
+    analog_input:'Analog Input', analog_output:'Analog Output',
+    benchmark_running:'Running benchmark...', benchmark_complete:'Benchmark complete',
   }
 };
 
@@ -1846,16 +1946,31 @@ var COMP = {
     }
   },
   comparator: {
-    name: 'Kar\u015f\u0131la\u015ft\u0131r\u0131c\u0131', en: 'Comparator', color: '#f59e0b', unit: '', def: 0, cat: 'ICs',
-    pins: [{ dx: -40, dy: -15 }, { dx: -40, dy: 15 }, { dx: 40, dy: 0 }],
+    name: 'Komparatör', en: 'Comparator', color: '#22c55e', unit: '', def: 0, cat: 'Mixed',
+    pins: [
+      { dx: -30, dy: -12 },   // Pin 0: V+ (non-inverting)
+      { dx: -30, dy: 12 },    // Pin 1: V- (inverting)
+      { dx: 30, dy: 0 },      // Pin 2: OUT (dijital)
+      { dx: 0, dy: -25 },     // Pin 3: VCC
+      { dx: 0, dy: 25 }       // Pin 4: GND
+    ],
     draw(c) {
-      c.strokeStyle = this.color; c.lineWidth = 2;
-      c.beginPath(); c.moveTo(-20,-24); c.lineTo(-20,24); c.lineTo(22,0); c.closePath(); c.stroke();
-      c.beginPath(); c.moveTo(-40,-15); c.lineTo(-20,-15); c.moveTo(-40,15); c.lineTo(-20,15); c.stroke();
-      c.beginPath(); c.moveTo(22,0); c.lineTo(40,0); c.stroke();
-      c.font='bold 10px sans-serif'; c.fillStyle=this.color; c.textAlign='center';
-      c.fillText('+', -15, -11); c.fillText('\u2212', -15, 19);
-      c.lineWidth=1; c.beginPath(); c.moveTo(26,-6); c.lineTo(26,-3); c.lineTo(30,-3); c.lineTo(30,3); c.lineTo(34,3); c.lineTo(34,6); c.stroke();
+      c.strokeStyle = this.color; c.lineWidth = 1.5;
+      // Op-amp benzeri üçgen
+      c.beginPath();
+      c.moveTo(-20, -25); c.lineTo(20, 0); c.lineTo(-20, 25); c.closePath();
+      c.fillStyle = '#1a2a1a'; c.fill(); c.stroke();
+      // + ve - işaretleri
+      c.fillStyle = '#aaffaa';
+      c.font = 'bold 10px monospace'; c.textAlign = 'center'; c.textBaseline = 'middle';
+      c.fillText('+', -12, -10); c.fillText('\u2212', -12, 10);
+      // Pin çizgileri
+      c.strokeStyle = '#aaaaaa'; c.lineWidth = 1;
+      c.beginPath(); c.moveTo(-20, -12); c.lineTo(-30, -12); c.stroke();
+      c.beginPath(); c.moveTo(-20, 12); c.lineTo(-30, 12); c.stroke();
+      c.beginPath(); c.moveTo(20, 0); c.lineTo(30, 0); c.stroke();
+      c.beginPath(); c.moveTo(0, -16); c.lineTo(0, -25); c.stroke();
+      c.beginPath(); c.moveTo(0, 16); c.lineTo(0, 25); c.stroke();
     }
   },
   crystal: {
@@ -1938,6 +2053,108 @@ var COMP = {
       c.beginPath(); c.moveTo(-10, 0); c.lineTo(10, 0); c.stroke();
       c.beginPath(); c.moveTo(-6, 5); c.lineTo(6, 5); c.stroke();
       c.beginPath(); c.moveTo(-2, 10); c.lineTo(2, 10); c.stroke();
+    }
+  },
+  // Sprint 18: Mixed-Signal Components
+  adc: {
+    name: 'ADC (8-bit)', en: 'ADC', color: '#06d6a0', unit: '', def: 0, cat: 'Mixed',
+    pins: [
+      { dx: -40, dy: 0 },     // Pin 0: AIN
+      { dx: -40, dy: -20 },   // Pin 1: VREF+
+      { dx: -40, dy: 20 },    // Pin 2: GND
+      { dx: 40, dy: -35 },    // Pin 3: D0 (LSB)
+      { dx: 40, dy: -25 },    // Pin 4: D1
+      { dx: 40, dy: -15 },    // Pin 5: D2
+      { dx: 40, dy: -5 },     // Pin 6: D3
+      { dx: 40, dy: 5 },      // Pin 7: D4
+      { dx: 40, dy: 15 },     // Pin 8: D5
+      { dx: 40, dy: 25 },     // Pin 9: D6
+      { dx: 40, dy: 35 },     // Pin 10: D7 (MSB)
+      { dx: -40, dy: -35 }    // Pin 11: CLK
+    ],
+    draw(c) {
+      c.strokeStyle = this.color; c.lineWidth = 1.5;
+      c.fillStyle = '#1a2a3a';
+      c.fillRect(-30, -40, 60, 80);
+      c.strokeRect(-30, -40, 60, 80);
+      c.fillStyle = '#aaddff';
+      c.font = 'bold 9px monospace'; c.textAlign = 'center'; c.textBaseline = 'middle';
+      c.fillText('ADC', 0, -6);
+      c.font = '7px monospace';
+      c.fillText('8-bit', 0, 6);
+      c.strokeStyle = '#ffaa44'; c.lineWidth = 1;
+      c.beginPath(); c.moveTo(-30, 0); c.lineTo(-40, 0); c.stroke();
+      c.beginPath(); c.moveTo(-30, -20); c.lineTo(-40, -20); c.stroke();
+      c.beginPath(); c.moveTo(-30, 20); c.lineTo(-40, 20); c.stroke();
+      c.beginPath(); c.moveTo(-30, -35); c.lineTo(-40, -35); c.stroke();
+      c.strokeStyle = '#44ff44';
+      for (var i = 0; i < 8; i++) {
+        var py = -35 + i * 10;
+        c.beginPath(); c.moveTo(30, py); c.lineTo(40, py); c.stroke();
+      }
+    }
+  },
+  dac: {
+    name: 'DAC (8-bit)', en: 'DAC', color: '#b388ff', unit: '', def: 0, cat: 'Mixed',
+    pins: [
+      { dx: -40, dy: -35 },   // Pin 0: D0 (LSB)
+      { dx: -40, dy: -25 },   // Pin 1: D1
+      { dx: -40, dy: -15 },   // Pin 2: D2
+      { dx: -40, dy: -5 },    // Pin 3: D3
+      { dx: -40, dy: 5 },     // Pin 4: D4
+      { dx: -40, dy: 15 },    // Pin 5: D5
+      { dx: -40, dy: 25 },    // Pin 6: D6
+      { dx: -40, dy: 35 },    // Pin 7: D7 (MSB)
+      { dx: 40, dy: 0 },      // Pin 8: AOUT
+      { dx: 40, dy: -20 },    // Pin 9: VREF+
+      { dx: 40, dy: 20 }      // Pin 10: GND
+    ],
+    draw(c) {
+      c.strokeStyle = this.color; c.lineWidth = 1.5;
+      c.fillStyle = '#2a1a3a';
+      c.fillRect(-30, -40, 60, 80);
+      c.strokeRect(-30, -40, 60, 80);
+      c.fillStyle = '#ddaaff';
+      c.font = 'bold 9px monospace'; c.textAlign = 'center'; c.textBaseline = 'middle';
+      c.fillText('DAC', 0, -6);
+      c.font = '7px monospace';
+      c.fillText('8-bit', 0, 6);
+      c.strokeStyle = '#44ff44'; c.lineWidth = 1;
+      for (var i = 0; i < 8; i++) {
+        var py = -35 + i * 10;
+        c.beginPath(); c.moveTo(-30, py); c.lineTo(-40, py); c.stroke();
+      }
+      c.strokeStyle = '#ffaa44';
+      c.beginPath(); c.moveTo(30, 0); c.lineTo(40, 0); c.stroke();
+      c.beginPath(); c.moveTo(30, -20); c.lineTo(40, -20); c.stroke();
+      c.beginPath(); c.moveTo(30, 20); c.lineTo(40, 20); c.stroke();
+    }
+  },
+  pwmGen: {
+    name: 'PWM \u00dcreteci', en: 'PWM', color: '#ffd166', unit: '', def: 0, cat: 'Mixed',
+    pins: [
+      { dx: -30, dy: 0 },     // Pin 0: CTRL
+      { dx: 30, dy: 0 },      // Pin 1: OUT
+      { dx: 0, dy: -20 },     // Pin 2: VCC
+      { dx: 0, dy: 20 }       // Pin 3: GND
+    ],
+    draw(c) {
+      c.strokeStyle = this.color; c.lineWidth = 1.5;
+      c.fillStyle = '#2a2a1a';
+      c.fillRect(-25, -18, 50, 36);
+      c.strokeRect(-25, -18, 50, 36);
+      c.strokeStyle = '#ffff44'; c.lineWidth = 1.2;
+      c.beginPath();
+      c.moveTo(-12, 8); c.lineTo(-12, -4); c.lineTo(0, -4); c.lineTo(0, 8); c.lineTo(12, 8);
+      c.stroke();
+      c.fillStyle = '#ffffaa';
+      c.font = '7px monospace'; c.textAlign = 'center'; c.textBaseline = 'middle';
+      c.fillText('PWM', 0, -12);
+      c.strokeStyle = '#aaaaaa'; c.lineWidth = 1;
+      c.beginPath(); c.moveTo(-25, 0); c.lineTo(-30, 0); c.stroke();
+      c.beginPath(); c.moveTo(25, 0); c.lineTo(30, 0); c.stroke();
+      c.beginPath(); c.moveTo(0, -18); c.lineTo(0, -20); c.stroke();
+      c.beginPath(); c.moveTo(0, 18); c.lineTo(0, 20); c.stroke();
     }
   }
 };
@@ -2307,6 +2524,24 @@ function toggleSim() {
     VXA.AdaptiveStep.reset();
     buildCircuitFromCanvas();
     VXA.SimV2.findDCOperatingPoint();
+    // TimeMachine: enable and reset for new simulation run
+    if (VXA.TimeMachine) {
+      if (VXA.TimeMachine.isPlayback()) {
+        if (typeof _tlExitPlayback === 'function') _tlExitPlayback();
+        else VXA.TimeMachine.resume();
+      }
+      VXA.TimeMachine.setEnabled(true);
+      VXA.TimeMachine.reset();
+    }
+    // Sprint 17: Init digital engine
+    if (VXA.Digital) VXA.Digital.init(S.parts);
+    // Sprint 18: Reset mixed-signal
+    if (VXA.MixedSignal) VXA.MixedSignal.reset();
+  } else {
+    // Sim stopped — stop all hums
+    if (VXA.SpatialAudio) VXA.SpatialAudio.stopAll();
+    // Sprint 17: Stop digital engine
+    if (VXA.Digital) VXA.Digital.stop();
   }
   if (typeof announce === 'function') announce(S.sim.running ? 'Sim\u00fclasyon ba\u015flad\u0131' : 'Sim\u00fclasyon durduruldu');
 }
@@ -2564,6 +2799,8 @@ wrap.addEventListener('mousemove', e => {
   }
   // box select
   if (S.selBox) { S.selBox.x2 = w.x; S.selBox.y2 = w.y; needsRender = true; }
+  // Sprint 14: Probe drag
+  if (VXA.Probes && VXA.Probes.isDragging()) { VXA.Probes.onDrag(w.x, w.y); needsRender = true; }
   // wire preview
   if (S.mode === 'wire' && S.wireStart) { S.wirePreview = { x: w.x, y: w.y }; needsRender = true; }
   if (S.mode === 'place') needsRender = true;
@@ -2590,22 +2827,44 @@ wrap.addEventListener('mousedown', e => {
     var defModel = VXA.Models.getDefault(S.placingType);
     if (defModel) { p.model = defModel; applyModel(p, defModel); }
     S.parts.push(p); S.sel = [p.id]; needsRender = true; updateInspector();
-    if (typeof VXA !== 'undefined' && VXA.Sound) VXA.Sound.play('click');
+    if (typeof VXA !== 'undefined' && VXA.Sound) VXA.Sound.play('click', p.x, p.y);
     return;
+  }
+
+  // Sprint 14: Probe mode — drag handling
+  if (VXA.Probes && VXA.Probes.isActive()) {
+    var probeHit = VXA.Probes.hitTest(w.x, w.y);
+    if (probeHit) {
+      VXA.Probes.startDrag(probeHit);
+      return;
+    }
+    // Click in probe mode without hitting a probe → place red then black
+    var pState = VXA.Probes.getState();
+    if (!pState.probes.red.attached) { VXA.Probes.startDrag('red'); VXA.Probes.onDrag(w.x, w.y); VXA.Probes.onDrop(w.x, w.y); return; }
+    if (!pState.probes.black.attached) { VXA.Probes.startDrag('black'); VXA.Probes.onDrag(w.x, w.y); VXA.Probes.onDrop(w.x, w.y); return; }
   }
 
   // WIRE MODE
   if (S.mode === 'wire') {
     const pin = S.hoveredPin;
     const tx = pin ? pin.x : snap(w.x), ty = pin ? pin.y : snap(w.y);
-    if (!S.wireStart) { S.wireStart = { x: tx, y: ty }; }
+    if (!S.wireStart) {
+      S.wireStart = { x: tx, y: ty };
+      if (typeof resetWireLag === 'function') resetWireLag();
+    }
     else {
       if (Math.abs(tx - S.wireStart.x) < 2 && Math.abs(ty - S.wireStart.y) < 2) {
-        S.wireStart = null; S.wirePreview = null; needsRender = true; return;
+        S.wireStart = null; S.wirePreview = null;
+        if (typeof resetWireLag === 'function') resetWireLag();
+        needsRender = true; return;
       }
       saveUndo();
       S.wires.push({ x1: S.wireStart.x, y1: S.wireStart.y, x2: tx, y2: ty });
-      S.wireStart = { x: tx, y: ty }; S.wirePreview = null; needsRender = true;
+      // Sprint 14: Flash effect on connection
+      if (typeof onWireConnected === 'function') onWireConnected(tx, ty);
+      S.wireStart = { x: tx, y: ty }; S.wirePreview = null;
+      if (typeof resetWireLag === 'function') resetWireLag();
+      needsRender = true;
     }
     return;
   }
@@ -2631,6 +2890,11 @@ wrap.addEventListener('mousedown', e => {
 });
 
 wrap.addEventListener('mouseup', () => {
+  // Sprint 14: Probe drop
+  if (VXA.Probes && VXA.Probes.isDragging()) {
+    var _pw = s2w(S.mouse.x, S.mouse.y);
+    VXA.Probes.onDrop(_pw.x, _pw.y);
+  }
   if (S.drag.active) { S.drag.active = false; S.drag.type = null; }
   if (S.selBox) {
     const b = S.selBox;
@@ -2652,7 +2916,7 @@ wrap.addEventListener('dblclick', () => {
   var w2 = s2w(S.mouse.x, S.mouse.y), hit = hitTestPart(w2.x, w2.y);
   if (hit && hit.type === 'switch') {
     saveUndo(); hit.closed = !hit.closed; needsRender = true;
-    if (typeof VXA !== 'undefined' && VXA.Sound) VXA.Sound.play('switch');
+    if (typeof VXA !== 'undefined' && VXA.Sound) VXA.Sound.play('switch', hit.x, hit.y);
     if (S.sim.running) buildCircuitFromCanvas();
     return;
   }
@@ -2722,7 +2986,8 @@ document.addEventListener('keydown', e => {
     if (S.sel.length) { var ep = S.parts.find(function(pp){return pp.id===S.sel[0];}); if (ep) openInlineEdit(ep); }
     return;
   }
-  if (k === 'p') { ctxProbe(); return; }
+  if (k === 'p' && !e.shiftKey) { if (VXA.Probes && VXA.Probes.isActive()) { VXA.Probes.toggle(); return; } ctxProbe(); return; }
+  if (k === 'p' && e.shiftKey) { if (typeof toggleProbeMode === 'function') toggleProbeMode(); return; }
   if (k === 't' && !e.ctrlKey) {
     var text = prompt('Not metni:', '');
     if (text) {
@@ -2966,6 +3231,12 @@ function drawPart(part) {
 
   ctx.save(); ctx.translate(part.x + thermalShakeX, part.y + thermalShakeY); ctx.rotate(rot);
 
+  // Sprint 14: Capacitor breathing effect
+  var _capBreath = (typeof getCapacitorBreathing === 'function') ? getCapacitorBreathing(part) : null;
+  if (_capBreath) {
+    ctx.scale(_capBreath.scale, _capBreath.scale);
+  }
+
   // Damaged parts: draw in grey
   if (part.damaged && !part._explodeAnim?.active && !part._burnAnim?.active) {
     ctx.globalAlpha = 0.6;
@@ -3167,42 +3438,112 @@ function drawWire(w) {
   var cur = Math.abs(w._current || 0);
   var style = S.wireStyle || 'catenary';
 
-  ctx.strokeStyle = cur > 0.5 ? '#f59e0b' : cur > 1e-6 ? '#00e09e' : '#3a4a5a';
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(w.x1, w.y1);
-
-  var sag, mx, my;
-  switch (style) {
-    case 'manhattan':
-      // Right-angle routing: horizontal then vertical
-      var midX = (w.x1 + w.x2) / 2;
-      ctx.lineTo(midX, w.y1);
-      ctx.lineTo(midX, w.y2);
-      ctx.lineTo(w.x2, w.y2);
-      break;
-
-    case 'straight':
-      ctx.lineTo(w.x2, w.y2);
-      break;
-
-    case 'spline':
-      // Smooth bezier curve
-      var dx = w.x2 - w.x1, dy = w.y2 - w.y1;
-      var cx1 = w.x1 + dx * 0.33, cy1 = w.y1;
-      var cx2 = w.x2 - dx * 0.33, cy2 = w.y2;
-      ctx.bezierCurveTo(cx1, cy1, cx2, cy2, w.x2, w.y2);
-      break;
-
-    case 'catenary':
-    default:
-      sag = Math.min(dist * 0.1, 25);
-      mx = (w.x1 + w.x2) / 2;
-      my = (w.y1 + w.y2) / 2 + sag;
-      ctx.quadraticCurveTo(mx, my, w.x2, w.y2);
-      break;
+  // Sprint 12: Akım bazlı renk değişimi
+  var wireRatio = Math.min(1, cur / 1.0);
+  var wireColor;
+  if (wireRatio > 0.8) wireColor = '#ff3333';
+  else if (wireRatio > 0.5) {
+    var r = Math.min(255, 100 + wireRatio * 200);
+    var g = Math.max(50, 200 - wireRatio * 200);
+    wireColor = 'rgb(' + Math.round(r) + ',' + Math.round(g) + ',50)';
+  } else {
+    wireColor = cur > 0.5 ? '#f59e0b' : cur > 1e-6 ? '#00e09e' : '#3a4a5a';
   }
-  ctx.stroke();
+
+  ctx.strokeStyle = wireColor;
+  ctx.lineWidth = 2;
+
+  // Sprint 12: Kablo titreşim efekti
+  var vibrate = S.sim.running && S.realisticMode && wireRatio > 0.15 && !S.reducedMotion;
+
+  if (vibrate && dist > 10) {
+    var now = Date.now();
+    var freq = 8 + wireRatio * 30;
+    var amp = 0.5 + wireRatio * 3;
+    if (wireRatio > 0.9) { freq = 50; amp = 5; }
+
+    // Kablo yönüne dik birim vektör
+    var wdx = w.x2 - w.x1, wdy = w.y2 - w.y1;
+    var len = Math.sqrt(wdx * wdx + wdy * wdy);
+    var nx = -wdy / len, ny = wdx / len;
+
+    var segments = Math.max(5, Math.round(len / 15));
+
+    // Glow efekti (yüksek akım)
+    if (wireRatio > 0.8) {
+      ctx.save();
+      ctx.globalAlpha = 0.2;
+      ctx.lineWidth = 6;
+      ctx.strokeStyle = '#ff0000';
+      ctx.beginPath();
+      for (var gs = 0; gs <= segments; gs++) {
+        var gt = gs / segments;
+        var gpx = w.x1 + wdx * gt;
+        var gpy = w.y1 + wdy * gt;
+        var gEnv = Math.sin(gt * Math.PI);
+        var gVib = Math.sin(now * freq / 1000 * Math.PI * 2 + gs * 0.8) * amp * gEnv;
+        gpx += nx * gVib; gpy += ny * gVib;
+        if (gs === 0) ctx.moveTo(gpx, gpy); else ctx.lineTo(gpx, gpy);
+      }
+      ctx.stroke();
+      ctx.restore();
+      ctx.strokeStyle = wireColor;
+      ctx.lineWidth = 2;
+    }
+
+    // Ana kablo titreşimli çizim
+    ctx.beginPath();
+    for (var s = 0; s <= segments; s++) {
+      var t = s / segments;
+      var px, py;
+      // Kablo stili bazında pozisyon hesapla
+      if (style === 'catenary') {
+        var sag2 = Math.min(dist * 0.1, 25);
+        var mx2 = (w.x1 + w.x2) / 2, my2 = (w.y1 + w.y2) / 2 + sag2;
+        px = (1-t)*(1-t)*w.x1 + 2*(1-t)*t*mx2 + t*t*w.x2;
+        py = (1-t)*(1-t)*w.y1 + 2*(1-t)*t*my2 + t*t*w.y2;
+      } else {
+        px = w.x1 + wdx * t;
+        py = w.y1 + wdy * t;
+      }
+      var envelope = Math.sin(t * Math.PI);
+      var vibOffset = Math.sin(now * freq / 1000 * Math.PI * 2 + s * 0.8) * amp * envelope;
+      px += nx * vibOffset; py += ny * vibOffset;
+      if (s === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+  } else {
+    // Normal kablo çizim (titreşimsiz)
+    ctx.beginPath();
+    ctx.moveTo(w.x1, w.y1);
+
+    var sag, mx, my;
+    switch (style) {
+      case 'manhattan':
+        var midX = (w.x1 + w.x2) / 2;
+        ctx.lineTo(midX, w.y1);
+        ctx.lineTo(midX, w.y2);
+        ctx.lineTo(w.x2, w.y2);
+        break;
+      case 'straight':
+        ctx.lineTo(w.x2, w.y2);
+        break;
+      case 'spline':
+        var dx = w.x2 - w.x1, dy = w.y2 - w.y1;
+        var cx1 = w.x1 + dx * 0.33, cy1 = w.y1;
+        var cx2 = w.x2 - dx * 0.33, cy2 = w.y2;
+        ctx.bezierCurveTo(cx1, cy1, cx2, cy2, w.x2, w.y2);
+        break;
+      case 'catenary':
+      default:
+        sag = Math.min(dist * 0.1, 25);
+        mx = (w.x1 + w.x2) / 2;
+        my = (w.y1 + w.y2) / 2 + sag;
+        ctx.quadraticCurveTo(mx, my, w.x2, w.y2);
+        break;
+    }
+    ctx.stroke();
+  }
 
   // Enhanced current flow animation
   if (!S.reducedMotion && S.sim.running && S.animationsOn && cur > 1e-6) {
@@ -3297,26 +3638,51 @@ function drawWirePreview() {
   var s = S.wireStart;
   var pin = S.hoveredPin;
   var tx = pin ? pin.x : snap(S.wirePreview.x), ty = pin ? pin.y : snap(S.wirePreview.y);
-  var dist = Math.hypot(tx - s.x, ty - s.y);
+
+  // Sprint 14: Elastic bezier with lag
+  if (typeof updateWireLag === 'function') updateWireLag(tx, ty);
+  var lagX = (typeof _wireLag !== 'undefined' && _wireLag.init) ? _wireLag.x : tx;
+  var lagY = (typeof _wireLag !== 'undefined' && _wireLag.init) ? _wireLag.y : ty;
+
+  // Sprint 14: Pin magnetic snap glow
+  if (pin && typeof _roundRect === 'function') {
+    var proximity = 1 - (Math.hypot(tx - S.wirePreview.x, ty - S.wirePreview.y) / 18);
+    if (proximity > 0) {
+      var glowR = 8 + proximity * 8;
+      var glowA = 0.2 + proximity * 0.5;
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(pin.x, pin.y, glowR, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(74, 158, 255, ' + glowA + ')';
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  var dist = Math.hypot(lagX - s.x, lagY - s.y);
   ctx.strokeStyle = '#00e09e'; ctx.lineWidth = 1.5; ctx.setLineDash([6, 4]);
   ctx.beginPath(); ctx.moveTo(s.x, s.y);
+
+  // Elastic bezier: use lag point as control point
+  var midX = (s.x + lagX) / 2;
+  var midY = (s.y + lagY) / 2;
+
   switch (S.wireStyle) {
     case 'manhattan':
-      var midX = (s.x + tx) / 2;
-      ctx.lineTo(midX, s.y); ctx.lineTo(midX, ty); ctx.lineTo(tx, ty);
+      ctx.lineTo(midX, s.y); ctx.lineTo(midX, lagY); ctx.lineTo(lagX, lagY);
       break;
     case 'straight':
-      ctx.lineTo(tx, ty);
+      ctx.quadraticCurveTo(midX, s.y, lagX, lagY);
       break;
     case 'spline':
-      var dx = tx - s.x;
-      ctx.bezierCurveTo(s.x + dx * 0.33, s.y, tx - dx * 0.33, ty, tx, ty);
+      var dx = lagX - s.x;
+      ctx.bezierCurveTo(s.x + dx * 0.33, s.y, lagX - dx * 0.33, lagY, lagX, lagY);
       break;
     case 'catenary':
     default:
       var sag = Math.min(dist * 0.1, 25);
-      var mx = (s.x + tx) / 2, my = (s.y + ty) / 2 + sag;
-      ctx.quadraticCurveTo(mx, my, tx, ty);
+      var mx = midX, my = midY + sag;
+      ctx.quadraticCurveTo(mx, my, lagX, lagY);
       break;
   }
   ctx.stroke();
@@ -3635,7 +4001,23 @@ function toggleHighContrast() {
 // 10.4: CHANGELOG
 function showChangelog() {
   var html = '<div style="font:12px var(--font-ui);color:var(--text-2);line-height:1.7;max-height:400px;overflow-y:auto;padding:8px">';
-  html += '<h3 style="color:var(--accent);font-size:14px;margin:0 0 8px">v7.1 \u2014 Accuracy & Quality</h3>';
+  html += '<h3 style="color:var(--accent);font-size:14px;margin:0 0 8px">v8.0 \u2014 Phase 3: Immersive</h3>';
+  html += '<p>\u2022 \u23EA Zaman Makinesi \u2014 DAW tarz\u0131 timeline, state scrubbing</p>';
+  html += '<p>\u2022 Spike markers + bookmark sistemi</p>';
+  html += '<p>\u2022 Circular buffer (2000 snapshot, ~5-10MB)</p>';
+  html += '<p>\u2022 Kare kare ileri/geri (. ve ,) k\u0131sayollar\u0131</p>';
+  html += '<p>\u2022 \uD83D\uDD0A Mekansal Ses \u2014 stereo panning, 50Hz harmonik u\u011Fultu</p>';
+  html += '<p>\u2022 \u3030\uFE0F Kablo Titre\u015Fimi \u2014 ak\u0131m bazl\u0131 titreyen kablolar + renk de\u011Fi\u015Fimi</p>';
+  html += '<p>\u2022 \u26A1 Kaos Modu \u2014 5 senaryo (voltaj surge, noise, harmonik, s\u0131cakl\u0131k, ya\u015Flanma), sa\u011Flaml\u0131k raporu, \u00fcstel patlama \u00f6l\u00e7ekleme</p>';
+  html += '<p>\u2022 \uD83D\uDCCF Holografik Form\u00fcller \u2014 Hover\'da canl\u0131 V=IR, P=I\u00B2R, Xc, gm form\u00fclleri</p>';
+  html += '<p>\u2022 \uD83D\uDD0C 3D Prob UX \u2014 S\u00fcr\u00fcklenebilir multimetre problar\u0131 + \u0394V tooltip</p>';
+  html += '<p>\u2022 \uD83E\uDDF2 M\u0131knat\u0131sl\u0131 Pin Snap + Kapasit\u00f6r Nefes Efekti</p>';
+  html += '<p>\u2022 \uD83E\uDD16 AI Devre Asistan\u0131 \u2014 Anthropic API + 11 tool (addComponent, addWire, analyze, vb.), do\u011Fal dil ile devre kur</p>';
+  html += '<p>\u2022 \uD83D\uDD0D AI Hata Tespiti \u2014 8 hata tipi (floating node, diren\u00E7siz LED, k\u0131sa devre), auto-correction, canvas overlay</p>';
+  html += '<p>\u2022 \uD83D\uDD32 Dijital Motor \u2014 Event-driven sim\u00fclasyon, D/JK/T Flip-Flop, Counter, Shift Register, MUX, 7-Segment, Timing Diagram</p>';
+  html += '<p>\u2022 \u26A1 Mixed-Signal K\u00f6pr\u00fcs\u00fc \u2014 ADC/DAC (8-bit), Komparatör, PWM Generator, analog\u2194dijital senkronizasyon</p>';
+  html += '<p>\u2022 \uD83D\uDCC8 Performans Stres Testi \u2014 500 bile\u015fen benchmark, FPS/simStep/memory \u00f6l\u00e7\u00fcm\u00fc</p>';
+  html += '<h3 style="color:var(--accent);font-size:14px;margin:16px 0 8px">v7.1 \u2014 Accuracy & Quality</h3>';
   html += '<p>\u2022 Banded sparse \u00e7\u00f6z\u00fcc\u00fc (Cuthill-McKee, O(n\u00d7bw\u00b2))</p>';
   html += '<p>\u2022 SPICE3f5 junction voltage limiting</p>';
   html += '<p>\u2022 Trapezoidal integration (BE/TRAP otomatik)</p>';
@@ -3701,7 +4083,80 @@ VXA.Benchmark = (function() {
     console.log('Sim step: ' + r.simStep.avg + 'ms avg, ' + r.simStep.max + 'ms max');
     console.log('==================================');
   }
-  return { run: run, report: report };
+  function stressTest500() {
+    var backup = JSON.stringify({ parts: S.parts, wires: S.wires });
+    S.parts = [];
+    S.wires = [];
+
+    var types = [];
+    var i;
+    for (i = 0; i < 200; i++) types.push('resistor');
+    for (i = 0; i < 100; i++) types.push('capacitor');
+    for (i = 0; i < 50; i++) types.push('led');
+    for (i = 0; i < 50; i++) types.push('diode');
+    for (i = 0; i < 30; i++) types.push('npn');
+    for (i = 0; i < 20; i++) types.push('vdc');
+    for (i = 0; i < 20; i++) types.push('vac');
+    for (i = 0; i < 10; i++) types.push('opamp');
+    for (i = 0; i < 10; i++) types.push(i % 2 === 0 ? 'and' : 'or');
+    for (i = 0; i < 5; i++) types.push('adc');
+    for (i = 0; i < 5; i++) types.push('dac');
+
+    var cols = 25, spacing = 80;
+    for (i = 0; i < types.length; i++) {
+      var col = i % cols;
+      var row = Math.floor(i / cols);
+      var part = {
+        type: types[i], id: S.nextId ? S.nextId++ : 90000 + i,
+        x: col * spacing + 100, y: row * spacing + 100,
+        rot: 0, val: COMP[types[i]] ? COMP[types[i]].def || 0 : 0,
+        props: {},
+        _v: 0, _i: 0, _p: 0,
+        _thermal: { T: S.ambientTemp || 25, status: 'normal', Pmax: 0.25, P: 0 },
+        damaged: false
+      };
+      S.parts.push(part);
+    }
+
+    var result = {
+      componentCount: S.parts.length,
+      fpsIdle: -1,
+      simStepMs: -1,
+      memoryMB: -1,
+      verdict: 'PASS'
+    };
+
+    // Measure sim step time
+    var stepTotal = 0, stepCount = 20;
+    try { buildCircuitFromCanvas(); } catch(e) { /* unconnected parts may error */ }
+    for (i = 0; i < stepCount; i++) {
+      var t0 = performance.now();
+      try {
+        if (typeof solveStep === 'function') solveStep(1e-5);
+      } catch(e) { /* expected with disconnected parts */ }
+      stepTotal += performance.now() - t0;
+    }
+    result.simStepMs = Math.round(stepTotal / stepCount * 100) / 100;
+
+    if (performance.memory) {
+      result.memoryMB = Math.round(performance.memory.usedJSHeapSize / 1024 / 1024);
+    }
+
+    result.verdict = (result.simStepMs < 50) ? 'PASS' : (result.simStepMs < 100) ? 'WARN' : 'FAIL';
+
+    try {
+      var restored = JSON.parse(backup);
+      S.parts = restored.parts;
+      S.wires = restored.wires;
+    } catch(e) {
+      S.parts = [];
+      S.wires = [];
+    }
+
+    return result;
+  }
+
+  return { run: run, report: report, stressTest500: stressTest500 };
 })();
 
 // ═══ validation.js ═══
@@ -4928,7 +5383,14 @@ VXA.SimV2 = (function() {
           var vd = Math.abs((nodeV[c.n1] || 0) - (nodeV[c.n2] || 0));
           St.stampG(matrix, c.n1, c.n2, 1 / (vd > c.vbo ? 0.1 : 1e8));
         } else if (c.type === 'COMP') {
-          var vOut = (nodeV[c.nP] || 0) > (nodeV[c.nN] || 0) ? 5 : 0;
+          var _cvp = nodeV[c.nP] || 0, _cvn = nodeV[c.nN] || 0;
+          var _chyst = (c.part && c.part.props && c.part.props.hysteresis) || 0.01;
+          var _cprev = c.part ? (c.part._compOutput || false) : false;
+          var _cnew = _cprev;
+          if (_cvp > _cvn + _chyst) _cnew = true;
+          else if (_cvp < _cvn - _chyst) _cnew = false;
+          if (c.part) { c.part._compOutput = _cnew; c.part._compVp = _cvp; c.part._compVn = _cvn; }
+          var vOut = _cnew ? 5 : 0;
           if (c.nO > 0) { Sp.stamp(matrix, c.nO - 1, c.nO - 1, 1); rhs[c.nO - 1] += vOut; }
         } else if (c.type === 'DIGI') {
           var pins = c.pins, thresh = 2.5, vH = 5, vL = 0;
@@ -5132,7 +5594,7 @@ VXA.SimV2 = (function() {
       } else if (c.type === 'DIAC') {
         var vdiac = Math.abs((nodeV[c.n1] || 0) - (nodeV[c.n2] || 0)); c.part._v = vdiac; c.part._i = vdiac > c.vbo ? vdiac / 0.1 : 0; c.part._p = vdiac * c.part._i;
       } else if (c.type === 'COMP') {
-        c.part._v = (nodeV[c.nP] || 0) > (nodeV[c.nN] || 0) ? 5 : 0; c.part._i = 0; c.part._p = 0;
+        c.part._v = c.part._compOutput ? 5 : 0; c.part._i = 0; c.part._p = 0;
       } else if (c.type === 'DIGI') {
         if (c.subtype === 'dff') { c.part._v = c._q ? 5 : 0; }
         else if (c.subtype === 'counter') { c.part._v = c._count; }
@@ -5708,6 +6170,21 @@ function buildCircuitFromCanvas() {
     else if (p.type === 'dff' || p.type === 'counter' || p.type === 'shiftreg' || p.type === 'mux') {
       comps.push({type:'DIGI', subtype:p.type, pins:nodes, part:p, _state:0, _prevClk:0, _count:0, _q:0});
     }
+    else if (p.type === 'adc' || p.type === 'pwmGen') {
+      // Mixed-signal: store node mapping for MixedSignal bridge, no MNA stamp needed
+      p._nodes = nodes;
+      comps.push({type:'R', n1:nodes[0]||0, n2:0, val:1e12, part:p}); // very high R placeholder
+    }
+    else if (p.type === 'dac') {
+      // Mixed-signal DAC: store node mapping + controlled voltage source on AOUT
+      p._nodes = nodes;
+      var dacV = VXA.MixedSignal ? VXA.MixedSignal.getDACOutput(p.id) : 0;
+      // AOUT (pin 8) to GND (pin 10)
+      var aoutNode = nodes[8] || 0, gndNode = nodes[10] || 0;
+      if (aoutNode > 0) {
+        comps.push({type:'V', n1:aoutNode, n2:gndNode, val:dacV, part:p, isAC:false, isDACOutput:true});
+      }
+    }
     else if (p.type === 'wattmeter') {
       comps.push({type:'R', n1:nodes[0], n2:nodes[1], val:0.001, part:p, isMeter:true});
     }
@@ -5748,7 +6225,10 @@ function buildCircuitFromCanvas() {
       comps.push({type:'R', n1:nodes[0], n2:nodes[1], val:Rvar, part:p});
     }
     else if (p.type === 'comparator') {
+      p._nodes = nodes;
+      // 5-pin: V+(0), V-(1), OUT(2), VCC(3), GND(4)
       comps.push({type:'COMP', nP:nodes[0], nN:nodes[1], nO:nodes[2], part:p});
+      // VCC/GND passive — no stamp needed (power rails are external)
     }
     else if (p.type === 'crystal') {
       comps.push({type:'R', n1:nodes[0], n2:nodes[1], val:100, part:p});
@@ -5886,6 +6366,60 @@ function simulationStep() {
     for (var di = 0; di < S.parts.length; di++) {
       VXA.Damage.check(S.parts[di]);
     }
+    // Sprint 13: Chaos Monkey update
+    if (VXA.ChaosMonkey && VXA.ChaosMonkey.isRunning()) {
+      VXA.ChaosMonkey.update(S.parts, S.sim.t);
+    }
+    // Sprint 18: Mixed-signal analog → digital sync
+    if (VXA.MixedSignal) {
+      VXA.MixedSignal.syncAnalogToDigital(S.sim.t, S.parts, S._nodeVoltages || {});
+    }
+    // Sprint 17: Digital simulation step
+    if (VXA.Digital && VXA.Digital.isRunning()) {
+      VXA.Digital.step(S.sim.t, S.parts, S.wires);
+    }
+    // Sprint 18: Mixed-signal digital → analog sync
+    if (VXA.MixedSignal && VXA.Digital) {
+      VXA.MixedSignal.syncDigitalToAnalog(S.sim.t, S.parts, VXA.Digital.getStates());
+    }
+    // TimeMachine capture (Sprint 11)
+    if (VXA.TimeMachine && VXA.TimeMachine.isEnabled()) {
+      var _tmThermal = S.parts.map(function(p) {
+        return { id: p.id, temp: VXA.Thermal.getTemperature(p), status: VXA.Thermal.getStatus(p) };
+      });
+      var _tmDamage = S.parts.filter(function(p) { return p.damaged; }).map(function(p) {
+        return { id: p.id, damaged: true, justDamaged: p._justDamaged || false };
+      });
+      VXA.TimeMachine.capture(S.sim.t, S._nodeVoltages, S.parts, _tmThermal, _tmDamage, S.scope.ch);
+    }
+    // Sprint 12: Spatial Audio hum update
+    if (VXA.SpatialAudio && S.soundOn) {
+      VXA.SpatialAudio.updateViewport(
+        typeof cvs !== 'undefined' ? cvs.width / (typeof DPR !== 'undefined' ? DPR : 1) : 800,
+        typeof cvs !== 'undefined' ? cvs.height / (typeof DPR !== 'undefined' ? DPR : 1) : 600,
+        typeof S.view !== 'undefined' ? -S.view.ox / S.view.zoom : 400,
+        typeof S.view !== 'undefined' ? -S.view.oy / S.view.zoom : 300,
+        typeof S.view !== 'undefined' ? S.view.zoom : 1
+      );
+      for (var _hi = 0; _hi < S.parts.length; _hi++) {
+        var _hp = S.parts[_hi];
+        var _hCur = Math.abs(_hp._i || 0);
+        var _hMax = 0.1;
+        if (_hp._thermal) _hMax = Math.sqrt((_hp._thermal.Pmax || 0.25) / Math.max(1, _hp.val || 1));
+        if (_hp.type === 'led') _hMax = 0.02;
+        else if (_hp.type === 'diode' || _hp.type === 'zener') _hMax = 1.0;
+        else if (_hp.type === 'npn' || _hp.type === 'pnp') _hMax = 0.5;
+        else if (_hp.type === 'nmos' || _hp.type === 'pmos') _hMax = 2.0;
+        else if (_hp.type === 'fuse') _hMax = _hp.val || 1.0;
+        else if (_hp.type === 'resistor' && _hp.val > 0) _hMax = Math.sqrt(0.25 / _hp.val);
+        if (_hCur > _hMax * 0.2) {
+          VXA.SpatialAudio.startHum(_hp.id, _hp.x, _hp.y, _hCur, _hMax);
+          VXA.SpatialAudio.updateHum(_hp.id, _hp.x, _hp.y, _hCur, _hMax);
+        } else {
+          VXA.SpatialAudio.stopHum(_hp.id);
+        }
+      }
+    }
   } catch(e) {
     S.sim.running = false; S.sim.error = e.message;
     document.getElementById('sim-dot').classList.remove('on');
@@ -5937,6 +6471,24 @@ function render() {
   drawSnapGlow();
   drawVoltageMap();
 
+  // Sprint 14: Flash effects (world coords)
+  if (typeof drawFlashEffects === 'function') drawFlashEffects(ctx);
+
+  // Sprint 14: Formula overlay on hovered part
+  if (S.hovered && !S.drag.active && S.mode !== 'wire' && S.mode !== 'place' && typeof drawFormulaOverlay === 'function') {
+    drawFormulaOverlay(ctx, S.hovered);
+  } else if (!S.hovered) {
+    _formulaLastHoveredId = null;
+  }
+
+  // Sprint 14: Probe drawing
+  if (VXA.Probes && VXA.Probes.isActive()) {
+    VXA.Probes.draw(ctx);
+  }
+
+  // Sprint 16: Error overlay on canvas
+  if (typeof drawErrorOverlay === 'function') drawErrorOverlay(ctx);
+
   // Groups
   S.groups.forEach(function(g) {
     var gp = S.parts.filter(function(p){ return g.partIds.includes(p.id); });
@@ -5969,8 +6521,23 @@ function render() {
 
   ctx.restore();
 
-  // simulation step
-  if (S.sim.running) simulationStep();
+  // simulation step (skip during TimeMachine playback)
+  if (VXA.TimeMachine && VXA.TimeMachine.isPlayback()) {
+    var _tmSnap = VXA.TimeMachine.getCurrentSnapshot();
+    if (_tmSnap) {
+      for (var _tmi = 0; _tmi < _tmSnap.c.length; _tmi++) {
+        var _tmsc = _tmSnap.c[_tmi];
+        var _tmp = S.parts.find(function(pp) { return pp.id === _tmsc.id; });
+        if (_tmp) {
+          _tmp._v = _tmsc.v; _tmp._i = _tmsc.i;
+          _tmp.damaged = _tmsc.damaged;
+          _tmp.ledBrightness = _tmsc.ledBrightness;
+        }
+      }
+    }
+  } else if (S.sim.running) {
+    simulationStep();
+  }
   drawScope();
   drawMinimap();
 
@@ -8088,35 +8655,85 @@ function aiSend() {
 }
 
 function aiSendMessage(question) {
-  var key = getAIKey();
-  if (!key) { addAIMessage(t('aiNoKey'), 'ai'); return; }
+  if (!VXA.AI) {
+    // Fallback: eski yöntem
+    var key = getAIKey();
+    if (!key) { addAIMessage(t('aiNoKey'), 'ai'); return; }
+    addAIMessage(question, 'user');
+    addAIMessage(t('aiThinking'), 'ai');
+    return;
+  }
+
+  // Sprint 15: VXA.AI ile tool-use destekli gönder
   addAIMessage(question, 'user');
-  addAIMessage(t('aiThinking'), 'ai');
-  var circuitInfo = describeCircuit();
-  fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': key,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true'
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 1024,
-      system: 'You are an expert electrical/electronics engineer. Analyze circuits and provide clear, concise advice. The user is working in VoltXAmpere circuit simulator. Respond in ' + (currentLang === 'tr' ? 'Turkish' : 'English') + '.',
-      messages: [{ role: 'user', content: question + '\n\nCircuit:\n' + circuitInfo }]
-    })
-  }).then(function(r) { return r.json(); })
-  .then(function(data) {
-    var msgs = document.getElementById('ai-messages');
-    msgs.lastChild.textContent = data.content && data.content[0] ? data.content[0].text : (data.error ? data.error.message : 'Error');
-  })
-  .catch(function(err) {
-    var msgs = document.getElementById('ai-messages');
-    msgs.lastChild.textContent = 'Error: ' + err.message;
+
+  // Quick command kontrolü
+  var quick = VXA.AI.quickCommand(question.trim().toLowerCase());
+  if (quick) { addAIMessage(quick, 'ai'); return; }
+
+  if (!VXA.AI.hasApiKey()) {
+    var key = getAIKey();
+    if (key) VXA.AI.setApiKey(key);
+    else { addAIMessage(t('aiNoKey'), 'ai'); return; }
+  }
+
+  // "Thinking" göstergesi
+  var thinkDiv = document.createElement('div');
+  thinkDiv.className = 'ai-msg ai';
+  thinkDiv.id = 'ai-thinking-indicator';
+  thinkDiv.textContent = t('aiThinking');
+  document.getElementById('ai-messages').appendChild(thinkDiv);
+  document.getElementById('ai-messages').scrollTop = document.getElementById('ai-messages').scrollHeight;
+
+  VXA.AI.send(question).then(function() {
+    // thinking göstergesini kaldır
+    var th = document.getElementById('ai-thinking-indicator');
+    if (th && th.parentNode) th.parentNode.removeChild(th);
   });
 }
+
+// Sprint 15: VXA.AI callback'lerini bağla
+(function _setupAICallbacks() {
+  if (!VXA.AI) return;
+  VXA.AI.onMessage(function(msg) {
+    addAIMessage(msg.content, 'ai');
+  });
+  VXA.AI.onToolUse(function(name, input, result) {
+    var icon = '\uD83D\uDD27'; // 🔧
+    if (name === 'addComponent') icon = '\u2795'; // ➕
+    else if (name === 'addWire') icon = '\uD83D\uDD17'; // 🔗
+    else if (name === 'removeComponent') icon = '\uD83D\uDDD1'; // 🗑
+    else if (name === 'startSimulation') icon = '\u25B6'; // ▶
+    else if (name === 'getCircuitState') icon = '\uD83D\uDCCB'; // 📋
+    else if (name === 'clearCircuit') icon = '\uD83E\uDDF9'; // 🧹
+    else if (name === 'loadPreset') icon = '\uD83D\uDCE5'; // 📥
+    else if (name === 'saveUndo') icon = '\uD83D\uDCBE'; // 💾
+    else if (name === 'setComponentValue') icon = '\u270F'; // ✏
+
+    var summary = icon + ' ' + name;
+    if (name === 'addComponent' && input.type) summary += ': ' + input.type + (input.value ? ' (' + input.value + ')' : '');
+    if (name === 'addWire') summary += ': (' + input.x1 + ',' + input.y1 + ') \u2192 (' + input.x2 + ',' + input.y2 + ')';
+    if (result && result.error) summary += ' \u274C ' + result.error;
+    else summary += ' \u2705';
+
+    var div = document.createElement('div');
+    div.className = 'ai-msg ai-tool';
+    div.style.cssText = 'font-size:10px;color:#888;background:rgba(255,255,255,0.03);border-radius:6px;padding:3px 8px;margin:2px 0;border-left:2px solid #4a9eff;align-self:flex-start;max-width:95%';
+    div.textContent = summary;
+    document.getElementById('ai-messages').appendChild(div);
+    document.getElementById('ai-messages').scrollTop = document.getElementById('ai-messages').scrollHeight;
+  });
+  VXA.AI.onError(function(err) {
+    addAIMessage('\u274C ' + err.message, 'ai');
+  });
+  VXA.AI.onProcessing(function(isProc) {
+    var btn = document.getElementById('ai-send');
+    if (btn) btn.disabled = isProc;
+  });
+  // Sync API key
+  var existingKey = getAIKey();
+  if (existingKey) VXA.AI.setApiKey(existingKey);
+})();
 
 // ──────── SCRIPTING API ────────
 // Extend VXA namespace (don't overwrite Config/EventBus/AutoSave)
@@ -8309,7 +8926,7 @@ function ctxSaveBlock() {
 function rebuildPalette() {
   var el = document.getElementById('left');
   el.innerHTML = '';
-  var cats = { Passive:t('catPassive'), Sources:t('catSources'), Semi:t('catSemi'), ICs:t('catICs'), Logic:t('catLogic'), Control:t('catControl'), Blocks:t('catBlocks'), Basic:t('catBasic') };
+  var cats = { Passive:t('catPassive'), Sources:t('catSources'), Semi:t('catSemi'), ICs:t('catICs'), Logic:t('catLogic'), Mixed:t('catMixed'), Control:t('catControl'), Blocks:t('catBlocks'), Basic:t('catBasic') };
   for (var ck in cats) {
     var cl = cats[ck];
     var items = Object.entries(COMP).filter(function(e){ return e[1].cat === ck; });
@@ -8831,46 +9448,66 @@ VXA.Damage = (function() {
 
     // Determine damage result and explosion type
     var type = part.type;
+
+    // Sprint 13: Calculate explosion intensity based on overload ratio
+    var _actualP = Math.abs((part._v || 0) * (part._i || 0));
+    var _maxP = (part._thermal && part._thermal.Pmax) ? part._thermal.Pmax : 0.25;
+    var _intensity = (typeof calculateExplosionIntensity === 'function') ?
+      calculateExplosionIntensity(_actualP, _maxP) : { particleCount: 15, glowRadius: 8, soundVolume: 0.5, screenShake: false };
+
     if (type === 'led') {
       part.damageResult = 'open';
       part.damageType = 'explode';
-      // Start 5-phase LED explosion animation
-      part._explodeAnim = { active: true, startTime: performance.now(), phase: 0, duration: 500, particlesSpawned: false };
+      part._explodeAnim = { active: true, startTime: performance.now(), phase: 0, duration: 500, particlesSpawned: false, intensity: _intensity };
     }
     else if (type === 'capacitor') {
       part.damageResult = Math.random() > 0.5 ? 'open' : 'short';
       part.damageType = 'explode';
-      part._explodeAnim = { active: true, startTime: performance.now(), phase: 0, duration: 600, particlesSpawned: false };
+      part._explodeAnim = { active: true, startTime: performance.now(), phase: 0, duration: 600, particlesSpawned: false, intensity: _intensity };
     }
     else if (type === 'resistor') {
       part.damageResult = 'open';
       part.damageType = 'burn';
-      part._burnAnim = { active: true, startTime: performance.now(), duration: 1200, particlesSpawned: false };
+      part._burnAnim = { active: true, startTime: performance.now(), duration: 1200, particlesSpawned: false, intensity: _intensity };
     }
     else if (type === 'fuse') {
       part.damageResult = 'open';
       part.damageType = 'blow';
-      VXA.Particles.explode(part.x, part.y, 'fuse', '#ffcc00');
+      VXA.Particles.spawn(part.x, part.y, 'spark', '#ffcc00', _intensity.particleCount);
+      VXA.Particles.spawn(part.x, part.y, 'flash', '#ffffcc', 1);
+      VXA.Particles.spawn(part.x, part.y, 'smoke', 'rgba(70,70,70,0.3)', Math.round(_intensity.particleCount / 3));
     }
     else if (type === 'npn' || type === 'pnp') {
       part.damageResult = 'short';
       part.damageType = 'burn';
-      VXA.Particles.explode(part.x, part.y, 'transistor', '#ff4400');
+      VXA.Particles.spawn(part.x, part.y, 'smoke', 'rgba(60,60,60,0.5)', Math.round(_intensity.particleCount * 0.8));
+      VXA.Particles.spawn(part.x, part.y, 'ember', '#ff4400', _intensity.particleCount);
+      VXA.Particles.spawn(part.x, part.y, 'flash', '#ffeecc', 1);
     }
     else if (type === 'nmos' || type === 'pmos') {
       part.damageResult = 'short';
       part.damageType = 'burn';
-      VXA.Particles.explode(part.x, part.y, 'transistor', '#ff4400');
+      VXA.Particles.spawn(part.x, part.y, 'smoke', 'rgba(60,60,60,0.5)', Math.round(_intensity.particleCount * 0.8));
+      VXA.Particles.spawn(part.x, part.y, 'ember', '#ff4400', _intensity.particleCount);
+      VXA.Particles.spawn(part.x, part.y, 'flash', '#ffeecc', 1);
     }
     else if (type === 'diode' || type === 'zener') {
       part.damageResult = 'short';
       part.damageType = 'burn';
-      VXA.Particles.explode(part.x, part.y, 'transistor', '#ff2200');
+      VXA.Particles.spawn(part.x, part.y, 'smoke', 'rgba(60,60,60,0.5)', Math.round(_intensity.particleCount * 0.8));
+      VXA.Particles.spawn(part.x, part.y, 'ember', '#ff2200', _intensity.particleCount);
+      VXA.Particles.spawn(part.x, part.y, 'flash', '#ffeecc', 1);
     }
     else {
       part.damageResult = 'open';
       part.damageType = 'burn';
-      VXA.Particles.explode(part.x, part.y, 'resistor', '#ff6600');
+      VXA.Particles.spawn(part.x, part.y, 'ember', '#ff6600', _intensity.particleCount);
+      VXA.Particles.spawn(part.x, part.y, 'smoke', 'rgba(60,60,60,0.4)', Math.round(_intensity.particleCount * 0.6));
+    }
+
+    // Sprint 13: Screen shake for extreme overloads
+    if (_intensity.screenShake && typeof triggerScreenShake === 'function') {
+      triggerScreenShake(300, 8);
     }
 
     // Log damage
@@ -8914,6 +9551,3064 @@ VXA.Damage = (function() {
 
   return { check: check, apply: apply, repair: repair, repairAll: repairAll, getLog: getLog, getDamageEnergyThreshold: getDamageEnergyThreshold };
 })();
+
+// ═══ chaos-monkey.js ═══
+// ──────── CHAOS MONKEY (v8.0 Sprint 13) ────────
+VXA.ChaosMonkey = (function() {
+  'use strict';
+
+  // ===== SCENARIO DEFINITIONS =====
+  var SCENARIOS = {
+    voltageSurge: {
+      id: 'voltageSurge',
+      name: { tr: 'Voltaj Dalgalanması', en: 'Voltage Surge' },
+      desc: { tr: 'DC kaynaklara rastgele spike enjekte eder', en: 'Injects random spikes into DC sources' },
+      icon: '⚡'
+    },
+    gaussianNoise: {
+      id: 'gaussianNoise',
+      name: { tr: 'Gaussian Gürültü', en: 'Gaussian Noise' },
+      desc: { tr: 'Bileşen değerlerine rastgele sapma ekler', en: 'Adds random deviation to component values' },
+      icon: '📊'
+    },
+    harmonicDistortion: {
+      id: 'harmonicDistortion',
+      name: { tr: 'Harmonik Bozulma', en: 'Harmonic Distortion' },
+      desc: { tr: 'AC kaynaklara harmonikler ekler', en: 'Adds harmonics to AC sources' },
+      icon: '〰️'
+    },
+    temperatureRamp: {
+      id: 'temperatureRamp',
+      name: { tr: 'Sıcaklık Değişimi', en: 'Temperature Ramp' },
+      desc: { tr: 'Ortam sıcaklığını kademeli artırır', en: 'Gradually increases ambient temperature' },
+      icon: '🌡️'
+    },
+    componentAging: {
+      id: 'componentAging',
+      name: { tr: 'Bileşen Yaşlanma', en: 'Component Aging' },
+      desc: { tr: 'Bileşenlerde yaşlanma etkisi simüle eder', en: 'Simulates aging effects on components' },
+      icon: '⏳'
+    }
+  };
+
+  // ===== STATE =====
+  var _isRunning = false;
+  var _testResults = null;
+  var _originalValues = {};
+  var _testConfig = null;
+  var _testStartTime = 0;
+  var _testLog = [];
+
+  // ===== HELPERS =====
+
+  // Box-Muller transform — Gaussian random
+  function gaussianRandom(mean, stddev) {
+    var u1 = Math.random();
+    var u2 = Math.random();
+    var z = Math.sqrt(-2 * Math.log(Math.max(1e-15, u1))) * Math.cos(2 * Math.PI * u2);
+    return mean + z * stddev;
+  }
+
+  function saveOriginalValues(parts) {
+    _originalValues = {};
+    for (var i = 0; i < parts.length; i++) {
+      var p = parts[i];
+      _originalValues[p.id] = {
+        value: p.value !== undefined ? p.value : p.val,
+        val: p.val,
+        voltage: p.voltage,
+        frequency: p.frequency,
+        amplitude: p.amplitude,
+        offset: p.offset,
+        damaged: p.damaged
+      };
+      if (p.acAmplitude !== undefined) _originalValues[p.id].acAmplitude = p.acAmplitude;
+      if (p.acFrequency !== undefined) _originalValues[p.id].acFrequency = p.acFrequency;
+    }
+    // Save ambient temp
+    _originalValues._ambientTemp = S.ambientTemp || 25;
+  }
+
+  function restoreOriginalValues(parts) {
+    for (var i = 0; i < parts.length; i++) {
+      var p = parts[i];
+      var orig = _originalValues[p.id];
+      if (!orig) continue;
+      if (orig.val !== undefined) p.val = orig.val;
+      if (orig.value !== undefined && p.value !== undefined) p.value = orig.value;
+      if (orig.acAmplitude !== undefined) p.acAmplitude = orig.acAmplitude;
+      if (orig.acFrequency !== undefined) p.acFrequency = orig.acFrequency;
+    }
+    // Restore ambient temp
+    if (_originalValues._ambientTemp !== undefined) {
+      S.ambientTemp = _originalValues._ambientTemp;
+    }
+  }
+
+  // ===== SCENARIO FUNCTIONS =====
+
+  function applyVoltageSurge(parts, severity) {
+    var spikePercent = severity * 5 / 100;
+    for (var i = 0; i < parts.length; i++) {
+      var p = parts[i];
+      if (p.type === 'dcSource' || p.type === 'vdc' || p.type === 'battery') {
+        var orig = _originalValues[p.id];
+        if (!orig) continue;
+        var baseV = orig.val || orig.value || orig.voltage || 5;
+        var spike = gaussianRandom(0, baseV * spikePercent);
+        if (p.val !== undefined) p.val = baseV + spike;
+        if (p.value !== undefined) p.value = baseV + spike;
+      }
+    }
+  }
+
+  function applyGaussianNoise(parts, severity) {
+    var noisePercent = severity * 0.5 / 100;
+    for (var i = 0; i < parts.length; i++) {
+      var p = parts[i];
+      var orig = _originalValues[p.id];
+      if (!orig) continue;
+      if (p.type === 'resistor' || p.type === 'capacitor' || p.type === 'inductor') {
+        var baseVal = orig.val !== undefined ? orig.val : orig.value;
+        if (baseVal === undefined || baseVal === 0) continue;
+        var noise = gaussianRandom(0, Math.abs(baseVal) * noisePercent);
+        var newVal = Math.max(1e-15, baseVal + noise);
+        if (p.val !== undefined) p.val = newVal;
+        if (p.value !== undefined) p.value = newVal;
+      }
+    }
+  }
+
+  function applyHarmonicDistortion(parts, severity) {
+    for (var i = 0; i < parts.length; i++) {
+      var p = parts[i];
+      if (p.type === 'acSource' || p.type === 'vac') {
+        p._chaosHarmonics = {
+          thd: severity * 2,
+          h3: severity / 10 * 0.15,
+          h5: severity / 10 * 0.08,
+          h7: severity / 10 * 0.04
+        };
+      }
+    }
+  }
+
+  function applyTemperatureRamp(severity, testDuration) {
+    var targetTemp = 25 + severity * 8;
+    var rampDuration = testDuration * 0.8;
+    var elapsed = (Date.now() - _testStartTime) / 1000;
+    var rampProgress = Math.min(1, elapsed / Math.max(0.1, rampDuration));
+    var currentTemp = 25 + (targetTemp - 25) * rampProgress;
+    S.ambientTemp = currentTemp;
+  }
+
+  function applyComponentAging(parts, severity) {
+    for (var i = 0; i < parts.length; i++) {
+      var p = parts[i];
+      var orig = _originalValues[p.id];
+      if (!orig) continue;
+      var baseVal = orig.val !== undefined ? orig.val : orig.value;
+      if (baseVal === undefined) continue;
+
+      if (p.type === 'resistor') {
+        var newR = baseVal * (1 + severity * 0.005);
+        if (p.val !== undefined) p.val = newR;
+        if (p.value !== undefined) p.value = newR;
+      } else if (p.type === 'capacitor') {
+        var newC = baseVal * (1 - severity * 0.003);
+        if (p.val !== undefined) p.val = Math.max(1e-15, newC);
+        if (p.value !== undefined) p.value = Math.max(1e-15, newC);
+      } else if (p.type === 'led' || p.type === 'diode') {
+        p._chaosVfIncrease = severity * 0.002;
+      } else if (p.type === 'npn' || p.type === 'pnp') {
+        p._chaosHfeReduction = severity * 0.03;
+      }
+    }
+  }
+
+  // ===== MONITOR =====
+  function monitorCircuit(parts, simTime) {
+    for (var i = 0; i < parts.length; i++) {
+      var p = parts[i];
+
+      // Damage
+      if (p.damaged && !p._chaosReported) {
+        _testLog.push({
+          time: simTime,
+          type: 'damage',
+          partId: p.id,
+          partType: p.type
+        });
+        p._chaosReported = true;
+      }
+
+      // Thermal
+      if (p._thermal) {
+        if (p._thermal.status === 'critical' || p._thermal.status === 'damaged') {
+          _testLog.push({
+            time: simTime,
+            type: 'thermal',
+            partId: p.id,
+            partType: p.type,
+            temp: p._thermal.T,
+            status: p._thermal.status
+          });
+        }
+      }
+
+      // Power overload
+      var power = Math.abs((p._v || 0) * (p._i || 0));
+      var pMax = (p._thermal && p._thermal.Pmax) ? p._thermal.Pmax : 0.25;
+      if (power > pMax) {
+        _testLog.push({
+          time: simTime,
+          type: 'power',
+          partId: p.id,
+          partType: p.type,
+          power: power,
+          maxPower: pMax,
+          ratio: power / pMax
+        });
+      }
+    }
+  }
+
+  // ===== SCORING =====
+  function calculateScore() {
+    if (!_testConfig || _testLog.length === 0) {
+      return { score: 100, stars: 5, damageCount: 0, thermalViolations: 0, powerViolations: 0,
+               firstDamageTime: null, worstPowerRatio: 0, weakPoints: [], totalEvents: 0,
+               duration: (_testConfig ? _testConfig.durationMs / 1000 : 0),
+               severity: (_testConfig ? _testConfig.severity : 5),
+               scenarios: (_testConfig ? _testConfig.scenarios : []) };
+    }
+
+    var score = 100;
+    var damageCount = 0;
+    var thermalCount = 0;
+    var powerViolations = 0;
+    var firstDamageTime = Infinity;
+    var worstPowerRatio = 0;
+    var affectedParts = {};
+
+    for (var i = 0; i < _testLog.length; i++) {
+      var ev = _testLog[i];
+      if (ev.type === 'damage') {
+        damageCount++;
+        score -= 15;
+        if (ev.time < firstDamageTime) firstDamageTime = ev.time;
+        affectedParts[ev.partId] = (affectedParts[ev.partId] || 0) + 10;
+      }
+      if (ev.type === 'thermal') {
+        thermalCount++;
+        score -= 3;
+        affectedParts[ev.partId] = (affectedParts[ev.partId] || 0) + 3;
+      }
+      if (ev.type === 'power') {
+        powerViolations++;
+        score -= 2;
+        if (ev.ratio > worstPowerRatio) worstPowerRatio = ev.ratio;
+        affectedParts[ev.partId] = (affectedParts[ev.partId] || 0) + ev.ratio;
+      }
+    }
+
+    var severity = _testConfig.severity || 5;
+    score = Math.round(score * (1 + (severity - 5) * 0.05));
+    score = Math.max(0, Math.min(100, score));
+    var stars = score >= 90 ? 5 : score >= 70 ? 4 : score >= 50 ? 3 : score >= 30 ? 2 : 1;
+
+    var weakPoints = Object.keys(affectedParts).map(function(pid) {
+      return { partId: pid, severity: affectedParts[pid] };
+    }).sort(function(a, b) { return b.severity - a.severity; });
+
+    return {
+      score: score,
+      stars: stars,
+      damageCount: damageCount,
+      thermalViolations: thermalCount,
+      powerViolations: powerViolations,
+      firstDamageTime: firstDamageTime === Infinity ? null : firstDamageTime,
+      worstPowerRatio: worstPowerRatio,
+      weakPoints: weakPoints.slice(0, 5),
+      totalEvents: _testLog.length,
+      duration: _testConfig.durationMs / 1000,
+      severity: severity,
+      scenarios: _testConfig.scenarios
+    };
+  }
+
+  function generateRecommendation(results, parts) {
+    var recs = [];
+    var lang = currentLang || 'en';
+    for (var i = 0; i < Math.min(3, results.weakPoints.length); i++) {
+      var wp = results.weakPoints[i];
+      var part = null;
+      for (var j = 0; j < parts.length; j++) {
+        if (parts[j].id == wp.partId) { part = parts[j]; break; }
+      }
+      if (!part) continue;
+      if (part.type === 'resistor') {
+        recs.push(lang === 'tr' ?
+          part.id + ': Güç kapasitesini artırın (1/2W veya 1W).' :
+          part.id + ': Increase power rating (1/2W or 1W).');
+      } else if (part.type === 'npn' || part.type === 'pnp' || part.type === 'nmos' || part.type === 'pmos') {
+        recs.push(lang === 'tr' ?
+          part.id + ': Heatsink ekleyin veya termal marjini artırın.' :
+          part.id + ': Add heatsink or increase thermal margin.');
+      } else if (part.type === 'led') {
+        recs.push(lang === 'tr' ?
+          part.id + ': Akım sınırlama direncini artırın.' :
+          part.id + ': Increase current limiting resistor.');
+      } else if (part.type === 'capacitor') {
+        recs.push(lang === 'tr' ?
+          part.id + ': Voltaj ratingi daha yüksek kapasitör kullanın.' :
+          part.id + ': Use a capacitor with higher voltage rating.');
+      } else {
+        recs.push(lang === 'tr' ?
+          part.id + ': Bu bileşen zayıf nokta, tasarımı gözden geçirin.' :
+          part.id + ': This component is a weak point, review the design.');
+      }
+    }
+    return recs.join('\n');
+  }
+
+  // ===== PUBLIC API =====
+  return {
+    getScenarios: function() { return SCENARIOS; },
+    isRunning: function() { return _isRunning; },
+
+    start: function(parts, options) {
+      if (_isRunning) return;
+      options = options || {};
+      _testConfig = {
+        scenarios: options.scenarios || ['voltageSurge', 'gaussianNoise'],
+        severity: Math.max(1, Math.min(10, options.severity || 5)),
+        durationMs: options.durationMs || 3000
+      };
+      _isRunning = true;
+      _testLog = [];
+      _testResults = null;
+      _testStartTime = Date.now();
+
+      saveOriginalValues(parts);
+
+      // Aging applies once at start
+      if (_testConfig.scenarios.indexOf('componentAging') >= 0) {
+        applyComponentAging(parts, _testConfig.severity);
+      }
+
+      // Clear report flags
+      for (var i = 0; i < parts.length; i++) {
+        parts[i]._chaosReported = false;
+      }
+    },
+
+    update: function(parts, simTime) {
+      if (!_isRunning) return;
+      var elapsed = Date.now() - _testStartTime;
+      var severity = _testConfig.severity;
+      var scenarios = _testConfig.scenarios;
+
+      if (elapsed >= _testConfig.durationMs) {
+        this.stop(parts);
+        return;
+      }
+
+      if (scenarios.indexOf('voltageSurge') >= 0) {
+        applyVoltageSurge(parts, severity);
+      }
+      if (scenarios.indexOf('gaussianNoise') >= 0) {
+        applyGaussianNoise(parts, severity);
+      }
+      if (scenarios.indexOf('harmonicDistortion') >= 0) {
+        applyHarmonicDistortion(parts, severity);
+      }
+      if (scenarios.indexOf('temperatureRamp') >= 0) {
+        applyTemperatureRamp(severity, _testConfig.durationMs / 1000);
+      }
+
+      monitorCircuit(parts, simTime);
+    },
+
+    stop: function(parts) {
+      if (!_isRunning) return;
+      _isRunning = false;
+      _testResults = calculateScore();
+      _testResults.recommendation = generateRecommendation(_testResults, parts);
+
+      restoreOriginalValues(parts);
+
+      for (var i = 0; i < parts.length; i++) {
+        delete parts[i]._chaosHarmonics;
+        delete parts[i]._chaosVfIncrease;
+        delete parts[i]._chaosHfeReduction;
+        delete parts[i]._chaosReported;
+      }
+
+      if (VXA.Damage && VXA.Damage.repairAll) {
+        VXA.Damage.repairAll();
+      }
+
+      VXA.EventBus.emit('chaos:complete', _testResults);
+    },
+
+    getResults: function() { return _testResults; },
+    getLog: function() { return _testLog.slice(); },
+
+    reset: function() {
+      _isRunning = false;
+      _testResults = null;
+      _testLog = [];
+      _testConfig = null;
+      _originalValues = {};
+    }
+  };
+})();
+
+// ===== EXPLOSION INTENSITY SCALING =====
+function calculateExplosionIntensity(actualPower, maxPower) {
+  var overloadRatio = actualPower / Math.max(0.001, maxPower);
+  return {
+    particleCount: Math.round(15 * Math.pow(Math.max(1, overloadRatio), 1.5)),
+    glowRadius: Math.round(8 * Math.pow(Math.max(1, overloadRatio), 1.2)),
+    soundVolume: Math.min(1, 0.5 * Math.pow(Math.max(1, overloadRatio), 0.8)),
+    screenShake: overloadRatio > 50
+  };
+}
+
+// ===== SCREEN SHAKE EFFECT =====
+function triggerScreenShake(durationMs, magnitudePx) {
+  var canvas = typeof cvs !== 'undefined' ? cvs : document.getElementById('C');
+  if (!canvas) return;
+  var frames = Math.round((durationMs || 300) / 30);
+  var mag = magnitudePx || 8;
+  var count = 0;
+  var shakeInterval = setInterval(function() {
+    if (count >= frames) {
+      clearInterval(shakeInterval);
+      canvas.style.transform = '';
+      return;
+    }
+    var dx = (Math.random() - 0.5) * mag;
+    var dy = (Math.random() - 0.5) * mag;
+    canvas.style.transform = 'translate(' + dx + 'px,' + dy + 'px)';
+    count++;
+  }, 30);
+}
+
+// ===== CHAOS PANEL UI =====
+(function setupChaosPanel() {
+  if (typeof document === 'undefined') return;
+
+  function lang() { return (typeof currentLang !== 'undefined' ? currentLang : 'en'); }
+  function tr(trStr, enStr) { return lang() === 'tr' ? trStr : enStr; }
+
+  function createPanel() {
+    // Backdrop
+    var backdrop = document.createElement('div');
+    backdrop.id = 'chaos-backdrop';
+    backdrop.style.cssText = 'display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9999';
+    backdrop.onclick = function(e) { if (e.target === backdrop) closePanel(); };
+
+    // Panel
+    var panel = document.createElement('div');
+    panel.id = 'chaos-panel';
+    panel.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:10000;background:var(--bg,#1a1a2e);border:1px solid #444;border-radius:12px;padding:20px;min-width:340px;max-width:420px;color:#ddd;box-shadow:0 8px 32px rgba(0,0,0,0.5);font:13px var(--font-ui,sans-serif)';
+
+    panel.innerHTML = '<h3 id="chaos-title" style="margin:0 0 12px;font-size:16px;color:#ff8800"></h3>'
+      + '<div id="chaos-config">'
+      + '  <div id="chaos-scenarios"></div>'
+      + '  <div style="display:flex;align-items:center;gap:8px;margin:10px 0"><label id="chaos-severity-label" style="font-size:12px;color:#aaa;min-width:70px"></label><input type="range" id="chaos-severity" min="1" max="10" value="5" style="flex:1"><span id="chaos-severity-val" style="font-size:12px;font-weight:bold;min-width:30px;text-align:right">5</span></div>'
+      + '  <div style="display:flex;align-items:center;gap:8px;margin:10px 0"><label id="chaos-duration-label" style="font-size:12px;color:#aaa;min-width:70px"></label><input type="range" id="chaos-duration" min="1" max="10" value="3" style="flex:1"><span id="chaos-duration-val" style="font-size:12px;font-weight:bold;min-width:30px;text-align:right">3s</span></div>'
+      + '  <button id="chaos-start-btn" style="width:100%;padding:10px;margin-top:12px;background:#ff4400;color:white;border:none;border-radius:6px;font-size:14px;font-weight:bold;cursor:pointer"></button>'
+      + '</div>'
+      + '<div id="chaos-running" style="display:none">'
+      + '  <div style="height:6px;background:#333;border-radius:3px;overflow:hidden;margin:8px 0"><div id="chaos-progress-fill" style="height:100%;background:#ff4400;width:0%;transition:width 0.3s"></div></div>'
+      + '  <span id="chaos-running-text" style="font-size:12px;color:#aaa"></span>'
+      + '  <button id="chaos-stop-btn" style="margin-top:8px;padding:6px 16px;background:none;border:1px solid #555;color:#ccc;border-radius:6px;cursor:pointer;font-size:12px"></button>'
+      + '</div>'
+      + '<div id="chaos-results" style="display:none">'
+      + '  <div id="chaos-score-display" style="text-align:center;margin:12px 0"><span id="chaos-stars" style="font-size:24px"></span><span id="chaos-score-num" style="display:block;font-size:36px;font-weight:bold"></span></div>'
+      + '  <div id="chaos-survival" style="font-size:12px;text-align:center;color:#aaa;margin:4px 0"></div>'
+      + '  <div id="chaos-weak-points" style="margin:8px 0;font-size:12px;line-height:1.6"></div>'
+      + '  <div id="chaos-recommendation" style="margin:8px 0;padding:8px;background:rgba(255,255,255,0.05);border-radius:6px;font-size:11px;line-height:1.5;color:#aaa;white-space:pre-line"></div>'
+      + '  <div style="display:flex;gap:8px;margin-top:12px"><button id="chaos-download-btn" style="flex:1;padding:8px;border:1px solid #555;border-radius:6px;background:none;color:#ccc;cursor:pointer;font-size:12px"></button><button id="chaos-close-btn" style="flex:1;padding:8px;border:1px solid #555;border-radius:6px;background:none;color:#ccc;cursor:pointer;font-size:12px"></button></div>'
+      + '</div>';
+
+    backdrop.appendChild(panel);
+    document.body.appendChild(backdrop);
+    return backdrop;
+  }
+
+  var _backdrop = null;
+  var _progressInterval = null;
+
+  function getBackdrop() {
+    if (!_backdrop) _backdrop = createPanel();
+    return _backdrop;
+  }
+
+  function openPanel() {
+    var bd = getBackdrop();
+    bd.style.display = 'block';
+    renderConfig();
+  }
+
+  function closePanel() {
+    var bd = getBackdrop();
+    bd.style.display = 'none';
+    if (_progressInterval) { clearInterval(_progressInterval); _progressInterval = null; }
+  }
+
+  function renderConfig() {
+    var l = lang();
+    document.getElementById('chaos-title').textContent = l === 'tr' ? '⚡ Kaos Testi' : '⚡ Chaos Test';
+
+    var scenDiv = document.getElementById('chaos-scenarios');
+    var scenarios = VXA.ChaosMonkey.getScenarios();
+    scenDiv.innerHTML = '';
+
+    var keys = Object.keys(scenarios);
+    for (var k = 0; k < keys.length; k++) {
+      var key = keys[k];
+      var s = scenarios[key];
+      var label = document.createElement('label');
+      label.style.cssText = 'display:flex;align-items:center;gap:6px;margin:4px 0;font-size:12px;cursor:pointer';
+      var cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.value = key;
+      cb.checked = (key === 'voltageSurge' || key === 'gaussianNoise');
+      cb.style.cursor = 'pointer';
+      label.appendChild(cb);
+      label.appendChild(document.createTextNode(s.icon + ' ' + s.name[l]));
+      scenDiv.appendChild(label);
+    }
+
+    document.getElementById('chaos-severity-label').textContent = l === 'tr' ? 'Şiddet:' : 'Severity:';
+    document.getElementById('chaos-duration-label').textContent = l === 'tr' ? 'Süre:' : 'Duration:';
+    document.getElementById('chaos-start-btn').textContent = l === 'tr' ? '⚡ TESTİ BAŞLAT' : '⚡ START TEST';
+    document.getElementById('chaos-severity-val').textContent = document.getElementById('chaos-severity').value;
+    document.getElementById('chaos-duration-val').textContent = document.getElementById('chaos-duration').value + 's';
+
+    document.getElementById('chaos-config').style.display = 'block';
+    document.getElementById('chaos-results').style.display = 'none';
+    document.getElementById('chaos-running').style.display = 'none';
+  }
+
+  // Deferred event binding — wait for DOM
+  function bindEvents() {
+    var sevSlider = document.getElementById('chaos-severity');
+    var durSlider = document.getElementById('chaos-duration');
+    if (!sevSlider) return; // Panel not yet created
+
+    sevSlider.addEventListener('input', function() {
+      document.getElementById('chaos-severity-val').textContent = this.value;
+    });
+    durSlider.addEventListener('input', function() {
+      document.getElementById('chaos-duration-val').textContent = this.value + 's';
+    });
+
+    document.getElementById('chaos-start-btn').addEventListener('click', function() {
+      var checks = document.querySelectorAll('#chaos-scenarios input:checked');
+      var scenarios = [];
+      for (var c = 0; c < checks.length; c++) scenarios.push(checks[c].value);
+      if (scenarios.length === 0) return;
+
+      var severity = parseInt(document.getElementById('chaos-severity').value);
+      var duration = parseInt(document.getElementById('chaos-duration').value) * 1000;
+
+      // Start sim if not running
+      if (!S.sim.running && typeof toggleSim === 'function') toggleSim();
+
+      VXA.ChaosMonkey.start(S.parts, {
+        scenarios: scenarios,
+        severity: severity,
+        durationMs: duration
+      });
+
+      document.getElementById('chaos-config').style.display = 'none';
+      document.getElementById('chaos-running').style.display = 'block';
+      var l = lang();
+      document.getElementById('chaos-running-text').textContent = l === 'tr' ? 'Test çalışıyor...' : 'Test running...';
+      document.getElementById('chaos-stop-btn').textContent = l === 'tr' ? 'Durdur' : 'Stop';
+
+      var startMs = Date.now();
+      _progressInterval = setInterval(function() {
+        if (!VXA.ChaosMonkey.isRunning()) {
+          clearInterval(_progressInterval);
+          _progressInterval = null;
+          showResults();
+          return;
+        }
+        var pct = Math.min(100, (Date.now() - startMs) / duration * 100);
+        document.getElementById('chaos-progress-fill').style.width = pct + '%';
+      }, 100);
+    });
+
+    document.getElementById('chaos-stop-btn').addEventListener('click', function() {
+      VXA.ChaosMonkey.stop(S.parts);
+    });
+
+    document.getElementById('chaos-download-btn').addEventListener('click', function() {
+      var results = VXA.ChaosMonkey.getResults();
+      if (!results) return;
+      var text = '=== VoltXAmpere Chaos Test Report ===\n\n';
+      text += 'Score: ' + results.score + '/100 (' + results.stars + '/5 stars)\n';
+      text += 'Severity: ' + results.severity + '/10\n';
+      text += 'Duration: ' + results.duration + 's\n';
+      text += 'Scenarios: ' + results.scenarios.join(', ') + '\n';
+      text += 'Damages: ' + results.damageCount + '\n';
+      text += 'Thermal violations: ' + results.thermalViolations + '\n';
+      text += 'Power violations: ' + results.powerViolations + '\n\n';
+      text += 'Weak Points:\n';
+      for (var w = 0; w < results.weakPoints.length; w++) {
+        var wp = results.weakPoints[w];
+        text += '  - ' + wp.partId + ' (severity: ' + wp.severity.toFixed(1) + ')\n';
+      }
+      text += '\nRecommendation:\n' + (results.recommendation || '') + '\n';
+      var blob = new Blob([text], { type: 'text/plain' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url; a.download = 'chaos_test_report.txt'; a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    document.getElementById('chaos-close-btn').addEventListener('click', function() {
+      closePanel();
+      renderConfig();
+    });
+  }
+
+  function showResults() {
+    var results = VXA.ChaosMonkey.getResults();
+    if (!results) return;
+    var l = lang();
+
+    document.getElementById('chaos-running').style.display = 'none';
+    document.getElementById('chaos-results').style.display = 'block';
+
+    var starsStr = '';
+    for (var i = 0; i < 5; i++) starsStr += i < results.stars ? '⭐' : '☆';
+    document.getElementById('chaos-stars').textContent = starsStr;
+
+    var scoreEl = document.getElementById('chaos-score-num');
+    scoreEl.textContent = results.score + '/100';
+    scoreEl.style.color = results.score >= 70 ? '#00ff41' : results.score >= 40 ? '#ffaa00' : '#ff4444';
+
+    var survivalEl = document.getElementById('chaos-survival');
+    if (results.firstDamageTime !== null) {
+      survivalEl.textContent = (l === 'tr' ? 'İlk hasar: ' : 'First damage: ') +
+        (results.firstDamageTime * 1000).toFixed(0) + 'ms';
+    } else {
+      survivalEl.textContent = l === 'tr' ? 'Hiçbir bileşen hasar görmedi!' : 'No components damaged!';
+    }
+
+    var wpEl = document.getElementById('chaos-weak-points');
+    wpEl.innerHTML = '';
+    if (results.weakPoints.length > 0) {
+      var wpTitle = document.createElement('div');
+      wpTitle.style.cssText = 'font-weight:bold;margin-bottom:4px';
+      wpTitle.textContent = l === 'tr' ? 'Zayıf Noktalar:' : 'Weak Points:';
+      wpEl.appendChild(wpTitle);
+      for (var w = 0; w < results.weakPoints.length; w++) {
+        var wp = results.weakPoints[w];
+        var div = document.createElement('div');
+        var icon = wp.severity > 5 ? '🔴' : wp.severity > 2 ? '🟡' : '🟢';
+        div.textContent = icon + ' ' + wp.partId + ' (' + (l === 'tr' ? 'şiddet' : 'severity') + ': ' + wp.severity.toFixed(1) + ')';
+        wpEl.appendChild(div);
+      }
+    }
+
+    document.getElementById('chaos-recommendation').textContent = results.recommendation || '';
+    document.getElementById('chaos-download-btn').textContent = l === 'tr' ? 'Raporu İndir' : 'Download Report';
+    document.getElementById('chaos-close-btn').textContent = l === 'tr' ? 'Kapat' : 'Close';
+  }
+
+  // Global toggle function for toolbar button
+  window.toggleChaosPanel = function() {
+    var bd = getBackdrop();
+    if (bd.style.display === 'none' || bd.style.display === '') {
+      openPanel();
+      bindEvents();
+    } else {
+      closePanel();
+    }
+  };
+})();
+
+
+// ═══ holographic-ui.js ═══
+// ──────── HOLOGRAPHIC FORMULAS + SENSORY UI (v8.0 Sprint 14) ────────
+
+// ===== A. FORMULA OVERLAY SYSTEM =====
+
+var PART_FORMULAS = {
+  resistor: function(p) {
+    var V = Math.abs(p._v || 0);
+    var I = Math.abs(p._i || 0);
+    var R = p.val || 1;
+    var P = V * I;
+    var pMax = 0.25;
+    if (p._thermal && p._thermal.Pmax) pMax = p._thermal.Pmax;
+    return [
+      { label: 'V = IR', value: fmtEng(V) + 'V = ' + fmtEng(I) + 'A \u00D7 ' + fmtEng(R) + '\u03A9', status: 'safe' },
+      { label: 'P = I\u00B2R', value: fmtEng(P) + 'W', status: P > pMax ? 'danger' : P > pMax * 0.8 ? 'warn' : 'safe' }
+    ];
+  },
+  capacitor: function(p) {
+    var V = Math.abs(p._v || 0);
+    var C = p.val || 1e-6;
+    var E = 0.5 * C * V * V;
+    var freq = 1000;
+    var Xc = 1 / (2 * Math.PI * freq * C);
+    return [
+      { label: 'Xc = 1/(2\u03C0fC)', value: fmtEng(Xc) + '\u03A9 @ ' + fmtEng(freq) + 'Hz', status: 'safe' },
+      { label: 'E = \u00BDC V\u00B2', value: fmtEng(E) + 'J', status: 'safe' }
+    ];
+  },
+  inductor: function(p) {
+    var L = p.val || 1e-3;
+    var freq = 1000;
+    var Xl = 2 * Math.PI * freq * L;
+    return [
+      { label: 'XL = 2\u03C0fL', value: fmtEng(Xl) + '\u03A9 @ ' + fmtEng(freq) + 'Hz', status: 'safe' }
+    ];
+  },
+  diode: function(p) {
+    var I = Math.abs(p._i || 0);
+    var V = Math.abs(p._v || 0);
+    return [
+      { label: 'I = Is(e^(V/nVt)\u22121)', value: fmtEng(I) + 'A @ ' + fmtEng(V) + 'V', status: 'safe' }
+    ];
+  },
+  led: function(p) {
+    var I = Math.abs(p._i || 0);
+    var V = Math.abs(p._v || 0);
+    var P = V * I;
+    return [
+      { label: 'Vf \u2248 ' + V.toFixed(2) + 'V', value: 'If = ' + fmtEng(I) + 'A', status: I > 0.025 ? 'danger' : I > 0.02 ? 'warn' : 'safe' },
+      { label: 'P = ' + fmtEng(P) + 'W', value: '', status: P > 0.1 ? 'danger' : 'safe' }
+    ];
+  },
+  npn: function(p) { return _bjtFormulas(p); },
+  pnp: function(p) { return _bjtFormulas(p); },
+  nmos: function(p) { return _mosFormulas(p); },
+  pmos: function(p) { return _mosFormulas(p); },
+  opamp: function(p) {
+    return [
+      { label: 'Vout = Aol(V+ \u2212 V\u2212)', value: '', status: 'safe' }
+    ];
+  },
+  dcSource: function(p) {
+    var V = p.val || 0;
+    var I = Math.abs(p._i || 0);
+    var P = Math.abs(V) * I;
+    return [
+      { label: 'V = ' + fmtEng(V) + 'V', value: 'I = ' + fmtEng(I) + 'A', status: 'safe' },
+      { label: 'P = ' + fmtEng(P) + 'W', value: '', status: 'safe' }
+    ];
+  },
+  acSource: function(p) {
+    var Vp = p.val || 5;
+    var f = p.freq || 1000;
+    var Vrms = Vp / Math.sqrt(2);
+    return [
+      { label: 'v(t) = ' + fmtEng(Vp) + 'sin(2\u03C0\u00B7' + fmtEng(f) + 't)', value: '', status: 'safe' },
+      { label: 'Vrms = ' + fmtEng(Vrms) + 'V', value: '', status: 'safe' }
+    ];
+  },
+  zener: function(p) {
+    var V = Math.abs(p._v || 0);
+    var I = Math.abs(p._i || 0);
+    return [
+      { label: 'Vz \u2248 ' + V.toFixed(2) + 'V', value: 'Iz = ' + fmtEng(I) + 'A', status: 'safe' }
+    ];
+  },
+  fuse: function(p) {
+    var I = Math.abs(p._i || 0);
+    var Irated = p.val || 1;
+    return [
+      { label: 'I = ' + fmtEng(I) + 'A', value: 'Irated = ' + fmtEng(Irated) + 'A', status: I > Irated ? 'danger' : I > Irated * 0.8 ? 'warn' : 'safe' }
+    ];
+  }
+};
+
+function _bjtFormulas(p) {
+  var Ic = Math.abs(p._i || 0);
+  var Vt = 0.026;
+  var beta = p.beta || p.hfe || 100;
+  var Ib = beta > 0 ? Ic / beta : 0;
+  var gm = Vt > 0 ? Ic / Vt : 0;
+  return [
+    { label: 'Ic = \u03B2\u00B7Ib', value: fmtEng(Ic) + 'A = ' + beta + '\u00B7' + fmtEng(Ib) + 'A', status: 'safe' },
+    { label: 'gm = Ic/Vt', value: fmtEng(gm) + 'S', status: 'safe' }
+  ];
+}
+
+function _mosFormulas(p) {
+  var Id = Math.abs(p._i || 0);
+  var Vgs = p._vgs || 0;
+  var Vth = p._vth || 1.5;
+  return [
+    { label: 'Id = \u00BDKp(Vgs\u2212Vth)\u00B2', value: fmtEng(Id) + 'A', status: 'safe' },
+    { label: 'Vgs=' + Vgs.toFixed(2) + 'V', value: 'Vth=' + Vth.toFixed(2) + 'V', status: Math.abs(Vgs) < Math.abs(Vth) ? 'warn' : 'safe' }
+  ];
+}
+
+// Engineering notation formatter
+function fmtEng(val) {
+  if (val === 0) return '0';
+  var abs = Math.abs(val);
+  if (abs >= 1e6) return (val / 1e6).toFixed(2) + 'M';
+  if (abs >= 1e3) return (val / 1e3).toFixed(2) + 'k';
+  if (abs >= 1) return val.toFixed(2);
+  if (abs >= 1e-3) return (val * 1e3).toFixed(2) + 'm';
+  if (abs >= 1e-6) return (val * 1e6).toFixed(2) + '\u00B5';
+  if (abs >= 1e-9) return (val * 1e9).toFixed(2) + 'n';
+  if (abs >= 1e-12) return (val * 1e12).toFixed(2) + 'p';
+  return val.toExponential(2);
+}
+
+// Hover timing
+var _formulaHoverStartTime = 0;
+var _formulaLastHoveredId = null;
+
+function drawFormulaOverlay(ctx, part) {
+  if (!part || part.damaged) return;
+
+  // Hover delay: 300ms before showing
+  if (part.id !== _formulaLastHoveredId) {
+    _formulaLastHoveredId = part.id;
+    _formulaHoverStartTime = Date.now();
+    return;
+  }
+  if (Date.now() - _formulaHoverStartTime < 300) return;
+
+  var formulaFn = PART_FORMULAS[part.type];
+  if (!formulaFn) return;
+  var formulas;
+  try { formulas = formulaFn(part); } catch(e) { return; }
+  if (!formulas || formulas.length === 0) return;
+
+  var boxW = 220;
+  var lineH = 18;
+  var padding = 10;
+  var boxH = padding * 2 + formulas.length * lineH;
+
+  // Position: right of component
+  var bx = part.x + 35;
+  var by = part.y - boxH / 2;
+
+  // Fade-in (200ms after 300ms delay)
+  var elapsed = Date.now() - _formulaHoverStartTime - 300;
+  var alpha = Math.min(1, elapsed / 200);
+  if (alpha <= 0) return;
+
+  ctx.save();
+  ctx.globalAlpha = alpha;
+
+  // Background (dark semi-transparent)
+  ctx.fillStyle = 'rgba(10, 10, 30, 0.88)';
+  ctx.strokeStyle = 'rgba(100, 140, 255, 0.3)';
+  ctx.lineWidth = 1;
+
+  // Rounded rect
+  _roundRect(ctx, bx, by, boxW, boxH, 6);
+  ctx.fill();
+  ctx.stroke();
+
+  // Formulas
+  ctx.font = '11px "JetBrains Mono", monospace';
+  ctx.textBaseline = 'middle';
+
+  for (var i = 0; i < formulas.length; i++) {
+    var f = formulas[i];
+    var fy = by + padding + i * lineH + lineH / 2;
+
+    var labelColor = '#aabbff';
+    var valueColor = '#00ff41';
+    if (f.status === 'warn') { valueColor = '#ffff00'; }
+    else if (f.status === 'danger') { valueColor = '#ff4444'; labelColor = '#ffaaaa'; }
+
+    ctx.fillStyle = labelColor;
+    ctx.textAlign = 'left';
+    ctx.fillText(f.label, bx + padding, fy);
+
+    if (f.value) {
+      ctx.fillStyle = valueColor;
+      ctx.textAlign = 'right';
+      ctx.fillText(f.value, bx + boxW - padding, fy);
+    }
+  }
+
+  ctx.restore();
+}
+
+// ===== B. WIRE PULLING TENSION FEEL =====
+
+var _wireLag = { x: 0, y: 0, init: false };
+
+function updateWireLag(wx, wy) {
+  if (!_wireLag.init) { _wireLag.x = wx; _wireLag.y = wy; _wireLag.init = true; return; }
+  var lerp = 0.35;
+  _wireLag.x += (wx - _wireLag.x) * lerp;
+  _wireLag.y += (wy - _wireLag.y) * lerp;
+}
+
+function resetWireLag() { _wireLag.init = false; }
+
+// Flash effects for wire connection
+var _flashEffects = [];
+
+function onWireConnected(px, py) {
+  if (VXA.SpatialAudio) { VXA.SpatialAudio.playAt('click', px, py); }
+  _flashEffects.push({ x: px, y: py, startTime: Date.now(), duration: 150 });
+}
+
+function drawFlashEffects(ctx) {
+  var now = Date.now();
+  for (var i = _flashEffects.length - 1; i >= 0; i--) {
+    var f = _flashEffects[i];
+    var elapsed = now - f.startTime;
+    if (elapsed > f.duration) { _flashEffects.splice(i, 1); continue; }
+    var progress = elapsed / f.duration;
+    var radius = 5 + progress * 15;
+    var a = 1 - progress;
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(f.x, f.y, radius, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255, 255, 255, ' + (a * 0.6) + ')';
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+// ===== C. CAPACITOR BREATHING EFFECT =====
+
+function getCapacitorBreathing(part) {
+  if (!S.sim.running || !S.animationsOn) return null;
+  if (part.type !== 'capacitor') return null;
+  var V = Math.abs(part._v || 0);
+  var maxV = 25;
+  if (part.val > 1e-4) maxV = 25;
+  else if (part.val > 1e-6) maxV = 50;
+  else maxV = 100;
+  var chargeRatio = Math.min(1, V / maxV);
+  return {
+    scale: 1 + chargeRatio * 0.05,
+    chargeRatio: chargeRatio,
+    // Color: plates darken with charge
+    r: Math.round(85 - chargeRatio * 50),
+    g: Math.round(136 - chargeRatio * 100),
+    b: 170
+  };
+}
+
+// ===== D. DRAGGABLE 3D PROBE UX =====
+
+VXA.Probes = (function() {
+  'use strict';
+
+  var _probes = {
+    red:   { x: -1, y: -1, attached: false, partId: null, pinIndex: -1, color: '#ff3333', label: '+' },
+    black: { x: -1, y: -1, attached: false, partId: null, pinIndex: -1, color: '#444444', label: '\u2212' }
+  };
+
+  var _activeProbe = null;
+  var _probeMode = false;
+
+  function findPinNear(wx, wy, maxDist) {
+    var best = null, bestD = maxDist || 25;
+    for (var i = 0; i < S.parts.length; i++) {
+      var p = S.parts[i];
+      var pins = getPartPins(p);
+      for (var pi = 0; pi < pins.length; pi++) {
+        var dx = wx - pins[pi].x, dy = wy - pins[pi].y;
+        var d = Math.sqrt(dx * dx + dy * dy);
+        if (d < bestD) { bestD = d; best = { partId: p.id, pinIndex: pi, x: pins[pi].x, y: pins[pi].y, dist: d }; }
+      }
+    }
+    return best;
+  }
+
+  return {
+    isActive: function() { return _probeMode; },
+
+    toggle: function() {
+      _probeMode = !_probeMode;
+      if (!_probeMode) {
+        _probes.red.attached = false; _probes.black.attached = false;
+        _probes.red.x = _probes.red.y = -1;
+        _probes.black.x = _probes.black.y = -1;
+        _activeProbe = null;
+      }
+      needsRender = true;
+    },
+
+    startDrag: function(probeId) {
+      if (!_probeMode) return;
+      _activeProbe = probeId;
+    },
+
+    isDragging: function() { return _activeProbe !== null; },
+
+    onDrag: function(wx, wy) {
+      if (!_activeProbe) return;
+      _probes[_activeProbe].x = wx;
+      _probes[_activeProbe].y = wy;
+      _probes[_activeProbe].attached = false;
+      needsRender = true;
+    },
+
+    onDrop: function(wx, wy) {
+      if (!_activeProbe) return;
+      var pin = findPinNear(wx, wy, 25);
+      if (pin) {
+        _probes[_activeProbe].x = pin.x;
+        _probes[_activeProbe].y = pin.y;
+        _probes[_activeProbe].attached = true;
+        _probes[_activeProbe].partId = pin.partId;
+        _probes[_activeProbe].pinIndex = pin.pinIndex;
+        if (VXA.SpatialAudio) VXA.SpatialAudio.playAt('click', pin.x, pin.y);
+      } else {
+        _probes[_activeProbe].attached = false;
+        _probes[_activeProbe].x = -1;
+        _probes[_activeProbe].y = -1;
+      }
+      _activeProbe = null;
+      needsRender = true;
+    },
+
+    hitTest: function(wx, wy) {
+      if (!_probeMode) return null;
+      var ids = ['red', 'black'];
+      for (var i = 0; i < ids.length; i++) {
+        var pr = _probes[ids[i]];
+        if (pr.x < 0 && pr.y < 0) continue;
+        var dx = wx - pr.x, dy = wy - pr.y;
+        if (Math.sqrt(dx * dx + dy * dy) < 15) return ids[i];
+      }
+      // If no probe placed, check if near toolbar area — start from mouse pos
+      return null;
+    },
+
+    getMeasurement: function() {
+      if (!_probes.red.attached || !_probes.black.attached) return null;
+      var rPart = null, bPart = null;
+      for (var i = 0; i < S.parts.length; i++) {
+        if (S.parts[i].id === _probes.red.partId) rPart = S.parts[i];
+        if (S.parts[i].id === _probes.black.partId) bPart = S.parts[i];
+      }
+      if (!rPart || !bPart) return null;
+
+      // Get pin voltages from node voltages if available
+      var vRed = rPart._v || 0;
+      var vBlack = bPart._v || 0;
+      var vDiff = vRed - vBlack;
+      var current = null, power = null;
+      if (_probes.red.partId === _probes.black.partId) {
+        current = Math.abs(rPart._i || 0);
+        power = Math.abs(vDiff * current);
+      }
+      return { voltage: vDiff, vRed: vRed, vBlack: vBlack, current: current, power: power };
+    },
+
+    draw: function(ctx) {
+      if (!_probeMode) return;
+      var ids = ['red', 'black'];
+      for (var i = 0; i < ids.length; i++) {
+        var id = ids[i];
+        var pr = _probes[id];
+        if (pr.x < 0 && pr.y < 0 && !_activeProbe) continue;
+
+        ctx.save();
+        var radius = pr.attached ? 6 : 4;
+
+        // Pulsing glow if attached
+        if (pr.attached) {
+          var pulse = 0.25 + Math.sin(Date.now() / 300) * 0.15;
+          ctx.beginPath();
+          ctx.arc(pr.x, pr.y, 12, 0, Math.PI * 2);
+          ctx.fillStyle = id === 'red' ? 'rgba(255, 50, 50, ' + pulse + ')' : 'rgba(100, 100, 100, ' + pulse + ')';
+          ctx.fill();
+        }
+
+        // Probe tip
+        ctx.beginPath();
+        ctx.arc(pr.x, pr.y, radius, 0, Math.PI * 2);
+        ctx.fillStyle = pr.color;
+        ctx.fill();
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        // Label
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 9px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(pr.label, pr.x, pr.y);
+
+        ctx.restore();
+      }
+
+      // Measurement tooltip
+      var m = this.getMeasurement();
+      if (m) {
+        var px = (_probes.red.x + _probes.black.x) / 2;
+        var py = Math.min(_probes.red.y, _probes.black.y) - 45;
+
+        var lines = ['\u0394V = ' + fmtEng(m.voltage) + 'V'];
+        if (m.current !== null) lines.push('I = ' + fmtEng(m.current) + 'A');
+        if (m.power !== null) lines.push('P = ' + fmtEng(m.power) + 'W');
+
+        var lineH = 16, pad = 8;
+        var bW = 140, bH = pad * 2 + lines.length * lineH;
+        var bx = px - bW / 2, by = py - bH;
+
+        ctx.save();
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
+        ctx.strokeStyle = 'rgba(74, 158, 255, 0.5)';
+        ctx.lineWidth = 1;
+        _roundRect(ctx, bx, by, bW, bH, 6);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.font = '11px "JetBrains Mono", monospace';
+        ctx.fillStyle = '#00ff41';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        for (var li = 0; li < lines.length; li++) {
+          ctx.fillText(lines[li], px, by + pad + li * lineH + lineH / 2);
+        }
+        ctx.restore();
+      }
+    },
+
+    getState: function() { return { probes: _probes, mode: _probeMode, active: _activeProbe }; }
+  };
+})();
+
+// ===== SHARED HELPER =====
+function _roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+// Global toggle for probe mode (toolbar)
+function toggleProbeMode() {
+  if (VXA.Probes) VXA.Probes.toggle();
+  var btn = document.getElementById('btn-probes');
+  if (btn) btn.classList.toggle('active', VXA.Probes && VXA.Probes.isActive());
+}
+
+
+// ═══ digital.js ═══
+// ──────── DIGITAL SIMULATION ENGINE (v8.0 Sprint 17) ────────
+VXA.Digital = (function() {
+  'use strict';
+
+  // ===== EVENT QUEUE =====
+  var _eventQueue = [];
+  var _currentTime = 0;
+  var _nodeStates = {};
+  var _componentStates = {};
+  var _history = {};
+  var _isRunning = false;
+  var _maxHistory = 10000;
+
+  // ===== GATE DEFINITIONS =====
+  var GATE_DEFS = {
+    and:    { inputs: 2, outputs: 1, delay: 10e-9, fn: function(a, b) { return a && b; } },
+    or:     { inputs: 2, outputs: 1, delay: 10e-9, fn: function(a, b) { return a || b; } },
+    not:    { inputs: 1, outputs: 1, delay: 5e-9,  fn: function(a) { return !a; } },
+    nand:   { inputs: 2, outputs: 1, delay: 10e-9, fn: function(a, b) { return !(a && b); } },
+    nor:    { inputs: 2, outputs: 1, delay: 10e-9, fn: function(a, b) { return !(a || b); } },
+    xor:    { inputs: 2, outputs: 1, delay: 12e-9, fn: function(a, b) { return a !== b; } },
+    xnor:   { inputs: 2, outputs: 1, delay: 12e-9, fn: function(a, b) { return a === b; } },
+    buffer: { inputs: 1, outputs: 1, delay: 5e-9,  fn: function(a) { return a; } }
+  };
+
+  // ===== FLIP-FLOP DEFINITIONS =====
+  var FF_DEFS = {
+    dFlipFlop: {
+      compType: 'dff',
+      pins: ['D', 'CLK', 'Q', 'Qbar'],
+      inputPins: [0, 1],
+      outputPins: [2, 3],
+      delay: 8e-9,
+      init: function() { return { Q: false, prevCLK: false }; },
+      evaluate: function(state, inputs) {
+        var r = { Q: state.Q };
+        if (inputs.CLK && !state.prevCLK) r.Q = inputs.D;
+        r.prevCLK = inputs.CLK;
+        return r;
+      },
+      getOutputs: function(state) { return { Q: state.Q, Qbar: !state.Q }; }
+    },
+    jkFlipFlop: {
+      compType: 'jkff',
+      pins: ['J', 'K', 'CLK', 'Q', 'Qbar'],
+      inputPins: [0, 1, 2],
+      outputPins: [3, 4],
+      delay: 10e-9,
+      init: function() { return { Q: false, prevCLK: false }; },
+      evaluate: function(state, inputs) {
+        var r = { Q: state.Q };
+        if (inputs.CLK && !state.prevCLK) {
+          if (inputs.J && inputs.K) r.Q = !state.Q;
+          else if (inputs.J) r.Q = true;
+          else if (inputs.K) r.Q = false;
+        }
+        r.prevCLK = inputs.CLK;
+        return r;
+      },
+      getOutputs: function(state) { return { Q: state.Q, Qbar: !state.Q }; }
+    },
+    tFlipFlop: {
+      compType: 'tff',
+      pins: ['T', 'CLK', 'Q', 'Qbar'],
+      inputPins: [0, 1],
+      outputPins: [2, 3],
+      delay: 8e-9,
+      init: function() { return { Q: false, prevCLK: false }; },
+      evaluate: function(state, inputs) {
+        var r = { Q: state.Q };
+        if (inputs.CLK && !state.prevCLK && inputs.T) r.Q = !state.Q;
+        r.prevCLK = inputs.CLK;
+        return r;
+      },
+      getOutputs: function(state) { return { Q: state.Q, Qbar: !state.Q }; }
+    }
+  };
+
+  // ===== COMPLEX COMPONENT DEFINITIONS =====
+  var COMPLEX_DEFS = {
+    counter4bit: {
+      compType: 'counter',
+      pins: ['CLK', 'Q0', 'Q1', 'Q2', 'Q3'],
+      inputPins: [0],
+      outputPins: [1, 2, 3, 4],
+      delay: 15e-9,
+      init: function() { return { count: 0, prevCLK: false }; },
+      evaluate: function(state, inputs) {
+        var r = { count: state.count };
+        if (inputs.CLK && !state.prevCLK) r.count = (state.count + 1) % 16;
+        r.prevCLK = inputs.CLK;
+        return r;
+      },
+      getOutputs: function(state) {
+        return { Q0: !!(state.count & 1), Q1: !!(state.count & 2), Q2: !!(state.count & 4), Q3: !!(state.count & 8) };
+      }
+    },
+    shiftReg: {
+      compType: 'shiftreg',
+      pins: ['DIN', 'CLK', 'Q'],
+      inputPins: [0, 1],
+      outputPins: [2],
+      delay: 12e-9,
+      init: function() { return { reg: 0, prevCLK: false }; },
+      evaluate: function(state, inputs) {
+        var r = { reg: state.reg };
+        if (inputs.CLK && !state.prevCLK) r.reg = ((state.reg << 1) | (inputs.DIN ? 1 : 0)) & 0xFF;
+        r.prevCLK = inputs.CLK;
+        return r;
+      },
+      getOutputs: function(state) { return { Q: !!(state.reg & 0x80) }; }
+    },
+    mux2to1: {
+      compType: 'mux',
+      pins: ['A', 'B', 'SEL', 'Y'],
+      inputPins: [0, 1, 2],
+      outputPins: [3],
+      delay: 8e-9,
+      init: function() { return {}; },
+      evaluate: function(state) { return state; },
+      getOutputs: function(state, inputs) { return { Y: inputs.SEL ? inputs.B : inputs.A }; }
+    },
+    sevenSegment: {
+      compType: '7seg',
+      pins: ['A', 'B', 'C', 'D', 'sa', 'sb', 'sc', 'sd', 'se', 'sf', 'sg'],
+      inputPins: [0, 1, 2, 3],
+      outputPins: [4, 5, 6, 7, 8, 9, 10],
+      delay: 5e-9,
+      _table: [0x7E,0x30,0x6D,0x79,0x33,0x5B,0x5F,0x70,0x7F,0x7B,0x77,0x1F,0x4E,0x3D,0x4F,0x47],
+      init: function() { return {}; },
+      evaluate: function(state) { return state; },
+      getOutputs: function(state, inputs) {
+        var bcd = (inputs.A?1:0)|(inputs.B?2:0)|(inputs.C?4:0)|(inputs.D?8:0);
+        var seg = this._table[bcd] || 0;
+        return { sa:!!(seg&0x40), sb:!!(seg&0x20), sc:!!(seg&0x10), sd:!!(seg&0x08), se:!!(seg&0x04), sf:!!(seg&0x02), sg:!!(seg&0x01) };
+      }
+    }
+  };
+
+  // Map COMP type key → definition
+  function getDigitalDef(compType) {
+    if (GATE_DEFS[compType]) return { type: 'gate', def: GATE_DEFS[compType] };
+    for (var k in FF_DEFS) { if (FF_DEFS[k].compType === compType) return { type: 'ff', def: FF_DEFS[k] }; }
+    for (var c in COMPLEX_DEFS) { if (COMPLEX_DEFS[c].compType === compType) return { type: 'complex', def: COMPLEX_DEFS[c] }; }
+    return null;
+  }
+
+  // ===== EVENT QUEUE OPS =====
+  function insertEvent(time, nodeId, value, sourceId) {
+    var ev = { time: time, nodeId: nodeId, value: value, sourceId: sourceId };
+    var lo = 0, hi = _eventQueue.length;
+    while (lo < hi) { var mid = (lo + hi) >>> 1; if (_eventQueue[mid].time < time) lo = mid + 1; else hi = mid; }
+    _eventQueue.splice(lo, 0, ev);
+  }
+
+  function recordHistory(nodeId, time, value) {
+    if (!_history[nodeId]) _history[nodeId] = [];
+    var h = _history[nodeId];
+    if (h.length > 0 && h[h.length - 1].value === value) return;
+    h.push({ time: time, value: value });
+    if (h.length > _maxHistory) h.shift();
+  }
+
+  // ===== PUBLIC API =====
+  return {
+    GATE_DEFS: GATE_DEFS,
+    FF_DEFS: FF_DEFS,
+    COMPLEX_DEFS: COMPLEX_DEFS,
+
+    getComponentTypes: function() {
+      var types = [];
+      Object.keys(GATE_DEFS).forEach(function(k) { types.push({ id: k, category: 'gates', name: k.toUpperCase() }); });
+      Object.keys(FF_DEFS).forEach(function(k) { types.push({ id: k, category: 'flipflops', name: FF_DEFS[k].compType }); });
+      Object.keys(COMPLEX_DEFS).forEach(function(k) { types.push({ id: k, category: 'complex', name: COMPLEX_DEFS[k].compType }); });
+      return types;
+    },
+
+    init: function(parts) {
+      _eventQueue = [];
+      _currentTime = 0;
+      _nodeStates = {};
+      _componentStates = {};
+      _history = {};
+      _isRunning = true;
+      if (!parts) parts = S.parts;
+      for (var i = 0; i < parts.length; i++) {
+        var info = getDigitalDef(parts[i].type);
+        if (info && info.def.init) _componentStates[parts[i].id] = info.def.init();
+      }
+    },
+
+    step: function(targetTime, parts, wires) {
+      if (!_isRunning) return 0;
+      if (!parts) parts = S.parts;
+      if (!wires) wires = S.wires;
+      var processed = 0, maxEv = 1000;
+
+      while (_eventQueue.length > 0 && _eventQueue[0].time <= targetTime && processed < maxEv) {
+        var ev = _eventQueue.shift();
+        _currentTime = ev.time;
+        processed++;
+
+        var old = _nodeStates[ev.nodeId] ? _nodeStates[ev.nodeId].value : false;
+        if (old === ev.value) continue;
+        _nodeStates[ev.nodeId] = { value: ev.value, lastChange: ev.time };
+        recordHistory(ev.nodeId, ev.time, ev.value);
+      }
+      return processed;
+    },
+
+    injectEvent: function(nodeId, time, value) {
+      insertEvent(time, nodeId, value, 'external');
+      recordHistory(nodeId, time, value);
+    },
+
+    generateClock: function(nodeId, frequency, dutyCycle, startTime, endTime) {
+      var period = 1 / frequency;
+      var high = period * (dutyCycle || 0.5);
+      var t = startTime || 0;
+      var end = endTime || 0.001;
+      while (t < end) {
+        insertEvent(t, nodeId, true, 'clock');
+        insertEvent(t + high, nodeId, false, 'clock');
+        recordHistory(nodeId, t, true);
+        recordHistory(nodeId, t + high, false);
+        t += period;
+      }
+    },
+
+    getTimingData: function(nodeIds, startTime, endTime) {
+      var data = {};
+      for (var i = 0; i < nodeIds.length; i++) {
+        var h = _history[nodeIds[i]] || [];
+        data[nodeIds[i]] = h.filter(function(e) {
+          return e.time >= (startTime || 0) && e.time <= (endTime || Infinity);
+        });
+      }
+      return data;
+    },
+
+    getNodeState: function(nodeId) { return _nodeStates[nodeId] || { value: false, lastChange: 0 }; },
+    getStates: function() {
+      var states = {};
+      for (var k in _nodeStates) {
+        if (_nodeStates.hasOwnProperty(k)) states[k] = _nodeStates[k].value;
+      }
+      return states;
+    },
+    getComponentState: function(id) { return _componentStates[id] || null; },
+    getHistory: function() { return _history; },
+    isRunning: function() { return _isRunning; },
+    getCurrentTime: function() { return _currentTime; },
+    getQueueLength: function() { return _eventQueue.length; },
+    stop: function() { _isRunning = false; },
+    reset: function() {
+      _eventQueue = []; _currentTime = 0; _nodeStates = {};
+      _componentStates = {}; _history = {}; _isRunning = false;
+    }
+  };
+})();
+
+// ===== TIMING DIAGRAM DRAWING =====
+function drawTimingDiagram(ctx, width, height, signals, startTime, endTime) {
+  var padL = 80, padT = 20, padR = 20, padB = 30;
+  var plotW = width - padL - padR;
+  var plotH = height - padT - padB;
+  if (signals.length === 0 || plotW < 10 || plotH < 10) return;
+
+  var sigH = Math.min(40, plotH / signals.length);
+  var gap = 4;
+
+  ctx.save();
+  ctx.translate(padL, padT);
+
+  for (var si = 0; si < signals.length; si++) {
+    var sig = signals[si];
+    var data = sig.data;
+    var sy = si * (sigH + gap);
+
+    ctx.fillStyle = '#aaa';
+    ctx.font = '11px "JetBrains Mono", monospace';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(sig.name, -8, sy + sigH / 2);
+
+    ctx.strokeStyle = '#222';
+    ctx.lineWidth = 0.5;
+    ctx.beginPath(); ctx.moveTo(0, sy + sigH); ctx.lineTo(plotW, sy + sigH); ctx.stroke();
+
+    ctx.strokeStyle = sig.color || '#00ff41';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+
+    var prevVal = false, highY = sy + 4, lowY = sy + sigH - 4;
+
+    for (var di = 0; di < data.length; di++) {
+      var d = data[di];
+      var x = ((d.time - startTime) / (endTime - startTime)) * plotW;
+      if (di === 0) {
+        ctx.moveTo(0, d.value ? highY : lowY);
+        if (x > 0) ctx.lineTo(x, d.value ? highY : lowY);
+      }
+      if (d.value !== prevVal && di > 0) {
+        ctx.lineTo(x, prevVal ? highY : lowY);
+        ctx.lineTo(x, d.value ? highY : lowY);
+      }
+      prevVal = d.value;
+    }
+    ctx.lineTo(plotW, prevVal ? highY : lowY);
+    ctx.stroke();
+  }
+
+  // Time axis
+  ctx.strokeStyle = '#444'; ctx.lineWidth = 0.5;
+  ctx.font = '9px monospace'; ctx.fillStyle = '#666';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  var range = endTime - startTime;
+  for (var t = 0; t <= 10; t++) {
+    var tx = (t / 10) * plotW;
+    var tVal = startTime + t * range / 10;
+    ctx.beginPath(); ctx.moveTo(tx, signals.length * (sigH + gap)); ctx.lineTo(tx, signals.length * (sigH + gap) + 5); ctx.stroke();
+    var lbl = tVal < 1e-6 ? (tVal*1e9).toFixed(0)+'ns' : tVal < 1e-3 ? (tVal*1e6).toFixed(0)+'\u00B5s' : (tVal*1e3).toFixed(1)+'ms';
+    ctx.fillText(lbl, tx, signals.length * (sigH + gap) + 8);
+  }
+  ctx.restore();
+}
+
+
+// ═══ mixed-signal.js ═══
+// ──────── SPRINT 18: MIXED-SIGNAL BRIDGE ────────
+// Analog ↔ Dijital senkronizasyon köprüsü
+VXA.MixedSignal = (function() {
+  'use strict';
+
+  var MS_TYPES = ['adc', 'dac', 'comparator', 'pwmGen'];
+  var dacOutputs = {};
+  var pwmStates = {};
+
+  return {
+    isMixedSignal: function(partType) {
+      return MS_TYPES.indexOf(partType) >= 0;
+    },
+
+    syncAnalogToDigital: function(simTime, parts, nodeVoltages) {
+      for (var i = 0; i < parts.length; i++) {
+        var part = parts[i];
+        if (part.damaged) continue;
+        if (part.type === 'adc') this._processADC(part, simTime, nodeVoltages);
+        else if (part.type === 'comparator') this._processComparator(part, simTime, nodeVoltages);
+        else if (part.type === 'pwmGen') this._processPWM(part, simTime, nodeVoltages);
+      }
+    },
+
+    syncDigitalToAnalog: function(simTime, parts, digitalStates) {
+      for (var i = 0; i < parts.length; i++) {
+        var part = parts[i];
+        if (part.damaged || part.type !== 'dac') continue;
+        this._processDAC(part, simTime, digitalStates);
+      }
+    },
+
+    _processADC: function(part, simTime, nodeVoltages) {
+      var props = part.props || {};
+      var vrefPlus = props.vrefPlus || 5.0;
+      var vrefMinus = props.vrefMinus || 0.0;
+      var samplingRate = props.samplingRate || 10000;
+      var samplingPeriod = 1.0 / samplingRate;
+
+      if (!part._lastSampleTime) part._lastSampleTime = 0;
+      if (simTime - part._lastSampleTime < samplingPeriod) return;
+      part._lastSampleTime = simTime;
+
+      var ainNode = part._nodes ? part._nodes[0] : -1;
+      var vin = ainNode >= 0 ? (nodeVoltages[ainNode] || 0) : 0;
+
+      var range = vrefPlus - vrefMinus;
+      if (range <= 0) range = 5;
+      var digitalValue = Math.round(((vin - vrefMinus) / range) * 255);
+      digitalValue = Math.max(0, Math.min(255, digitalValue));
+
+      if (VXA.Digital) {
+        for (var bit = 0; bit < 8; bit++) {
+          var bitValue = (digitalValue >> bit) & 1;
+          var pinIndex = 3 + bit;
+          var nodeId = part._nodes ? part._nodes[pinIndex] : -1;
+          if (nodeId >= 0) {
+            VXA.Digital.injectEvent(nodeId, simTime + 50e-9, bitValue === 1);
+          }
+        }
+      }
+
+      part._adcValue = digitalValue;
+      part._adcVin = vin;
+    },
+
+    _processDAC: function(part, simTime, digitalStates) {
+      var props = part.props || {};
+      var vrefPlus = props.vrefPlus || 5.0;
+      var vrefMinus = props.vrefMinus || 0.0;
+
+      var digitalValue = 0;
+      for (var bit = 0; bit < 8; bit++) {
+        var nodeId = part._nodes ? part._nodes[bit] : -1;
+        if (nodeId >= 0) {
+          var state = digitalStates ? digitalStates[nodeId] : false;
+          if (state) digitalValue |= (1 << bit);
+        }
+      }
+
+      var vout = vrefMinus + (digitalValue / 255) * (vrefPlus - vrefMinus);
+      dacOutputs[part.id] = vout;
+
+      part._dacValue = digitalValue;
+      part._dacVout = vout;
+    },
+
+    _processComparator: function(part, simTime, nodeVoltages) {
+      var props = part.props || {};
+      var hysteresis = props.hysteresis || 0.01;
+      var responseTime = props.responseTime || 100e-9;
+
+      var vpNode = part._nodes ? part._nodes[0] : -1;
+      var vnNode = part._nodes ? part._nodes[1] : -1;
+      var vPlus = vpNode >= 0 ? (nodeVoltages[vpNode] || 0) : 0;
+      var vMinus = vnNode >= 0 ? (nodeVoltages[vnNode] || 0) : 0;
+
+      var prevOut = part._compOutput || false;
+      var newOut = prevOut;
+
+      if (vPlus > vMinus + hysteresis) {
+        newOut = true;
+      } else if (vPlus < vMinus - hysteresis) {
+        newOut = false;
+      }
+
+      if (newOut !== prevOut) {
+        part._compOutput = newOut;
+        var outNode = part._nodes ? part._nodes[2] : -1;
+        if (outNode >= 0 && VXA.Digital) {
+          VXA.Digital.injectEvent(outNode, simTime + responseTime, newOut);
+        }
+      }
+
+      part._compVp = vPlus;
+      part._compVn = vMinus;
+      part._compOutput = newOut;
+    },
+
+    _processPWM: function(part, simTime, nodeVoltages) {
+      var props = part.props || {};
+      var frequency = props.frequency || 1000;
+      var amplitude = props.amplitude || 5.0;
+      var dutyCycle = props.dutyCycle || 0.5;
+
+      var ctrlNode = part._nodes ? part._nodes[0] : -1;
+      if (ctrlNode >= 0 && nodeVoltages && nodeVoltages[ctrlNode] !== undefined) {
+        var vcc = props.amplitude || 5.0;
+        var ctrlV = nodeVoltages[ctrlNode] || 0;
+        if (ctrlV > 0.01) {
+          dutyCycle = Math.max(0, Math.min(1, ctrlV / vcc));
+        }
+      }
+
+      var period = 1.0 / frequency;
+      var highTime = period * dutyCycle;
+
+      if (!pwmStates[part.id]) {
+        pwmStates[part.id] = { lastToggleTime: 0, currentOutput: false };
+      }
+      var state = pwmStates[part.id];
+
+      var elapsed = simTime - state.lastToggleTime;
+      var currentPhaseTime = state.currentOutput ? highTime : (period - highTime);
+
+      if (elapsed >= currentPhaseTime) {
+        state.currentOutput = !state.currentOutput;
+        state.lastToggleTime = simTime;
+
+        var outNode = part._nodes ? part._nodes[1] : -1;
+        if (outNode >= 0 && VXA.Digital) {
+          VXA.Digital.injectEvent(outNode, simTime, state.currentOutput);
+        }
+      }
+
+      part._pwmDuty = dutyCycle;
+      part._pwmOutput = state.currentOutput;
+    },
+
+    getDACOutput: function(partId) {
+      return dacOutputs[partId] || 0;
+    },
+
+    reset: function() {
+      dacOutputs = {};
+      pwmStates = {};
+    }
+  };
+})();
+
+// ===== 7-SEGMENT DISPLAY DRAWING =====
+var SEVEN_SEG_TABLE = [
+  { a:1, b:1, c:1, d:1, e:1, f:1, g:0 }, // 0
+  { a:0, b:1, c:1, d:0, e:0, f:0, g:0 }, // 1
+  { a:1, b:1, c:0, d:1, e:1, f:0, g:1 }, // 2
+  { a:1, b:1, c:1, d:1, e:0, f:0, g:1 }, // 3
+  { a:0, b:1, c:1, d:0, e:0, f:1, g:1 }, // 4
+  { a:1, b:0, c:1, d:1, e:0, f:1, g:1 }, // 5
+  { a:1, b:0, c:1, d:1, e:1, f:1, g:1 }, // 6
+  { a:1, b:1, c:1, d:0, e:0, f:0, g:0 }, // 7
+  { a:1, b:1, c:1, d:1, e:1, f:1, g:1 }, // 8
+  { a:1, b:1, c:1, d:1, e:0, f:1, g:1 }, // 9
+  { a:1, b:1, c:1, d:0, e:1, f:1, g:1 }, // A (10)
+  { a:0, b:0, c:1, d:1, e:1, f:1, g:1 }, // b (11)
+  { a:1, b:0, c:0, d:1, e:1, f:1, g:0 }, // C (12)
+  { a:0, b:1, c:1, d:1, e:1, f:0, g:1 }, // d (13)
+  { a:1, b:0, c:0, d:1, e:1, f:1, g:1 }, // E (14)
+  { a:1, b:0, c:0, d:0, e:1, f:1, g:1 }, // F (15)
+];
+
+function drawSevenSegment(ctx, x, y, segments, dpOn, zoom) {
+  var scale = Math.max(0.5, zoom * 0.8);
+  var segW = 16 * scale;
+  var segH = 3 * scale;
+  var segL = 14 * scale;
+  var gap = 1 * scale;
+  var pad = 4 * scale;
+
+  var bodyW = segW + segH * 2 + pad * 2;
+  var bodyH = segL * 2 + segH * 3 + pad * 2 + gap * 2;
+  ctx.fillStyle = '#111111';
+  ctx.strokeStyle = '#333333';
+  ctx.lineWidth = 1;
+  ctx.fillRect(x - bodyW/2, y - bodyH/2, bodyW, bodyH);
+  ctx.strokeRect(x - bodyW/2, y - bodyH/2, bodyW, bodyH);
+
+  var onColor = '#ff2222';
+  var onGlow = 'rgba(255, 50, 50, 0.4)';
+  var offColor = '#2a1111';
+
+  var cx = x;
+  var topY = y - bodyH/2 + pad + segH/2;
+
+  function drawHSeg(sx, sy, on) {
+    ctx.fillStyle = on ? onColor : offColor;
+    ctx.beginPath();
+    ctx.moveTo(sx - segW/2, sy);
+    ctx.lineTo(sx - segW/2 + segH/2, sy - segH/2);
+    ctx.lineTo(sx + segW/2 - segH/2, sy - segH/2);
+    ctx.lineTo(sx + segW/2, sy);
+    ctx.lineTo(sx + segW/2 - segH/2, sy + segH/2);
+    ctx.lineTo(sx - segW/2 + segH/2, sy + segH/2);
+    ctx.closePath();
+    ctx.fill();
+    if (on) {
+      ctx.save();
+      ctx.shadowColor = onGlow;
+      ctx.shadowBlur = 4 * scale;
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  function drawVSeg(sx, sy, on) {
+    ctx.fillStyle = on ? onColor : offColor;
+    ctx.beginPath();
+    ctx.moveTo(sx, sy - segL/2);
+    ctx.lineTo(sx + segH/2, sy - segL/2 + segH/2);
+    ctx.lineTo(sx + segH/2, sy + segL/2 - segH/2);
+    ctx.lineTo(sx, sy + segL/2);
+    ctx.lineTo(sx - segH/2, sy + segL/2 - segH/2);
+    ctx.lineTo(sx - segH/2, sy - segL/2 + segH/2);
+    ctx.closePath();
+    ctx.fill();
+    if (on) {
+      ctx.save();
+      ctx.shadowColor = onGlow;
+      ctx.shadowBlur = 4 * scale;
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  var aY = topY;
+  var gY = topY + segL + gap + segH;
+  var dY = topY + segL * 2 + gap * 2 + segH * 2;
+  var leftX = cx - segW/2 - segH/2;
+  var rightX = cx + segW/2 + segH/2;
+  var topSegCY = topY + segH/2 + gap + segL/2;
+  var botSegCY = gY + segH/2 + gap + segL/2;
+
+  drawHSeg(cx, aY, segments.a);
+  drawVSeg(rightX, topSegCY, segments.b);
+  drawVSeg(rightX, botSegCY, segments.c);
+  drawHSeg(cx, dY, segments.d);
+  drawVSeg(leftX, botSegCY, segments.e);
+  drawVSeg(leftX, topSegCY, segments.f);
+  drawHSeg(cx, gY, segments.g);
+
+  if (dpOn !== undefined) {
+    ctx.fillStyle = dpOn ? onColor : offColor;
+    ctx.beginPath();
+    ctx.arc(cx + segW/2 + segH + 4 * scale, dY, 2 * scale, 0, Math.PI * 2);
+    ctx.fill();
+    if (dpOn) {
+      ctx.save();
+      ctx.shadowColor = onGlow;
+      ctx.shadowBlur = 3 * scale;
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+}
+
+
+// ═══ ai-errors.js ═══
+// ──────── AI ERROR DETECTION + AUTO-CORRECTION (v8.0 Sprint 16) ────────
+VXA.AIErrors = (function() {
+  'use strict';
+
+  var ERROR_TYPES = {
+    FLOATING_NODE: { id: 'floating_node', severity: 'error', icon: '\uD83D\uDD0C', name: { tr: 'Ba\u011Flant\u0131s\u0131z Pin', en: 'Floating Node' } },
+    NO_GROUND:     { id: 'no_ground',     severity: 'error', icon: '\u23DA',         name: { tr: 'Toprak Ba\u011Flant\u0131s\u0131 Yok', en: 'No Ground Connection' } },
+    NO_SOURCE:     { id: 'no_source',     severity: 'error', icon: '\uD83D\uDD0B',   name: { tr: 'Kaynak Yok', en: 'No Power Source' } },
+    NO_RESISTOR_LED:{ id: 'no_resistor_led', severity: 'error', icon: '\uD83D\uDCA1', name: { tr: 'Diren\u00e7siz LED', en: 'LED Without Resistor' } },
+    SHORT_CIRCUIT: { id: 'short_circuit', severity: 'error', icon: '\u26A1',         name: { tr: 'K\u0131sa Devre', en: 'Short Circuit' } },
+    OVERPOWER:     { id: 'overpower',     severity: 'warning', icon: '\uD83D\uDD25', name: { tr: 'G\u00fc\u00e7 A\u015F\u0131m\u0131 Riski', en: 'Power Overload Risk' } },
+    REVERSE_POLARITY:{ id: 'reverse_polarity', severity: 'warning', icon: '\uD83D\uDD04', name: { tr: 'Ters Polarite', en: 'Reverse Polarity' } },
+    FLOATING_OPAMP:{ id: 'floating_opamp', severity: 'warning', icon: '\uD83D\uDCD0', name: { tr: 'Op-Amp Besleme Yok', en: 'Op-Amp No Supply' } }
+  };
+
+  var _lastErrors = null;
+
+  // Check if a pin position is connected to any wire
+  function isPinWired(px, py, wires) {
+    var tolerance = 2;
+    for (var i = 0; i < wires.length; i++) {
+      var w = wires[i];
+      if ((Math.abs(w.x1 - px) < tolerance && Math.abs(w.y1 - py) < tolerance) ||
+          (Math.abs(w.x2 - px) < tolerance && Math.abs(w.y2 - py) < tolerance)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // Get pin count for a component type
+  function getPinCount(type) {
+    if (type === 'ground' || type === 'gndLabel' || type === 'vccLabel' || type === 'netLabel') return 1;
+    if (type === 'npn' || type === 'pnp' || type === 'nmos' || type === 'pmos' || type === 'opamp') return 3;
+    return 2;
+  }
+
+  // Find parts connected to a wire endpoint
+  function findPartAtPoint(px, py, parts, tolerance) {
+    tolerance = tolerance || 2;
+    for (var i = 0; i < parts.length; i++) {
+      var pins = getPartPins(parts[i]);
+      for (var j = 0; j < pins.length; j++) {
+        if (Math.abs(pins[j].x - px) < tolerance && Math.abs(pins[j].y - py) < tolerance) {
+          return { part: parts[i], pinIndex: j };
+        }
+      }
+    }
+    return null;
+  }
+
+  // Build connectivity graph from wires
+  function buildGraph(parts, wires) {
+    // Map each pin to a net ID
+    var nets = {}; // "partId:pinIdx" → netId
+    var netId = 0;
+
+    // For each wire, connect its two endpoints' pins into the same net
+    for (var w = 0; w < wires.length; w++) {
+      var wire = wires[w];
+      var a = findPartAtPoint(wire.x1, wire.y1, parts, 3);
+      var b = findPartAtPoint(wire.x2, wire.y2, parts, 3);
+      if (!a && !b) continue;
+
+      var keyA = a ? a.part.id + ':' + a.pinIndex : 'wp:' + wire.x1 + ',' + wire.y1;
+      var keyB = b ? b.part.id + ':' + b.pinIndex : 'wp:' + wire.x2 + ',' + wire.y2;
+
+      var netA = nets[keyA];
+      var netB = nets[keyB];
+
+      if (netA === undefined && netB === undefined) {
+        nets[keyA] = netId;
+        nets[keyB] = netId;
+        netId++;
+      } else if (netA !== undefined && netB === undefined) {
+        nets[keyB] = netA;
+      } else if (netA === undefined && netB !== undefined) {
+        nets[keyA] = netB;
+      } else if (netA !== netB) {
+        // Merge nets
+        var oldNet = netB;
+        for (var k in nets) { if (nets[k] === oldNet) nets[k] = netA; }
+      }
+    }
+    return nets;
+  }
+
+  // Check if a part has a resistor in its net path (simplified)
+  function hasResistorInNet(ledPart, parts, wires) {
+    var nets = buildGraph(parts, wires);
+    var ledPins = getPartPins(ledPart);
+
+    for (var pin = 0; pin < ledPins.length; pin++) {
+      var ledKey = ledPart.id + ':' + pin;
+      var ledNet = nets[ledKey];
+      if (ledNet === undefined) continue;
+
+      // Check all parts on this net
+      for (var i = 0; i < parts.length; i++) {
+        if (parts[i].id === ledPart.id) continue;
+        if (parts[i].type === 'resistor') {
+          var rPins = getPartPins(parts[i]);
+          for (var rp = 0; rp < rPins.length; rp++) {
+            var rKey = parts[i].id + ':' + rp;
+            if (nets[rKey] === ledNet) return true;
+          }
+        }
+      }
+    }
+    return false;
+  }
+
+  return {
+    ERROR_TYPES: ERROR_TYPES,
+
+    detect: function(parts, wires) {
+      if (!parts) parts = S.parts;
+      if (!wires) wires = S.wires;
+      if (!parts || parts.length === 0) return [];
+
+      var errors = [];
+
+      // 1. FLOATING NODE
+      for (var i = 0; i < parts.length; i++) {
+        var p = parts[i];
+        var pinCount = getPinCount(p.type);
+        var pins = getPartPins(p);
+        for (var pin = 0; pin < Math.min(pinCount, pins.length); pin++) {
+          if (!isPinWired(pins[pin].x, pins[pin].y, wires)) {
+            // Labels are self-connected
+            if (p.type === 'netLabel' || p.type === 'vccLabel' || p.type === 'gndLabel') continue;
+            errors.push({
+              type: ERROR_TYPES.FLOATING_NODE,
+              partId: p.id, partType: p.type, pin: pin,
+              message: (p.name || p.id) + ' pin ' + pin + ' is not connected',
+              fix: null
+            });
+          }
+        }
+      }
+
+      // 2. NO GROUND
+      var hasGround = parts.some(function(p) {
+        return p.type === 'ground' || p.type === 'gndLabel';
+      });
+      if (!hasGround && parts.length > 1) {
+        errors.push({
+          type: ERROR_TYPES.NO_GROUND,
+          message: 'Circuit has no ground reference',
+          fix: { action: 'addGround', description: { tr: 'Toprak bile\u015Feni ekle', en: 'Add ground component' } }
+        });
+      }
+
+      // 3. NO SOURCE
+      var hasSource = parts.some(function(p) {
+        return p.type === 'dcSource' || p.type === 'acSource' || p.type === 'vdc' || p.type === 'vac' || p.type === 'vccLabel';
+      });
+      if (!hasSource && parts.length > 1) {
+        errors.push({
+          type: ERROR_TYPES.NO_SOURCE,
+          message: 'Circuit has no power source',
+          fix: null
+        });
+      }
+
+      // 4. NO RESISTOR LED
+      for (var j = 0; j < parts.length; j++) {
+        if (parts[j].type === 'led') {
+          if (!hasResistorInNet(parts[j], parts, wires)) {
+            var Vs = 5;
+            for (var s = 0; s < parts.length; s++) {
+              if (parts[s].type === 'dcSource' || parts[s].type === 'vdc') { Vs = parts[s].val || 5; break; }
+            }
+            var Vf = 1.8, If = 0.02;
+            var R = Math.round((Vs - Vf) / If);
+            var e12 = [100,120,150,180,220,270,330,390,470,560,680,820,1000];
+            var bestR = e12[e12.length - 1];
+            for (var e = 0; e < e12.length; e++) {
+              if (e12[e] >= R) { bestR = e12[e]; break; }
+            }
+            errors.push({
+              type: ERROR_TYPES.NO_RESISTOR_LED,
+              partId: parts[j].id,
+              message: (parts[j].name || parts[j].id) + ' has no current limiting resistor. Recommended: ' + bestR + '\u03A9',
+              fix: { action: 'addResistorForLED', partId: parts[j].id, resistorValue: bestR,
+                     description: { tr: bestR + '\u03A9 diren\u00e7 ekle', en: 'Add ' + bestR + '\u03A9 resistor' } }
+            });
+          }
+        }
+      }
+
+      // 5. SHORT CIRCUIT — DC source pins directly wired together
+      for (var sc = 0; sc < parts.length; sc++) {
+        var sp = parts[sc];
+        if (sp.type === 'dcSource' || sp.type === 'acSource' || sp.type === 'vdc' || sp.type === 'vac') {
+          var sPins = getPartPins(sp);
+          if (sPins.length >= 2) {
+            var nets = buildGraph(parts, wires);
+            var k0 = sp.id + ':0', k1 = sp.id + ':1';
+            if (nets[k0] !== undefined && nets[k0] === nets[k1]) {
+              // Check if there's any resistance in between
+              var hasLoad = false;
+              for (var lp = 0; lp < parts.length; lp++) {
+                if (parts[lp].id === sp.id) continue;
+                if (parts[lp].type === 'resistor' || parts[lp].type === 'led' || parts[lp].type === 'inductor') {
+                  var lpPins = getPartPins(parts[lp]);
+                  for (var lpp = 0; lpp < lpPins.length; lpp++) {
+                    if (nets[parts[lp].id + ':' + lpp] === nets[k0]) { hasLoad = true; break; }
+                  }
+                  if (hasLoad) break;
+                }
+              }
+              if (!hasLoad) {
+                errors.push({
+                  type: ERROR_TYPES.SHORT_CIRCUIT,
+                  partId: sp.id,
+                  message: (sp.name || sp.id) + ' terminals are short-circuited',
+                  fix: null
+                });
+              }
+            }
+          }
+        }
+      }
+
+      // 6. OVERPOWER (sim running)
+      if (S.sim.running) {
+        for (var op = 0; op < parts.length; op++) {
+          var opp = parts[op];
+          var power = Math.abs((opp._v || 0) * (opp._i || 0));
+          var pMax = (opp._thermal && opp._thermal.Pmax) ? opp._thermal.Pmax : 0.25;
+          if (power > pMax * 0.8) {
+            errors.push({
+              type: ERROR_TYPES.OVERPOWER,
+              partId: opp.id, partType: opp.type,
+              power: power, maxPower: pMax,
+              message: (opp.name || opp.id) + ' at ' + Math.round(power / pMax * 100) + '% power capacity',
+              fix: null
+            });
+          }
+        }
+      }
+
+      _lastErrors = errors;
+      return errors;
+    },
+
+    applyFix: function(fix) {
+      if (!fix || !fix.action) return { success: false, error: 'No fix action' };
+
+      if (fix.action === 'addGround') {
+        var maxY = 0, avgX = 0;
+        for (var i = 0; i < S.parts.length; i++) {
+          if (S.parts[i].y > maxY) maxY = S.parts[i].y;
+          avgX += S.parts[i].x;
+        }
+        avgX = S.parts.length > 0 ? Math.round(avgX / S.parts.length / 20) * 20 : 200;
+        var gy = Math.round((maxY + 100) / 20) * 20;
+        var gnd = VXA.addComponent('ground', avgX, gy);
+        return { success: !!gnd, message: 'Ground added', partId: gnd ? gnd.id : null };
+      }
+
+      if (fix.action === 'addResistorForLED') {
+        var led = S.parts.find(function(p) { return p.id === fix.partId; });
+        if (!led) return { success: false, error: 'LED not found' };
+        var rx = led.x - 100, ry = led.y;
+        var res = VXA.addComponent('resistor', rx, ry, { val: fix.resistorValue });
+        if (res) {
+          // Wire resistor pin1 to LED pin0
+          var resPins = getPartPins(res);
+          var ledPins = getPartPins(led);
+          if (resPins.length >= 2 && ledPins.length >= 1) {
+            VXA.addWire(resPins[1].x, resPins[1].y, ledPins[0].x, ledPins[0].y);
+          }
+          return { success: true, message: fix.resistorValue + '\u03A9 resistor added', partId: res.id };
+        }
+        return { success: false, error: 'Could not add resistor' };
+      }
+
+      return { success: false, error: 'Unknown fix action: ' + fix.action };
+    },
+
+    getSummary: function(errors) {
+      if (!errors) errors = _lastErrors || [];
+      var s = { total: errors.length, errors: 0, warnings: 0 };
+      for (var i = 0; i < errors.length; i++) {
+        if (errors[i].type.severity === 'error') s.errors++; else s.warnings++;
+      }
+      return s;
+    },
+
+    getLastErrors: function() { return _lastErrors; },
+    clearErrors: function() { _lastErrors = null; }
+  };
+})();
+
+// Canvas error overlay
+function drawErrorOverlay(ctx) {
+  var errors = VXA.AIErrors ? VXA.AIErrors.getLastErrors() : null;
+  if (!errors || errors.length === 0) return;
+
+  for (var i = 0; i < errors.length; i++) {
+    var err = errors[i];
+    if (!err.partId) continue;
+    var part = S.parts.find(function(p) { return p.id === err.partId; });
+    if (!part) continue;
+
+    var color = err.type.severity === 'error' ? '#ff4444' : '#ffaa00';
+
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.setLineDash([4, 4]);
+    ctx.strokeRect(part.x - 28, part.y - 20, 56, 40);
+    ctx.setLineDash([]);
+
+    ctx.font = '14px sans-serif';
+    ctx.fillStyle = color;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.fillText(err.type.icon, part.x + 22, part.y - 22);
+    ctx.restore();
+  }
+}
+
+
+// ═══ ai-engine.js ═══
+// ──────── AI ENGINE WITH TOOL USE (v8.0 Sprint 15) ────────
+VXA.AI = (function() {
+  'use strict';
+
+  var API_URL = 'https://api.anthropic.com/v1/messages';
+  var MODEL = 'claude-sonnet-4-20250514';
+  var MAX_TOKENS = 2048;
+
+  var _history = [];
+  var MAX_HISTORY = 20;
+  var _isProcessing = false;
+
+  var _onMessage = null;
+  var _onToolUse = null;
+  var _onError = null;
+  var _onProcessing = null;
+
+  // ===== SYSTEM PROMPT =====
+  function systemPrompt() {
+    var lang = currentLang || 'en';
+    var isEn = lang === 'en';
+
+    return (isEn ?
+      'You are VoltXAmpere\'s AI circuit assistant. You help users design, analyze, and learn about electronic circuits.' :
+      'Sen VoltXAmpere devre simülatörünün AI asistanısın. Kullanıcıların devre tasarlamasına, analiz etmesine ve öğrenmesine yardım ediyorsun.'
+    ) + '\n\n' +
+    'CAPABILITIES:\n' +
+    '- Create circuits from natural language descriptions using addComponent and addWire tools\n' +
+    '- Analyze existing circuits with getCircuitState\n' +
+    '- Run simulations and interpret results\n' +
+    '- Calculate component values (Ohm\'s law, filter calculations, biasing)\n' +
+    '- Detect and fix circuit errors\n' +
+    '- Explain concepts for education\n\n' +
+    'RULES:\n' +
+    '- Always call getCircuitState FIRST to understand the current circuit before making changes\n' +
+    '- Place components on a 20px grid (coordinates must be multiples of 20)\n' +
+    '- Typical spacing: 80-160px between components\n' +
+    '- Wire endpoints must match pin positions exactly\n' +
+    '- Show calculations with formulas and results\n' +
+    '- Suggest nearest E12/E24 standard values when applicable\n' +
+    '- Respond in ' + (isEn ? 'English' : 'Turkish') + '\n' +
+    '- After creating a circuit, briefly explain what was built and key values\n' +
+    '- Use saveUndo before bulk changes so user can undo\n\n' +
+    'COMPONENT TYPES (use exact string for type parameter):\n' +
+    'resistor, capacitor, inductor, dcSource, acSource, diode, led, npn, pnp, nmos, pmos, opamp, switch, fuse, ground, zener, vccLabel, gndLabel, netLabel\n\n' +
+    'PIN LAYOUT (pins indexed from 0):\n' +
+    '- 2-pin (R,C,L,diode,LED,switch,fuse,dcSource,acSource): pins at dx=[-40,0] and [+40,0] relative to center. Pin 0=left, Pin 1=right when rot=0.\n' +
+    '- ground/vcc/gnd labels: single pin at [0,-20] or [0,0].\n' +
+    '- NPN/PNP: 3 pins. Pin layout depends on rotation.\n' +
+    '- NMOS/PMOS: 3 pins.\n' +
+    '- Op-Amp: 3 pins (+in, -in, out).\n\n' +
+    'WIRING: Use addWire with x1,y1,x2,y2 coordinates (the pin positions). To connect componentA pin0 to componentB pin1, get their pin coordinates from getCircuitState response and wire between those exact coordinates.\n\n' +
+    'GRID: Components at multiples of 20. Common Y positions: 100, 200, 300. Common X positions: 100, 200, 300, 400.\n\n' +
+    'ERROR DETECTION:\n' +
+    '- When user asks to analyze or check a circuit, use detectErrors tool\n' +
+    '- Explain each error clearly and suggest fixes\n' +
+    '- If auto-fix is available (hasFix=true), offer to apply it with fixError tool\n' +
+    '- After building a circuit, run detectErrors to verify\n\n' +
+    'GENERATIVE DESIGN:\n' +
+    '- Plan component layout before placing: source left, load right, ground bottom\n' +
+    '- Use 120-160px horizontal spacing, 80-120px vertical\n' +
+    '- Always add ground reference\n' +
+    '- Calculate values: LED R=(Vs-Vf)/If with E12 series, voltage divider Vout=Vin*R2/(R1+R2), RC filter fc=1/(2piRC)\n' +
+    '- For CE amplifier: Av=-Rc/Re, bias Vce=Vcc/2\n\n' +
+    'EDUCATION MODE:\n' +
+    '- When user wants to learn, build the circuit step by step with explanations\n' +
+    '- After building, start simulation and explain key measurements\n' +
+    '- Topics: Ohm law, voltage divider, LED circuits, RC filters, transistor amplifier, op-amp basics';
+  }
+
+  // ===== TOOL DEFINITIONS =====
+  var TOOLS = [
+    {
+      name: 'getCircuitState',
+      description: 'Get current circuit state: all components with IDs, positions, pin coordinates, values, connections, and simulation results. ALWAYS call this first before making changes.',
+      input_schema: { type: 'object', properties: {}, required: [] }
+    },
+    {
+      name: 'addComponent',
+      description: 'Add a component to the circuit. Returns the new component ID and pin positions.',
+      input_schema: {
+        type: 'object',
+        properties: {
+          type: { type: 'string', description: 'Component type', enum: ['resistor','capacitor','inductor','dcSource','acSource','diode','led','npn','pnp','nmos','pmos','opamp','switch','fuse','ground','zener','vccLabel','gndLabel','netLabel'] },
+          x: { type: 'number', description: 'X position (multiple of 20)' },
+          y: { type: 'number', description: 'Y position (multiple of 20)' },
+          value: { type: 'number', description: 'Component value: ohms for R, farads for C, henrys for L, volts for sources' },
+          rotation: { type: 'number', description: 'Rotation: 0, 1, 2, or 3 (each = 90 degrees clockwise). Default 0.' },
+          frequency: { type: 'number', description: 'Frequency in Hz for AC source' }
+        },
+        required: ['type', 'x', 'y']
+      }
+    },
+    {
+      name: 'addWire',
+      description: 'Add a wire between two points. Use exact pin coordinates from getCircuitState or addComponent responses.',
+      input_schema: {
+        type: 'object',
+        properties: {
+          x1: { type: 'number', description: 'Start X coordinate' },
+          y1: { type: 'number', description: 'Start Y coordinate' },
+          x2: { type: 'number', description: 'End X coordinate' },
+          y2: { type: 'number', description: 'End Y coordinate' }
+        },
+        required: ['x1', 'y1', 'x2', 'y2']
+      }
+    },
+    {
+      name: 'removeComponent',
+      description: 'Remove a component by ID.',
+      input_schema: {
+        type: 'object',
+        properties: { componentId: { type: 'number', description: 'Component ID (number)' } },
+        required: ['componentId']
+      }
+    },
+    {
+      name: 'setComponentValue',
+      description: 'Change a component value or parameter.',
+      input_schema: {
+        type: 'object',
+        properties: {
+          componentId: { type: 'number', description: 'Component ID' },
+          value: { type: 'number', description: 'New value (ohms, farads, volts, etc.)' },
+          frequency: { type: 'number', description: 'New frequency in Hz (for AC sources)' }
+        },
+        required: ['componentId']
+      }
+    },
+    {
+      name: 'startSimulation',
+      description: 'Start or stop the simulation. After starting, call getCircuitState to read voltage/current values.',
+      input_schema: {
+        type: 'object',
+        properties: { action: { type: 'string', enum: ['start', 'stop', 'toggle'], description: 'Default: toggle' } },
+        required: []
+      }
+    },
+    {
+      name: 'clearCircuit',
+      description: 'Remove all components and wires.',
+      input_schema: { type: 'object', properties: {}, required: [] }
+    },
+    {
+      name: 'loadPreset',
+      description: 'Load a preset example circuit by ID or index (1-35).',
+      input_schema: {
+        type: 'object',
+        properties: { presetId: { type: 'string', description: 'Preset ID string (e.g. "voltage_divider") or index' } },
+        required: ['presetId']
+      }
+    },
+    {
+      name: 'saveUndo',
+      description: 'Save an undo checkpoint before making multiple changes. Call this once before a batch of addComponent/addWire calls.',
+      input_schema: { type: 'object', properties: {}, required: [] }
+    },
+    {
+      name: 'detectErrors',
+      description: 'Scan the circuit for common errors: floating nodes, missing ground, LEDs without resistors, short circuits, power overload. Returns error list with fix suggestions. Use this after building a circuit or when user asks to check/analyze.',
+      input_schema: { type: 'object', properties: {}, required: [] }
+    },
+    {
+      name: 'fixError',
+      description: 'Apply an automatic fix for a detected error. Use detectErrors first to get available fixes.',
+      input_schema: {
+        type: 'object',
+        properties: {
+          action: { type: 'string', description: 'Fix action from detectErrors: addGround, addResistorForLED' },
+          partId: { type: 'number', description: 'Component ID for component-specific fixes' },
+          resistorValue: { type: 'number', description: 'Resistor value in ohms (for addResistorForLED)' }
+        },
+        required: ['action']
+      }
+    }
+  ];
+
+  // ===== TOOL IMPLEMENTATIONS =====
+  function executeTool(name, input) {
+    try {
+      switch (name) {
+        case 'getCircuitState': return toolGetCircuitState();
+        case 'addComponent': return toolAddComponent(input);
+        case 'addWire': return toolAddWire(input);
+        case 'removeComponent': return toolRemoveComponent(input);
+        case 'setComponentValue': return toolSetValue(input);
+        case 'startSimulation': return toolSimulation(input);
+        case 'clearCircuit': return toolClear();
+        case 'loadPreset': return toolLoadPreset(input);
+        case 'saveUndo': return toolSaveUndo();
+        case 'detectErrors': return toolDetectErrors();
+        case 'fixError': return toolFixError(input);
+        default: return { error: 'Unknown tool: ' + name };
+      }
+    } catch (e) {
+      return { error: e.message || String(e) };
+    }
+  }
+
+  function toolGetCircuitState() {
+    var comps = S.parts.map(function(p) {
+      var pins = getPartPins(p);
+      var pinCoords = pins.map(function(pin, idx) { return { index: idx, x: pin.x, y: pin.y }; });
+      return {
+        id: p.id, type: p.type, name: p.name,
+        x: p.x, y: p.y, rot: p.rot || 0,
+        value: p.val, freq: p.freq || 0,
+        pins: pinCoords,
+        voltage: p._v || 0, current: p._i || 0, power: p._p || 0,
+        damaged: !!p.damaged
+      };
+    });
+    var wires = S.wires.map(function(w) {
+      return { x1: w.x1, y1: w.y1, x2: w.x2, y2: w.y2 };
+    });
+    return {
+      componentCount: comps.length, wireCount: wires.length,
+      simRunning: S.sim.running, simTime: S.sim.t,
+      components: comps, wires: wires
+    };
+  }
+
+  function toolAddComponent(input) {
+    var p = VXA.addComponent(input.type, input.x, input.y, {
+      rot: input.rotation || 0,
+      val: input.value,
+      freq: input.frequency || 0
+    });
+    if (!p) return { error: 'Failed to add component. Check type: ' + input.type };
+    // Apply model if available
+    if (input.value !== undefined) p.val = input.value;
+    if (input.frequency) p.freq = input.frequency;
+    var pins = getPartPins(p);
+    var pinCoords = pins.map(function(pin, idx) { return { index: idx, x: pin.x, y: pin.y }; });
+    return { id: p.id, name: p.name, type: p.type, x: p.x, y: p.y, pins: pinCoords };
+  }
+
+  function toolAddWire(input) {
+    VXA.addWire(input.x1, input.y1, input.x2, input.y2);
+    return { success: true, from: [input.x1, input.y1], to: [input.x2, input.y2] };
+  }
+
+  function toolRemoveComponent(input) {
+    var id = input.componentId;
+    var found = S.parts.some(function(p) { return p.id === id; });
+    if (!found) return { error: 'Component not found: ' + id };
+    VXA.removeComponent(id);
+    return { success: true, removed: id };
+  }
+
+  function toolSetValue(input) {
+    var p = S.parts.find(function(pp) { return pp.id === input.componentId; });
+    if (!p) return { error: 'Component not found: ' + input.componentId };
+    if (input.value !== undefined) p.val = input.value;
+    if (input.frequency !== undefined) p.freq = input.frequency;
+    needsRender = true;
+    if (S.sim.running) buildCircuitFromCanvas();
+    return { success: true, id: p.id, value: p.val, freq: p.freq };
+  }
+
+  function toolSimulation(input) {
+    var action = (input && input.action) || 'toggle';
+    if (action === 'start' && !S.sim.running) toggleSim();
+    else if (action === 'stop' && S.sim.running) toggleSim();
+    else if (action === 'toggle') toggleSim();
+    return { running: S.sim.running };
+  }
+
+  function toolClear() {
+    saveUndo();
+    S.parts = []; S.wires = []; S.nextId = 1; S.sel = [];
+    if (S.sim.running) toggleSim();
+    needsRender = true;
+    return { success: true, message: 'Circuit cleared' };
+  }
+
+  function toolLoadPreset(input) {
+    var id = input.presetId;
+    // Try by index
+    var idx = parseInt(id);
+    if (!isNaN(idx) && idx >= 1 && idx <= PRESETS.length) {
+      loadPreset(PRESETS[idx - 1].id);
+      return { success: true, loaded: PRESETS[idx - 1].name };
+    }
+    // Try by id string
+    var pr = PRESETS.find(function(p) { return p.id === id; });
+    if (pr) { loadPreset(pr.id); return { success: true, loaded: pr.name }; }
+    // Try keyword match
+    var kw = id.toLowerCase();
+    pr = PRESETS.find(function(p) { return p.name.toLowerCase().indexOf(kw) >= 0 || p.id.toLowerCase().indexOf(kw) >= 0; });
+    if (pr) { loadPreset(pr.id); return { success: true, loaded: pr.name }; }
+    return { error: 'Preset not found: ' + id + '. Available: ' + PRESETS.slice(0, 10).map(function(p) { return p.id; }).join(', ') + '...' };
+  }
+
+  function toolSaveUndo() {
+    saveUndo();
+    return { success: true };
+  }
+
+  function toolDetectErrors() {
+    if (!VXA.AIErrors) return { error: 'AIErrors module not loaded' };
+    var errors = VXA.AIErrors.detect();
+    var summary = VXA.AIErrors.getSummary(errors);
+    return {
+      errorCount: summary.errors, warningCount: summary.warnings, total: summary.total,
+      errors: errors.map(function(e) {
+        return {
+          type: e.type.id, severity: e.type.severity, icon: e.type.icon,
+          partId: e.partId || null, pin: e.pin !== undefined ? e.pin : null,
+          message: e.message,
+          hasFix: !!e.fix,
+          fix: e.fix ? { action: e.fix.action, partId: e.fix.partId, resistorValue: e.fix.resistorValue, description: e.fix.description } : null
+        };
+      })
+    };
+  }
+
+  function toolFixError(input) {
+    if (!VXA.AIErrors) return { error: 'AIErrors module not loaded' };
+    return VXA.AIErrors.applyFix(input);
+  }
+
+  // ===== API KEY =====
+  function getKey() { return localStorage.getItem('vxa_ai_key') || ''; }
+  function setKey(k) { localStorage.setItem('vxa_ai_key', k || ''); }
+  function hasKey() { return getKey().length > 10; }
+
+  // ===== MAIN SEND =====
+  return {
+    setApiKey: function(k) { setKey(k); },
+    getApiKey: function() { return getKey(); },
+    hasApiKey: function() { return hasKey(); },
+
+    onMessage: function(fn) { _onMessage = fn; },
+    onToolUse: function(fn) { _onToolUse = fn; },
+    onError: function(fn) { _onError = fn; },
+    onProcessing: function(fn) { _onProcessing = fn; },
+
+    isProcessing: function() { return _isProcessing; },
+    getHistory: function() { return _history.slice(); },
+    clearHistory: function() { _history = []; },
+    getRemainingMessages: function() { return hasKey() ? Infinity : 0; },
+
+    quickCommand: function(cmd) {
+      if (cmd === 'clear') { toolClear(); return 'Circuit cleared.'; }
+      if (cmd === 'state') { return JSON.stringify(toolGetCircuitState(), null, 2); }
+      if (cmd === 'sim') { toolSimulation({ action: 'toggle' }); return 'Simulation toggled.'; }
+      return null;
+    },
+
+    send: function(userMessage) {
+      if (_isProcessing) return Promise.resolve();
+      if (!userMessage || !userMessage.trim()) return Promise.resolve();
+      if (!hasKey()) {
+        if (_onError) _onError({ type: 'no_key', message: currentLang === 'tr' ? 'AI asistanı kullanmak için API anahtarı ekleyin.' : 'Add an API key to use the AI assistant.' });
+        return Promise.resolve();
+      }
+
+      _isProcessing = true;
+      if (_onProcessing) _onProcessing(true);
+
+      _history.push({ role: 'user', content: userMessage });
+      if (_history.length > MAX_HISTORY * 2) _history = _history.slice(-MAX_HISTORY * 2);
+
+      var self = this;
+      return self._callAPI()
+        .then(function(response) { return self._processResponse(response, 0); })
+        .catch(function(err) {
+          if (_onError) _onError({ type: 'api_error', message: err.message || String(err) });
+        })
+        .then(function() {
+          _isProcessing = false;
+          if (_onProcessing) _onProcessing(false);
+        });
+    },
+
+    _processResponse: function(response, round) {
+      if (round >= 5) return Promise.resolve(); // Safety limit
+
+      var hasToolUse = false;
+      var toolResults = [];
+      var self = this;
+
+      if (!response || !response.content) return Promise.resolve();
+
+      for (var i = 0; i < response.content.length; i++) {
+        var block = response.content[i];
+
+        if (block.type === 'text' && block.text) {
+          if (_onMessage) _onMessage({ type: 'assistant', content: block.text });
+        }
+
+        if (block.type === 'tool_use') {
+          hasToolUse = true;
+          var result = executeTool(block.name, block.input);
+          if (_onToolUse) _onToolUse(block.name, block.input, result);
+          toolResults.push({
+            type: 'tool_result',
+            tool_use_id: block.id,
+            content: JSON.stringify(result)
+          });
+        }
+      }
+
+      _history.push({ role: 'assistant', content: response.content });
+
+      if (hasToolUse && toolResults.length > 0) {
+        _history.push({ role: 'user', content: toolResults });
+        return self._callAPI().then(function(resp) {
+          return self._processResponse(resp, round + 1);
+        });
+      }
+
+      return Promise.resolve();
+    },
+
+    _callAPI: function() {
+      var body = {
+        model: MODEL,
+        max_tokens: MAX_TOKENS,
+        system: systemPrompt(),
+        tools: TOOLS,
+        messages: _history
+      };
+
+      return fetch(API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': getKey(),
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true'
+        },
+        body: JSON.stringify(body)
+      }).then(function(resp) {
+        if (!resp.ok) {
+          return resp.text().then(function(t) {
+            throw new Error('API ' + resp.status + ': ' + t.substring(0, 200));
+          });
+        }
+        return resp.json();
+      });
+    },
+
+    // Expose for testing
+    _executeTool: function(name, input) { return executeTool(name, input); },
+    getTools: function() { return TOOLS; }
+  };
+})();
+
+
+// ═══ spatial-audio.js ═══
+// ──────── SPRINT 12: SPATIAL AUDIO + HUM ENGINE — VXA.SpatialAudio ────────
+VXA.SpatialAudio = (function() {
+  'use strict';
+
+  var ctx = null;           // AudioContext (shared with VXA.Sound)
+  var masterGain = null;    // Master volume
+  var activeHums = {};      // componentId → { oscillators[], gainNode, panner }
+  var canvasWidth = 800;
+  var canvasHeight = 600;
+  var viewCenterX = 400;
+  var viewCenterY = 300;
+  var viewZoom = 1;
+
+  // Canvas koordinatını -1..+1 stereo pozisyona çevir
+  function canvasToStereo(cx) {
+    var screenX = (cx - viewCenterX) * viewZoom + canvasWidth / 2;
+    var ratio = screenX / canvasWidth;  // 0..1
+    return Math.max(-1, Math.min(1, ratio * 2 - 1));  // -1 (sol) .. +1 (sağ)
+  }
+
+  // Mesafeye göre ses azalması
+  function distanceFactor(cx, cy) {
+    var dx = (cx - viewCenterX) * viewZoom;
+    var dy = (cy - viewCenterY) * viewZoom;
+    var dist = Math.sqrt(dx * dx + dy * dy);
+    var maxDist = Math.sqrt(canvasWidth * canvasWidth + canvasHeight * canvasHeight) / 2;
+    return Math.max(0.1, 1 - (dist / maxDist) * 0.9);
+  }
+
+  function ensureContext() {
+    if (!ctx) {
+      try {
+        ctx = new (window.AudioContext || window.webkitAudioContext)();
+        masterGain = ctx.createGain();
+        masterGain.gain.value = 0.5;
+        masterGain.connect(ctx.destination);
+      } catch (e) {
+        return false;
+      }
+    }
+    if (ctx.state === 'suspended') {
+      ctx.resume();
+    }
+    return true;
+  }
+
+  function createNoise(duration) {
+    var bufLen = Math.floor(ctx.sampleRate * duration);
+    var noiseBuf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
+    var data = noiseBuf.getChannelData(0);
+    for (var i = 0; i < bufLen; i++) data[i] = Math.random() * 2 - 1;
+    var noise = ctx.createBufferSource();
+    noise.buffer = noiseBuf;
+    return noise;
+  }
+
+  return {
+    // Viewport bilgisini güncelle
+    updateViewport: function(cw, ch, centerX, centerY, zoom) {
+      canvasWidth = cw || 800;
+      canvasHeight = ch || 600;
+      viewCenterX = centerX || canvasWidth / 2;
+      viewCenterY = centerY || canvasHeight / 2;
+      viewZoom = zoom || 1;
+    },
+
+    // ===== ONE-SHOT SPATIAL SES =====
+    playAt: function(soundType, canvasX, canvasY) {
+      if (!S.soundOn) return;
+      if (!ensureContext()) return;
+
+      var vol = S.soundVolume / 100;
+      var stereo = canvasToStereo(canvasX);
+      var dist = distanceFactor(canvasX, canvasY);
+
+      // StereoPannerNode
+      var panner = ctx.createStereoPanner();
+      panner.pan.value = stereo;
+
+      var gain = ctx.createGain();
+      gain.connect(ctx.destination);
+      panner.connect(gain);
+
+      var now = ctx.currentTime;
+      var v = vol * dist;
+
+      switch (soundType) {
+        case 'click': {
+          var osc = ctx.createOscillator();
+          osc.type = 'square';
+          osc.frequency.setValueAtTime(800, now);
+          osc.frequency.exponentialRampToValueAtTime(200, now + 0.05);
+          gain.gain.setValueAtTime(v * 0.3, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+          osc.connect(panner);
+          osc.start(now); osc.stop(now + 0.05);
+          break;
+        }
+        case 'pop': {
+          var osc = ctx.createOscillator();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(600, now);
+          osc.frequency.exponentialRampToValueAtTime(50, now + 0.15);
+          gain.gain.setValueAtTime(v * 0.5, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+          osc.connect(panner);
+          osc.start(now); osc.stop(now + 0.15);
+          break;
+        }
+        case 'bang': {
+          var osc = ctx.createOscillator();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(150, now);
+          osc.frequency.exponentialRampToValueAtTime(20, now + 0.3);
+          gain.gain.setValueAtTime(v * 0.6, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+          osc.connect(panner);
+          // Noise katmanı
+          var noise = createNoise(0.15);
+          var noiseGain = ctx.createGain();
+          noiseGain.gain.setValueAtTime(v * 0.3, now);
+          noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+          noise.connect(noiseGain); noiseGain.connect(panner);
+          osc.start(now); osc.stop(now + 0.3);
+          noise.start(now); noise.stop(now + 0.2);
+          break;
+        }
+        case 'fuse': {
+          var noise = createNoise(0.1);
+          gain.gain.setValueAtTime(v * 0.4, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+          noise.connect(panner);
+          noise.start(now); noise.stop(now + 0.1);
+          break;
+        }
+        case 'burn': {
+          var noise = createNoise(0.5);
+          var filter = ctx.createBiquadFilter();
+          filter.type = 'lowpass'; filter.frequency.value = 500;
+          gain.gain.setValueAtTime(v * 0.15, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+          noise.connect(filter); filter.connect(panner);
+          noise.start(now); noise.stop(now + 0.5);
+          break;
+        }
+        case 'switch': {
+          var osc = ctx.createOscillator();
+          osc.type = 'square';
+          osc.frequency.setValueAtTime(2000, now);
+          osc.frequency.exponentialRampToValueAtTime(500, now + 0.02);
+          gain.gain.setValueAtTime(v * 0.2, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.03);
+          osc.connect(panner);
+          osc.start(now); osc.stop(now + 0.03);
+          break;
+        }
+        case 'sim-start': {
+          var osc = ctx.createOscillator();
+          osc.type = 'sine'; osc.frequency.value = 60;
+          gain.gain.setValueAtTime(0, now);
+          gain.gain.linearRampToValueAtTime(v * 0.05, now + 0.1);
+          gain.gain.linearRampToValueAtTime(0, now + 0.3);
+          osc.connect(panner);
+          osc.start(now); osc.stop(now + 0.3);
+          break;
+        }
+      }
+    },
+
+    // ===== SÜREKLİ UĞULTU (HUM) =====
+    startHum: function(componentId, canvasX, canvasY, currentAmps, maxAmps) {
+      if (!S.soundOn) return;
+      if (!ensureContext()) return;
+      if (activeHums[componentId]) return; // Zaten çalıyor
+
+      var ratio = Math.min(1, Math.abs(currentAmps) / Math.max(0.001, maxAmps));
+      if (ratio < 0.2) return; // Çok düşük akım
+
+      var stereo = canvasToStereo(canvasX);
+      var dist = distanceFactor(canvasX, canvasY);
+
+      var panner = ctx.createStereoPanner();
+      panner.pan.value = stereo;
+
+      var humGain = ctx.createGain();
+      humGain.gain.value = 0.08 * dist * ratio;
+
+      panner.connect(humGain);
+      humGain.connect(masterGain);
+
+      var oscillators = [];
+      var baseFreq = 50;
+
+      // 1. Temel ton (50Hz)
+      var osc1 = ctx.createOscillator();
+      osc1.type = 'sine'; osc1.frequency.value = baseFreq;
+      var g1 = ctx.createGain(); g1.gain.value = 0.5;
+      osc1.connect(g1); g1.connect(panner);
+      osc1.start(); oscillators.push({ osc: osc1, gain: g1 });
+
+      // 2. 3. harmonik (150Hz) — ratio > 0.3
+      if (ratio > 0.3) {
+        var osc3 = ctx.createOscillator();
+        osc3.type = 'sine'; osc3.frequency.value = baseFreq * 3;
+        var g3 = ctx.createGain(); g3.gain.value = ratio * 0.3;
+        osc3.connect(g3); g3.connect(panner);
+        osc3.start(); oscillators.push({ osc: osc3, gain: g3 });
+      }
+
+      // 3. 5. harmonik (250Hz) — ratio > 0.5
+      if (ratio > 0.5) {
+        var osc5 = ctx.createOscillator();
+        osc5.type = 'sine'; osc5.frequency.value = baseFreq * 5;
+        var g5 = ctx.createGain(); g5.gain.value = ratio * 0.2;
+        osc5.connect(g5); g5.connect(panner);
+        osc5.start(); oscillators.push({ osc: osc5, gain: g5 });
+      }
+
+      // 4. 7. harmonik (350Hz) — ratio > 0.7
+      if (ratio > 0.7) {
+        var osc7 = ctx.createOscillator();
+        osc7.type = 'sine'; osc7.frequency.value = baseFreq * 7;
+        var g7 = ctx.createGain(); g7.gain.value = ratio * 0.15;
+        osc7.connect(g7); g7.connect(panner);
+        osc7.start(); oscillators.push({ osc: osc7, gain: g7 });
+      }
+
+      // 5. Tiz sızlanma (2kHz) — ratio > 0.9 (TEHLİKE!)
+      if (ratio > 0.9) {
+        var oscHigh = ctx.createOscillator();
+        oscHigh.type = 'sine'; oscHigh.frequency.value = 2000;
+        var gHigh = ctx.createGain(); gHigh.gain.value = (ratio - 0.9) * 2;
+        oscHigh.connect(gHigh); gHigh.connect(panner);
+        oscHigh.start(); oscillators.push({ osc: oscHigh, gain: gHigh });
+      }
+
+      activeHums[componentId] = {
+        oscillators: oscillators,
+        gainNode: humGain,
+        panner: panner,
+        ratio: ratio
+      };
+    },
+
+    // Hum parametrelerini güncelle
+    updateHum: function(componentId, canvasX, canvasY, currentAmps, maxAmps) {
+      var hum = activeHums[componentId];
+      if (!hum) return;
+
+      var ratio = Math.min(1, Math.abs(currentAmps) / Math.max(0.001, maxAmps));
+      var stereo = canvasToStereo(canvasX);
+      var dist = distanceFactor(canvasX, canvasY);
+
+      hum.panner.pan.value = stereo;
+      hum.gainNode.gain.value = 0.08 * dist * ratio;
+
+      if (ratio < 0.15) {
+        this.stopHum(componentId);
+      }
+    },
+
+    stopHum: function(componentId) {
+      var hum = activeHums[componentId];
+      if (!hum) return;
+
+      var now = ctx ? ctx.currentTime : 0;
+      try { hum.gainNode.gain.linearRampToValueAtTime(0, now + 0.1); } catch(e) {}
+
+      setTimeout(function() {
+        hum.oscillators.forEach(function(o) {
+          try { o.osc.stop(); } catch (e) {}
+        });
+      }, 150);
+
+      delete activeHums[componentId];
+    },
+
+    stopAll: function() {
+      var ids = Object.keys(activeHums);
+      for (var i = 0; i < ids.length; i++) {
+        this.stopHum(ids[i]);
+      }
+    },
+
+    setVolume: function(v) {
+      if (masterGain) {
+        masterGain.gain.value = Math.max(0, Math.min(1, v));
+      }
+    },
+
+    getVolume: function() {
+      return masterGain ? masterGain.gain.value : 0.5;
+    },
+
+    getActiveHumCount: function() {
+      return Object.keys(activeHums).length;
+    },
+
+    dispose: function() {
+      this.stopAll();
+      if (ctx) {
+        try { ctx.close(); } catch(e) {}
+        ctx = null;
+        masterGain = null;
+      }
+    }
+  };
+})();
+
+
+// ═══ time-machine.js ═══
+// ──────── TIME MACHINE (Sprint 11) ────────
+VXA.TimeMachine = (function() {
+  'use strict';
+
+  var MAX_SNAPSHOTS = 2000;
+  var BASE_INTERVAL_MS = 10;
+  var SPIKE_THRESHOLD = 0.5;
+  var SPIKE_INTERVAL_MS = 0.5;
+
+  var snapshots = [];
+  var head = 0;
+  var count = 0;
+  var _isPlayback = false;
+  var playbackIndex = -1;
+  var bookmarks = [];
+  var markers = [];
+  var lastCaptureTime = -999;
+  var lastNodeVoltages = null;
+  var enabled = false;
+
+  function createSnapshot(simTime, nodes, components, thermalData, damageData, scopeTraces) {
+    return {
+      t: simTime,
+      n: nodes ? new Float64Array(nodes) : new Float64Array(0),
+      c: components.map(function(p) {
+        return {
+          id: p.id,
+          v: p._v !== undefined ? p._v : (p.voltage !== undefined ? p.voltage : 0),
+          i: p._i !== undefined ? p._i : (p.current !== undefined ? p.current : 0),
+          on: p.on !== undefined ? p.on : true,
+          damaged: p.damaged || false,
+          ledBrightness: p.ledBrightness || 0
+        };
+      }),
+      th: thermalData ? thermalData.map(function(t) {
+        return { id: t.id, temp: t.temp, status: t.status };
+      }) : [],
+      dm: damageData ? damageData.slice() : [],
+      sc: scopeTraces ? scopeTraces.map(function(ch) {
+        if (!ch || !ch.buf) return [];
+        var arr = [];
+        for (var k = 0; k < Math.min(ch.buf.length, 100); k++) arr.push(ch.buf[k]);
+        return arr;
+      }) : []
+    };
+  }
+
+  function detectSpike(nodes) {
+    if (!lastNodeVoltages || !nodes) return false;
+    var len = Math.min(nodes.length, lastNodeVoltages.length);
+    for (var i = 0; i < len; i++) {
+      if (Math.abs(nodes[i] - lastNodeVoltages[i]) > SPIKE_THRESHOLD) return true;
+    }
+    return false;
+  }
+
+  return {
+    setEnabled: function(val) {
+      enabled = !!val;
+      if (!enabled) this.reset();
+    },
+    isEnabled: function() { return enabled; },
+
+    capture: function(simTime, nodeVoltages, components, thermalStates, damageStates, scopeTraces) {
+      if (!enabled || _isPlayback) return;
+      var simTimeMs = simTime * 1000;
+      var isSpike = detectSpike(nodeVoltages);
+      var interval = isSpike ? SPIKE_INTERVAL_MS : BASE_INTERVAL_MS;
+      if (simTimeMs - lastCaptureTime < interval) return;
+
+      var snap = createSnapshot(simTime, nodeVoltages, components, thermalStates, damageStates, scopeTraces);
+
+      if (count < MAX_SNAPSHOTS) {
+        snapshots.push(snap);
+        count++;
+      } else {
+        snapshots[head] = snap;
+      }
+
+      if (isSpike) {
+        markers.push({ index: count < MAX_SNAPSHOTS ? count - 1 : head, type: 'spike', time: simTime });
+      }
+      if (damageStates && damageStates.length > 0) {
+        var newDamage = damageStates.some(function(d) { return d.justDamaged; });
+        if (newDamage) {
+          markers.push({ index: count < MAX_SNAPSHOTS ? count - 1 : head, type: 'damage', time: simTime });
+        }
+      }
+
+      head = (head + 1) % MAX_SNAPSHOTS;
+      lastCaptureTime = simTimeMs;
+      lastNodeVoltages = nodeVoltages ? new Float64Array(nodeVoltages) : null;
+    },
+
+    isPlayback: function() { return _isPlayback; },
+
+    seekTo: function(index) {
+      if (count === 0) return null;
+      var idx = Math.max(0, Math.min(index, count - 1));
+      _isPlayback = true;
+      playbackIndex = idx;
+      return this.getSnapshot(idx);
+    },
+
+    getSnapshot: function(index) {
+      if (count === 0 || index < 0 || index >= count) return null;
+      var realIndex;
+      if (count < MAX_SNAPSHOTS) {
+        realIndex = index;
+      } else {
+        realIndex = (head + index) % MAX_SNAPSHOTS;
+      }
+      return snapshots[realIndex] || null;
+    },
+
+    getCurrentSnapshot: function() {
+      if (!_isPlayback || playbackIndex < 0) return null;
+      return this.getSnapshot(playbackIndex);
+    },
+
+    getPlaybackIndex: function() { return playbackIndex; },
+    getCount: function() { return count; },
+
+    stepForward: function() {
+      if (!_isPlayback || count === 0) return null;
+      playbackIndex = Math.min(playbackIndex + 1, count - 1);
+      return this.getSnapshot(playbackIndex);
+    },
+
+    stepBackward: function() {
+      if (!_isPlayback || count === 0) return null;
+      playbackIndex = Math.max(playbackIndex - 1, 0);
+      return this.getSnapshot(playbackIndex);
+    },
+
+    resume: function() {
+      _isPlayback = false;
+      playbackIndex = -1;
+    },
+
+    addBookmark: function(label) {
+      if (!_isPlayback || playbackIndex < 0) return;
+      var snap = this.getSnapshot(playbackIndex);
+      if (!snap) return;
+      bookmarks.push({
+        index: playbackIndex,
+        label: label || ('Bookmark ' + (bookmarks.length + 1)),
+        time: snap.t
+      });
+    },
+
+    removeBookmark: function(idx) {
+      if (idx >= 0 && idx < bookmarks.length) bookmarks.splice(idx, 1);
+    },
+
+    getBookmarks: function() { return bookmarks.slice(); },
+    getMarkers: function() { return markers.slice(); },
+
+    reset: function() {
+      snapshots = [];
+      head = 0;
+      count = 0;
+      _isPlayback = false;
+      playbackIndex = -1;
+      bookmarks = [];
+      markers = [];
+      lastCaptureTime = -999;
+      lastNodeVoltages = null;
+    },
+
+    getStats: function() {
+      var memoryBytes = 0;
+      if (count > 0) {
+        var sampleSnap = snapshots[0];
+        if (sampleSnap) {
+          memoryBytes = count * (sampleSnap.n.byteLength + JSON.stringify(sampleSnap.c).length + 200);
+        }
+      }
+      return {
+        count: count,
+        maxSnapshots: MAX_SNAPSHOTS,
+        memoryKB: Math.round(memoryBytes / 1024),
+        oldestTime: count > 0 ? snapshots[count < MAX_SNAPSHOTS ? 0 : head].t : 0,
+        newestTime: count > 0 ? snapshots[count < MAX_SNAPSHOTS ? count - 1 : (head - 1 + MAX_SNAPSHOTS) % MAX_SNAPSHOTS].t : 0,
+        markerCount: markers.length,
+        bookmarkCount: bookmarks.length
+      };
+    }
+  };
+})();
+
 
 // ═══ inline-edit.js ═══
 // ──────── 3.1: INLINE VALUE EDIT ────────
@@ -9169,6 +12864,8 @@ function applySettings() {
   S.bgStyle = T.bgStyle; S.wireStyle = T.wireStyle; S.symbolStd = T.symbolStd;
   S.currentDirection = T.currentDirection; S.realisticMode = T.realisticMode;
   S.ambientTemp = T.ambientTemp; S.soundOn = T.soundOn; S.soundVolume = T.soundVolume;
+  if (!S.soundOn && VXA.SpatialAudio) VXA.SpatialAudio.stopAll();
+  if (VXA.SpatialAudio) VXA.SpatialAudio.setVolume(S.soundVolume / 100);
   S.showGrid = T.showGrid; S.autoSave = T.autoSave; S.animationsOn = T.animationsOn;
   S.simMethod = T.simMethod; S.maxNRIter = T.maxNRIter; S.lteTol = T.lteTol;
   if (VXA.SimV2.setSimMethod) VXA.SimV2.setSimMethod(T.simMethod);
@@ -9421,6 +13118,24 @@ function updateInspector() {
       + Object.keys(OPAMP_MODELS).map(function(k){ return '<option' + ((p.model||'Ideal')===k?' selected':'') + '>' + k + '</option>'; }).join('') + '</select></div>';
   }
 
+  // Comparator params
+  if (p.type === 'comparator') {
+    if (!p.props) p.props = {};
+    if (p.props.hysteresis === undefined) p.props.hysteresis = 0.01;
+    if (p.props.responseTime === undefined) p.props.responseTime = 100e-9;
+    if (p.props.model === undefined) p.props.model = 'IDEAL';
+    html += '<div class="insp-param"><label>' + t('hysteresis') + '</label>'
+      + '<input value="' + (p.props.hysteresis * 1000).toFixed(1) + '" onchange="inspCompParam(\'hysteresis\',this.value)" onfocus="this.select()">'
+      + '<span class="ip-unit">mV</span></div>';
+    html += '<div class="insp-param"><label>Model</label><select onchange="inspCompParam(\'model\',this.value)" style="flex:1;background:var(--surface-3);border:1px solid var(--border);color:var(--text);border-radius:4px;padding:3px 6px;font:11px var(--font-mono)">'
+      + ['IDEAL','LM311','LM393'].map(function(k){ return '<option' + (p.props.model===k?' selected':'') + '>' + k + '</option>'; }).join('') + '</select></div>';
+    if (S.sim.running) {
+      html += '<div class="insp-param"><label>V+</label><span style="font:11px var(--font-mono);color:var(--accent)">' + (p._compVp !== undefined ? p._compVp.toFixed(3) + ' V' : '—') + '</span></div>';
+      html += '<div class="insp-param"><label>V\u2212</label><span style="font:11px var(--font-mono);color:var(--blue)">' + (p._compVn !== undefined ? p._compVn.toFixed(3) + ' V' : '—') + '</span></div>';
+      html += '<div class="insp-param"><label>OUT</label><span style="font:11px var(--font-mono);color:' + (p._compOutput ? 'var(--green)' : 'var(--text-3)') + '">' + (p._compOutput ? '🟢 HIGH' : '⚫ LOW') + '</span></div>';
+    }
+  }
+
   // Potentiometer wiper
   if (p.type === 'potentiometer') {
     html += '<div class="insp-param"><label>Wiper</label><input type="range" min="0" max="100" value="' + Math.round((p.wiper||0.5)*100) + '" oninput="setPotWiper(this.value)" style="flex:1"><span class="ip-unit">' + Math.round((p.wiper||0.5)*100) + '%</span></div>';
@@ -9524,6 +13239,19 @@ function inspParamChange(key, val) {
   else p.val = v;
   needsRender = true;
   if (S.sim.running) buildCircuitFromCanvas();
+}
+
+function inspCompParam(key, val) {
+  if (!S.sel.length) return;
+  var p = S.parts.find(function(pp) { return pp.id === S.sel[0]; }); if (!p) return;
+  if (!p.props) p.props = {};
+  saveUndo();
+  if (key === 'hysteresis') p.props.hysteresis = parseFloat(val) / 1000; // mV → V
+  else if (key === 'model') p.props.model = val;
+  else if (key === 'responseTime') p.props.responseTime = parseFloat(val) * 1e-9; // ns → s
+  needsRender = true;
+  if (S.sim.running) buildCircuitFromCanvas();
+  updateInspector();
 }
 
 
@@ -9752,8 +13480,16 @@ VXA.Sound = (function() {
     return source;
   }
 
-  function play(type) {
+  function play(type, canvasX, canvasY) {
     if (!S.soundOn) return;
+    // Spatial audio available — delegate
+    if (VXA.SpatialAudio) {
+      var cx = canvasX !== undefined ? canvasX : (typeof canvasWidth !== 'undefined' ? canvasWidth / 2 : 400);
+      var cy = canvasY !== undefined ? canvasY : (typeof canvasHeight !== 'undefined' ? canvasHeight / 2 : 300);
+      VXA.SpatialAudio.playAt(type, cx, cy);
+      return;
+    }
+    // Fallback: mono
     var ctx = getCtx();
     if (!ctx) return;
     var vol = S.soundVolume / 100;
@@ -9827,7 +13563,7 @@ VXA.Sound = (function() {
     }
   }
 
-  return { play: play };
+  return { play: play, getContext: getCtx };
 })();
 
 // ═══ scope-extras.js ═══
@@ -10307,13 +14043,14 @@ function drawScope() {
   // The apply function is internal, so we'll patch the check function's calls via event
   VXA.EventBus.on('damage:occurred', function(data) {
     var type = data.part.type;
-    if (type === 'led') VXA.Sound.play('pop');
-    else if (type === 'capacitor') VXA.Sound.play('bang');
-    else if (type === 'fuse') VXA.Sound.play('fuse');
-    else if (type === 'resistor') VXA.Sound.play('burn');
-    else if (type === 'npn' || type === 'pnp' || type === 'nmos' || type === 'pmos') VXA.Sound.play('burn');
-    else if (type === 'diode' || type === 'zener') VXA.Sound.play('burn');
-    else VXA.Sound.play('burn');
+    var px = data.part.x, py = data.part.y;
+    if (type === 'led') VXA.Sound.play('pop', px, py);
+    else if (type === 'capacitor') VXA.Sound.play('bang', px, py);
+    else if (type === 'fuse') VXA.Sound.play('fuse', px, py);
+    else if (type === 'resistor') VXA.Sound.play('burn', px, py);
+    else if (type === 'npn' || type === 'pnp' || type === 'nmos' || type === 'pmos') VXA.Sound.play('burn', px, py);
+    else if (type === 'diode' || type === 'zener') VXA.Sound.play('burn', px, py);
+    else VXA.Sound.play('burn', px, py);
   });
 })();
 
@@ -10643,6 +14380,17 @@ function updateStatusbarExtra() {
   extra += S.soundOn ? '🔊' : '🔇';
   extra += ' ' + (S.realisticMode ? '🛡️' : '🎓');
   if (S.particles.length > 0) extra += ' ✨' + S.particles.length;
+  // TimeMachine status
+  if (VXA.TimeMachine && VXA.TimeMachine.isEnabled()) {
+    var tmStats = VXA.TimeMachine.getStats();
+    extra += ' \u23EA' + tmStats.count;
+    if (VXA.TimeMachine.isPlayback()) extra += ' \uD83D\uDCCD PLAYBACK';
+  }
+  // Sprint 12: Spatial Audio hum count
+  if (VXA.SpatialAudio && S.soundOn) {
+    var humCount = VXA.SpatialAudio.getActiveHumCount();
+    if (humCount > 0) extra += ' \uD83D\uDD0A' + humCount + ' hum';
+  }
   extraEl.textContent = extra;
 }
 
@@ -10707,6 +14455,16 @@ function showAbout() {
     + '<div>\u2705 ' + (tr?'S\u0131f\u0131r Ba\u011f\u0131ml\u0131l\u0131k':'Zero Dependencies') + '</div>'
     + '<div>\u2705 76 ' + (tr?'Mod\u00fcler Kaynak':'Modular Sources') + '</div>'
     + '<div>\u2705 PWA Offline</div>'
+    + '<div>\u2705 \u23EA ' + (tr?'Zaman Makinesi':'Time Machine') + '</div>'
+    + '<div>\u2705 \uD83D\uDD0A ' + (tr?'Mekansal Ses':'Spatial Audio') + '</div>'
+    + '<div>\u2705 \u3030\uFE0F ' + (tr?'Kablo Titreşimi':'Wire Vibration') + '</div>'
+    + '<div>\u2705 \u26A1 ' + (tr?'Kaos Modu':'Chaos Mode') + '</div>'
+    + '<div>\u2705 \uD83D\uDCCF ' + (tr?'Holografik Form\u00fcller':'Holographic Formulas') + '</div>'
+    + '<div>\u2705 \uD83D\uDD0C ' + (tr?'3D Prob UX':'3D Probe UX') + '</div>'
+    + '<div>\u2705 \uD83E\uDD16 ' + (tr?'AI Devre Asistan\u0131 (Tool Use)':'AI Circuit Assistant (Tool Use)') + '</div>'
+    + '<div>\u2705 \uD83D\uDD0D ' + (tr?'AI Hata Tespiti + Auto-Fix':'AI Error Detection + Auto-Fix') + '</div>'
+    + '<div>\u2705 \uD83D\uDD32 ' + (tr?'Dijital Sim\u00fclasyon Motoru':'Digital Simulation Engine') + '</div>'
+    + '<div>\u2705 \u26A1 ' + (tr?'Mixed-Signal K\u00f6pr\u00fcs\u00fc':'Mixed-Signal Bridge') + '</div>'
     + '</div>'
     + '<div style="font:11px var(--font-mono);color:var(--text-4);margin-top:8px">\u00a9 2026 \u2014 ' + (tr?'A\u00e7\u0131k Kaynak':'Open Source') + ' \u2014 voltxampere.com</div>'
     + '<div style="margin-top:12px;display:flex;gap:8px;justify-content:center">'
@@ -10725,6 +14483,281 @@ function showValidation() {
 
 // ──────── 5.6: WELCOME — trigger after splash ────────
 setTimeout(function() { showWelcome(); }, 2200);
+
+
+// ═══ timeline-bar.js ═══
+// ──────── TIMELINE BAR UI (Sprint 11) ────────
+(function() {
+  'use strict';
+
+  var isDragging = false;
+  var autoPlayTimer = null;
+  var autoPlaySpeed = 1;
+
+  function formatSimTime(sec) {
+    if (sec === 0) return '0s';
+    if (Math.abs(sec) < 0.001) return (sec * 1e6).toFixed(0) + '\u00B5s';
+    if (Math.abs(sec) < 1) return (sec * 1000).toFixed(1) + 'ms';
+    var mins = Math.floor(sec / 60);
+    var secs = (sec % 60).toFixed(3);
+    return (mins < 10 ? '0' : '') + mins + ':' + (parseFloat(secs) < 10 ? '0' : '') + secs;
+  }
+
+  function updateTimeDisplay(simTimeSec) {
+    var cur = document.getElementById('tl-current');
+    var tot = document.getElementById('tl-total');
+    if (!cur || !tot) return;
+    cur.textContent = formatSimTime(simTimeSec);
+    var stats = VXA.TimeMachine.getStats();
+    tot.textContent = formatSimTime(stats.newestTime);
+  }
+
+  function drawTimelineCanvas() {
+    var canvas = document.getElementById('tl-canvas');
+    if (!canvas) return;
+    var ctx = canvas.getContext('2d');
+    var w = canvas.width = canvas.offsetWidth;
+    var h = canvas.height = 32;
+    ctx.clearRect(0, 0, w, h);
+
+    var tm = VXA.TimeMachine;
+    var cnt = tm.getCount();
+    if (cnt === 0) return;
+
+    // Mini voltage envelope (scope ch0 data)
+    ctx.strokeStyle = 'rgba(0, 224, 158, 0.3)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    var step = Math.max(1, Math.floor(cnt / w));
+    for (var i = 0; i < cnt; i += step) {
+      var snap = tm.getSnapshot(i);
+      if (!snap || !snap.sc || !snap.sc[0] || snap.sc[0].length === 0) continue;
+      var x = (i / cnt) * w;
+      var lastVal = snap.sc[0][snap.sc[0].length - 1];
+      var y = h / 2 - (lastVal || 0) * (h / 4) / 5;
+      y = Math.max(2, Math.min(h - 2, y));
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    // Markers
+    var mkrs = tm.getMarkers();
+    for (var m = 0; m < mkrs.length; m++) {
+      var mx = (mkrs[m].index / cnt) * w;
+      ctx.fillStyle = mkrs[m].type === 'spike' ? '#ff4444' : '#ff8800';
+      ctx.beginPath();
+      ctx.moveTo(mx - 3, 0);
+      ctx.lineTo(mx + 3, 0);
+      ctx.lineTo(mx, 6);
+      ctx.fill();
+    }
+
+    // Bookmarks
+    var bmarks = tm.getBookmarks();
+    for (var b = 0; b < bmarks.length; b++) {
+      var bx = (bmarks[b].index / cnt) * w;
+      ctx.fillStyle = '#4a9eff';
+      ctx.font = '10px sans-serif';
+      ctx.fillText('\u2691', bx - 4, 28);
+    }
+
+    // Playhead
+    if (tm.isPlayback()) {
+      var ph = document.getElementById('tl-playhead');
+      if (ph) {
+        ph.style.left = ((tm.getPlaybackIndex() / cnt) * w) + 'px';
+      }
+    }
+  }
+
+  function scrubTo(e) {
+    var scrubber = document.getElementById('tl-scrubber');
+    if (!scrubber) return;
+    var rect = scrubber.getBoundingClientRect();
+    var ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    var index = Math.round(ratio * (VXA.TimeMachine.getCount() - 1));
+    var snap = VXA.TimeMachine.seekTo(index);
+    if (snap) {
+      drawTimelineCanvas();
+      updateTimeDisplay(snap.t);
+      needsRender = true;
+    }
+  }
+
+  function showTimeline() {
+    var bar = document.getElementById('timeline-bar');
+    if (bar) {
+      bar.style.display = 'flex';
+      drawTimelineCanvas();
+    }
+  }
+
+  function hideTimeline() {
+    var bar = document.getElementById('timeline-bar');
+    if (bar) bar.style.display = 'none';
+    if (autoPlayTimer) { clearInterval(autoPlayTimer); autoPlayTimer = null; }
+  }
+
+  function enterPlayback() {
+    var tm = VXA.TimeMachine;
+    if (tm.getCount() === 0) return;
+    if (S.sim.running) toggleSim();
+    tm.seekTo(tm.getCount() - 1);
+    showTimeline();
+    var snap = tm.getCurrentSnapshot();
+    if (snap) updateTimeDisplay(snap.t);
+    needsRender = true;
+  }
+
+  function exitPlayback() {
+    VXA.TimeMachine.resume();
+    hideTimeline();
+    needsRender = true;
+  }
+
+  // Auto-play (forward playback at speed)
+  function startAutoPlay() {
+    if (autoPlayTimer) return;
+    autoPlayTimer = setInterval(function() {
+      var snap = VXA.TimeMachine.stepForward();
+      if (snap) {
+        drawTimelineCanvas();
+        updateTimeDisplay(snap.t);
+        needsRender = true;
+      } else {
+        clearInterval(autoPlayTimer);
+        autoPlayTimer = null;
+      }
+    }, 16);
+  }
+
+  function stopAutoPlay() {
+    if (autoPlayTimer) { clearInterval(autoPlayTimer); autoPlayTimer = null; }
+  }
+
+  // Init event listeners after DOM ready
+  function initTimelineEvents() {
+    var scrubber = document.getElementById('tl-scrubber');
+    if (scrubber) {
+      scrubber.addEventListener('mousedown', function(e) {
+        isDragging = true;
+        stopAutoPlay();
+        scrubTo(e);
+      });
+      scrubber.addEventListener('touchstart', function(e) {
+        isDragging = true;
+        stopAutoPlay();
+        if (e.touches.length) scrubTo(e.touches[0]);
+      }, { passive: true });
+    }
+
+    document.addEventListener('mousemove', function(e) {
+      if (isDragging) scrubTo(e);
+    });
+    document.addEventListener('mouseup', function() { isDragging = false; });
+    document.addEventListener('touchmove', function(e) {
+      if (isDragging && e.touches.length) scrubTo(e.touches[0]);
+    }, { passive: true });
+    document.addEventListener('touchend', function() { isDragging = false; });
+
+    // Button handlers
+    var btnMap = {
+      'tl-step-back': function() {
+        stopAutoPlay();
+        var snap = VXA.TimeMachine.stepBackward();
+        if (snap) { drawTimelineCanvas(); updateTimeDisplay(snap.t); needsRender = true; }
+      },
+      'tl-back': function() {
+        stopAutoPlay();
+        for (var i = 0; i < 10; i++) VXA.TimeMachine.stepBackward();
+        var snap = VXA.TimeMachine.getCurrentSnapshot();
+        if (snap) { drawTimelineCanvas(); updateTimeDisplay(snap.t); needsRender = true; }
+      },
+      'tl-play-pause': function() {
+        if (autoPlayTimer) { stopAutoPlay(); }
+        else { startAutoPlay(); }
+      },
+      'tl-forward': function() {
+        stopAutoPlay();
+        for (var i = 0; i < 10; i++) VXA.TimeMachine.stepForward();
+        var snap = VXA.TimeMachine.getCurrentSnapshot();
+        if (snap) { drawTimelineCanvas(); updateTimeDisplay(snap.t); needsRender = true; }
+      },
+      'tl-step-fwd': function() {
+        stopAutoPlay();
+        var snap = VXA.TimeMachine.stepForward();
+        if (snap) { drawTimelineCanvas(); updateTimeDisplay(snap.t); needsRender = true; }
+      },
+      'tl-bookmark': function() {
+        var label = prompt(t('bookmarkName') || 'Bookmark name:');
+        if (label) VXA.TimeMachine.addBookmark(label);
+        drawTimelineCanvas();
+      },
+      'tl-exit': function() { exitPlayback(); }
+    };
+
+    Object.keys(btnMap).forEach(function(id) {
+      var el = document.getElementById(id);
+      if (el) el.addEventListener('click', btnMap[id]);
+    });
+  }
+
+  // Keyboard shortcuts for TimeMachine
+  document.addEventListener('keydown', function(e) {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    if (!VXA.TimeMachine || !VXA.TimeMachine.isEnabled()) return;
+
+    // Comma — step back (enter playback if not already)
+    if (e.key === ',') {
+      e.preventDefault();
+      if (!VXA.TimeMachine.isPlayback()) enterPlayback();
+      else {
+        var snap = VXA.TimeMachine.stepBackward();
+        if (snap) { drawTimelineCanvas(); updateTimeDisplay(snap.t); needsRender = true; }
+      }
+      return;
+    }
+    // Period — step forward
+    if (e.key === '.') {
+      e.preventDefault();
+      if (VXA.TimeMachine.isPlayback()) {
+        var snap2 = VXA.TimeMachine.stepForward();
+        if (snap2) { drawTimelineCanvas(); updateTimeDisplay(snap2.t); needsRender = true; }
+      }
+      return;
+    }
+    // M — toggle TimeMachine playback (enter/exit)
+    if (e.key === 'm' && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+      if (VXA.TimeMachine.isPlayback()) exitPlayback();
+      else enterPlayback();
+      return;
+    }
+    // Escape during playback — exit
+    if (e.key === 'Escape' && VXA.TimeMachine.isPlayback()) {
+      e.preventDefault();
+      e.stopPropagation();
+      exitPlayback();
+      return;
+    }
+  }, true); // capture phase to get Escape before other handlers
+
+  // Expose for external use
+  window._tlDrawCanvas = drawTimelineCanvas;
+  window._tlUpdateTime = updateTimeDisplay;
+  window._tlEnterPlayback = enterPlayback;
+  window._tlExitPlayback = exitPlayback;
+  window._tlInitEvents = initTimelineEvents;
+  window._tlShowTimeline = showTimeline;
+  window._tlHideTimeline = hideTimeline;
+
+  // Init when DOM is ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initTimelineEvents);
+  } else {
+    setTimeout(initTimelineEvents, 100);
+  }
+})();
 
 
 // ═══ app.js ═══
@@ -10813,7 +14846,8 @@ document.addEventListener('keydown', function(e) {
 })();
 
 function loop() {
-  if (needsRender || S.sim.running || S.mode !== 'select' || S.hoveredPin || S.particles.length > 0) {
+  var tmPlayback = VXA.TimeMachine && VXA.TimeMachine.isPlayback();
+  if (needsRender || S.sim.running || tmPlayback || S.mode !== 'select' || S.hoveredPin || S.particles.length > 0) {
     render(); needsRender = false;
   }
   requestAnimationFrame(loop);

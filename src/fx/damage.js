@@ -96,46 +96,66 @@ VXA.Damage = (function() {
 
     // Determine damage result and explosion type
     var type = part.type;
+
+    // Sprint 13: Calculate explosion intensity based on overload ratio
+    var _actualP = Math.abs((part._v || 0) * (part._i || 0));
+    var _maxP = (part._thermal && part._thermal.Pmax) ? part._thermal.Pmax : 0.25;
+    var _intensity = (typeof calculateExplosionIntensity === 'function') ?
+      calculateExplosionIntensity(_actualP, _maxP) : { particleCount: 15, glowRadius: 8, soundVolume: 0.5, screenShake: false };
+
     if (type === 'led') {
       part.damageResult = 'open';
       part.damageType = 'explode';
-      // Start 5-phase LED explosion animation
-      part._explodeAnim = { active: true, startTime: performance.now(), phase: 0, duration: 500, particlesSpawned: false };
+      part._explodeAnim = { active: true, startTime: performance.now(), phase: 0, duration: 500, particlesSpawned: false, intensity: _intensity };
     }
     else if (type === 'capacitor') {
       part.damageResult = Math.random() > 0.5 ? 'open' : 'short';
       part.damageType = 'explode';
-      part._explodeAnim = { active: true, startTime: performance.now(), phase: 0, duration: 600, particlesSpawned: false };
+      part._explodeAnim = { active: true, startTime: performance.now(), phase: 0, duration: 600, particlesSpawned: false, intensity: _intensity };
     }
     else if (type === 'resistor') {
       part.damageResult = 'open';
       part.damageType = 'burn';
-      part._burnAnim = { active: true, startTime: performance.now(), duration: 1200, particlesSpawned: false };
+      part._burnAnim = { active: true, startTime: performance.now(), duration: 1200, particlesSpawned: false, intensity: _intensity };
     }
     else if (type === 'fuse') {
       part.damageResult = 'open';
       part.damageType = 'blow';
-      VXA.Particles.explode(part.x, part.y, 'fuse', '#ffcc00');
+      VXA.Particles.spawn(part.x, part.y, 'spark', '#ffcc00', _intensity.particleCount);
+      VXA.Particles.spawn(part.x, part.y, 'flash', '#ffffcc', 1);
+      VXA.Particles.spawn(part.x, part.y, 'smoke', 'rgba(70,70,70,0.3)', Math.round(_intensity.particleCount / 3));
     }
     else if (type === 'npn' || type === 'pnp') {
       part.damageResult = 'short';
       part.damageType = 'burn';
-      VXA.Particles.explode(part.x, part.y, 'transistor', '#ff4400');
+      VXA.Particles.spawn(part.x, part.y, 'smoke', 'rgba(60,60,60,0.5)', Math.round(_intensity.particleCount * 0.8));
+      VXA.Particles.spawn(part.x, part.y, 'ember', '#ff4400', _intensity.particleCount);
+      VXA.Particles.spawn(part.x, part.y, 'flash', '#ffeecc', 1);
     }
     else if (type === 'nmos' || type === 'pmos') {
       part.damageResult = 'short';
       part.damageType = 'burn';
-      VXA.Particles.explode(part.x, part.y, 'transistor', '#ff4400');
+      VXA.Particles.spawn(part.x, part.y, 'smoke', 'rgba(60,60,60,0.5)', Math.round(_intensity.particleCount * 0.8));
+      VXA.Particles.spawn(part.x, part.y, 'ember', '#ff4400', _intensity.particleCount);
+      VXA.Particles.spawn(part.x, part.y, 'flash', '#ffeecc', 1);
     }
     else if (type === 'diode' || type === 'zener') {
       part.damageResult = 'short';
       part.damageType = 'burn';
-      VXA.Particles.explode(part.x, part.y, 'transistor', '#ff2200');
+      VXA.Particles.spawn(part.x, part.y, 'smoke', 'rgba(60,60,60,0.5)', Math.round(_intensity.particleCount * 0.8));
+      VXA.Particles.spawn(part.x, part.y, 'ember', '#ff2200', _intensity.particleCount);
+      VXA.Particles.spawn(part.x, part.y, 'flash', '#ffeecc', 1);
     }
     else {
       part.damageResult = 'open';
       part.damageType = 'burn';
-      VXA.Particles.explode(part.x, part.y, 'resistor', '#ff6600');
+      VXA.Particles.spawn(part.x, part.y, 'ember', '#ff6600', _intensity.particleCount);
+      VXA.Particles.spawn(part.x, part.y, 'smoke', 'rgba(60,60,60,0.4)', Math.round(_intensity.particleCount * 0.6));
+    }
+
+    // Sprint 13: Screen shake for extreme overloads
+    if (_intensity.screenShake && typeof triggerScreenShake === 'function') {
+      triggerScreenShake(300, 8);
     }
 
     // Log damage

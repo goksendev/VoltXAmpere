@@ -187,6 +187,21 @@ function buildCircuitFromCanvas() {
     else if (p.type === 'dff' || p.type === 'counter' || p.type === 'shiftreg' || p.type === 'mux') {
       comps.push({type:'DIGI', subtype:p.type, pins:nodes, part:p, _state:0, _prevClk:0, _count:0, _q:0});
     }
+    else if (p.type === 'adc' || p.type === 'pwmGen') {
+      // Mixed-signal: store node mapping for MixedSignal bridge, no MNA stamp needed
+      p._nodes = nodes;
+      comps.push({type:'R', n1:nodes[0]||0, n2:0, val:1e12, part:p}); // very high R placeholder
+    }
+    else if (p.type === 'dac') {
+      // Mixed-signal DAC: store node mapping + controlled voltage source on AOUT
+      p._nodes = nodes;
+      var dacV = VXA.MixedSignal ? VXA.MixedSignal.getDACOutput(p.id) : 0;
+      // AOUT (pin 8) to GND (pin 10)
+      var aoutNode = nodes[8] || 0, gndNode = nodes[10] || 0;
+      if (aoutNode > 0) {
+        comps.push({type:'V', n1:aoutNode, n2:gndNode, val:dacV, part:p, isAC:false, isDACOutput:true});
+      }
+    }
     else if (p.type === 'wattmeter') {
       comps.push({type:'R', n1:nodes[0], n2:nodes[1], val:0.001, part:p, isMeter:true});
     }
@@ -227,7 +242,10 @@ function buildCircuitFromCanvas() {
       comps.push({type:'R', n1:nodes[0], n2:nodes[1], val:Rvar, part:p});
     }
     else if (p.type === 'comparator') {
+      p._nodes = nodes;
+      // 5-pin: V+(0), V-(1), OUT(2), VCC(3), GND(4)
       comps.push({type:'COMP', nP:nodes[0], nN:nodes[1], nO:nodes[2], part:p});
+      // VCC/GND passive — no stamp needed (power rails are external)
     }
     else if (p.type === 'crystal') {
       comps.push({type:'R', n1:nodes[0], n2:nodes[1], val:100, part:p});
@@ -364,6 +382,60 @@ function simulationStep() {
     // Damage check
     for (var di = 0; di < S.parts.length; di++) {
       VXA.Damage.check(S.parts[di]);
+    }
+    // Sprint 13: Chaos Monkey update
+    if (VXA.ChaosMonkey && VXA.ChaosMonkey.isRunning()) {
+      VXA.ChaosMonkey.update(S.parts, S.sim.t);
+    }
+    // Sprint 18: Mixed-signal analog → digital sync
+    if (VXA.MixedSignal) {
+      VXA.MixedSignal.syncAnalogToDigital(S.sim.t, S.parts, S._nodeVoltages || {});
+    }
+    // Sprint 17: Digital simulation step
+    if (VXA.Digital && VXA.Digital.isRunning()) {
+      VXA.Digital.step(S.sim.t, S.parts, S.wires);
+    }
+    // Sprint 18: Mixed-signal digital → analog sync
+    if (VXA.MixedSignal && VXA.Digital) {
+      VXA.MixedSignal.syncDigitalToAnalog(S.sim.t, S.parts, VXA.Digital.getStates());
+    }
+    // TimeMachine capture (Sprint 11)
+    if (VXA.TimeMachine && VXA.TimeMachine.isEnabled()) {
+      var _tmThermal = S.parts.map(function(p) {
+        return { id: p.id, temp: VXA.Thermal.getTemperature(p), status: VXA.Thermal.getStatus(p) };
+      });
+      var _tmDamage = S.parts.filter(function(p) { return p.damaged; }).map(function(p) {
+        return { id: p.id, damaged: true, justDamaged: p._justDamaged || false };
+      });
+      VXA.TimeMachine.capture(S.sim.t, S._nodeVoltages, S.parts, _tmThermal, _tmDamage, S.scope.ch);
+    }
+    // Sprint 12: Spatial Audio hum update
+    if (VXA.SpatialAudio && S.soundOn) {
+      VXA.SpatialAudio.updateViewport(
+        typeof cvs !== 'undefined' ? cvs.width / (typeof DPR !== 'undefined' ? DPR : 1) : 800,
+        typeof cvs !== 'undefined' ? cvs.height / (typeof DPR !== 'undefined' ? DPR : 1) : 600,
+        typeof S.view !== 'undefined' ? -S.view.ox / S.view.zoom : 400,
+        typeof S.view !== 'undefined' ? -S.view.oy / S.view.zoom : 300,
+        typeof S.view !== 'undefined' ? S.view.zoom : 1
+      );
+      for (var _hi = 0; _hi < S.parts.length; _hi++) {
+        var _hp = S.parts[_hi];
+        var _hCur = Math.abs(_hp._i || 0);
+        var _hMax = 0.1;
+        if (_hp._thermal) _hMax = Math.sqrt((_hp._thermal.Pmax || 0.25) / Math.max(1, _hp.val || 1));
+        if (_hp.type === 'led') _hMax = 0.02;
+        else if (_hp.type === 'diode' || _hp.type === 'zener') _hMax = 1.0;
+        else if (_hp.type === 'npn' || _hp.type === 'pnp') _hMax = 0.5;
+        else if (_hp.type === 'nmos' || _hp.type === 'pmos') _hMax = 2.0;
+        else if (_hp.type === 'fuse') _hMax = _hp.val || 1.0;
+        else if (_hp.type === 'resistor' && _hp.val > 0) _hMax = Math.sqrt(0.25 / _hp.val);
+        if (_hCur > _hMax * 0.2) {
+          VXA.SpatialAudio.startHum(_hp.id, _hp.x, _hp.y, _hCur, _hMax);
+          VXA.SpatialAudio.updateHum(_hp.id, _hp.x, _hp.y, _hCur, _hMax);
+        } else {
+          VXA.SpatialAudio.stopHum(_hp.id);
+        }
+      }
     }
   } catch(e) {
     S.sim.running = false; S.sim.error = e.message;

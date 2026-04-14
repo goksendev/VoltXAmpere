@@ -189,6 +189,30 @@ const JS_FILES = [
   // FX: damage
   'src/fx/damage.js',
 
+  // FX: chaos monkey (Sprint 13)
+  'src/fx/chaos-monkey.js',
+
+  // FX: holographic UI (Sprint 14)
+  'src/fx/holographic-ui.js',
+
+  // Engine: digital simulation (Sprint 17)
+  'src/engine/digital.js',
+
+  // Engine: mixed-signal bridge (Sprint 18)
+  'src/engine/mixed-signal.js',
+
+  // AI: error detection (Sprint 16) — must load before ai-engine
+  'src/ai/ai-errors.js',
+
+  // AI: engine with tool use (Sprint 15)
+  'src/ai/ai-engine.js',
+
+  // FX: spatial audio (Sprint 12)
+  'src/fx/spatial-audio.js',
+
+  // Engine: Time Machine (Sprint 11)
+  'src/engine/time-machine.js',
+
   // UI: inline edit
   'src/ui/inline-edit.js',
 
@@ -233,6 +257,9 @@ const JS_FILES = [
 
   // UI: about + validation UI
   'src/ui/about.js',
+
+  // UI: Timeline bar (Sprint 11)
+  'src/ui/timeline-bar.js',
 
   // App: final init (loop, a11y, keyboard patches)
   'src/app.js',

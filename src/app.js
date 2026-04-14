@@ -83,7 +83,8 @@ document.addEventListener('keydown', function(e) {
 })();
 
 function loop() {
-  if (needsRender || S.sim.running || S.mode !== 'select' || S.hoveredPin || S.particles.length > 0) {
+  var tmPlayback = VXA.TimeMachine && VXA.TimeMachine.isPlayback();
+  if (needsRender || S.sim.running || tmPlayback || S.mode !== 'select' || S.hoveredPin || S.particles.length > 0) {
     render(); needsRender = false;
   }
   requestAnimationFrame(loop);

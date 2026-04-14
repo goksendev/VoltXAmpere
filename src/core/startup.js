@@ -140,35 +140,85 @@ function aiSend() {
 }
 
 function aiSendMessage(question) {
-  var key = getAIKey();
-  if (!key) { addAIMessage(t('aiNoKey'), 'ai'); return; }
+  if (!VXA.AI) {
+    // Fallback: eski yöntem
+    var key = getAIKey();
+    if (!key) { addAIMessage(t('aiNoKey'), 'ai'); return; }
+    addAIMessage(question, 'user');
+    addAIMessage(t('aiThinking'), 'ai');
+    return;
+  }
+
+  // Sprint 15: VXA.AI ile tool-use destekli gönder
   addAIMessage(question, 'user');
-  addAIMessage(t('aiThinking'), 'ai');
-  var circuitInfo = describeCircuit();
-  fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': key,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true'
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 1024,
-      system: 'You are an expert electrical/electronics engineer. Analyze circuits and provide clear, concise advice. The user is working in VoltXAmpere circuit simulator. Respond in ' + (currentLang === 'tr' ? 'Turkish' : 'English') + '.',
-      messages: [{ role: 'user', content: question + '\n\nCircuit:\n' + circuitInfo }]
-    })
-  }).then(function(r) { return r.json(); })
-  .then(function(data) {
-    var msgs = document.getElementById('ai-messages');
-    msgs.lastChild.textContent = data.content && data.content[0] ? data.content[0].text : (data.error ? data.error.message : 'Error');
-  })
-  .catch(function(err) {
-    var msgs = document.getElementById('ai-messages');
-    msgs.lastChild.textContent = 'Error: ' + err.message;
+
+  // Quick command kontrolü
+  var quick = VXA.AI.quickCommand(question.trim().toLowerCase());
+  if (quick) { addAIMessage(quick, 'ai'); return; }
+
+  if (!VXA.AI.hasApiKey()) {
+    var key = getAIKey();
+    if (key) VXA.AI.setApiKey(key);
+    else { addAIMessage(t('aiNoKey'), 'ai'); return; }
+  }
+
+  // "Thinking" göstergesi
+  var thinkDiv = document.createElement('div');
+  thinkDiv.className = 'ai-msg ai';
+  thinkDiv.id = 'ai-thinking-indicator';
+  thinkDiv.textContent = t('aiThinking');
+  document.getElementById('ai-messages').appendChild(thinkDiv);
+  document.getElementById('ai-messages').scrollTop = document.getElementById('ai-messages').scrollHeight;
+
+  VXA.AI.send(question).then(function() {
+    // thinking göstergesini kaldır
+    var th = document.getElementById('ai-thinking-indicator');
+    if (th && th.parentNode) th.parentNode.removeChild(th);
   });
 }
+
+// Sprint 15: VXA.AI callback'lerini bağla
+(function _setupAICallbacks() {
+  if (!VXA.AI) return;
+  VXA.AI.onMessage(function(msg) {
+    addAIMessage(msg.content, 'ai');
+  });
+  VXA.AI.onToolUse(function(name, input, result) {
+    var icon = '\uD83D\uDD27'; // 🔧
+    if (name === 'addComponent') icon = '\u2795'; // ➕
+    else if (name === 'addWire') icon = '\uD83D\uDD17'; // 🔗
+    else if (name === 'removeComponent') icon = '\uD83D\uDDD1'; // 🗑
+    else if (name === 'startSimulation') icon = '\u25B6'; // ▶
+    else if (name === 'getCircuitState') icon = '\uD83D\uDCCB'; // 📋
+    else if (name === 'clearCircuit') icon = '\uD83E\uDDF9'; // 🧹
+    else if (name === 'loadPreset') icon = '\uD83D\uDCE5'; // 📥
+    else if (name === 'saveUndo') icon = '\uD83D\uDCBE'; // 💾
+    else if (name === 'setComponentValue') icon = '\u270F'; // ✏
+
+    var summary = icon + ' ' + name;
+    if (name === 'addComponent' && input.type) summary += ': ' + input.type + (input.value ? ' (' + input.value + ')' : '');
+    if (name === 'addWire') summary += ': (' + input.x1 + ',' + input.y1 + ') \u2192 (' + input.x2 + ',' + input.y2 + ')';
+    if (result && result.error) summary += ' \u274C ' + result.error;
+    else summary += ' \u2705';
+
+    var div = document.createElement('div');
+    div.className = 'ai-msg ai-tool';
+    div.style.cssText = 'font-size:10px;color:#888;background:rgba(255,255,255,0.03);border-radius:6px;padding:3px 8px;margin:2px 0;border-left:2px solid #4a9eff;align-self:flex-start;max-width:95%';
+    div.textContent = summary;
+    document.getElementById('ai-messages').appendChild(div);
+    document.getElementById('ai-messages').scrollTop = document.getElementById('ai-messages').scrollHeight;
+  });
+  VXA.AI.onError(function(err) {
+    addAIMessage('\u274C ' + err.message, 'ai');
+  });
+  VXA.AI.onProcessing(function(isProc) {
+    var btn = document.getElementById('ai-send');
+    if (btn) btn.disabled = isProc;
+  });
+  // Sync API key
+  var existingKey = getAIKey();
+  if (existingKey) VXA.AI.setApiKey(existingKey);
+})();
 
 // ──────── SCRIPTING API ────────
 // Extend VXA namespace (don't overwrite Config/EventBus/AutoSave)
@@ -361,7 +411,7 @@ function ctxSaveBlock() {
 function rebuildPalette() {
   var el = document.getElementById('left');
   el.innerHTML = '';
-  var cats = { Passive:t('catPassive'), Sources:t('catSources'), Semi:t('catSemi'), ICs:t('catICs'), Logic:t('catLogic'), Control:t('catControl'), Blocks:t('catBlocks'), Basic:t('catBasic') };
+  var cats = { Passive:t('catPassive'), Sources:t('catSources'), Semi:t('catSemi'), ICs:t('catICs'), Logic:t('catLogic'), Mixed:t('catMixed'), Control:t('catControl'), Blocks:t('catBlocks'), Basic:t('catBasic') };
   for (var ck in cats) {
     var cl = cats[ck];
     var items = Object.entries(COMP).filter(function(e){ return e[1].cat === ck; });

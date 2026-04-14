@@ -42,6 +42,24 @@ function updateInspector() {
       + Object.keys(OPAMP_MODELS).map(function(k){ return '<option' + ((p.model||'Ideal')===k?' selected':'') + '>' + k + '</option>'; }).join('') + '</select></div>';
   }
 
+  // Comparator params
+  if (p.type === 'comparator') {
+    if (!p.props) p.props = {};
+    if (p.props.hysteresis === undefined) p.props.hysteresis = 0.01;
+    if (p.props.responseTime === undefined) p.props.responseTime = 100e-9;
+    if (p.props.model === undefined) p.props.model = 'IDEAL';
+    html += '<div class="insp-param"><label>' + t('hysteresis') + '</label>'
+      + '<input value="' + (p.props.hysteresis * 1000).toFixed(1) + '" onchange="inspCompParam(\'hysteresis\',this.value)" onfocus="this.select()">'
+      + '<span class="ip-unit">mV</span></div>';
+    html += '<div class="insp-param"><label>Model</label><select onchange="inspCompParam(\'model\',this.value)" style="flex:1;background:var(--surface-3);border:1px solid var(--border);color:var(--text);border-radius:4px;padding:3px 6px;font:11px var(--font-mono)">'
+      + ['IDEAL','LM311','LM393'].map(function(k){ return '<option' + (p.props.model===k?' selected':'') + '>' + k + '</option>'; }).join('') + '</select></div>';
+    if (S.sim.running) {
+      html += '<div class="insp-param"><label>V+</label><span style="font:11px var(--font-mono);color:var(--accent)">' + (p._compVp !== undefined ? p._compVp.toFixed(3) + ' V' : '—') + '</span></div>';
+      html += '<div class="insp-param"><label>V\u2212</label><span style="font:11px var(--font-mono);color:var(--blue)">' + (p._compVn !== undefined ? p._compVn.toFixed(3) + ' V' : '—') + '</span></div>';
+      html += '<div class="insp-param"><label>OUT</label><span style="font:11px var(--font-mono);color:' + (p._compOutput ? 'var(--green)' : 'var(--text-3)') + '">' + (p._compOutput ? '🟢 HIGH' : '⚫ LOW') + '</span></div>';
+    }
+  }
+
   // Potentiometer wiper
   if (p.type === 'potentiometer') {
     html += '<div class="insp-param"><label>Wiper</label><input type="range" min="0" max="100" value="' + Math.round((p.wiper||0.5)*100) + '" oninput="setPotWiper(this.value)" style="flex:1"><span class="ip-unit">' + Math.round((p.wiper||0.5)*100) + '%</span></div>';
@@ -145,4 +163,17 @@ function inspParamChange(key, val) {
   else p.val = v;
   needsRender = true;
   if (S.sim.running) buildCircuitFromCanvas();
+}
+
+function inspCompParam(key, val) {
+  if (!S.sel.length) return;
+  var p = S.parts.find(function(pp) { return pp.id === S.sel[0]; }); if (!p) return;
+  if (!p.props) p.props = {};
+  saveUndo();
+  if (key === 'hysteresis') p.props.hysteresis = parseFloat(val) / 1000; // mV → V
+  else if (key === 'model') p.props.model = val;
+  else if (key === 'responseTime') p.props.responseTime = parseFloat(val) * 1e-9; // ns → s
+  needsRender = true;
+  if (S.sim.running) buildCircuitFromCanvas();
+  updateInspector();
 }

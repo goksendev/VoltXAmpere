@@ -44,6 +44,24 @@ function toggleSim() {
     VXA.AdaptiveStep.reset();
     buildCircuitFromCanvas();
     VXA.SimV2.findDCOperatingPoint();
+    // TimeMachine: enable and reset for new simulation run
+    if (VXA.TimeMachine) {
+      if (VXA.TimeMachine.isPlayback()) {
+        if (typeof _tlExitPlayback === 'function') _tlExitPlayback();
+        else VXA.TimeMachine.resume();
+      }
+      VXA.TimeMachine.setEnabled(true);
+      VXA.TimeMachine.reset();
+    }
+    // Sprint 17: Init digital engine
+    if (VXA.Digital) VXA.Digital.init(S.parts);
+    // Sprint 18: Reset mixed-signal
+    if (VXA.MixedSignal) VXA.MixedSignal.reset();
+  } else {
+    // Sim stopped — stop all hums
+    if (VXA.SpatialAudio) VXA.SpatialAudio.stopAll();
+    // Sprint 17: Stop digital engine
+    if (VXA.Digital) VXA.Digital.stop();
   }
   if (typeof announce === 'function') announce(S.sim.running ? 'Sim\u00fclasyon ba\u015flad\u0131' : 'Sim\u00fclasyon durduruldu');
 }

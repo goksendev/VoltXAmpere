@@ -34,6 +34,17 @@ function updateStatusbarExtra() {
   extra += S.soundOn ? '🔊' : '🔇';
   extra += ' ' + (S.realisticMode ? '🛡️' : '🎓');
   if (S.particles.length > 0) extra += ' ✨' + S.particles.length;
+  // TimeMachine status
+  if (VXA.TimeMachine && VXA.TimeMachine.isEnabled()) {
+    var tmStats = VXA.TimeMachine.getStats();
+    extra += ' \u23EA' + tmStats.count;
+    if (VXA.TimeMachine.isPlayback()) extra += ' \uD83D\uDCCD PLAYBACK';
+  }
+  // Sprint 12: Spatial Audio hum count
+  if (VXA.SpatialAudio && S.soundOn) {
+    var humCount = VXA.SpatialAudio.getActiveHumCount();
+    if (humCount > 0) extra += ' \uD83D\uDD0A' + humCount + ' hum';
+  }
   extraEl.textContent = extra;
 }
 

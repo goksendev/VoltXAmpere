@@ -6,13 +6,14 @@
   // The apply function is internal, so we'll patch the check function's calls via event
   VXA.EventBus.on('damage:occurred', function(data) {
     var type = data.part.type;
-    if (type === 'led') VXA.Sound.play('pop');
-    else if (type === 'capacitor') VXA.Sound.play('bang');
-    else if (type === 'fuse') VXA.Sound.play('fuse');
-    else if (type === 'resistor') VXA.Sound.play('burn');
-    else if (type === 'npn' || type === 'pnp' || type === 'nmos' || type === 'pmos') VXA.Sound.play('burn');
-    else if (type === 'diode' || type === 'zener') VXA.Sound.play('burn');
-    else VXA.Sound.play('burn');
+    var px = data.part.x, py = data.part.y;
+    if (type === 'led') VXA.Sound.play('pop', px, py);
+    else if (type === 'capacitor') VXA.Sound.play('bang', px, py);
+    else if (type === 'fuse') VXA.Sound.play('fuse', px, py);
+    else if (type === 'resistor') VXA.Sound.play('burn', px, py);
+    else if (type === 'npn' || type === 'pnp' || type === 'nmos' || type === 'pmos') VXA.Sound.play('burn', px, py);
+    else if (type === 'diode' || type === 'zener') VXA.Sound.play('burn', px, py);
+    else VXA.Sound.play('burn', px, py);
   });
 })();
 

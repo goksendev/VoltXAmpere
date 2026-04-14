@@ -72,6 +72,8 @@ function applySettings() {
   S.bgStyle = T.bgStyle; S.wireStyle = T.wireStyle; S.symbolStd = T.symbolStd;
   S.currentDirection = T.currentDirection; S.realisticMode = T.realisticMode;
   S.ambientTemp = T.ambientTemp; S.soundOn = T.soundOn; S.soundVolume = T.soundVolume;
+  if (!S.soundOn && VXA.SpatialAudio) VXA.SpatialAudio.stopAll();
+  if (VXA.SpatialAudio) VXA.SpatialAudio.setVolume(S.soundVolume / 100);
   S.showGrid = T.showGrid; S.autoSave = T.autoSave; S.animationsOn = T.animationsOn;
   S.simMethod = T.simMethod; S.maxNRIter = T.maxNRIter; S.lteTol = T.lteTol;
   if (VXA.SimV2.setSimMethod) VXA.SimV2.setSimMethod(T.simMethod);

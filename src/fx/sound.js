@@ -22,8 +22,16 @@ VXA.Sound = (function() {
     return source;
   }
 
-  function play(type) {
+  function play(type, canvasX, canvasY) {
     if (!S.soundOn) return;
+    // Spatial audio available — delegate
+    if (VXA.SpatialAudio) {
+      var cx = canvasX !== undefined ? canvasX : (typeof canvasWidth !== 'undefined' ? canvasWidth / 2 : 400);
+      var cy = canvasY !== undefined ? canvasY : (typeof canvasHeight !== 'undefined' ? canvasHeight / 2 : 300);
+      VXA.SpatialAudio.playAt(type, cx, cy);
+      return;
+    }
+    // Fallback: mono
     var ctx = getCtx();
     if (!ctx) return;
     var vol = S.soundVolume / 100;
@@ -97,5 +105,5 @@ VXA.Sound = (function() {
     }
   }
 
-  return { play: play };
+  return { play: play, getContext: getCtx };
 })();
