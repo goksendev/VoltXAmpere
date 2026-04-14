@@ -359,9 +359,18 @@ VXA.SimV2 = (function() {
         var pol = c.polarity;
         var vB = nodeV[c.n1] || 0, vC = nodeV[c.n2] || 0, vE = nodeV[c.n3] || 0;
         var vbe = pol * (vB - vE), vbc = pol * (vB - vC), vce = pol * (vC - vE);
-        var eVbe = Math.exp(Math.min(vbe / (c.NF * VT_VAL), 500));
-        var ic = c.IS * c.BF / (c.BF + 1) * (eVbe - 1);
-        c.part._v = Math.abs(vce); c.part._i = Math.abs(ic); c.part._p = Math.abs(vce * ic);
+        // IC from actual matrix solution: sum currents into collector node
+        var ic = 0;
+        for (var bci = 0; bci < SIM.comps.length; bci++) {
+          var bc = SIM.comps[bci];
+          if (bc.part === c.part || bc.type === 'BJT') continue;
+          if (bc.n1 === c.n2 || bc.n2 === c.n2) {
+            if (bc.part && bc.part._i) { ic = Math.abs(bc.part._i); break; }
+            if (bc.type === 'R' && bc.n1 === c.n2) { ic = Math.abs((nodeV[bc.n1]||0) - (nodeV[bc.n2]||0)) / bc.val; break; }
+            if (bc.type === 'R' && bc.n2 === c.n2) { ic = Math.abs((nodeV[bc.n1]||0) - (nodeV[bc.n2]||0)) / bc.val; break; }
+          }
+        }
+        c.part._v = Math.abs(vce); c.part._i = ic; c.part._p = Math.abs(vce * ic);
         c.part._vbe = vbe; c.part._vce = vce; c.part._ic = ic;
         c.part._region = (vbe > 0.5 && vbc < 0) ? 'Aktif' : (vbe > 0.5 && vbc > 0) ? 'Doyma' : 'Kesim';
       } else if (c.type === 'MOS') {
