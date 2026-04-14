@@ -359,15 +359,27 @@ VXA.SimV2 = (function() {
         var pol = c.polarity;
         var vB = nodeV[c.n1] || 0, vC = nodeV[c.n2] || 0, vE = nodeV[c.n3] || 0;
         var vbe = pol * (vB - vE), vbc = pol * (vB - vC), vce = pol * (vC - vE);
-        // IC from actual matrix solution: sum currents into collector node
+        // IC from emitter node current: Ie = sum of currents through R connected to emitter
+        // More accurate: use VCE and find collector resistor current
         var ic = 0;
-        for (var bci = 0; bci < SIM.comps.length; bci++) {
-          var bc = SIM.comps[bci];
-          if (bc.part === c.part || bc.type === 'BJT') continue;
-          if (bc.n1 === c.n2 || bc.n2 === c.n2) {
-            if (bc.part && bc.part._i) { ic = Math.abs(bc.part._i); break; }
-            if (bc.type === 'R' && bc.n1 === c.n2) { ic = Math.abs((nodeV[bc.n1]||0) - (nodeV[bc.n2]||0)) / bc.val; break; }
-            if (bc.type === 'R' && bc.n2 === c.n2) { ic = Math.abs((nodeV[bc.n1]||0) - (nodeV[bc.n2]||0)) / bc.val; break; }
+        for (var _bci = 0; _bci < SIM.comps.length; _bci++) {
+          var _bc = SIM.comps[_bci];
+          if (_bc === c || _bc.type === 'BJT') continue;
+          // Find resistor connected to collector node
+          if (_bc.type === 'R' && (_bc.n1 === c.n2 || _bc.n2 === c.n2)) {
+            ic = Math.abs((nodeV[_bc.n1]||0) - (nodeV[_bc.n2]||0)) / _bc.val;
+            break;
+          }
+        }
+        if (ic === 0) {
+          // Fallback: compute from emitter resistor
+          for (var _bei = 0; _bei < SIM.comps.length; _bei++) {
+            var _be = SIM.comps[_bei];
+            if (_be === c || _be.type === 'BJT') continue;
+            if (_be.type === 'R' && (_be.n1 === c.n3 || _be.n2 === c.n3)) {
+              ic = Math.abs((nodeV[_be.n1]||0) - (nodeV[_be.n2]||0)) / _be.val;
+              break;
+            }
           }
         }
         c.part._v = Math.abs(vce); c.part._i = ic; c.part._p = Math.abs(vce * ic);

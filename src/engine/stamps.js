@@ -67,6 +67,7 @@ VXA.Stamps = (function() {
     var vB = nodeV[nB] || 0, vC = nodeV[nC] || 0, vE = nodeV[nE] || 0;
     var vbe = pol * (vB - vE), vbc = pol * (vB - vC);
     var nVt = NF * VT;
+    var BR = 1; // reverse beta
     var vcrit = nVt * Math.log(nVt / (Math.sqrt(2) * Is));
     if (vbe > vcrit) vbe = vcrit + nVt * Math.log(Math.max(1, 1 + (vbe - vcrit) / nVt));
     if (vbc > vcrit) vbc = vcrit + nVt * Math.log(Math.max(1, 1 + (vbc - vcrit) / nVt));
@@ -74,23 +75,34 @@ VXA.Stamps = (function() {
     var eVbc = Math.exp(Math.min(vbc / nVt, 500));
     var iF = Is * (eVbe - 1), iR = Is * (eVbc - 1);
     var gF = Is / nVt * eVbe + 1e-12, gR = Is / nVt * eVbc + 1e-12;
-    var iF_eq = iF - gF * vbe, iR_eq = iR - gR * vbc;
-    // B-E junction
-    stampG(matrix, pol > 0 ? nB : nE, pol > 0 ? nE : nB, gF);
-    var ieqBE = iF_eq * pol;
-    stampI(rhs, nB, -ieqBE); stampI(rhs, nE, ieqBE);
-    // B-C junction
-    stampG(matrix, pol > 0 ? nB : nC, pol > 0 ? nC : nB, gR / BF);
-    var ieqBC = (iR_eq / BF) * pol;
-    stampI(rhs, nB, -ieqBC); stampI(rhs, nC, ieqBC);
-    // Collector VCCS
-    var gmEff = gF * (BF / (BF + 1));
-    if (nC > 0 && nB > 0) Sp.stamp(matrix, nC - 1, nB - 1, gmEff * pol);
-    if (nC > 0 && nE > 0) Sp.stamp(matrix, nC - 1, nE - 1, -gmEff * pol);
-    if (nE > 0 && nB > 0) Sp.stamp(matrix, nE - 1, nB - 1, -gmEff * pol);
-    if (nE > 0) Sp.stamp(matrix, nE - 1, nE - 1, gmEff * pol);
-    var ic_eq = (iF * BF / (BF + 1) - gmEff * vbe) * pol;
+    // Ebers-Moll: Ib = IF/BF + IR/BR, Ic = IF - IR/BR
+    // B-E junction: linearized base current fraction gbe = gF/BF
+    var gbe = gF / BF + 1e-12;
+    var ibe = iF / BF;
+    var ibe_eq = (ibe - gbe * vbe) * pol;
+    stampG(matrix, pol > 0 ? nB : nE, pol > 0 ? nE : nB, gbe);
+    stampI(rhs, nB, -ibe_eq); stampI(rhs, nE, ibe_eq);
+    // B-C junction: linearized gbc = gR/BR
+    var gbc = gR / BR + 1e-12;
+    var ibc = iR / BR;
+    var ibc_eq = (ibc - gbc * vbc) * pol;
+    stampG(matrix, pol > 0 ? nB : nC, pol > 0 ? nC : nB, gbc);
+    stampI(rhs, nB, -ibc_eq); stampI(rhs, nC, ibc_eq);
+    // Collector VCCS: Ic = IF - IR/BR, linearized gm = gF
+    var gm = gF;
+    var ic = iF - iR / BR;
+    var ic_eq = (ic - gm * vbe + gbc * vbc) * pol;
+    if (nC > 0 && nB > 0) Sp.stamp(matrix, nC - 1, nB - 1, gm * pol);
+    if (nC > 0 && nE > 0) Sp.stamp(matrix, nC - 1, nE - 1, -gm * pol);
+    if (nE > 0 && nB > 0) Sp.stamp(matrix, nE - 1, nB - 1, -gm * pol);
+    if (nE > 0) Sp.stamp(matrix, nE - 1, nE - 1, gm * pol);
     stampI(rhs, nC, -ic_eq); stampI(rhs, nE, ic_eq);
+    // Early effect (output conductance)
+    if (VAF > 0 && VAF < 1e6) {
+      var vce = pol * (vC - vE);
+      var go = Math.abs(ic) / VAF + 1e-12;
+      stampG(matrix, nC, nE, go);
+    }
   }
   function mosfet(matrix, rhs, nG, nD, nS, pol, VTO, KP, LAMBDA, nodeV) {
     var vgs = pol * ((nodeV[nG] || 0) - (nodeV[nS] || 0));
