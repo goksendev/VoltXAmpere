@@ -302,9 +302,10 @@ function build() {
   // 3. Read HTML template
   let html = fs.readFileSync('src/index.html', 'utf8');
 
-  // 4. Inline CSS and JS
+  // 4. Inline CSS, JS, and build timestamp
   html = html.replace('/* __CSS_PLACEHOLDER__ */', css);
   html = html.replace('/* __JS_PLACEHOLDER__ */', jsBundle);
+  html = html.replace('__BUILD_TIME__', new Date().toISOString().slice(0, 16).replace('T', ' '));
 
   // 5. Write dist/index.html
   fs.mkdirSync('dist', { recursive: true });
@@ -321,6 +322,10 @@ function build() {
   console.log(`   Total lines: ${distLines}`);
   console.log(`   Output:      dist/index.html (${distSize} KB)`);
   console.log(`   Time:        ${elapsed}ms`);
+
+  // Auto-copy to root index.html (for Vercel deploy)
+  fs.copyFileSync('dist/index.html', 'index.html');
+  console.log(`   Root index.html updated ✅`);
 }
 
 build();

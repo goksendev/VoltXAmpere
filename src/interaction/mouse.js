@@ -37,53 +37,25 @@ wrap.addEventListener('mousemove', e => {
     }
     const dx = w.x - S.drag.sx, dy = w.y - S.drag.sy;
     if (Math.abs(dx) > 3 || Math.abs(dy) > 3) { if (typeof hidePartPopup === 'function') hidePartPopup(); }
-    // Build set of dragged part IDs for wire ownership check
-    var dragIds = {};
-    S.drag.parts.forEach(function(d) { dragIds[d.id] = true; });
+    // Move parts
     S.drag.parts.forEach(d => {
       const p = S.parts.find(pp => pp.id === d.id);
-      if (!p) return;
-      // Get OLD pin positions before moving
-      var oldPins = getPartPins(p);
-      // Move part
-      p.x = snap(d.ox + dx); p.y = snap(d.oy + dy);
-      // Get NEW pin positions after moving
-      var newPins = getPartPins(p);
-      // Move wire endpoints — only if they're NOT also near a non-dragged part's pin
-      for (var pi = 0; pi < oldPins.length; pi++) {
-        var opx = Math.round(oldPins[pi].x), opy = Math.round(oldPins[pi].y);
-        var npx = Math.round(newPins[pi].x), npy = Math.round(newPins[pi].y);
-        if (opx === npx && opy === npy) continue;
-        for (var wi = 0; wi < S.wires.length; wi++) {
-          var ww = S.wires[wi];
-          // Check endpoint 1
-          if (Math.abs(ww.x1 - opx) < 8 && Math.abs(ww.y1 - opy) < 8) {
-            // Ensure this endpoint isn't pinned to a stationary part
-            var pinned1 = false;
-            for (var si = 0; si < S.parts.length && !pinned1; si++) {
-              if (dragIds[S.parts[si].id]) continue;
-              var sp = getPartPins(S.parts[si]);
-              for (var sk = 0; sk < sp.length; sk++) {
-                if (Math.abs(ww.x1 - sp[sk].x) < 3 && Math.abs(ww.y1 - sp[sk].y) < 3) { pinned1 = true; break; }
-              }
-            }
-            if (!pinned1) { ww.x1 = npx; ww.y1 = npy; }
-          }
-          // Check endpoint 2
-          if (Math.abs(ww.x2 - opx) < 8 && Math.abs(ww.y2 - opy) < 8) {
-            var pinned2 = false;
-            for (var si2 = 0; si2 < S.parts.length && !pinned2; si2++) {
-              if (dragIds[S.parts[si2].id]) continue;
-              var sp2 = getPartPins(S.parts[si2]);
-              for (var sk2 = 0; sk2 < sp2.length; sk2++) {
-                if (Math.abs(ww.x2 - sp2[sk2].x) < 3 && Math.abs(ww.y2 - sp2[sk2].y) < 3) { pinned2 = true; break; }
-              }
-            }
-            if (!pinned2) { ww.x2 = npx; ww.y2 = npy; }
-          }
-        }
-      }
+      if (p) { p.x = snap(d.ox + dx); p.y = snap(d.oy + dy); }
     });
+    // Move bound wire endpoints using pre-computed bindings (by part ID, not position)
+    if (S.drag._wireBindings) {
+      S.drag._wireBindings.forEach(function(b) {
+        var p = S.parts.find(function(pp) { return pp.id === b.partId; });
+        if (!p) return;
+        var pins = getPartPins(p);
+        if (b.pinIdx >= pins.length) return;
+        var npx = Math.round(pins[b.pinIdx].x), npy = Math.round(pins[b.pinIdx].y);
+        var ww = S.wires[b.wi];
+        if (!ww) return;
+        if (b.end === 1) { ww.x1 = npx; ww.y1 = npy; }
+        else { ww.x2 = npx; ww.y2 = npy; }
+      });
+    }
     needsRender = true;
   }
   // panning
@@ -178,6 +150,20 @@ wrap.addEventListener('mousedown', e => {
     saveUndo();
     S.drag.active = true; S.drag.type = 'move'; S.drag.sx = w.x; S.drag.sy = w.y;
     S.drag.parts = S.sel.map(id => { const p = S.parts.find(pp => pp.id === id); return p ? { id, ox: p.x, oy: p.y } : null; }).filter(Boolean);
+    // Pre-compute wire-to-part pin bindings for safe drag
+    S.drag._wireBindings = [];
+    var dragIds = {}; S.drag.parts.forEach(function(d) { dragIds[d.id] = true; });
+    S.parts.forEach(function(p) {
+      if (!dragIds[p.id]) return;
+      var pins = getPartPins(p);
+      pins.forEach(function(pin, pi) {
+        var px = Math.round(pin.x), py = Math.round(pin.y);
+        S.wires.forEach(function(ww, wi) {
+          if (Math.abs(ww.x1 - px) < 5 && Math.abs(ww.y1 - py) < 5) S.drag._wireBindings.push({ wi: wi, end: 1, partId: p.id, pinIdx: pi });
+          if (Math.abs(ww.x2 - px) < 5 && Math.abs(ww.y2 - py) < 5) S.drag._wireBindings.push({ wi: wi, end: 2, partId: p.id, pinIdx: pi });
+        });
+      });
+    });
     needsRender = true; updateInspector();
   } else if (S._hoveredWire) {
     // Wire click = select wire
