@@ -90,7 +90,7 @@ function _popupEscHandler(e) {
   function createDock() {
     var dock = document.createElement('div');
     dock.id = 'probe-dock';
-    dock.style.cssText = 'position:fixed;bottom:75px;left:50%;transform:translateX(-50%);display:flex;gap:12px;align-items:center;z-index:8000;background:rgba(15,20,35,0.85);padding:8px 16px;border-radius:12px;border:1px solid #333;backdrop-filter:blur(8px)';
+    dock.style.cssText = 'position:absolute;bottom:50px;left:50%;transform:translateX(-50%);display:flex;gap:12px;align-items:center;z-index:8;background:rgba(15,20,35,0.85);padding:8px 16px;border-radius:12px;border:1px solid #333;backdrop-filter:blur(8px)';
 
     dock.innerHTML =
       '<div style="text-align:center">'
@@ -103,7 +103,8 @@ function _popupEscHandler(e) {
       + '<div id="pdock-black-val" style="font:10px var(--font-mono,monospace);color:#888;margin-top:3px">\u2014</div>'
       + '</div>';
 
-    document.body.appendChild(dock);
+    var wrap = document.getElementById('canvas-wrap') || document.body;
+    wrap.appendChild(dock);
 
     // Click handlers — toggle probe mode and start drag
     document.getElementById('pdock-red').addEventListener('mousedown', function() {

@@ -41,8 +41,8 @@ wrap.addEventListener('mousemove', e => {
         if (opx === npx && opy === npy) continue;
         for (var wi = 0; wi < S.wires.length; wi++) {
           var ww = S.wires[wi];
-          if (Math.abs(ww.x1 - opx) < 5 && Math.abs(ww.y1 - opy) < 5) { ww.x1 = npx; ww.y1 = npy; }
-          if (Math.abs(ww.x2 - opx) < 5 && Math.abs(ww.y2 - opy) < 5) { ww.x2 = npx; ww.y2 = npy; }
+          if (Math.abs(ww.x1 - opx) < 15 && Math.abs(ww.y1 - opy) < 15) { ww.x1 = npx; ww.y1 = npy; }
+          if (Math.abs(ww.x2 - opx) < 15 && Math.abs(ww.y2 - opy) < 15) { ww.x2 = npx; ww.y2 = npy; }
         }
       }
     });
@@ -117,14 +117,9 @@ wrap.addEventListener('mousedown', e => {
       S.wires.push({ x1: S.wireStart.x, y1: S.wireStart.y, x2: tx, y2: ty });
       // Sprint 14: Flash effect on connection
       if (typeof onWireConnected === 'function') onWireConnected(tx, ty);
-      // Auto-close wire mode if both ends hit a pin (unless Shift held for continuous)
-      if (pin && !e.shiftKey) {
-        S.wireStart = null; S.wirePreview = null; S.mode = 'select';
-        document.getElementById('btn-wire').classList.remove('active');
-        if (typeof announce === 'function') announce(t('wire_placed') || 'Kablo bağlandı');
-      } else {
-        S.wireStart = { x: tx, y: ty };
-      }
+      // Wire mode stays open — start next wire from this point
+      // User exits with ESC or right-click
+      S.wireStart = { x: tx, y: ty };
       S.wirePreview = null;
       if (typeof resetWireLag === 'function') resetWireLag();
       needsRender = true;

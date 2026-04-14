@@ -2840,8 +2840,8 @@ wrap.addEventListener('mousemove', e => {
         if (opx === npx && opy === npy) continue;
         for (var wi = 0; wi < S.wires.length; wi++) {
           var ww = S.wires[wi];
-          if (Math.abs(ww.x1 - opx) < 5 && Math.abs(ww.y1 - opy) < 5) { ww.x1 = npx; ww.y1 = npy; }
-          if (Math.abs(ww.x2 - opx) < 5 && Math.abs(ww.y2 - opy) < 5) { ww.x2 = npx; ww.y2 = npy; }
+          if (Math.abs(ww.x1 - opx) < 15 && Math.abs(ww.y1 - opy) < 15) { ww.x1 = npx; ww.y1 = npy; }
+          if (Math.abs(ww.x2 - opx) < 15 && Math.abs(ww.y2 - opy) < 15) { ww.x2 = npx; ww.y2 = npy; }
         }
       }
     });
@@ -2916,14 +2916,9 @@ wrap.addEventListener('mousedown', e => {
       S.wires.push({ x1: S.wireStart.x, y1: S.wireStart.y, x2: tx, y2: ty });
       // Sprint 14: Flash effect on connection
       if (typeof onWireConnected === 'function') onWireConnected(tx, ty);
-      // Auto-close wire mode if both ends hit a pin (unless Shift held for continuous)
-      if (pin && !e.shiftKey) {
-        S.wireStart = null; S.wirePreview = null; S.mode = 'select';
-        document.getElementById('btn-wire').classList.remove('active');
-        if (typeof announce === 'function') announce(t('wire_placed') || 'Kablo bağlandı');
-      } else {
-        S.wireStart = { x: tx, y: ty };
-      }
+      // Wire mode stays open — start next wire from this point
+      // User exits with ESC or right-click
+      S.wireStart = { x: tx, y: ty };
       S.wirePreview = null;
       if (typeof resetWireLag === 'function') resetWireLag();
       needsRender = true;
@@ -9102,15 +9097,19 @@ function rebuildPalette() {
     items.forEach(function(e) {
       var k = e[0], v = e[1];
       var d = document.createElement('div'); d.className = 'comp-item';
-      // Mini canvas thumbnail (16×12px)
+      // Mini canvas thumbnail (24×18px) — deferred draw for DOM readiness
       var mc = document.createElement('canvas');
       mc.width = 24; mc.height = 18; mc.style.cssText = 'width:24px;height:18px;margin-right:6px;vertical-align:middle;flex-shrink:0';
-      try {
-        var mctx = mc.getContext('2d');
-        mctx.save(); mctx.translate(12, 9); mctx.scale(0.27, 0.27);
-        v.draw(mctx, 20, { val: v.def, type: k });
-        mctx.restore();
-      } catch(err) {}
+      (function(canvas, drawFn) {
+        requestAnimationFrame(function() {
+          try {
+            var ctx2 = canvas.getContext('2d');
+            ctx2.save(); ctx2.translate(12, 9); ctx2.scale(0.27, 0.27);
+            drawFn(ctx2, 20, { val: 0, type: '' });
+            ctx2.restore();
+          } catch(err) {}
+        });
+      })(mc, v.draw.bind(v));
       var span = document.createElement('span');
       span.style.cssText = 'display:flex;align-items:center';
       span.appendChild(mc);
@@ -13848,7 +13847,7 @@ function _popupEscHandler(e) {
   function createDock() {
     var dock = document.createElement('div');
     dock.id = 'probe-dock';
-    dock.style.cssText = 'position:fixed;bottom:75px;left:50%;transform:translateX(-50%);display:flex;gap:12px;align-items:center;z-index:8000;background:rgba(15,20,35,0.85);padding:8px 16px;border-radius:12px;border:1px solid #333;backdrop-filter:blur(8px)';
+    dock.style.cssText = 'position:absolute;bottom:50px;left:50%;transform:translateX(-50%);display:flex;gap:12px;align-items:center;z-index:8;background:rgba(15,20,35,0.85);padding:8px 16px;border-radius:12px;border:1px solid #333;backdrop-filter:blur(8px)';
 
     dock.innerHTML =
       '<div style="text-align:center">'
@@ -13861,7 +13860,8 @@ function _popupEscHandler(e) {
       + '<div id="pdock-black-val" style="font:10px var(--font-mono,monospace);color:#888;margin-top:3px">\u2014</div>'
       + '</div>';
 
-    document.body.appendChild(dock);
+    var wrap = document.getElementById('canvas-wrap') || document.body;
+    wrap.appendChild(dock);
 
     // Click handlers — toggle probe mode and start drag
     document.getElementById('pdock-red').addEventListener('mousedown', function() {

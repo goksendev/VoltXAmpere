@@ -438,15 +438,19 @@ function rebuildPalette() {
     items.forEach(function(e) {
       var k = e[0], v = e[1];
       var d = document.createElement('div'); d.className = 'comp-item';
-      // Mini canvas thumbnail (16×12px)
+      // Mini canvas thumbnail (24×18px) — deferred draw for DOM readiness
       var mc = document.createElement('canvas');
       mc.width = 24; mc.height = 18; mc.style.cssText = 'width:24px;height:18px;margin-right:6px;vertical-align:middle;flex-shrink:0';
-      try {
-        var mctx = mc.getContext('2d');
-        mctx.save(); mctx.translate(12, 9); mctx.scale(0.27, 0.27);
-        v.draw(mctx, 20, { val: v.def, type: k });
-        mctx.restore();
-      } catch(err) {}
+      (function(canvas, drawFn) {
+        requestAnimationFrame(function() {
+          try {
+            var ctx2 = canvas.getContext('2d');
+            ctx2.save(); ctx2.translate(12, 9); ctx2.scale(0.27, 0.27);
+            drawFn(ctx2, 20, { val: 0, type: '' });
+            ctx2.restore();
+          } catch(err) {}
+        });
+      })(mc, v.draw.bind(v));
       var span = document.createElement('span');
       span.style.cssText = 'display:flex;align-items:center';
       span.appendChild(mc);
