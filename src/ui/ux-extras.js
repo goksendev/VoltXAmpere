@@ -148,6 +148,66 @@ function _popupEscHandler(e) {
   setInterval(updateProbeReadings, 250);
 })();
 
+// ===== 2B. PROBE CABLES (draw on canvas) =====
+function drawProbeCables(ctx, w, h) {
+  if (!VXA.Probes) return;
+  var pState = VXA.Probes.getState();
+  if (!pState || !pState.mode) return;
+  var dockEl = document.getElementById('probe-dock');
+  if (!dockEl) return;
+  var cRect = cvs.getBoundingClientRect();
+  var dRect = dockEl.getBoundingClientRect();
+  // Dock center positions (screen → world)
+  var redEl = document.getElementById('pdock-red');
+  var blackEl = document.getElementById('pdock-black');
+  var ids = ['red', 'black'];
+  var colors = { red: '#ff4444', black: '#666666' };
+
+  ids.forEach(function(id) {
+    var pr = pState.probes[id];
+    var btnEl = id === 'red' ? redEl : blackEl;
+    if (!btnEl) return;
+    var bRect = btnEl.getBoundingClientRect();
+    // Dock button center in canvas screen coords
+    var dsx = bRect.left + bRect.width / 2 - cRect.left;
+    var dsy = bRect.top + bRect.height / 2 - cRect.top;
+    // Convert to world coords
+    var dwx = (dsx - S.view.ox) / S.view.zoom;
+    var dwy = (dsy - S.view.oy) / S.view.zoom;
+
+    var endX, endY;
+    if (pr.attached && pr.x >= 0) {
+      endX = pr.x; endY = pr.y;
+    } else {
+      // Short dangling cable
+      endX = dwx; endY = dwy + 20;
+    }
+
+    // Draw catenary cable with extra sag
+    ctx.strokeStyle = colors[id];
+    ctx.lineWidth = 2;
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    var segs = 16;
+    var sag = Math.max(20, Math.hypot(endX - dwx, endY - dwy) * 0.25); // 2x gravity
+    var t = Date.now() / 500;
+    for (var i = 0; i <= segs; i++) {
+      var r = i / segs;
+      var mx = (dwx + endX) / 2, my = (dwy + endY) / 2 + sag;
+      var px = (1-r)*(1-r)*dwx + 2*(1-r)*r*mx + r*r*endX;
+      var py = (1-r)*(1-r)*dwy + 2*(1-r)*r*my + r*r*endY;
+      // Subtle sine wobble
+      var wobble = Math.sin(t + r * 8) * 1.5 * Math.sin(r * Math.PI);
+      var dx = endX - dwx, dy = endY - dwy;
+      var len = Math.sqrt(dx*dx+dy*dy) || 1;
+      px += (-dy/len) * wobble;
+      py += (dx/len) * wobble;
+      if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+  });
+}
+
 // ===== 3. RULERS (canvas edge rulers) =====
 function drawRulers(ctx, w, h) {
   var rulerSize = 20;
@@ -167,12 +227,13 @@ function drawRulers(ctx, w, h) {
   ctx.font = '8px "JetBrains Mono", monospace';
   ctx.textBaseline = 'middle';
 
-  // Horizontal ruler (top)
+  // Horizontal ruler (bottom)
+  var hRulerY = h - rulerSize;
   ctx.fillStyle = 'rgba(10,10,25,0.7)';
-  ctx.fillRect(0, 0, w, rulerSize);
+  ctx.fillRect(0, hRulerY, w, rulerSize);
   ctx.strokeStyle = '#333';
   ctx.lineWidth = 0.5;
-  ctx.beginPath(); ctx.moveTo(0, rulerSize); ctx.lineTo(w, rulerSize); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(0, hRulerY); ctx.lineTo(w, hRulerY); ctx.stroke();
 
   ctx.fillStyle = '#555';
   ctx.textAlign = 'center';
@@ -180,15 +241,15 @@ function drawRulers(ctx, w, h) {
   for (var wx = startX; wx < (w - ox) / zoom; wx += step) {
     var sx = wx * zoom + ox;
     if (sx < rulerSize || sx > w) continue;
-    ctx.beginPath(); ctx.moveTo(sx, rulerSize - 5); ctx.lineTo(sx, rulerSize); ctx.stroke();
-    ctx.fillText(wx.toFixed(0), sx, rulerSize / 2);
+    ctx.beginPath(); ctx.moveTo(sx, hRulerY); ctx.lineTo(sx, hRulerY + 5); ctx.stroke();
+    ctx.fillText(wx.toFixed(0), sx, hRulerY + rulerSize / 2);
   }
 
   // Vertical ruler (left)
   ctx.fillStyle = 'rgba(10,10,25,0.7)';
-  ctx.fillRect(0, rulerSize, rulerSize, h - rulerSize);
+  ctx.fillRect(0, 0, rulerSize, hRulerY);
   ctx.strokeStyle = '#333';
-  ctx.beginPath(); ctx.moveTo(rulerSize, rulerSize); ctx.lineTo(rulerSize, h); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(rulerSize, 0); ctx.lineTo(rulerSize, hRulerY); ctx.stroke();
 
   ctx.fillStyle = '#555';
   ctx.textAlign = 'right';
@@ -196,14 +257,14 @@ function drawRulers(ctx, w, h) {
   var startY = Math.floor(-oy / zoom / step) * step;
   for (var wy = startY; wy < (h - oy) / zoom; wy += step) {
     var sy = wy * zoom + oy;
-    if (sy < rulerSize || sy > h) continue;
+    if (sy < 0 || sy > hRulerY) continue;
     ctx.beginPath(); ctx.moveTo(rulerSize - 5, sy); ctx.lineTo(rulerSize, sy); ctx.stroke();
     ctx.fillText(wy.toFixed(0), rulerSize - 2, sy);
   }
 
-  // Corner box
+  // Corner box (bottom-left)
   ctx.fillStyle = 'rgba(10,10,25,0.85)';
-  ctx.fillRect(0, 0, rulerSize, rulerSize);
+  ctx.fillRect(0, hRulerY, rulerSize, rulerSize);
 
   ctx.restore();
 }

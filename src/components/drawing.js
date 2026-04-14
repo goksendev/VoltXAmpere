@@ -210,7 +210,12 @@ function drawPart(part) {
     ctx.globalAlpha = 0.6;
   }
 
-  if (S.sel.includes(part.id)) { ctx.shadowColor = '#88ccff'; ctx.shadowBlur = 18; ctx.lineWidth = (ctx.lineWidth || 2) + 1; }
+  if (S.sel.includes(part.id)) {
+    var _pulse = 0.6 + 0.4 * Math.sin(Date.now() / 400);
+    ctx.shadowColor = 'rgba(136,204,255,' + _pulse + ')';
+    ctx.shadowBlur = 18 * _pulse;
+    ctx.lineWidth = (ctx.lineWidth || 2) + 1;
+  }
   def.draw(ctx, GRID, part);
   ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0;
 
@@ -424,10 +429,16 @@ function drawWire(w) {
   var cur = Math.abs(w._current || 0);
   var style = S.wireStyle || 'catenary';
 
+  // Wire hover/selection override
+  var isHovered = (S._hoveredWire === w);
+  var isSelected = (S._selectedWire === w);
+
   // Sprint 12: Akım bazlı renk değişimi
   var wireRatio = Math.min(1, cur / 1.0);
   var wireColor;
-  if (wireRatio > 0.8) wireColor = '#ff3333';
+  if (isSelected || isHovered) {
+    wireColor = '#4488ff';
+  } else if (wireRatio > 0.8) wireColor = '#ff3333';
   else if (wireRatio > 0.5) {
     var r = Math.min(255, 100 + wireRatio * 200);
     var g = Math.max(50, 200 - wireRatio * 200);
@@ -437,6 +448,7 @@ function drawWire(w) {
   }
 
   ctx.strokeStyle = wireColor;
+  if (isSelected || isHovered) { ctx.shadowColor = '#4488ff'; ctx.shadowBlur = 6; ctx.lineWidth = 3; }
   ctx.lineWidth = 2;
 
   // Sprint 12: Kablo titreşim efekti

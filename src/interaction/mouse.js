@@ -7,6 +7,18 @@ wrap.addEventListener('mousemove', e => {
   const w = s2w(S.mouse.x, S.mouse.y); S.mouse.wx = w.x; S.mouse.wy = w.y;
   S.hoveredPin = findNearestPin(w.x, w.y);
   S.hovered = hitTestPart(w.x, w.y);
+  // Wire hover detection
+  S._hoveredWire = null;
+  if (!S.hovered && S.mode === 'select') {
+    for (var _whi = 0; _whi < S.wires.length; _whi++) {
+      var _hw = S.wires[_whi];
+      var _hdx = _hw.x2-_hw.x1, _hdy = _hw.y2-_hw.y1, _hlen = Math.sqrt(_hdx*_hdx+_hdy*_hdy);
+      if (_hlen < 1) continue;
+      var _ht = Math.max(0,Math.min(1,((w.x-_hw.x1)*_hdx+(w.y-_hw.y1)*_hdy)/(_hlen*_hlen)));
+      var _hpx = _hw.x1+_ht*_hdx, _hpy = _hw.y1+_ht*_hdy;
+      if (Math.sqrt((w.x-_hpx)*(w.x-_hpx)+(w.y-_hpy)*(w.y-_hpy)) < 8) { S._hoveredWire = _hw; break; }
+    }
+  }
 
   // dragging parts
   if (S.drag.active && S.drag.type === 'move') {
@@ -25,6 +37,9 @@ wrap.addEventListener('mousemove', e => {
     }
     const dx = w.x - S.drag.sx, dy = w.y - S.drag.sy;
     if (Math.abs(dx) > 3 || Math.abs(dy) > 3) { if (typeof hidePartPopup === 'function') hidePartPopup(); }
+    // Build set of dragged part IDs for wire ownership check
+    var dragIds = {};
+    S.drag.parts.forEach(function(d) { dragIds[d.id] = true; });
     S.drag.parts.forEach(d => {
       const p = S.parts.find(pp => pp.id === d.id);
       if (!p) return;
@@ -34,15 +49,38 @@ wrap.addEventListener('mousemove', e => {
       p.x = snap(d.ox + dx); p.y = snap(d.oy + dy);
       // Get NEW pin positions after moving
       var newPins = getPartPins(p);
-      // Move wire endpoints that were connected to old pin positions
+      // Move wire endpoints — only if they're NOT also near a non-dragged part's pin
       for (var pi = 0; pi < oldPins.length; pi++) {
         var opx = Math.round(oldPins[pi].x), opy = Math.round(oldPins[pi].y);
         var npx = Math.round(newPins[pi].x), npy = Math.round(newPins[pi].y);
         if (opx === npx && opy === npy) continue;
         for (var wi = 0; wi < S.wires.length; wi++) {
           var ww = S.wires[wi];
-          if (Math.abs(ww.x1 - opx) < 15 && Math.abs(ww.y1 - opy) < 15) { ww.x1 = npx; ww.y1 = npy; }
-          if (Math.abs(ww.x2 - opx) < 15 && Math.abs(ww.y2 - opy) < 15) { ww.x2 = npx; ww.y2 = npy; }
+          // Check endpoint 1
+          if (Math.abs(ww.x1 - opx) < 8 && Math.abs(ww.y1 - opy) < 8) {
+            // Ensure this endpoint isn't pinned to a stationary part
+            var pinned1 = false;
+            for (var si = 0; si < S.parts.length && !pinned1; si++) {
+              if (dragIds[S.parts[si].id]) continue;
+              var sp = getPartPins(S.parts[si]);
+              for (var sk = 0; sk < sp.length; sk++) {
+                if (Math.abs(ww.x1 - sp[sk].x) < 3 && Math.abs(ww.y1 - sp[sk].y) < 3) { pinned1 = true; break; }
+              }
+            }
+            if (!pinned1) { ww.x1 = npx; ww.y1 = npy; }
+          }
+          // Check endpoint 2
+          if (Math.abs(ww.x2 - opx) < 8 && Math.abs(ww.y2 - opy) < 8) {
+            var pinned2 = false;
+            for (var si2 = 0; si2 < S.parts.length && !pinned2; si2++) {
+              if (dragIds[S.parts[si2].id]) continue;
+              var sp2 = getPartPins(S.parts[si2]);
+              for (var sk2 = 0; sk2 < sp2.length; sk2++) {
+                if (Math.abs(ww.x2 - sp2[sk2].x) < 3 && Math.abs(ww.y2 - sp2[sk2].y) < 3) { pinned2 = true; break; }
+              }
+            }
+            if (!pinned2) { ww.x2 = npx; ww.y2 = npy; }
+          }
         }
       }
     });
@@ -141,9 +179,17 @@ wrap.addEventListener('mousedown', e => {
     S.drag.active = true; S.drag.type = 'move'; S.drag.sx = w.x; S.drag.sy = w.y;
     S.drag.parts = S.sel.map(id => { const p = S.parts.find(pp => pp.id === id); return p ? { id, ox: p.x, oy: p.y } : null; }).filter(Boolean);
     needsRender = true; updateInspector();
+  } else if (S._hoveredWire) {
+    // Wire click = select wire
+    S._selectedWire = S._hoveredWire;
+    S.sel = [];
+    if (typeof hidePartPopup === 'function') hidePartPopup();
+    needsRender = true; updateInspector();
   } else {
-    // box select start
+    // box select start — clear wire selection too
     if (!e.ctrlKey && !e.metaKey) S.sel = [];
+    S._selectedWire = null;
+    if (typeof hidePartPopup === 'function') hidePartPopup();
     S.selBox = { x1: w.x, y1: w.y, x2: w.x, y2: w.y };
     needsRender = true; updateInspector();
   }

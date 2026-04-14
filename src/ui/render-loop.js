@@ -88,6 +88,9 @@ function render() {
     VXA.Particles.draw(ctx);
   }
 
+  // Probe cables (world coords)
+  if (typeof drawProbeCables === 'function') drawProbeCables(ctx, w, h);
+
   ctx.restore();
 
   // simulation step (skip during TimeMachine playback)

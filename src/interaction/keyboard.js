@@ -13,7 +13,16 @@ document.addEventListener('keydown', e => {
   if (k === 'w') { toggleWire(); return; }
   if (k === 'r') { rotateSelected(); return; }
   if (k === 'h' && !e.ctrlKey) { ctxFlipH(); return; }
-  if (k === 'delete' || k === 'backspace') { e.preventDefault(); deleteSelected(); return; }
+  if (k === 'delete' || k === 'backspace') {
+    e.preventDefault();
+    // Delete selected wire first, then parts
+    if (S._selectedWire) {
+      saveUndo();
+      S.wires = S.wires.filter(function(w) { return w !== S._selectedWire; });
+      S._selectedWire = null; needsRender = true; return;
+    }
+    deleteSelected(); return;
+  }
   if (k === 'z' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
   if (k === 'y' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); redo(); return; }
   if (k === 'a' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); S.sel = S.parts.map(p => p.id); needsRender = true; updateInspector(); return; }

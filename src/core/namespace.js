@@ -49,7 +49,7 @@ const S = {
   parts: [], wires: [], nextId: 1,
   view: { ox: 0, oy: 0, zoom: 1, minZoom: 0.15, maxZoom: 6 },
   mode: 'select', placingType: null, placeRot: 0,
-  sel: [], hovered: null, hoveredPin: null,
+  sel: [], hovered: null, hoveredPin: null, _hoveredWire: null, _selectedWire: null,
   wireStart: null, wirePreview: null,
   drag: { active: false, type: null, sx: 0, sy: 0, parts: [] },
   mouse: { x: 0, y: 0, wx: 0, wy: 0 },
