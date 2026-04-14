@@ -5340,12 +5340,10 @@ VXA.SimV2 = (function() {
             St.diode(matrix, rhs, c.n1, c.n2, c.IS || DIODE_IS, c.N || DIODE_N, vd, VT_VAL);
           }
         } else if (c.type === 'BJT') {
+          // Always use Gummel-Poon when model available (more accurate convergence)
           var bjtModel = c.part && c.part.model ? VXA.Models.getModel(c.part.type, c.part.model) : null;
-          if (bjtModel && (bjtModel.CJE > 0 || bjtModel.ISE > 0 || bjtModel.IKF < 500)) {
-            St.bjt_gp(matrix, rhs, c.n1, c.n2, c.n3, c.polarity, bjtModel, nodeV, dt);
-          } else {
-            St.bjt(matrix, rhs, c.n1, c.n2, c.n3, c.polarity, c.BF, c.IS, c.NF, c.VAF, nodeV, VT_VAL);
-          }
+          if (!bjtModel) bjtModel = { IS: c.IS, BF: c.BF, NF: c.NF, VAF: c.VAF, BR: 1, NR: 1, IKF: 1000 };
+          St.bjt_gp(matrix, rhs, c.n1, c.n2, c.n3, c.polarity, bjtModel, nodeV, dt);
         } else if (c.type === 'MOS') {
           var mosModel = c.part && c.part.model ? VXA.Models.getModel(c.part.type, c.part.model) : null;
           if (mosModel && (mosModel.CGS > 0 || mosModel.CBD > 0)) {
@@ -5507,10 +5505,12 @@ VXA.SimV2 = (function() {
             var Is = lc.IS || 1e-14;
             var Vc = VXA.VoltageLimit.computeVcrit(Is, VT);
             var p = lc.polarity;
-            // V_BE
+            // V_BE — SPICE3 junction limiting + hard physical clamp
             var vbeOld = p * ((nodeV[lc.n1]||0) - (nodeV[lc.n3]||0));
             var vbeNew = p * (newV[lc.n1] - newV[lc.n3]);
             var vbeLim = VXA.VoltageLimit.junction(vbeNew, vbeOld, VT, Vc);
+            // Hard clamp: silicon VBE physically cannot exceed ~0.85V
+            if (vbeLim > 0.85) vbeLim = 0.85;
             if (Math.abs(vbeLim - vbeNew) > 1e-10) {
               var a2 = (vbeLim - vbeNew) * p / 2;
               if (lc.n1 > 0) newV[lc.n1] += a2;
@@ -5621,7 +5621,12 @@ VXA.SimV2 = (function() {
           }
         }
         c.part._v = Math.abs(vce); c.part._i = ic; c.part._p = Math.abs(vce * ic);
-        c.part._vbe = vbe; c.part._vce = vce; c.part._ic = ic;
+        // Apply same limiting as stamp for display
+        var _nVtD = (c.NF || 1) * VT_VAL;
+        var _vcritD = _nVtD * Math.log(_nVtD / (Math.sqrt(2) * (c.IS || 1e-14)));
+        var _vbeDisp = vbe > _vcritD ? _vcritD + _nVtD * Math.log(Math.max(1, 1 + (vbe - _vcritD) / _nVtD)) : vbe;
+        if (_vbeDisp > 0.85) _vbeDisp = 0.85;
+        c.part._vbe = _vbeDisp; c.part._vce = vce; c.part._ic = ic;
         c.part._region = (vbe > 0.5 && vbc < 0) ? 'Aktif' : (vbe > 0.5 && vbc > 0) ? 'Doyma' : 'Kesim';
       } else if (c.type === 'MOS') {
         var pol = c.polarity;
@@ -5925,8 +5930,12 @@ VXA.Stamps.bjt_gp = function(matrix, rhs, nB, nC, nE, pol, params, nodeV, dt) {
   var vbe = pol * (vB - vE), vbc = pol * (vB - vC);
   var nVtF = NF * VT, nVtR = NR * VT;
   var vcrit = nVtF * Math.log(nVtF / (Math.sqrt(2) * IS));
+  // SPICE3 junction limiting
   if (vbe > vcrit) vbe = vcrit + nVtF * Math.log(Math.max(1, 1 + (vbe - vcrit) / nVtF));
   if (vbc > vcrit) vbc = vcrit + nVtR * Math.log(Math.max(1, 1 + (vbc - vcrit) / nVtR));
+  // Hard physical clamp: silicon VBE cannot exceed ~0.85V forward bias
+  if (vbe > 0.85) vbe = 0.85;
+  if (vbc > 0.85) vbc = 0.85;
   var eVbe = Math.exp(Math.min(vbe / nVtF, 500));
   var eVbc = Math.exp(Math.min(vbc / nVtR, 500));
   // Base charge factor (Early + high-current)
