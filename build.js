@@ -225,6 +225,9 @@ const JS_FILES = [
   // UI: enhanced inspector (overrides basic)
   'src/ui/inspector-enhanced.js',
 
+  // Sprint 19: SPICE Import Modal + UX
+  'src/ui/spice-modal.js',
+
   // UI: extras (fitToScreen, patches, handlers)
   'src/ui/ui-extras.js',
 

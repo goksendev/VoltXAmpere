@@ -96,6 +96,12 @@ var STR = {
     digital_output:'Dijital Çıkış', digital_input:'Dijital Giriş',
     analog_input:'Analog Giriş', analog_output:'Analog Çıkış',
     benchmark_running:'Performans testi çalışıyor...', benchmark_complete:'Performans testi tamamlandı',
+    spice_import_title:'SPICE Netlist Import', paste_netlist:'Yapıştır', from_file:'Dosyadan Aç',
+    spice_examples:'Örnekler', import_circuit:'Devreyi Kur', empty_netlist:'Netlist boş!',
+    parse_error:'Netlist parse edilemedi.', import_error:'Import hatası: ',
+    components_imported:'bileşen import edildi', drop_spice:'.cir dosyası sürükleyin veya tıklayın',
+    clear:'Temizle', lines:'satır', spice_import:'SPICE Import',
+    empty_canvas_hint:'Sol panelden bileşen sürükleyin veya Ctrl+V ile SPICE yapıştırın',
   },
   en: {
     undo:'Undo', redo:'Redo', wire:'Wire', rotate:'Rotate', del:'Delete',
@@ -191,6 +197,12 @@ var STR = {
     digital_output:'Digital Output', digital_input:'Digital Input',
     analog_input:'Analog Input', analog_output:'Analog Output',
     benchmark_running:'Running benchmark...', benchmark_complete:'Benchmark complete',
+    spice_import_title:'SPICE Netlist Import', paste_netlist:'Paste', from_file:'From File',
+    spice_examples:'Examples', import_circuit:'Import Circuit', empty_netlist:'Netlist is empty!',
+    parse_error:'Failed to parse netlist.', import_error:'Import error: ',
+    components_imported:'components imported', drop_spice:'Drop .cir file or click',
+    clear:'Clear', lines:'lines', spice_import:'SPICE Import',
+    empty_canvas_hint:'Drag components from panel or paste SPICE with Ctrl+V',
   }
 };
 

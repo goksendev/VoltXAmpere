@@ -330,9 +330,11 @@ input:focus{border-color:var(--accent)}
 #ai-send{padding:6px 12px;border:none;border-radius:8px;background:var(--accent);color:var(--bg);
   font:600 12px var(--font-ui);cursor:pointer}
 #ai-fab{position:fixed;bottom:16px;right:16px;width:48px;height:48px;border-radius:50%;
-  background:var(--accent);color:var(--bg);border:none;font-size:20px;cursor:pointer;
-  box-shadow:0 4px 16px rgba(0,224,158,.3);z-index:99;transition:.15s}
-#ai-fab:hover{transform:scale(1.1);box-shadow:0 6px 24px rgba(0,224,158,.4)}
+  background:linear-gradient(135deg,#1a1a4a,#4a1a6a);color:#fff;border:2px solid #6a3a9a;font-size:22px;cursor:pointer;
+  box-shadow:0 4px 15px rgba(100,50,150,.4);z-index:99;transition:.2s;display:flex;align-items:center;justify-content:center}
+#ai-fab:hover{transform:scale(1.1);box-shadow:0 6px 25px rgba(100,50,150,.6)}
+@keyframes ai-pulse{0%,100%{box-shadow:0 4px 15px rgba(100,50,150,.4)}50%{box-shadow:0 4px 30px rgba(100,50,150,.8)}}
+#ai-fab.pulse{animation:ai-pulse 2s ease-in-out 3}
 #ai-key-row{padding:8px 12px;border-top:1px solid var(--border);display:flex;gap:6px}
 #ai-key-input{flex:1;background:var(--surface-3);border:1px solid var(--border);color:var(--text);
   border-radius:6px;padding:4px 8px;font:11px var(--font-mono)}

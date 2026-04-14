@@ -66,8 +66,15 @@ var aiVisible = false;
 function toggleAI() {
   aiVisible = !aiVisible;
   document.getElementById('ai-panel').classList.toggle('show', aiVisible);
-  if (aiVisible) updateAILabels();
+  var fab = document.getElementById('ai-fab');
+  if (fab) fab.classList.remove('pulse');
+  if (aiVisible) { updateAILabels(); localStorage.setItem('vxa_ai_seen', '1'); }
 }
+// AI FAB pulse on first visit
+(function() {
+  var fab = document.getElementById('ai-fab');
+  if (fab && !localStorage.getItem('vxa_ai_seen')) fab.classList.add('pulse');
+})();
 
 function updateAILabels() {
   document.getElementById('ai-title-text').textContent = t('aiTitle');

@@ -88,6 +88,7 @@ function showSmartCtxMenu(e) {
     });
     menu.appendChild(_ctxSep());
     _ctxItem('📋 ' + (currentLang==='tr'?'Yapıştır':'Paste'), 'Ctrl+V', function() { hideCtx(); doPaste(); });
+    _ctxItem('⚡ ' + (currentLang==='tr'?'SPICE Import':'SPICE Import'), 'Ctrl+I', function() { hideCtx(); showSpiceImportModal(); });
     _ctxItem('📐 ' + (currentLang==='tr'?'Sığdır':'Fit'), 'Ctrl+Shift+F', function() { hideCtx(); fitToScreen(); });
     menu.appendChild(_ctxSep());
     _ctxItem('⚙ ' + (currentLang==='tr'?'Ayarlar':'Settings'), '', function() { hideCtx(); openSettings(); });

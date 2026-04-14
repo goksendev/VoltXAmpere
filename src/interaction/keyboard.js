@@ -22,6 +22,7 @@ document.addEventListener('keydown', e => {
   if (k === 'd' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); doDuplicate(); return; }
   if (k === 's' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); exportJSON(); return; }
   if (k === 'o' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); importJSON(); return; }
+  if (k === 'i' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); showSpiceImportModal(); return; }
   if (k === 'e') {
     if (S.sel.length) { var ep = S.parts.find(function(pp){return pp.id===S.sel[0];}); if (ep) openInlineEdit(ep); }
     return;

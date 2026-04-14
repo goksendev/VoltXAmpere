@@ -11,6 +11,7 @@ function render() {
   ctx.clearRect(0, 0, w, h);
   if (S.showGrid) drawGrid();
   else { ctx.fillStyle = '#06080c'; ctx.fillRect(0, 0, w, h); }
+  if (typeof drawEmptyCanvasHint === 'function') drawEmptyCanvasHint(ctx, w, h);
 
   ctx.save();
   ctx.translate(S.view.ox, S.view.oy); ctx.scale(S.view.zoom, S.view.zoom);
