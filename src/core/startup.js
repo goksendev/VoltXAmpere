@@ -57,7 +57,7 @@ function setAriaLabels() {
 setAriaLabels();
 
 // Console banner
-console.log('%c\u26A1 VoltXAmpere v7.1', 'color:#00e09e;font-size:18px;font-weight:bold');
+console.log('%c\u26A1 VoltXAmpere v8.0', 'color:#00e09e;font-size:18px;font-weight:bold');
 console.log('%cFree Circuit Simulator with AI \u2014 voltxampere.com', 'color:#8899aa;font-size:12px');
 console.log('%c' + t('scriptApi'), 'color:#f59e0b;font-size:11px');
 
@@ -248,7 +248,7 @@ VXA.setCurrentDir = function(dir) { S.currentDirection = dir; needsRender = true
 VXA.setRealisticMode = function(on) { S.realisticMode = !!on; needsRender = true; };
 VXA.repairAll = function() { VXA.Damage.repairAll(); };
 VXA.help = function() {
-  console.log('%cVoltXAmpere v7.1 Scripting API', 'color:#00e09e;font-weight:bold;font-size:14px');
+  console.log('%cVoltXAmpere v8.0 Scripting API', 'color:#00e09e;font-weight:bold;font-size:14px');
   console.log('VXA.parts \u2014 all circuit components');
   console.log('VXA.wires \u2014 all wires');
   console.log('VXA.addComponent(type, x, y, {val, rot, freq}) \u2014 add component');
@@ -499,7 +499,7 @@ function generateReport() {
       reportHTML += '<span class="stat">P: '+fmtVal(p._p||0,'W')+'</span>';
     }
   }
-  reportHTML += '<hr><p style="color:#999;font-size:12px">VoltXAmpere v7.1 \u2014 voltxampere.com tarafından oluşturuldu</p>';
+  reportHTML += '<hr><p style="color:#999;font-size:12px">VoltXAmpere v8.0 \u2014 voltxampere.com tarafından oluşturuldu</p>';
   reportHTML += '</body></html>';
   var win = window.open('', '_blank');
   win.document.write(reportHTML);

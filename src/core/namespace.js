@@ -1,5 +1,5 @@
 /* ============================================================
-   VoltXAmpere v7.1 — Browser Circuit Simulator
+   VoltXAmpere v8.0 — Browser Circuit Simulator
    ============================================================ */
 
 // ──────── VXA NAMESPACE ────────
@@ -7,7 +7,7 @@ var VXA = {};
 
 VXA.Config = (function() {
   return {
-    VERSION: '6.0',
+    VERSION: '8.0',
     GRID_SIZE: 20,
     PIN_SNAP: 18,
     MAX_UNDO: 100,

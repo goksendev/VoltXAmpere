@@ -1,6 +1,6 @@
 // ──────── EXPORT / IMPORT ────────
 function exportJSON() {
-  const data = { version: 'VoltXAmpere-6.0', parts: S.parts, wires: S.wires, nextId: S.nextId, settings: { bgStyle: S.bgStyle, wireStyle: S.wireStyle, symbolStd: S.symbolStd } };
+  const data = { version: 'VoltXAmpere-8.0', parts: S.parts, wires: S.wires, nextId: S.nextId, settings: { bgStyle: S.bgStyle, wireStyle: S.wireStyle, symbolStd: S.symbolStd } };
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
@@ -47,7 +47,7 @@ function exportPNG() {
 }
 
 function exportSPICE() {
-  var net = '* VoltXAmpere v7.1 — SPICE Netlist\n* Date: ' + new Date().toISOString().slice(0, 10) + '\n*\n';
+  var net = '* VoltXAmpere v8.0 — SPICE Netlist\n* Date: ' + new Date().toISOString().slice(0, 10) + '\n*\n';
   var usedModels = {};
   S.parts.forEach(function(p) {
     var def = COMP[p.type]; if (!def) return;

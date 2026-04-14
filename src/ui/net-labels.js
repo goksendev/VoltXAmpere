@@ -33,7 +33,7 @@ function distributeSelected(axis) {
 
 // 9.8: CIRCUIT REPORT GENERATOR
 function generateCircuitReport() {
-  var r = ['VoltXAmpere v7.1 — Circuit Report', '='.repeat(40), 'Date: ' + new Date().toLocaleString(), ''];
+  var r = ['VoltXAmpere v8.0 — Circuit Report', '='.repeat(40), 'Date: ' + new Date().toLocaleString(), ''];
   r.push('COMPONENTS (' + S.parts.filter(function(p) { return p.type !== 'ground' && p.type !== 'netLabel' && p.type !== 'vccLabel' && p.type !== 'gndLabel'; }).length + ')');
   r.push('-'.repeat(40));
   S.parts.forEach(function(p) {

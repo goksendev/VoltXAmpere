@@ -24,7 +24,7 @@ VXA.Benchmark = (function() {
     return results;
   }
   function report(r) {
-    console.log('=== VoltXAmpere v7.1 Benchmark ===');
+    console.log('=== VoltXAmpere v8.0 Benchmark ===');
     console.log('Parts: ' + r.parts + ', Wires: ' + r.wires + ', Nodes: ' + r.nodes);
     console.log('Build circuit: ' + r.buildTime + 'ms');
     console.log('Sim step: ' + r.simStep.avg + 'ms avg, ' + r.simStep.max + 'ms max');
