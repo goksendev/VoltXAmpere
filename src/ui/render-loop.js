@@ -125,6 +125,9 @@ function render() {
   const now = performance.now();
   if (now - S._ft >= 1000) { S.fps = S._fc; S._fc = 0; S._ft = now; }
 
+  // Rulers (screen-space, after world-space restore)
+  if (typeof drawRulers === 'function') drawRulers(ctx, w, h);
+
   // Statusbar + zoom level
   document.getElementById('sb-time').textContent = 't=' + (S.sim.t*1000).toFixed(3) + 'ms';
   document.getElementById('sb-fps').textContent = S.fps + ' fps';

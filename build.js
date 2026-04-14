@@ -228,6 +228,9 @@ const JS_FILES = [
   // Sprint 19: SPICE Import Modal + UX
   'src/ui/spice-modal.js',
 
+  // UX extras: popup, probe dock, rulers
+  'src/ui/ux-extras.js',
+
   // UI: extras (fitToScreen, patches, handlers)
   'src/ui/ui-extras.js',
 

@@ -24,6 +24,7 @@ wrap.addEventListener('mousemove', e => {
       });
     }
     const dx = w.x - S.drag.sx, dy = w.y - S.drag.sy;
+    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) { if (typeof hidePartPopup === 'function') hidePartPopup(); }
     S.drag.parts.forEach(d => {
       const p = S.parts.find(pp => pp.id === d.id);
       if (!p) return;
@@ -138,6 +139,8 @@ wrap.addEventListener('mousedown', e => {
       const idx = S.sel.indexOf(hit.id);
       if (idx >= 0) S.sel.splice(idx, 1); else S.sel.push(hit.id);
     } else if (!S.sel.includes(hit.id)) { S.sel = [hit.id]; }
+    // Show popup on single click
+    if (typeof showPartPopup === 'function') showPartPopup(hit);
     // begin drag
     saveUndo();
     S.drag.active = true; S.drag.type = 'move'; S.drag.sx = w.x; S.drag.sy = w.y;
