@@ -85,7 +85,15 @@ function buildCircuitFromCanvas() {
     else if (p.type === 'inductor') comps.push({type:'L', n1:nodes[0], n2:nodes[1], val:p.val||0.01, part:p, iPrev:0});
     else if (p.type === 'vdc') comps.push({type:'V', n1:nodes[0], n2:nodes[1], val:p.val||5, part:p, isAC:false});
     else if (p.type === 'vac') comps.push({type:'V', n1:nodes[0], n2:nodes[1], val:p.val||5, part:p, isAC:true, freq:p.freq||COMP.vac.freq||50});
-    else if (p.type === 'diode' || p.type === 'led') comps.push({type:'D', n1:nodes[0], n2:nodes[1], part:p, vPrev:0.6});
+    else if (p.type === 'diode' || p.type === 'led') {
+      // Sprint 25: Smart initial guess — use Vf_typ × 0.8 if model defined
+      var initVd = 0.6;
+      if (p.model && typeof VXA !== 'undefined' && VXA.Models && VXA.Models.getModel) {
+        var mdl = VXA.Models.getModel(p.type, p.model);
+        if (mdl && mdl.Vf_typ) initVd = mdl.Vf_typ * 0.8;
+      }
+      comps.push({type:'D', n1:nodes[0], n2:nodes[1], part:p, vPrev:initVd});
+    }
     else if (p.type === 'switch') comps.push({type:'R', n1:nodes[0], n2:nodes[1], val:p.closed?0.001:1e9, part:p});
     else if (p.type === 'npn') {
       var m = BJT_MODELS[p.model || 'Generic'] || BJT_MODELS['Generic'];

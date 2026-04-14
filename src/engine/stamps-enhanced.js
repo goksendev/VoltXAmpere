@@ -2,7 +2,8 @@ VXA.Stamps.diode_spice = function(matrix, rhs, n1, n2, params, Vd_prev, dt) {
   var Sp = VXA.Sparse, VT = 0.026;
   var IS = params.IS || 1e-14, N = params.N || 1, RS = params.RS || 0;
   var BV = params.BV || 100, CJO = params.CJO || 0, VJ = params.VJ || 0.7, M = params.M || 0.5, TT = params.TT || 0;
-  var Vd = Math.max(-BV - 5, Math.min(Vd_prev, 0.8));
+  var VdMax = params.Vf_typ ? params.Vf_typ + 1.0 : 0.8; // LED: Vf+1V, Si diode: 0.8V
+  var Vd = Math.max(-BV - 5, Math.min(Vd_prev, VdMax));
   var nVt = N * VT;
   var vcrit = nVt * Math.log(nVt / (Math.sqrt(2) * IS));
   if (Vd > vcrit) Vd = vcrit + nVt * Math.log(Math.max(1, 1 + (Vd - vcrit) / nVt));

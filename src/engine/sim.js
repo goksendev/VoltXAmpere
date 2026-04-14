@@ -96,10 +96,14 @@ VXA.SimV2 = (function() {
         } else if (c.type === 'D') {
           var vd = (nodeV[c.n1] || 0) - (nodeV[c.n2] || 0);
           var dModel = c.part && c.part.model ? VXA.Models.getModel(c.part.type, c.part.model) : null;
-          if (dModel && (dModel.RS > 0 || dModel.CJO > 0 || dModel.BV)) {
+          // Sprint 24: LEDs use basic stamp with model IS/N for better convergence
+          // diode_spice RS handling causes convergence issues with high-N LED models
+          if (dModel && c.part && c.part.type !== 'led' && (dModel.RS > 0 || dModel.CJO > 0 || dModel.BV)) {
             St.diode_spice(matrix, rhs, c.n1, c.n2, dModel, vd, dt);
           } else {
-            St.diode(matrix, rhs, c.n1, c.n2, c.IS || DIODE_IS, c.N || DIODE_N, vd, VT_VAL);
+            var dIS = dModel ? (dModel.IS || DIODE_IS) : (c.IS || DIODE_IS);
+            var dN = dModel ? (dModel.N || DIODE_N) : (c.N || DIODE_N);
+            St.diode(matrix, rhs, c.n1, c.n2, dIS, dN, vd, VT_VAL);
           }
         } else if (c.type === 'BJT') {
           // Always use Gummel-Poon when model available (more accurate convergence)
@@ -253,11 +257,27 @@ VXA.SimV2 = (function() {
         for (var li = 0; li < SIM.comps.length; li++) {
           var lc = SIM.comps[li];
           if (lc.type === 'D' || lc.type === 'Z') {
-            var Is = lc.IS || 1e-14;
-            var Vc = VXA.VoltageLimit.computeVcrit(Is, VT);
+            // Sprint 25: Use model IS/N for vcrit (not generic 1e-14/1)
+            // This is critical for LEDs — generic vcrit=0.73V compresses Vd too aggressively
+            var lcMdl = lc.part && lc.part.model ? VXA.Models.getModel(lc.part.type, lc.part.model) : null;
+            var Is = lcMdl ? (lcMdl.IS || lc.IS || 1e-14) : (lc.IS || 1e-14);
+            var Nf = lcMdl ? (lcMdl.N || lc.N || 1) : (lc.N || 1);
+            var nVt = Nf * VT;
+            var Vc = VXA.VoltageLimit.computeVcrit(Is, nVt);
             var vdOld = (nodeV[lc.n1] || 0) - (nodeV[lc.n2] || 0);
             var vdNew = newV[lc.n1] - newV[lc.n2];
-            var vdLim = VXA.VoltageLimit.junction(vdNew, vdOld, VT, Vc);
+            var vdLim = VXA.VoltageLimit.junction(vdNew, vdOld, nVt, Vc);
+            // Sprint 25: Adaptive damping for LEDs — limit max step based on distance to Vf_typ
+            if (lcMdl && lcMdl.Vf_typ) {
+              var targetVf = lcMdl.Vf_typ;
+              var deltaV = vdLim - vdOld;
+              var maxDelta;
+              if (vdOld < 0.1) maxDelta = targetVf * 0.5;
+              else if (vdOld < targetVf * 0.7) maxDelta = 0.3;
+              else maxDelta = 0.1; // near target: fine steps (relaxed from 0.05 for faster convergence)
+              if (deltaV > maxDelta) vdLim = vdOld + maxDelta;
+              else if (deltaV < -maxDelta) vdLim = vdOld - maxDelta;
+            }
             if (Math.abs(vdLim - vdNew) > 1e-10) {
               var adj = (vdLim - vdNew) / 2;
               if (lc.n1 > 0) newV[lc.n1] += adj;
@@ -351,8 +371,26 @@ VXA.SimV2 = (function() {
       } else if (c.type === 'V') {
         c.part._v = Math.abs(vd); c.part._i = 0; c.part._p = 0;
       } else if (c.type === 'D') {
-        var eArg = Math.min(vd / (DIODE_N * VT_VAL), 500);
-        var cur = DIODE_IS * (Math.exp(eArg) - 1);
+        // Sprint 24: Diode/LED current from adjacent node KCL (more accurate than Shockley readout)
+        var cur = 0;
+        // Find current through node by checking connected resistor or sum of other branch currents
+        for (var ck = 0; ck < SIM.comps.length; ck++) {
+          var cc = SIM.comps[ck];
+          if (cc === c || cc.type === 'V') continue;
+          if (cc.type === 'R' && (cc.n1 === c.n1 || cc.n1 === c.n2 || cc.n2 === c.n1 || cc.n2 === c.n2)) {
+            var vr = (nodeV[cc.n1] || 0) - (nodeV[cc.n2] || 0);
+            cur = Math.abs(vr / cc.val);
+            break;
+          }
+        }
+        // Fallback to Shockley equation if no adjacent R found
+        if (cur < 1e-15) {
+          var dMdl2 = c.part && c.part.model ? VXA.Models.getModel(c.part.type, c.part.model) : null;
+          var dIS2 = dMdl2 ? (dMdl2.IS || DIODE_IS) : (c.IS || DIODE_IS);
+          var dN2 = dMdl2 ? (dMdl2.N || DIODE_N) : (c.N || DIODE_N);
+          var eArg = Math.min(vd / (dN2 * VT_VAL), 500);
+          cur = dIS2 * (Math.exp(eArg) - 1);
+        }
         c.part._v = Math.abs(vd); c.part._i = Math.abs(cur); c.part._p = Math.abs(vd * cur);
         c.vPrev = vd;
       } else if (c.type === 'BJT') {

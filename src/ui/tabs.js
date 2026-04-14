@@ -11,5 +11,8 @@ function switchTab(name) {
   if (name === 'noise') drawNoise();
   if (name === 'sensitivity') drawSensitivity();
   if (name === 'worstcase') drawWorstCase();
+  if (name === 'polezero') drawPoleZero();
+  if (name === 'contour2d') drawContour2D();
+  if (name === 'transferfunc') drawTransferFunc();
   needsRender = true;
 }

@@ -1,5 +1,11 @@
 VXA.Stamps = (function() {
   var Sp = VXA.Sparse;
+  // Sprint 25: safeExp prevents overflow for very small IS values (e.g. BLUE LED IS=3.7e-29)
+  function safeExp(x) {
+    if (x > 500) return 1.4e217;  // ~exp(500)
+    if (x < -500) return 0;
+    return Math.exp(x);
+  }
   function stampG(matrix, n1, n2, g) {
     if (n1 > 0) Sp.stamp(matrix, n1 - 1, n1 - 1, g);
     if (n2 > 0) Sp.stamp(matrix, n2 - 1, n2 - 1, g);
@@ -26,11 +32,13 @@ VXA.Stamps = (function() {
   }
   function diode(matrix, rhs, n1, n2, Is, Nf, Vd, VT) {
     var nVt = Nf * VT;
-    var vcrit = nVt * Math.log(nVt / (Math.sqrt(2) * Is));
+    // Sprint 25: vcrit calculation with safe bounds for tiny IS
+    var logArg = nVt / (Math.sqrt(2) * Math.max(Is, 1e-40));
+    var vcrit = nVt * Math.log(logArg);
     var vdLim = Vd;
     if (Vd > vcrit) vdLim = vcrit + nVt * Math.log(Math.max(1, 1 + (Vd - vcrit) / nVt));
-    var eArg = Math.min(vdLim / nVt, 500);
-    var expV = Math.exp(eArg);
+    var eArg = vdLim / nVt;
+    var expV = safeExp(eArg);
     var id = Is * (expV - 1);
     var gd = Is / nVt * expV + 1e-12;
     var ieq = id - gd * vdLim;

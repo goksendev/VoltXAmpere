@@ -445,7 +445,7 @@ input:focus{border-color:var(--accent)}
     <button class="tb-btn" onclick="generateReport()" title="Rapor">&#128196; Rapor</button>
     <button class="tb-btn" onclick="shareURL()" title="Paylaş">&#128279; Paylaş</button>
     <div class="tb-sep"></div>
-    <button class="tb-btn" id="btn-vmap" onclick="S.voltageMap=!S.voltageMap;needsRender=true">&#9889; Renk Haritası</button>
+    <button class="tb-btn" id="btn-vmap" onclick="S.voltageMap=!S.voltageMap;needsRender=true" title="Voltaj Renk Haritası" aria-label="Toggle voltage color map">&#9889; Renk Haritası</button>
     <button class="tb-btn" onclick="showTutorialList()" title="Dersler">&#128214; Dersler</button>
     <button class="tb-btn" onclick="openSettings()" title="Ayarlar">&#9881; Ayarlar</button>
     <button class="tb-btn" id="btn-realistic" onclick="toggleRealisticBtn()" title="Gerçekçi Mod (Shift+R)">&#128737; Gerçekçi</button>
@@ -453,6 +453,7 @@ input:focus{border-color:var(--accent)}
     <button class="tb-btn" onclick="fitToScreen()" title="Sığdır (Ctrl+Shift+F)">&#128208; Sığdır</button>
     <button class="tb-btn" id="btn-chaos" onclick="toggleChaosPanel()" title="Kaos Testi (Shift+K)" style="color:#ff8800">⚡ Kaos</button>
     <button class="tb-btn" id="btn-probes" onclick="toggleProbeMode()" title="Prob Modu (Shift+P)" style="color:#4a9eff">🔌 Prob</button>
+    <button class="tb-btn" id="btn-breadboard" onclick="if(VXA.Breadboard)VXA.Breadboard.toggle()" title="Breadboard (Ctrl+B)" style="color:#f5e0b0">🔲 Breadboard</button>
     <div class="sim-badge">
       <button class="tb-btn" style="font-size:10px" onclick="if(typeof _tlEnterPlayback==='function')_tlEnterPlayback()" title="Time Machine (M)" id="btn-timemachine">&#9194; Rewind</button>
       <button class="tb-btn" style="font-size:10px" onclick="simStep()" title="Tek Ad&#305;m">&#9193; Ad&#305;m</button>
@@ -463,7 +464,7 @@ input:focus{border-color:var(--accent)}
       </select>
       <span class="tb-badge" id="sim-label">DURDURULDU</span>
       <div class="sim-dot" id="sim-dot"></div>
-      <button class="tb-btn" id="btn-sim" onclick="toggleSim()">&#9654; Başlat</button>
+      <button class="tb-btn" id="btn-sim" onclick="toggleSim()" title="Simülasyonu Başlat/Durdur (Space)" aria-label="Toggle simulation">&#9654; Başlat</button>
       <button class="tb-btn" id="lang-btn" onclick="setLanguage(currentLang==='tr'?'en':'tr')" title="TR/EN" style="margin-left:8px">🌐 TR</button>
       <button class="tb-btn" onclick="changeFontSize(-1)" aria-label="Decrease font" title="A-">A-</button>
       <button class="tb-btn" onclick="changeFontSize(1)" aria-label="Increase font" title="A+">A+</button>
@@ -488,7 +489,7 @@ input:focus{border-color:var(--accent)}
 
   <!-- BOTTOM -->
   <div id="bottom" style="display:grid;grid-template-rows:auto 1fr;grid-template-columns:1fr">
-    <div style="display:flex;gap:2px;padding:3px 8px;background:var(--surface-2);border-bottom:1px solid var(--border)">
+    <div style="display:flex;gap:2px;padding:3px 8px;background:var(--surface-2);border-bottom:1px solid var(--border);overflow-x:auto;overflow-y:hidden;white-space:nowrap;scrollbar-width:thin">
       <button class="btab active" data-tab="scope" onclick="switchTab('scope')">Osiloskop</button>
       <button class="btab" data-tab="bode" onclick="switchTab('bode')">Bode Plot</button>
       <button class="btab" data-tab="dcsweep" onclick="switchTab('dcsweep')">DC Sweep</button>
@@ -500,6 +501,9 @@ input:focus{border-color:var(--accent)}
       <button class="btab" data-tab="sensitivity" onclick="switchTab('sensitivity')">Duyarl&#305;l&#305;k</button>
       <button class="btab" data-tab="worstcase" onclick="switchTab('worstcase')">Worst Case</button>
       <button class="btab" data-tab="timing" onclick="switchTab('timing')">Timing</button>
+      <button class="btab" data-tab="polezero" onclick="switchTab('polezero')">&#127919; P-Z</button>
+      <button class="btab" data-tab="contour2d" onclick="switchTab('contour2d')">&#128506; 2D</button>
+      <button class="btab" data-tab="transferfunc" onclick="switchTab('transferfunc')">&#128208; H(s)</button>
     </div>
     <div id="tab-scope" class="tab-panel active" style="grid-template-columns:1fr 200px">
       <div id="scope-wrap">
@@ -529,8 +533,15 @@ input:focus{border-color:var(--accent)}
             <span class="sc-label">V/div</span>
             <select id="sc-vdiv" onchange="setVDiv(this.value)">
               <option value="0">Oto</option>
+              <option value="0.001">1 mV</option>
+              <option value="0.002">2 mV</option>
+              <option value="0.005">5 mV</option>
               <option value="0.01">10 mV</option>
+              <option value="0.02">20 mV</option>
+              <option value="0.05">50 mV</option>
               <option value="0.1">100 mV</option>
+              <option value="0.2">200 mV</option>
+              <option value="0.5">500 mV</option>
               <option value="1">1 V</option>
               <option value="2" selected>2 V</option>
               <option value="5">5 V</option>
@@ -550,12 +561,13 @@ input:focus{border-color:var(--accent)}
             </select>
           </div>
           <div class="sc-group">
-            <button class="tb-btn" style="font-size:10px;padding:2px 6px" onclick="toggleScopeMode('xy')">X-Y</button>
-            <button class="tb-btn" style="font-size:10px;padding:2px 6px" onclick="toggleScopeMode('roll')">Roll</button>
-            <button class="tb-btn" style="font-size:10px;padding:2px 6px" onclick="S.scope.persist=!S.scope.persist;needsRender=true">Persist</button>
-            <button class="tb-btn" style="font-size:10px;padding:2px 6px" id="btn-crt" onclick="toggleCRT()">CRT</button>
-            <button class="tb-btn" style="font-size:10px;padding:2px 6px" onclick="toggleCursors()">Cursor</button>
-            <button class="tb-btn" style="font-size:10px;padding:2px 6px" id="btn-ref" onclick="toggleRef()">REF</button>
+            <button class="tb-btn" style="font-size:10px;padding:2px 6px" onclick="toggleScopeMode('xy')" title="X-Y Lissajous Modu" aria-label="Toggle XY scope mode">X-Y</button>
+            <button class="tb-btn" style="font-size:10px;padding:2px 6px" onclick="toggleScopeMode('roll')" title="Roll Modu" aria-label="Toggle roll scope mode">Roll</button>
+            <button class="tb-btn" style="font-size:10px;padding:2px 6px;color:#ffcc00" onclick="autoScaleScope()" title="Auto Scale">&#8596; Auto</button>
+            <button class="tb-btn" style="font-size:10px;padding:2px 6px" onclick="S.scope.persist=!S.scope.persist;needsRender=true" title="Persistence Modu" aria-label="Toggle trace persistence">Persist</button>
+            <button class="tb-btn" style="font-size:10px;padding:2px 6px" id="btn-crt" onclick="toggleCRT()" title="CRT Fosfor Modu" aria-label="Toggle CRT mode">CRT</button>
+            <button class="tb-btn" style="font-size:10px;padding:2px 6px" onclick="toggleCursors()" title="Cursor Ölçüm (C)" aria-label="Toggle measurement cursors">Cursor</button>
+            <button class="tb-btn" style="font-size:10px;padding:2px 6px" id="btn-ref" onclick="toggleRef()" title="Referans Dalga Formu" aria-label="Save/toggle reference waveform">REF</button>
             <button class="sc-export-btn" onclick="exportScopeCSV()" title="CSV">&#128229;</button>
             <button class="sc-export-btn" onclick="exportScopePNG()" title="PNG">&#128247;</button>
           </div>
@@ -596,6 +608,9 @@ input:focus{border-color:var(--accent)}
     <div id="tab-sensitivity" class="tab-panel" style="position:relative"><canvas id="SENSC" style="width:100%;height:100%"></canvas><div class="tab-overlay" id="ov-sensitivity"><p>Hangi bile&scedil;en en kritik?</p><button class="run-btn" onclick="runSensitivity()">&#9654; Duyarl&inodot;l&inodot;k Analizi</button></div></div>
     <div id="tab-worstcase" class="tab-panel" style="position:relative"><canvas id="WCC" style="width:100%;height:100%"></canvas><div class="tab-overlay" id="ov-worstcase"><p>Tolerans u&ccedil;lar&inodot;n&inodot; test edin</p><button class="run-btn" onclick="runWorstCase('evp')">&#9654; EVP (&plusmn;10%)</button> <button class="run-btn" onclick="runWorstCase('rss')" style="margin-left:6px">&#9654; RSS (&plusmn;10%)</button></div></div>
     <div id="tab-timing" class="tab-panel" style="position:relative"><canvas id="TIMING" style="width:100%;height:100%"></canvas><div class="tab-overlay" id="ov-timing"><p>Dijital devre kurun, sim&uuml;lasyonu ba&scedil;lat&inodot;n</p><button class="run-btn" onclick="if(VXA.Digital)VXA.Digital.init(S.parts)">&#9654; Timing Kaydet</button></div></div>
+    <div id="tab-polezero" class="tab-panel" style="position:relative"><canvas id="PZC" style="width:100%;height:100%"></canvas><div class="tab-overlay" id="ov-polezero"><p>AC devre kurun &mdash; kutup ve s&inodot;f&inodot;r analizi</p><button class="run-btn" onclick="runPoleZero()">&#9654; Pole-Zero Analizi</button></div></div>
+    <div id="tab-contour2d" class="tab-panel" style="position:relative"><canvas id="CONTOUR2D" style="width:100%;height:100%"></canvas><div class="tab-overlay" id="ov-contour2d"><p>&#304;ki bile&scedil;en se&ccedil;in &mdash; 2D parametre taramas&inodot;</p><button class="run-btn" onclick="runContour2D()">&#9654; 2D Sweep Ba&scedil;lat</button></div></div>
+    <div id="tab-transferfunc" class="tab-panel" style="position:relative"><canvas id="TFUNC" style="width:100%;height:100%"></canvas><div class="tab-overlay" id="ov-transferfunc"><p>&Ouml;nce Pole-Zero analizi &ccedil;al&inodot;&scedil;t&inodot;r&inodot;n</p><button class="run-btn" onclick="runTransferFunc()">&#9654; H(s) G&ouml;ster</button></div></div>
   </div>
 
   <!-- TIMELINE BAR (Sprint 11: Time Machine) -->
@@ -629,7 +644,7 @@ input:focus{border-color:var(--accent)}
     <span id="sb-temp" style="color:var(--text-3)"></span>
     <span id="sb-engine" style="color:var(--text-4)"></span>
     <span id="sb-extra" style="color:var(--text-3)"></span>
-    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v8.0 — Build: 2026-04-14 11:01 — © 2026</span>
+    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v8.0 — Build: 2026-04-14 19:40 — © 2026</span>
   </div>
 </div>
 
@@ -1075,6 +1090,9 @@ var STR = {
     clear:'Temizle', lines:'satır', spice_import:'SPICE Import',
     empty_canvas_hint:'Sol panelden bileşen sürükleyin veya Ctrl+V ile SPICE yapıştırın',
     wire_placed:'Kablo bağlandı', wire_mode_on:'Kablo Modu — bir pine tıklayın',
+    breadboard:'Breadboard', breadboard_view:'Breadboard Görünümü', breadboard_back:'Şematiğe dön',
+    tabPoleZero:'Kutup-Sıfır', tabContour2D:'2D Sweep', tabTransferFunc:'H(s)',
+    runPoleZero:'▶ Kutup-Sıfır Analizi', runContour2D:'▶ 2D Sweep Başlat', runTransferFunc:'▶ H(s) Göster',
   },
   en: {
     undo:'Undo', redo:'Redo', wire:'Wire', rotate:'Rotate', del:'Delete',
@@ -1177,6 +1195,9 @@ var STR = {
     clear:'Clear', lines:'lines', spice_import:'SPICE Import',
     empty_canvas_hint:'Drag components from panel or paste SPICE with Ctrl+V',
     wire_placed:'Wire connected', wire_mode_on:'Wire Mode — click a pin',
+    breadboard:'Breadboard', breadboard_view:'Breadboard View', breadboard_back:'Back to schematic',
+    tabPoleZero:'Pole-Zero', tabContour2D:'2D Sweep', tabTransferFunc:'H(s)',
+    runPoleZero:'\u25B6 Pole-Zero Analysis', runContour2D:'\u25B6 Run 2D Sweep', runTransferFunc:'\u25B6 Show H(s)',
   }
 };
 
@@ -2803,6 +2824,8 @@ const wrap = document.getElementById('canvas-wrap');
 wrap.addEventListener('mousemove', e => {
   const r = cvs.getBoundingClientRect();
   S.mouse.x = e.clientX - r.left; S.mouse.y = e.clientY - r.top;
+  // Breadboard mode: redirect mouse events
+  if (VXA.Breadboard && VXA.Breadboard.isActive()) { VXA.Breadboard.handleMouseMove(e); return; }
   const w = s2w(S.mouse.x, S.mouse.y); S.mouse.wx = w.x; S.mouse.wy = w.y;
   S.hoveredPin = findNearestPin(w.x, w.y);
   S.hovered = hitTestPart(w.x, w.y);
@@ -2872,6 +2895,8 @@ wrap.addEventListener('mousemove', e => {
 
 wrap.addEventListener('mousedown', e => {
   hideCtx();
+  // Breadboard mode: redirect mouse events
+  if (VXA.Breadboard && VXA.Breadboard.isActive()) { if (VXA.Breadboard.handleMouseDown(e)) return; }
   const w = s2w(S.mouse.x, S.mouse.y);
 
   // middle-click pan
@@ -2980,7 +3005,9 @@ wrap.addEventListener('mousedown', e => {
   }
 });
 
-wrap.addEventListener('mouseup', () => {
+wrap.addEventListener('mouseup', (e) => {
+  // Breadboard mode: redirect mouse events
+  if (VXA.Breadboard && VXA.Breadboard.isActive()) { VXA.Breadboard.handleMouseUp(e); return; }
   // Sprint 14: Probe drop
   if (VXA.Probes && VXA.Probes.isDragging()) {
     var _pw = s2w(S.mouse.x, S.mouse.y);
@@ -2998,7 +3025,9 @@ wrap.addEventListener('mouseup', () => {
   }
 });
 
-wrap.addEventListener('dblclick', () => {
+wrap.addEventListener('dblclick', (e) => {
+  // Breadboard mode: redirect dblclick
+  if (VXA.Breadboard && VXA.Breadboard.isActive()) { VXA.Breadboard.handleDblClick(e); return; }
   if (S.mode === 'wire') {
     S.wireStart = null; S.wirePreview = null; S.mode = 'select';
     document.getElementById('btn-wire').classList.remove('active'); needsRender = true;
@@ -3042,6 +3071,8 @@ wrap.addEventListener('wheel', e => {
 }, { passive: false });
 
 wrap.addEventListener('contextmenu', function(e) {
+  // Breadboard mode: redirect context menu
+  if (VXA.Breadboard && VXA.Breadboard.isActive()) { VXA.Breadboard.handleContextMenu(e); return; }
   showSmartCtxMenu(e);
 });
 
@@ -3083,6 +3114,8 @@ document.addEventListener('keydown', e => {
   if (k === 's' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); exportJSON(); return; }
   if (k === 'o' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); importJSON(); return; }
   if (k === 'i' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); showSpiceImportModal(); return; }
+  if (k === 'b' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); if (VXA.Breadboard) VXA.Breadboard.toggle(); return; }
+  if (k === 'c' && e.shiftKey && !e.ctrlKey && !e.metaKey) { if (typeof cycleCursorMode === 'function') cycleCursorMode(); return; }
   if (k === 'e') {
     if (S.sel.length) { var ep = S.parts.find(function(pp){return pp.id===S.sel[0];}); if (ep) openInlineEdit(ep); }
     return;
@@ -5070,6 +5103,12 @@ VXA.VoltageLimit = (function() {
 // ═══ stamps.js ═══
 VXA.Stamps = (function() {
   var Sp = VXA.Sparse;
+  // Sprint 25: safeExp prevents overflow for very small IS values (e.g. BLUE LED IS=3.7e-29)
+  function safeExp(x) {
+    if (x > 500) return 1.4e217;  // ~exp(500)
+    if (x < -500) return 0;
+    return Math.exp(x);
+  }
   function stampG(matrix, n1, n2, g) {
     if (n1 > 0) Sp.stamp(matrix, n1 - 1, n1 - 1, g);
     if (n2 > 0) Sp.stamp(matrix, n2 - 1, n2 - 1, g);
@@ -5096,11 +5135,13 @@ VXA.Stamps = (function() {
   }
   function diode(matrix, rhs, n1, n2, Is, Nf, Vd, VT) {
     var nVt = Nf * VT;
-    var vcrit = nVt * Math.log(nVt / (Math.sqrt(2) * Is));
+    // Sprint 25: vcrit calculation with safe bounds for tiny IS
+    var logArg = nVt / (Math.sqrt(2) * Math.max(Is, 1e-40));
+    var vcrit = nVt * Math.log(logArg);
     var vdLim = Vd;
     if (Vd > vcrit) vdLim = vcrit + nVt * Math.log(Math.max(1, 1 + (Vd - vcrit) / nVt));
-    var eArg = Math.min(vdLim / nVt, 500);
-    var expV = Math.exp(eArg);
+    var eArg = vdLim / nVt;
+    var expV = safeExp(eArg);
     var id = Is * (expV - 1);
     var gd = Is / nVt * expV + 1e-12;
     var ieq = id - gd * vdLim;
@@ -5420,10 +5461,14 @@ VXA.SimV2 = (function() {
         } else if (c.type === 'D') {
           var vd = (nodeV[c.n1] || 0) - (nodeV[c.n2] || 0);
           var dModel = c.part && c.part.model ? VXA.Models.getModel(c.part.type, c.part.model) : null;
-          if (dModel && (dModel.RS > 0 || dModel.CJO > 0 || dModel.BV)) {
+          // Sprint 24: LEDs use basic stamp with model IS/N for better convergence
+          // diode_spice RS handling causes convergence issues with high-N LED models
+          if (dModel && c.part && c.part.type !== 'led' && (dModel.RS > 0 || dModel.CJO > 0 || dModel.BV)) {
             St.diode_spice(matrix, rhs, c.n1, c.n2, dModel, vd, dt);
           } else {
-            St.diode(matrix, rhs, c.n1, c.n2, c.IS || DIODE_IS, c.N || DIODE_N, vd, VT_VAL);
+            var dIS = dModel ? (dModel.IS || DIODE_IS) : (c.IS || DIODE_IS);
+            var dN = dModel ? (dModel.N || DIODE_N) : (c.N || DIODE_N);
+            St.diode(matrix, rhs, c.n1, c.n2, dIS, dN, vd, VT_VAL);
           }
         } else if (c.type === 'BJT') {
           // Always use Gummel-Poon when model available (more accurate convergence)
@@ -5577,11 +5622,27 @@ VXA.SimV2 = (function() {
         for (var li = 0; li < SIM.comps.length; li++) {
           var lc = SIM.comps[li];
           if (lc.type === 'D' || lc.type === 'Z') {
-            var Is = lc.IS || 1e-14;
-            var Vc = VXA.VoltageLimit.computeVcrit(Is, VT);
+            // Sprint 25: Use model IS/N for vcrit (not generic 1e-14/1)
+            // This is critical for LEDs — generic vcrit=0.73V compresses Vd too aggressively
+            var lcMdl = lc.part && lc.part.model ? VXA.Models.getModel(lc.part.type, lc.part.model) : null;
+            var Is = lcMdl ? (lcMdl.IS || lc.IS || 1e-14) : (lc.IS || 1e-14);
+            var Nf = lcMdl ? (lcMdl.N || lc.N || 1) : (lc.N || 1);
+            var nVt = Nf * VT;
+            var Vc = VXA.VoltageLimit.computeVcrit(Is, nVt);
             var vdOld = (nodeV[lc.n1] || 0) - (nodeV[lc.n2] || 0);
             var vdNew = newV[lc.n1] - newV[lc.n2];
-            var vdLim = VXA.VoltageLimit.junction(vdNew, vdOld, VT, Vc);
+            var vdLim = VXA.VoltageLimit.junction(vdNew, vdOld, nVt, Vc);
+            // Sprint 25: Adaptive damping for LEDs — limit max step based on distance to Vf_typ
+            if (lcMdl && lcMdl.Vf_typ) {
+              var targetVf = lcMdl.Vf_typ;
+              var deltaV = vdLim - vdOld;
+              var maxDelta;
+              if (vdOld < 0.1) maxDelta = targetVf * 0.5;
+              else if (vdOld < targetVf * 0.7) maxDelta = 0.3;
+              else maxDelta = 0.1; // near target: fine steps (relaxed from 0.05 for faster convergence)
+              if (deltaV > maxDelta) vdLim = vdOld + maxDelta;
+              else if (deltaV < -maxDelta) vdLim = vdOld - maxDelta;
+            }
             if (Math.abs(vdLim - vdNew) > 1e-10) {
               var adj = (vdLim - vdNew) / 2;
               if (lc.n1 > 0) newV[lc.n1] += adj;
@@ -5675,8 +5736,26 @@ VXA.SimV2 = (function() {
       } else if (c.type === 'V') {
         c.part._v = Math.abs(vd); c.part._i = 0; c.part._p = 0;
       } else if (c.type === 'D') {
-        var eArg = Math.min(vd / (DIODE_N * VT_VAL), 500);
-        var cur = DIODE_IS * (Math.exp(eArg) - 1);
+        // Sprint 24: Diode/LED current from adjacent node KCL (more accurate than Shockley readout)
+        var cur = 0;
+        // Find current through node by checking connected resistor or sum of other branch currents
+        for (var ck = 0; ck < SIM.comps.length; ck++) {
+          var cc = SIM.comps[ck];
+          if (cc === c || cc.type === 'V') continue;
+          if (cc.type === 'R' && (cc.n1 === c.n1 || cc.n1 === c.n2 || cc.n2 === c.n1 || cc.n2 === c.n2)) {
+            var vr = (nodeV[cc.n1] || 0) - (nodeV[cc.n2] || 0);
+            cur = Math.abs(vr / cc.val);
+            break;
+          }
+        }
+        // Fallback to Shockley equation if no adjacent R found
+        if (cur < 1e-15) {
+          var dMdl2 = c.part && c.part.model ? VXA.Models.getModel(c.part.type, c.part.model) : null;
+          var dIS2 = dMdl2 ? (dMdl2.IS || DIODE_IS) : (c.IS || DIODE_IS);
+          var dN2 = dMdl2 ? (dMdl2.N || DIODE_N) : (c.N || DIODE_N);
+          var eArg = Math.min(vd / (dN2 * VT_VAL), 500);
+          cur = dIS2 * (Math.exp(eArg) - 1);
+        }
         c.part._v = Math.abs(vd); c.part._i = Math.abs(cur); c.part._p = Math.abs(vd * cur);
         c.vPrev = vd;
       } else if (c.type === 'BJT') {
@@ -5897,13 +5976,16 @@ VXA.Models = (function() {
     'BAT54':{ IS:1e-7, N:1.03, RS:1, BV:30, CJO:10e-12, VJ:0.25, M:0.35, TT:5e-9, desc:'Schottky 200mA 30V, SOT-23' },
   };
   var LED = {
-    'RED_5MM':{ IS:93.2e-12, N:3.73, RS:0.636, BV:5, CJO:2e-12, Vf_typ:1.8, If_max:0.02, color:'#f0454a', desc:'Red LED 5mm, 20mA' },
-    'GREEN_5MM':{ IS:93.2e-12, N:4.0, RS:0.9, BV:5, CJO:2e-12, Vf_typ:2.2, If_max:0.02, color:'#22c55e', desc:'Green LED 5mm, 20mA' },
-    'BLUE_5MM':{ IS:93.2e-12, N:5.0, RS:1.2, BV:5, CJO:2e-12, Vf_typ:3.2, If_max:0.02, color:'#3b82f6', desc:'Blue LED 5mm, 20mA' },
-    'YELLOW_5MM':{ IS:93.2e-12, N:3.9, RS:0.8, BV:5, CJO:2e-12, Vf_typ:2.0, If_max:0.02, color:'#eab308', desc:'Yellow LED 5mm, 20mA' },
-    'WHITE_5MM':{ IS:93.2e-12, N:4.5, RS:1.0, BV:5, CJO:2e-12, Vf_typ:3.3, If_max:0.02, color:'#e0e7f0', desc:'White LED 5mm, 20mA' },
-    'IR_5MM':{ IS:1e-10, N:2.0, RS:0.4, BV:5, CJO:2e-12, Vf_typ:1.3, If_max:0.05, color:'#440000', desc:'IR LED 940nm, 50mA' },
-    'POWER_1W':{ IS:1e-11, N:3.5, RS:0.3, BV:5, CJO:5e-12, Vf_typ:3.2, If_max:0.35, color:'#e0e7f0', desc:'Power LED 1W, 350mA' },
+    // Sprint 25: Calibrated IS via Vf = N*Vt*ln(If/IS) at If=20mA
+    // N=2.0 uniform for convergence stability, IS tuned per color
+    // eski Sprint 24b: IS=93.2e-12, N=3.73-6.6 (NR convergence issues)
+    'RED_5MM':   { IS:2.0e-17,  N:2.0, RS:0.7, BV:5, IBV:1e-5, CJO:25e-12, VJ:0.7, M:0.33, TT:5e-9, Vf_typ:1.8, If_max:0.02, color:'#f0454a', desc:'Red LED 5mm, 20mA' },
+    'GREEN_5MM': { IS:5.7e-20,  N:2.0, RS:0.9, BV:5, IBV:1e-5, CJO:20e-12, VJ:0.7, M:0.33, TT:5e-9, Vf_typ:2.1, If_max:0.02, color:'#22c55e', desc:'Green LED 5mm, 20mA' },
+    'BLUE_5MM':  { IS:3.7e-29,  N:2.0, RS:1.2, BV:5, IBV:1e-5, CJO:15e-12, VJ:0.7, M:0.33, TT:5e-9, Vf_typ:3.2, If_max:0.02, color:'#3b82f6', desc:'Blue LED 5mm, 20mA' },
+    'WHITE_5MM': { IS:3.7e-29,  N:2.0, RS:1.0, BV:5, IBV:1e-5, CJO:15e-12, VJ:0.7, M:0.33, TT:5e-9, Vf_typ:3.2, If_max:0.02, color:'#e0e7f0', desc:'White LED 5mm, 20mA' },
+    'YELLOW_5MM':{ IS:3.8e-19,  N:2.0, RS:0.8, BV:5, IBV:1e-5, CJO:22e-12, VJ:0.7, M:0.33, TT:5e-9, Vf_typ:2.0, If_max:0.02, color:'#eab308', desc:'Yellow LED 5mm, 20mA' },
+    'IR_5MM':    { IS:1.5e-13,  N:1.8, RS:0.6, BV:5, IBV:1e-5, CJO:30e-12, VJ:0.7, M:0.33, TT:5e-9, Vf_typ:1.2, If_max:0.05, color:'#440000', desc:'IR LED 940nm, 50mA' },
+    'POWER_1W':  { IS:2.0e-27,  N:2.0, RS:0.4, BV:5, IBV:1e-5, CJO:40e-12, VJ:0.7, M:0.33, TT:5e-9, Vf_typ:3.0, If_max:0.35, color:'#e0e7f0', desc:'Power LED 1W, 350mA' },
   };
   var ZENER = {
     '1N4728':{ Vz:3.3, Zz:10, Iz:76e-3, Pd:1, desc:'3.3V Zener 1W' },
@@ -5964,7 +6046,8 @@ VXA.Stamps.diode_spice = function(matrix, rhs, n1, n2, params, Vd_prev, dt) {
   var Sp = VXA.Sparse, VT = 0.026;
   var IS = params.IS || 1e-14, N = params.N || 1, RS = params.RS || 0;
   var BV = params.BV || 100, CJO = params.CJO || 0, VJ = params.VJ || 0.7, M = params.M || 0.5, TT = params.TT || 0;
-  var Vd = Math.max(-BV - 5, Math.min(Vd_prev, 0.8));
+  var VdMax = params.Vf_typ ? params.Vf_typ + 1.0 : 0.8; // LED: Vf+1V, Si diode: 0.8V
+  var Vd = Math.max(-BV - 5, Math.min(Vd_prev, VdMax));
   var nVt = N * VT;
   var vcrit = nVt * Math.log(nVt / (Math.sqrt(2) * IS));
   if (Vd > vcrit) Vd = vcrit + nVt * Math.log(Math.max(1, 1 + (Vd - vcrit) / nVt));
@@ -6249,7 +6332,15 @@ function buildCircuitFromCanvas() {
     else if (p.type === 'inductor') comps.push({type:'L', n1:nodes[0], n2:nodes[1], val:p.val||0.01, part:p, iPrev:0});
     else if (p.type === 'vdc') comps.push({type:'V', n1:nodes[0], n2:nodes[1], val:p.val||5, part:p, isAC:false});
     else if (p.type === 'vac') comps.push({type:'V', n1:nodes[0], n2:nodes[1], val:p.val||5, part:p, isAC:true, freq:p.freq||COMP.vac.freq||50});
-    else if (p.type === 'diode' || p.type === 'led') comps.push({type:'D', n1:nodes[0], n2:nodes[1], part:p, vPrev:0.6});
+    else if (p.type === 'diode' || p.type === 'led') {
+      // Sprint 25: Smart initial guess — use Vf_typ × 0.8 if model defined
+      var initVd = 0.6;
+      if (p.model && typeof VXA !== 'undefined' && VXA.Models && VXA.Models.getModel) {
+        var mdl = VXA.Models.getModel(p.type, p.model);
+        if (mdl && mdl.Vf_typ) initVd = mdl.Vf_typ * 0.8;
+      }
+      comps.push({type:'D', n1:nodes[0], n2:nodes[1], part:p, vPrev:initVd});
+    }
     else if (p.type === 'switch') comps.push({type:'R', n1:nodes[0], n2:nodes[1], val:p.closed?0.001:1e9, part:p});
     else if (p.type === 'npn') {
       var m = BJT_MODELS[p.model || 'Generic'] || BJT_MODELS['Generic'];
@@ -6622,6 +6713,17 @@ function isInViewport(part) {
 function render() {
   const w = cvs.width / DPR, h = cvs.height / DPR;
   ctx.clearRect(0, 0, w, h);
+  // Breadboard mode: render breadboard instead of schematic
+  if (VXA.Breadboard && VXA.Breadboard.isActive()) {
+    VXA.Breadboard.draw(ctx, w, h);
+    // Sync sim state
+    if (S.sim.running) { simulationStep(); VXA.Breadboard.syncSimState(); }
+    // FPS counter
+    S._fc++;
+    var _bbNow = performance.now();
+    if (_bbNow - S._ft >= 1000) { S.fps = S._fc; S._fc = 0; S._ft = _bbNow; }
+    return;
+  }
   if (S.showGrid) drawGrid();
   else { ctx.fillStyle = '#06080c'; ctx.fillRect(0, 0, w, h); }
   if (typeof drawEmptyCanvasHint === 'function') drawEmptyCanvasHint(ctx, w, h);
@@ -6763,7 +6865,11 @@ function loadPreset(id) {
   S.parts = []; S.wires = []; S.nextId = 1; S.sel = [];
   if (S.sim.running) toggleSim();
   pr.parts.forEach(p => {
-    S.parts.push({ id: S.nextId++, type: p.type, name: nextName(p.type), x: p.x, y: p.y, rot: p.rot || 0, val: p.val, freq: p.freq || 0, flipH: false, flipV: false, closed: false });
+    var newPart = { id: S.nextId++, type: p.type, name: nextName(p.type), x: p.x, y: p.y, rot: p.rot || 0, val: p.val, freq: p.freq || 0, flipH: false, flipV: false, closed: false };
+    // Sprint 24: Apply model from preset or default
+    if (p.model) { newPart.model = p.model; if (typeof applyModel === 'function') applyModel(newPart, p.model); }
+    else { var defModel = VXA.Models && VXA.Models.getDefault ? VXA.Models.getDefault(p.type) : null; if (defModel) { newPart.model = defModel; if (typeof applyModel === 'function') applyModel(newPart, defModel); } }
+    S.parts.push(newPart);
   });
   pr.wires.forEach(w => S.wires.push({ x1: w.x1, y1: w.y1, x2: w.x2, y2: w.y2 }));
   // Center view on preset
@@ -7170,6 +7276,9 @@ function switchTab(name) {
   if (name === 'noise') drawNoise();
   if (name === 'sensitivity') drawSensitivity();
   if (name === 'worstcase') drawWorstCase();
+  if (name === 'polezero') drawPoleZero();
+  if (name === 'contour2d') drawContour2D();
+  if (name === 'transferfunc') drawTransferFunc();
   needsRender = true;
 }
 
@@ -7696,6 +7805,333 @@ function computeMonteCarloStats(values) {
   for (var i = 0; i < n; i++) { var idx = Math.min(bins - 1, Math.floor((values[i] - min) / binW)); hist[idx]++; }
   return { mean: mean, stddev: stddev, min: min, max: max, histogram: hist, binWidth: binW, binStart: min, n: n };
 }
+
+
+// ═══ pole-zero.js ═══
+// ══════════════════════════════════════════════════════════════
+// VXA.PoleZero — Sprint 21: Pole-Zero Analysis Engine
+// ══════════════════════════════════════════════════════════════
+VXA.PoleZero = (function() {
+  'use strict';
+
+  // ── Quadratic Solver ──
+  function solveQuadratic(c) {
+    var a = c[2], b = c[1], c0 = c[0];
+    var disc = b * b - 4 * a * c0;
+    if (disc >= 0) {
+      var sq = Math.sqrt(disc);
+      return [{ re: (-b + sq) / (2 * a), im: 0 }, { re: (-b - sq) / (2 * a), im: 0 }];
+    }
+    var sq = Math.sqrt(-disc);
+    return [{ re: -b / (2 * a), im: sq / (2 * a) }, { re: -b / (2 * a), im: -sq / (2 * a) }];
+  }
+
+  // ── Polynomial Root Finding (Companion Matrix + QR) ──
+  function findRoots(coefficients) {
+    if (!coefficients || coefficients.length <= 1) return [];
+    // Remove trailing zeros
+    while (coefficients.length > 1 && Math.abs(coefficients[coefficients.length - 1]) < 1e-30) coefficients.pop();
+    var n = coefficients.length - 1;
+    if (n <= 0) return [];
+    if (n === 1) return [{ re: -coefficients[0] / coefficients[1], im: 0 }];
+    if (n === 2) return solveQuadratic(coefficients);
+
+    // Build companion matrix
+    var an = coefficients[n];
+    // C is n×n
+    var C = [];
+    for (var i = 0; i < n; i++) {
+      C[i] = new Float64Array(n);
+      if (i < n - 1) C[i][i + 1] = 1;
+    }
+    // Last row: -c_i / a_n
+    for (var i = 0; i < n; i++) {
+      C[n - 1][i] = -coefficients[i] / an;
+    }
+
+    // QR iteration (Francis double-shift simplified)
+    var maxIter = 100 * n;
+    var sz = n;
+
+    // Hessenberg reduction (companion matrix is already upper Hessenberg)
+    // QR iterations with Wilkinson shift
+    for (var iter = 0; iter < maxIter && sz > 2; iter++) {
+      // Wilkinson shift from bottom 2x2 block
+      var a11 = C[sz - 2][sz - 2], a12 = C[sz - 2][sz - 1];
+      var a21 = C[sz - 1][sz - 2], a22 = C[sz - 1][sz - 1];
+      var tr = a11 + a22, det = a11 * a22 - a12 * a21;
+      var disc2 = tr * tr - 4 * det;
+
+      var shift;
+      if (disc2 >= 0) {
+        var sq2 = Math.sqrt(disc2);
+        var e1 = (tr + sq2) / 2, e2 = (tr - sq2) / 2;
+        shift = Math.abs(e1 - a22) < Math.abs(e2 - a22) ? e1 : e2;
+      } else {
+        shift = a22; // Use a22 as shift for complex eigenvalues
+      }
+
+      // Apply shift
+      for (var i = 0; i < sz; i++) C[i][i] -= shift;
+
+      // QR step via Givens rotations
+      for (var i = 0; i < sz - 1; i++) {
+        var x = C[i][i], y = C[i + 1][i];
+        var r = Math.sqrt(x * x + y * y);
+        if (r < 1e-30) continue;
+        var cs = x / r, sn = y / r;
+        // Apply rotation to rows i and i+1
+        for (var j = 0; j < sz; j++) {
+          var t1 = C[i][j], t2 = C[i + 1][j];
+          C[i][j] = cs * t1 + sn * t2;
+          C[i + 1][j] = -sn * t1 + cs * t2;
+        }
+        // Apply rotation to columns i and i+1 (R*Q)
+        for (var j = 0; j < sz; j++) {
+          var t1 = C[j][i], t2 = C[j][i + 1];
+          C[j][i] = cs * t1 + sn * t2;
+          C[j][i + 1] = -sn * t1 + cs * t2;
+        }
+      }
+
+      // Remove shift
+      for (var i = 0; i < sz; i++) C[i][i] += shift;
+
+      // Check for deflation (subdiagonal near zero)
+      if (Math.abs(C[sz - 1][sz - 2]) < 1e-12 * (Math.abs(C[sz - 1][sz - 1]) + Math.abs(C[sz - 2][sz - 2]) + 1e-30)) {
+        sz--;
+      }
+    }
+
+    // Extract eigenvalues
+    var roots = [];
+    var i = 0;
+    while (i < n) {
+      if (i === n - 1 || Math.abs(C[i + 1][i]) < 1e-12 * (Math.abs(C[i][i]) + (i + 1 < n ? Math.abs(C[i + 1][i + 1]) : 0) + 1e-30)) {
+        // Real eigenvalue
+        roots.push({ re: C[i][i], im: 0 });
+        i++;
+      } else {
+        // Complex conjugate pair from 2x2 block
+        var aa = C[i][i], ab = C[i][i + 1], ba = C[i + 1][i], bb = C[i + 1][i + 1];
+        var tr2 = aa + bb, det2 = aa * bb - ab * ba;
+        var disc3 = tr2 * tr2 - 4 * det2;
+        if (disc3 < 0) {
+          var realPart = tr2 / 2;
+          var imagPart = Math.sqrt(-disc3) / 2;
+          roots.push({ re: realPart, im: imagPart });
+          roots.push({ re: realPart, im: -imagPart });
+        } else {
+          var sq3 = Math.sqrt(disc3);
+          roots.push({ re: (tr2 + sq3) / 2, im: 0 });
+          roots.push({ re: (tr2 - sq3) / 2, im: 0 });
+        }
+        i += 2;
+      }
+    }
+    return roots;
+  }
+
+  // ── Levy Method (Rational Function Fitting) ──
+  function levyFit(frequencies, H_complex, numerOrder, denomOrder) {
+    var K = frequencies.length;
+    var numP = numerOrder + 1; // b_0 ... b_m
+    var denP = denomOrder;     // a_1 ... a_n (a_0=1 normalized)
+    var totalParams = numP + denP;
+
+    // Build normal equations: A^T A x = A^T b
+    var ATA = [];
+    var ATb = [];
+    for (var i = 0; i < totalParams; i++) {
+      ATA[i] = new Float64Array(totalParams);
+      ATb[i] = 0;
+    }
+
+    for (var k = 0; k < K; k++) {
+      var w = frequencies[k];
+      var Hr = H_complex[k].re, Hi = H_complex[k].im;
+
+      // Powers of jw: (jw)^p has re = w^p * cos(p*pi/2), im = w^p * sin(p*pi/2)
+      var jwPow = []; // [{re, im}] for p = 0, 1, 2, ...
+      var maxP = Math.max(numerOrder, denomOrder) + 1;
+      for (var p = 0; p <= maxP; p++) {
+        var wp = Math.pow(w, p);
+        var angle = p * Math.PI / 2;
+        jwPow.push({ re: wp * Math.cos(angle), im: wp * Math.sin(angle) });
+      }
+
+      // Row contributions: H(jw)*D(jw) = N(jw)
+      // Real equation: sum_p b_p * Re{(jw)^p} - sum_q a_q * (Hr*Re{(jw)^q} - Hi*Im{(jw)^q}) = Hr
+      // Imag equation: sum_p b_p * Im{(jw)^p} - sum_q a_q * (Hr*Im{(jw)^q} + Hi*Re{(jw)^q}) = Hi
+
+      var rowR = new Float64Array(totalParams);
+      var rowI = new Float64Array(totalParams);
+      // Numerator columns (b_0 ... b_m)
+      for (var p = 0; p <= numerOrder; p++) {
+        rowR[p] = jwPow[p].re;
+        rowI[p] = jwPow[p].im;
+      }
+      // Denominator columns (a_1 ... a_n): multiply by -H
+      for (var q = 1; q <= denomOrder; q++) {
+        var colIdx = numP + q - 1;
+        rowR[colIdx] = -(Hr * jwPow[q].re - Hi * jwPow[q].im);
+        rowI[colIdx] = -(Hr * jwPow[q].im + Hi * jwPow[q].re);
+      }
+
+      // Accumulate A^T A and A^T b
+      for (var i = 0; i < totalParams; i++) {
+        for (var j = 0; j < totalParams; j++) {
+          ATA[i][j] += rowR[i] * rowR[j] + rowI[i] * rowI[j];
+        }
+        ATb[i] += rowR[i] * Hr + rowI[i] * Hi;
+      }
+    }
+
+    // Solve ATA * x = ATb via Gaussian elimination
+    var x = solveLinearSystem(ATA, ATb, totalParams);
+
+    var numerCoeffs = [];
+    for (var i = 0; i <= numerOrder; i++) numerCoeffs.push(x[i]);
+    var denomCoeffs = [1]; // a_0 = 1
+    for (var i = 0; i < denomOrder; i++) denomCoeffs.push(x[numP + i]);
+
+    return { numerCoeffs: numerCoeffs, denomCoeffs: denomCoeffs };
+  }
+
+  function solveLinearSystem(A, b, n) {
+    // Gaussian elimination with partial pivoting
+    var Ab = [];
+    for (var i = 0; i < n; i++) {
+      Ab[i] = new Float64Array(n + 1);
+      for (var j = 0; j < n; j++) Ab[i][j] = A[i][j];
+      Ab[i][n] = b[i];
+    }
+    for (var k = 0; k < n; k++) {
+      var maxVal = Math.abs(Ab[k][k]), maxRow = k;
+      for (var i = k + 1; i < n; i++) {
+        if (Math.abs(Ab[i][k]) > maxVal) { maxVal = Math.abs(Ab[i][k]); maxRow = i; }
+      }
+      if (maxRow !== k) { var tmp = Ab[k]; Ab[k] = Ab[maxRow]; Ab[maxRow] = tmp; }
+      if (Math.abs(Ab[k][k]) < 1e-30) continue;
+      for (var i = k + 1; i < n; i++) {
+        var f = Ab[i][k] / Ab[k][k];
+        for (var j = k + 1; j <= n; j++) Ab[i][j] -= f * Ab[k][j];
+        Ab[i][k] = 0;
+      }
+    }
+    var x = new Float64Array(n);
+    for (var i = n - 1; i >= 0; i--) {
+      var s = Ab[i][n];
+      for (var j = i + 1; j < n; j++) s -= Ab[i][j] * x[j];
+      x[i] = Math.abs(Ab[i][i]) > 1e-30 ? s / Ab[i][i] : 0;
+    }
+    return x;
+  }
+
+  // ── Order Estimation ──
+  function estimateOrder(frequencies, H_complex) {
+    var last = frequencies.length - 1;
+    var mid = Math.floor(last * 0.7);
+    if (mid === last || mid < 1) return { numerOrder: 1, denomOrder: 2 };
+
+    var magMid = Math.sqrt(H_complex[mid].re * H_complex[mid].re + H_complex[mid].im * H_complex[mid].im);
+    var magLast = Math.sqrt(H_complex[last].re * H_complex[last].re + H_complex[last].im * H_complex[last].im);
+    var gMid = 20 * Math.log10(Math.max(magMid, 1e-15));
+    var gLast = 20 * Math.log10(Math.max(magLast, 1e-15));
+    var fRatio = Math.log10(frequencies[last] / frequencies[mid]);
+    if (fRatio < 0.1) return { numerOrder: 1, denomOrder: 2 };
+
+    var slope = (gLast - gMid) / fRatio;
+    var estDenom = Math.max(1, Math.min(6, Math.round(Math.abs(slope) / 20)));
+    var estNumer = Math.max(0, estDenom - 1);
+    return { numerOrder: estNumer, denomOrder: estDenom };
+  }
+
+  // ── Fitting Error ──
+  function calcFittingError(frequencies, H_meas, numC, denC) {
+    var sumSqErr = 0, count = 0;
+    for (var k = 0; k < frequencies.length; k++) {
+      var w = frequencies[k];
+      // Evaluate N(jw) and D(jw)
+      var Nr = 0, Ni = 0, Dr = 0, Di = 0;
+      for (var p = 0; p < numC.length; p++) {
+        var wp = Math.pow(w, p);
+        var a = p * Math.PI / 2;
+        Nr += numC[p] * wp * Math.cos(a);
+        Ni += numC[p] * wp * Math.sin(a);
+      }
+      for (var p = 0; p < denC.length; p++) {
+        var wp = Math.pow(w, p);
+        var a = p * Math.PI / 2;
+        Dr += denC[p] * wp * Math.cos(a);
+        Di += denC[p] * wp * Math.sin(a);
+      }
+      var dMag2 = Dr * Dr + Di * Di;
+      if (dMag2 < 1e-30) continue;
+      // H_fitted = N/D
+      var fittedR = (Nr * Dr + Ni * Di) / dMag2;
+      var fittedI = (Ni * Dr - Nr * Di) / dMag2;
+      var fittedMag = Math.sqrt(fittedR * fittedR + fittedI * fittedI);
+      var measMag = Math.sqrt(H_meas[k].re * H_meas[k].re + H_meas[k].im * H_meas[k].im);
+
+      var fDB = 20 * Math.log10(Math.max(fittedMag, 1e-15));
+      var mDB = 20 * Math.log10(Math.max(measMag, 1e-15));
+      sumSqErr += (fDB - mDB) * (fDB - mDB);
+      count++;
+    }
+    return count > 0 ? Math.sqrt(sumSqErr / count) : 999;
+  }
+
+  // ── Main Analysis ──
+  function analyze(inputNode, outputNode) {
+    var acResult = VXA.ACAnalysis ? VXA.ACAnalysis.run(10, 1e6, 20, outputNode || 2) : null;
+    if (!acResult || acResult.length < 10) {
+      return { error: 'AC analysis returned insufficient data (need >= 10 points).' };
+    }
+
+    var frequencies = acResult.map(function(r) { return r.freq * 2 * Math.PI; }); // Hz→rad/s
+    var H_complex = acResult.map(function(r) {
+      var magNorm = r.magnitude;
+      var phRad = r.phase * Math.PI / 180;
+      return { re: magNorm * Math.cos(phRad), im: magNorm * Math.sin(phRad) };
+    });
+
+    var order = estimateOrder(frequencies, H_complex);
+    var fit = levyFit(frequencies, H_complex, order.numerOrder, order.denomOrder);
+    var zeros = findRoots(fit.numerCoeffs.slice());
+    var poles = findRoots(fit.denomCoeffs.slice());
+    var isStable = poles.every(function(p) { return p.re < 0; });
+    var dcGain = fit.denomCoeffs[0] !== 0 ? fit.numerCoeffs[0] / fit.denomCoeffs[0] : Infinity;
+
+    var resonances = [];
+    for (var i = 0; i < poles.length; i++) {
+      if (poles[i].im > 0.01) {
+        var wn = Math.sqrt(poles[i].re * poles[i].re + poles[i].im * poles[i].im);
+        var zeta = -poles[i].re / wn;
+        resonances.push({ frequency: wn / (2 * Math.PI), damping: zeta, quality: zeta > 0 ? 1 / (2 * zeta) : Infinity });
+      }
+    }
+
+    var fittingError = calcFittingError(frequencies, H_complex, fit.numerCoeffs, fit.denomCoeffs);
+
+    return {
+      poles: poles, zeros: zeros,
+      numerCoeffs: fit.numerCoeffs, denomCoeffs: fit.denomCoeffs,
+      numerOrder: order.numerOrder, denomOrder: order.denomOrder,
+      isStable: isStable, dcGain: dcGain,
+      dcGainDB: 20 * Math.log10(Math.max(Math.abs(dcGain), 1e-15)),
+      resonances: resonances, fittingError: fittingError,
+      acData: acResult // Keep raw AC data for overlay
+    };
+  }
+
+  return {
+    analyze: analyze,
+    findRoots: findRoots,
+    levyFit: levyFit,
+    estimateOrder: estimateOrder
+  };
+})();
 
 
 // ═══ graph.js ═══
@@ -8232,8 +8668,112 @@ function drawBode() {
   var logRange = Math.log10(fMax/fMin);
   for (var i = 0; i <= 4; i++) {
     var f = fMin * Math.pow(10, logRange*i/4);
-    var x = mx + pw*i/4;
-    c.fillText(fmtVal(f,'Hz'), x, py+ph+14);
+    var x2 = mx + pw*i/4;
+    c.fillText(fmtVal(f,'Hz'), x2, py+ph+14);
+  }
+
+  // ═══ Sprint 22: -3dB, Phase Margin, Gain Margin Markers ═══
+  var dcGain = d.mag[0];
+  var f3dBVal = null, fUnityVal = null, pmVal = null, gmVal = null;
+
+  // Find -3dB frequency
+  for (var i = 1; i < d.f.length; i++) {
+    if (d.mag[i] <= dcGain - 3 && d.mag[i - 1] > dcGain - 3) {
+      var ratio = (dcGain - 3 - d.mag[i - 1]) / (d.mag[i] - d.mag[i - 1]);
+      f3dBVal = d.f[i - 1] * Math.pow(d.f[i] / d.f[i - 1], ratio);
+      break;
+    }
+  }
+  // Find unity gain frequency (0dB crossing)
+  for (var i = 1; i < d.f.length; i++) {
+    if (d.mag[i] <= 0 && d.mag[i - 1] > 0) {
+      var ratio2 = (0 - d.mag[i - 1]) / (d.mag[i] - d.mag[i - 1]);
+      fUnityVal = d.f[i - 1] * Math.pow(d.f[i] / d.f[i - 1], ratio2);
+      // Phase at unity gain → phase margin
+      var phAtUnity = d.phase[i - 1] + ratio2 * (d.phase[i] - d.phase[i - 1]);
+      pmVal = 180 + phAtUnity;
+      break;
+    }
+  }
+  // Find gain margin (gain at -180° crossing)
+  for (var i = 1; i < d.f.length; i++) {
+    if (d.phase[i] <= -180 && d.phase[i - 1] > -180) {
+      var ratio3 = (-180 - d.phase[i - 1]) / (d.phase[i] - d.phase[i - 1]);
+      var magAt180 = d.mag[i - 1] + ratio3 * (d.mag[i] - d.mag[i - 1]);
+      gmVal = -magAt180;
+      break;
+    }
+  }
+
+  // Draw -3dB marker
+  if (f3dBVal) {
+    var f3x = mx + Math.log10(f3dBVal / fMin) / logRange * pw;
+    var dbLine = dcGain - 3;
+    var f3y = my + (1 - (dbLine - magMin) / (magMax - magMin)) * ph;
+    c.setLineDash([4, 3]); c.strokeStyle = 'rgba(0,224,158,0.5)'; c.lineWidth = 1;
+    // Horizontal -3dB line
+    c.beginPath(); c.moveTo(mx, f3y); c.lineTo(mx + pw, f3y); c.stroke();
+    // Vertical f3dB line
+    c.beginPath(); c.moveTo(f3x, my); c.lineTo(f3x, my + ph); c.stroke();
+    c.setLineDash([]);
+    // Dot at intersection
+    c.fillStyle = '#00e09e';
+    c.beginPath(); c.arc(f3x, f3y, 4, 0, Math.PI * 2); c.fill();
+    // Label
+    c.font = '9px "JetBrains Mono"'; c.textAlign = 'left'; c.fillStyle = '#00e09e';
+    c.fillText('f\u2083dB=' + fmtVal(f3dBVal, 'Hz'), f3x + 6, f3y - 6);
+  }
+
+  // Draw phase margin
+  if (pmVal !== null && fUnityVal) {
+    var fux = mx + Math.log10(fUnityVal / fMin) / logRange * pw;
+    // Vertical line in phase plot
+    c.setLineDash([3, 2]); c.lineWidth = 1;
+    c.strokeStyle = pmVal > 45 ? '#22cc44' : (pmVal > 30 ? '#ddaa00' : '#ff4444');
+    c.beginPath(); c.moveTo(fux, py); c.lineTo(fux, py + ph); c.stroke();
+    c.setLineDash([]);
+    // Phase margin annotation
+    var phMinus180y = py + (1 - (-180 - phMin) / (phMax - phMin)) * ph;
+    var phActualY = py + (1 - ((pmVal - 180) - phMin) / (phMax - phMin)) * ph;
+    // Arrow from -180 to actual phase
+    c.strokeStyle = pmVal > 45 ? '#22cc44' : (pmVal > 30 ? '#ddaa00' : '#ff4444');
+    c.lineWidth = 2;
+    c.beginPath(); c.moveTo(fux, phMinus180y); c.lineTo(fux, phActualY); c.stroke();
+    // Arrowhead
+    c.beginPath(); c.moveTo(fux, phActualY); c.lineTo(fux - 3, phActualY + 6); c.lineTo(fux + 3, phActualY + 6); c.fill();
+    // Label
+    c.font = 'bold 9px "JetBrains Mono"'; c.textAlign = 'left';
+    c.fillText('PM=' + pmVal.toFixed(1) + '\u00B0', fux + 6, (phMinus180y + phActualY) / 2);
+  }
+
+  // Draw gain margin
+  if (gmVal !== null) {
+    // Find -180° frequency position
+    for (var i = 1; i < d.f.length; i++) {
+      if (d.phase[i] <= -180 && d.phase[i - 1] > -180) {
+        var r4 = (-180 - d.phase[i - 1]) / (d.phase[i] - d.phase[i - 1]);
+        var fGM = d.f[i - 1] * Math.pow(d.f[i] / d.f[i - 1], r4);
+        var fgx = mx + Math.log10(fGM / fMin) / logRange * pw;
+        var zeroDbY = my + (1 - (0 - magMin) / (magMax - magMin)) * ph;
+        var magGMy = my + (1 - (-gmVal - magMin) / (magMax - magMin)) * ph;
+        c.setLineDash([3, 2]); c.strokeStyle = 'rgba(255,100,100,0.5)'; c.lineWidth = 1;
+        c.beginPath(); c.moveTo(fgx, my); c.lineTo(fgx, my + ph); c.stroke();
+        c.setLineDash([]);
+        // Arrow from actual to 0dB
+        c.strokeStyle = '#ff6644'; c.lineWidth = 2;
+        c.beginPath(); c.moveTo(fgx, magGMy); c.lineTo(fgx, zeroDbY); c.stroke();
+        c.fillStyle = '#ff6644'; c.font = 'bold 9px "JetBrains Mono"'; c.textAlign = 'left';
+        c.fillText('GM=' + gmVal.toFixed(1) + 'dB', fgx + 6, (zeroDbY + magGMy) / 2);
+        break;
+      }
+    }
+  }
+
+  // Draw unity gain frequency marker
+  if (fUnityVal) {
+    var fux2 = mx + Math.log10(fUnityVal / fMin) / logRange * pw;
+    c.fillStyle = '#888'; c.font = '8px "JetBrains Mono"'; c.textAlign = 'center';
+    c.fillText('f\u1D64=' + fmtVal(fUnityVal, 'Hz'), fux2, my + ph + 12);
   }
 }
 
@@ -8364,7 +8904,7 @@ function drawFFT() {
 
 
 // ═══ monte-carlo.js ═══
-// ──────── MONTE CARLO ────────
+// ──────── MONTE CARLO (Sprint 22 Enhanced) ────────
 var mcData = null;
 function runMonteCarlo(tolerance, runs) {
   tolerance = tolerance || 10; runs = runs || 200;
@@ -8409,19 +8949,91 @@ function drawMonteCarlo() {
   var binW=(mx-mn)/bins, hist=new Array(bins).fill(0);
   vals.forEach(function(v){var b=Math.min(bins-1,Math.floor((v-mn)/binW));hist[b]++;});
   var maxH=Math.max.apply(null,hist);
-  var mx2=50,my=30,pw=w-mx2-40,ph=h-my-40;
+  var mx2=50,my=30,pw=w-mx2-40,ph=h-my-50;
   var bw=pw/bins;
+
+  // Grid lines
+  c.strokeStyle='rgba(255,255,255,0.05)';c.lineWidth=0.5;
+  for(var gi=0;gi<=4;gi++){var gy=my+ph*gi/4;c.beginPath();c.moveTo(mx2,gy);c.lineTo(mx2+pw,gy);c.stroke();}
+
+  // Histogram bars with border
   for(var i=0;i<bins;i++){
     var bh=(hist[i]/maxH)*ph;
     var x=mx2+i*bw;
-    c.fillStyle='rgba(0,224,158,0.6)';c.fillRect(x,my+ph-bh,bw-1,bh);
-    c.strokeStyle='#00e09e';c.lineWidth=1;c.strokeRect(x,my+ph-bh,bw-1,bh);
+    c.fillStyle='rgba(0,224,158,0.5)';c.fillRect(x,my+ph-bh,bw-1,bh);
+    c.strokeStyle='rgba(0,224,158,0.8)';c.lineWidth=1;c.strokeRect(x,my+ph-bh,bw-1,bh);
   }
-  c.fillStyle='#e0e7f0';c.font='600 11px "JetBrains Mono"';c.textAlign='left';
-  c.fillText('Ortalama: '+fmtVal(mcData.mean,'V')+' | StdDev: '+fmtVal(mcData.stdDev,'V'),mx2,h-8);
-  c.fillText('Min: '+fmtVal(mcData.min,'V')+' | Max: '+fmtVal(mcData.max,'V')+' | N='+mcData.runs,mx2+pw/2,h-8);
-  c.fillStyle='#5a6a7a';c.font='10px "JetBrains Mono"';c.textAlign='center';
-  c.fillText('Tolerans: \u00B1'+mcData.tol+'%',w/2,my-8);
+
+  // ═══ Sprint 22: Normal distribution curve overlay ═══
+  var mu = mcData.mean, sigma = mcData.stdDev;
+  if (sigma > 0) {
+    // Scale: normal PDF peak = 1/(sigma*sqrt(2pi)), scale to match histogram
+    var pdfPeak = 1 / (sigma * Math.sqrt(2 * Math.PI));
+    var pdfScale = (maxH * binW) / pdfPeak; // Scale to match histogram area
+    c.strokeStyle = '#ff6644'; c.lineWidth = 2; c.setLineDash([]);
+    c.beginPath();
+    for (var xi = 0; xi <= pw; xi += 2) {
+      var xVal = mn + (mx - mn) * xi / pw;
+      var pdf = Math.exp(-0.5 * Math.pow((xVal - mu) / sigma, 2)) / (sigma * Math.sqrt(2 * Math.PI));
+      var yPx = my + ph - (pdf * pdfScale / maxH) * ph;
+      if (xi === 0) c.moveTo(mx2 + xi, yPx); else c.lineTo(mx2 + xi, yPx);
+    }
+    c.stroke();
+
+    // ═══ µ ± σ lines ═══
+    var sigmaLines = [
+      { n: 1, color: '#22cc44', label: '\u00B11\u03C3' },
+      { n: 2, color: '#ddaa00', label: '\u00B12\u03C3' },
+      { n: 3, color: '#ff4444', label: '\u00B13\u03C3' }
+    ];
+    for (var si = 0; si < sigmaLines.length; si++) {
+      var sl = sigmaLines[si];
+      var xLow = mx2 + ((mu - sl.n * sigma) - mn) / (mx - mn) * pw;
+      var xHigh = mx2 + ((mu + sl.n * sigma) - mn) / (mx - mn) * pw;
+      c.setLineDash([3, 3]); c.strokeStyle = sl.color; c.lineWidth = 1;
+      if (xLow >= mx2 && xLow <= mx2 + pw) { c.beginPath(); c.moveTo(xLow, my); c.lineTo(xLow, my + ph); c.stroke(); }
+      if (xHigh >= mx2 && xHigh <= mx2 + pw) { c.beginPath(); c.moveTo(xHigh, my); c.lineTo(xHigh, my + ph); c.stroke(); }
+      c.setLineDash([]);
+    }
+    // µ line (white solid)
+    var muX = mx2 + (mu - mn) / (mx - mn) * pw;
+    c.strokeStyle = '#ffffff'; c.lineWidth = 1.5;
+    c.beginPath(); c.moveTo(muX, my); c.lineTo(muX, my + ph); c.stroke();
+  }
+
+  // ═══ Statistics box ═══
+  var bx = mx2 + pw - 140, by = my + 6;
+  c.fillStyle = 'rgba(0,0,0,0.75)'; c.fillRect(bx, by, 136, 62);
+  c.strokeStyle = 'rgba(255,255,255,0.15)'; c.lineWidth = 0.5; c.strokeRect(bx, by, 136, 62);
+  c.font = '9px "JetBrains Mono"'; c.textAlign = 'left';
+  c.fillStyle = '#ffffff'; c.fillText('\u03BC = ' + fmtVal(mu, 'V'), bx + 6, by + 13);
+  c.fillStyle = '#aaa'; c.fillText('\u03C3 = ' + fmtVal(sigma, 'V'), bx + 6, by + 26);
+  c.fillText('3\u03C3 = [' + fmtVal(mu - 3 * sigma, 'V') + ', ' + fmtVal(mu + 3 * sigma, 'V') + ']', bx + 6, by + 39);
+  // Yield within ±5%
+  if (mu > 0) {
+    var withinBand = vals.filter(function(v) { return Math.abs(v - mu) / mu < 0.05; }).length;
+    var yield5 = (withinBand / vals.length * 100).toFixed(1);
+    c.fillStyle = parseFloat(yield5) > 95 ? '#22cc44' : '#ddaa00';
+    c.fillText('Yield(\u00B15%): ' + yield5 + '%', bx + 6, by + 52);
+  }
+
+  // X axis labels
+  c.fillStyle = '#5a6a7a'; c.font = '9px "JetBrains Mono"'; c.textAlign = 'center';
+  for (var li = 0; li <= 4; li++) {
+    var lv = mn + (mx - mn) * li / 4;
+    c.fillText(fmtVal(lv, 'V'), mx2 + pw * li / 4, my + ph + 14);
+  }
+
+  // Legend
+  c.font = '9px monospace';
+  c.fillStyle = '#ff6644'; c.fillText('\u2500\u2500 Normal', mx2 + 4, my + 12);
+  c.fillStyle = '#22cc44'; c.fillText('| 1\u03C3', mx2 + 70, my + 12);
+  c.fillStyle = '#ddaa00'; c.fillText('| 2\u03C3', mx2 + 96, my + 12);
+  c.fillStyle = '#ff4444'; c.fillText('| 3\u03C3', mx2 + 122, my + 12);
+
+  // Title
+  c.fillStyle = '#e0e7f0'; c.font = '600 11px Outfit'; c.textAlign = 'center';
+  c.fillText('Monte Carlo (\u00B1' + mcData.tol + '%, N=' + mcData.runs + ')', w / 2, my - 10);
 }
 
 
@@ -13810,6 +14422,2232 @@ function drawEmptyCanvasHint(ctx, w, h) {
 }
 
 
+// ═══ advanced-analysis.js ═══
+// ══════════════════════════════════════════════════════════════
+// Sprint 21: Advanced Analysis UI — Pole-Zero, Contour Sweep, Transfer Function
+// ══════════════════════════════════════════════════════════════
+
+// ── VXA.ContourSweep ──
+VXA.ContourSweep = (function() {
+  'use strict';
+
+  function generateRange(min, max, steps, scale) {
+    var vals = new Float64Array(steps);
+    if (scale === 'log') {
+      var lMin = Math.log10(Math.max(min, 1e-15)), lMax = Math.log10(Math.max(max, 1e-15));
+      for (var i = 0; i < steps; i++) vals[i] = Math.pow(10, lMin + (lMax - lMin) * i / (steps - 1));
+    } else {
+      for (var i = 0; i < steps; i++) vals[i] = min + (max - min) * i / (steps - 1);
+    }
+    return vals;
+  }
+
+  function sweep(options) {
+    var p1 = options.param1, p2 = options.param2, out = options.output;
+    var s1 = p1.steps || 15, s2 = p2.steps || 15;
+    var v1 = generateRange(p1.min, p1.max, s1, p1.scale || 'linear');
+    var v2 = generateRange(p2.min, p2.max, s2, p2.scale || 'linear');
+    var results = [];
+    for (var j = 0; j < s2; j++) results[j] = new Float64Array(s1);
+    var minVal = Infinity, maxVal = -Infinity;
+
+    var part1 = S.parts.find(function(p) { return p.id === p1.partId; });
+    var part2 = S.parts.find(function(p) { return p.id === p2.partId; });
+    if (!part1 || !part2) return { error: 'Parts not found' };
+    var orig1 = part1.val, orig2 = part2.val;
+
+    for (var j = 0; j < s2; j++) {
+      part2.val = v2[j];
+      for (var i = 0; i < s1; i++) {
+        part1.val = v1[i];
+        var m = measureDC(out);
+        results[j][i] = m;
+        if (!isNaN(m) && m < minVal) minVal = m;
+        if (!isNaN(m) && m > maxVal) maxVal = m;
+      }
+    }
+
+    part1.val = orig1; part2.val = orig2;
+    if (typeof buildCircuitFromCanvas === 'function') buildCircuitFromCanvas();
+
+    return {
+      param1: { label: part1.name || 'P1', values: v1 },
+      param2: { label: part2.name || 'P2', values: v2 },
+      results: results, minVal: minVal, maxVal: maxVal,
+      totalSimulations: s1 * s2
+    };
+  }
+
+  function measureDC(output) {
+    try {
+      if (typeof buildCircuitFromCanvas === 'function') buildCircuitFromCanvas();
+      S.sim.t = 0; S._nodeVoltages = null;
+      var dt = typeof SIM_DT !== 'undefined' ? SIM_DT : 1e-5;
+      for (var i = 0; i < 100; i++) {
+        S.sim.t += dt;
+        if (typeof solveStep === 'function') solveStep(dt);
+      }
+      if (output && output.type === 'voltage' && S._nodeVoltages) {
+        var ni = output.nodeIdx || 1;
+        return S._nodeVoltages[ni] || 0;
+      }
+      // Default: read node 1 voltage
+      return S._nodeVoltages ? (S._nodeVoltages[1] || 0) : 0;
+    } catch (e) { return NaN; }
+  }
+
+  function generateViridis(n) {
+    var pal = [];
+    for (var i = 0; i < n; i++) {
+      var t = i / (n - 1);
+      // Approximate viridis: dark purple → teal → yellow
+      var r, g, b;
+      if (t < 0.25) {
+        r = 68 + t * 4 * (33 - 68); g = 1 + t * 4 * 65; b = 84 + t * 4 * (133 - 84);
+      } else if (t < 0.5) {
+        var u = (t - 0.25) * 4;
+        r = 33 + u * (20 - 33); g = 65 + u * (130 - 65); b = 133 + u * (108 - 133);
+      } else if (t < 0.75) {
+        var u = (t - 0.5) * 4;
+        r = 20 + u * (120 - 20); g = 130 + u * (190 - 130); b = 108 + u * (55 - 108);
+      } else {
+        var u = (t - 0.75) * 4;
+        r = 120 + u * (253 - 120); g = 190 + u * (231 - 190); b = 55 + u * (37 - 55);
+      }
+      pal.push('rgb(' + Math.round(Math.max(0, Math.min(255, r))) + ',' + Math.round(Math.max(0, Math.min(255, g))) + ',' + Math.round(Math.max(0, Math.min(255, b))) + ')');
+    }
+    return pal;
+  }
+
+  function drawContourPlot(ctx, sr, x, y, w, h) {
+    if (!sr || !sr.results) return;
+    var PAL = generateViridis(64);
+    var s1 = sr.param1.values.length, s2 = sr.param2.values.length;
+    var cw = w / s1, ch = h / s2;
+    var minV = sr.minVal, maxV = sr.maxVal;
+    var range = maxV - minV;
+    if (range < 1e-15) range = 1;
+
+    // Cells
+    for (var j = 0; j < s2; j++) {
+      for (var i = 0; i < s1; i++) {
+        var val = sr.results[j][i];
+        if (isNaN(val)) {
+          ctx.fillStyle = '#333';
+        } else {
+          var norm = (val - minV) / range;
+          ctx.fillStyle = PAL[Math.floor(Math.max(0, Math.min(63, norm * 63)))];
+        }
+        ctx.fillRect(x + i * cw, y + (s2 - 1 - j) * ch, cw + 0.5, ch + 0.5);
+      }
+    }
+
+    // Iso-lines (marching squares simplified)
+    var levels = 6;
+    ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+    ctx.lineWidth = 0.5;
+    for (var lv = 1; lv < levels; lv++) {
+      var threshold = minV + range * lv / levels;
+      for (var j = 0; j < s2 - 1; j++) {
+        for (var i = 0; i < s1 - 1; i++) {
+          var v00 = sr.results[j][i], v10 = sr.results[j][i + 1];
+          var v01 = sr.results[j + 1][i], v11 = sr.results[j + 1][i + 1];
+          if (isNaN(v00) || isNaN(v10) || isNaN(v01) || isNaN(v11)) continue;
+          var ci = 0;
+          if (v00 >= threshold) ci |= 1;
+          if (v10 >= threshold) ci |= 2;
+          if (v11 >= threshold) ci |= 4;
+          if (v01 >= threshold) ci |= 8;
+          if (ci === 0 || ci === 15) continue;
+          // Simplified: draw line from interpolated edge crossings
+          var cx = x + (i + 0.5) * cw, cy = y + (s2 - 1.5 - j) * ch;
+          ctx.beginPath(); ctx.arc(cx, cy, 1, 0, Math.PI * 2); ctx.stroke();
+        }
+      }
+    }
+
+    // Axes labels
+    ctx.fillStyle = '#8899aa'; ctx.font = '9px "JetBrains Mono",monospace';
+    // X axis (param1)
+    ctx.textAlign = 'center';
+    for (var i = 0; i < s1; i += Math.max(1, Math.floor(s1 / 5))) {
+      ctx.fillText(fmtEng(sr.param1.values[i]), x + (i + 0.5) * cw, y + h + 12);
+    }
+    ctx.fillText(sr.param1.label, x + w / 2, y + h + 24);
+    // Y axis (param2)
+    ctx.textAlign = 'right';
+    for (var j = 0; j < s2; j += Math.max(1, Math.floor(s2 / 5))) {
+      ctx.fillText(fmtEng(sr.param2.values[j]), x - 4, y + (s2 - 0.5 - j) * ch + 3);
+    }
+    ctx.save(); ctx.translate(x - 30, y + h / 2); ctx.rotate(-Math.PI / 2);
+    ctx.textAlign = 'center'; ctx.fillText(sr.param2.label, 0, 0); ctx.restore();
+
+    // Color bar
+    var bx = x + w + 12, bw = 14;
+    for (var i = 0; i < 64; i++) {
+      ctx.fillStyle = PAL[63 - i];
+      ctx.fillRect(bx, y + h * i / 64, bw, h / 64 + 1);
+    }
+    ctx.fillStyle = '#8899aa'; ctx.textAlign = 'left'; ctx.font = '9px monospace';
+    ctx.fillText(fmtEng(maxV), bx + bw + 4, y + 8);
+    ctx.fillText(fmtEng(minV), bx + bw + 4, y + h);
+    ctx.fillText(fmtEng((minV + maxV) / 2), bx + bw + 4, y + h / 2 + 3);
+
+    // Min/Max markers
+    var minI = 0, minJ = 0, maxI = 0, maxJ = 0;
+    for (var j = 0; j < s2; j++) {
+      for (var i = 0; i < s1; i++) {
+        if (sr.results[j][i] <= minV) { minI = i; minJ = j; }
+        if (sr.results[j][i] >= maxV) { maxI = i; maxJ = j; }
+      }
+    }
+    ctx.fillStyle = '#4488ff'; ctx.font = '14px sans-serif';
+    ctx.fillText('\u2605', x + (minI + 0.2) * cw, y + (s2 - 0.3 - minJ) * ch);
+    ctx.fillStyle = '#ff4444';
+    ctx.fillText('\u2605', x + (maxI + 0.2) * cw, y + (s2 - 0.3 - maxJ) * ch);
+  }
+
+  function fmtEng(v) {
+    if (Math.abs(v) < 1e-12) return '0';
+    var av = Math.abs(v);
+    if (av >= 1e6) return (v / 1e6).toFixed(1) + 'M';
+    if (av >= 1e3) return (v / 1e3).toFixed(1) + 'k';
+    if (av >= 1) return v.toFixed(av >= 100 ? 0 : 1);
+    if (av >= 1e-3) return (v * 1e3).toFixed(1) + 'm';
+    if (av >= 1e-6) return (v * 1e6).toFixed(1) + '\u00B5';
+    if (av >= 1e-9) return (v * 1e9).toFixed(1) + 'n';
+    return (v * 1e12).toFixed(1) + 'p';
+  }
+
+  return { sweep: sweep, drawContourPlot: drawContourPlot, generateRange: generateRange, generateViridis: generateViridis };
+})();
+
+// ── VXA.TransferFunc ──
+VXA.TransferFunc = (function() {
+  'use strict';
+  var SUPER = '\u2070\u00B9\u00B2\u00B3\u2074\u2075\u2076\u2077\u2078\u2079';
+
+  function toSuper(n) {
+    return String(n).split('').map(function(d) { return SUPER[parseInt(d)] || d; }).join('');
+  }
+
+  function formatCoefficient(c) {
+    var ac = Math.abs(c);
+    if (ac < 1e-15) return '0';
+    if (ac >= 1e6 || ac < 0.001) {
+      var exp = Math.floor(Math.log10(ac));
+      var man = ac / Math.pow(10, exp);
+      return man.toFixed(2) + '\u00D710' + toSuper(exp);
+    }
+    return ac >= 100 ? ac.toFixed(0) : ac >= 1 ? ac.toFixed(2) : ac.toFixed(3);
+  }
+
+  function formatPolynomial(coeffs, variable) {
+    if (!coeffs || coeffs.length === 0) return '0';
+    var v = variable || 's';
+    var terms = [];
+    for (var i = coeffs.length - 1; i >= 0; i--) {
+      var c = coeffs[i];
+      if (Math.abs(c) < 1e-15) continue;
+      var cs = formatCoefficient(c);
+      var vs = '';
+      if (i === 0) vs = '';
+      else if (i === 1) vs = v;
+      else vs = v + toSuper(i);
+
+      if (Math.abs(Math.abs(c) - 1) < 1e-10 && i > 0) cs = '';
+      var term = cs + vs;
+      if (terms.length > 0 && c > 0) term = '+ ' + term;
+      else if (c < 0 && terms.length > 0) term = '\u2212 ' + formatCoefficient(Math.abs(c)) + vs;
+      else if (c < 0) term = '\u2212' + formatCoefficient(Math.abs(c)) + vs;
+      terms.push(term);
+    }
+    return terms.join(' ') || '0';
+  }
+
+  function formatFactored(poles, zeros, dcGain) {
+    var numParts = [], denParts = [];
+    var usedZ = {}, usedP = {};
+
+    for (var i = 0; i < zeros.length; i++) {
+      if (usedZ[i]) continue;
+      if (Math.abs(zeros[i].im) < 1e-10) {
+        numParts.push(formatRealFactor(zeros[i].re));
+      } else {
+        for (var j = i + 1; j < zeros.length; j++) {
+          if (!usedZ[j] && Math.abs(zeros[i].re - zeros[j].re) < 1e-6 && Math.abs(zeros[i].im + zeros[j].im) < 1e-6) {
+            numParts.push(formatComplexPair(zeros[i]));
+            usedZ[j] = true; break;
+          }
+        }
+      }
+      usedZ[i] = true;
+    }
+    for (var i = 0; i < poles.length; i++) {
+      if (usedP[i]) continue;
+      if (Math.abs(poles[i].im) < 1e-10) {
+        denParts.push(formatRealFactor(poles[i].re));
+      } else {
+        for (var j = i + 1; j < poles.length; j++) {
+          if (!usedP[j] && Math.abs(poles[i].re - poles[j].re) < 1e-6 && Math.abs(poles[i].im + poles[j].im) < 1e-6) {
+            denParts.push(formatComplexPair(poles[i]));
+            usedP[j] = true; break;
+          }
+        }
+      }
+      usedP[i] = true;
+    }
+
+    return {
+      gain: formatCoefficient(dcGain),
+      numerator: numParts.length > 0 ? numParts.join(' \u00B7 ') : '1',
+      denominator: denParts.length > 0 ? denParts.join(' \u00B7 ') : '1'
+    };
+  }
+
+  function formatRealFactor(sigma) {
+    if (Math.abs(sigma) < 1e-10) return 's';
+    var sign = sigma < 0 ? '+ ' : '\u2212 ';
+    return '(s ' + sign + formatCoefficient(Math.abs(sigma)) + ')';
+  }
+
+  function formatComplexPair(root) {
+    var wn = Math.sqrt(root.re * root.re + root.im * root.im);
+    var zeta = -root.re / wn;
+    return '(s\u00B2 + ' + formatCoefficient(2 * zeta * wn) + 's + ' + formatCoefficient(wn * wn) + ')';
+  }
+
+  function drawTransferFunction(ctx, pzResult, x, y, maxWidth) {
+    if (!pzResult || !pzResult.numerCoeffs) return;
+    ctx.font = '13px "Courier New",monospace';
+    ctx.fillStyle = '#e0e0e0';
+    var numStr = formatPolynomial(pzResult.numerCoeffs, 's');
+    var denStr = formatPolynomial(pzResult.denomCoeffs, 's');
+    var numW = ctx.measureText(numStr).width;
+    var denW = ctx.measureText(denStr).width;
+    var fracW = Math.max(numW, denW) + 20;
+    var hsW = ctx.measureText('H(s) = ').width;
+
+    ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.fillText('H(s) = ', x, y + 10);
+    ctx.fillText(numStr, x + hsW + (fracW - numW) / 2, y - 4);
+    ctx.strokeStyle = '#888'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(x + hsW, y + 5); ctx.lineTo(x + hsW + fracW, y + 5); ctx.stroke();
+    ctx.fillStyle = '#e0e0e0';
+    ctx.fillText(denStr, x + hsW + (fracW - denW) / 2, y + 22);
+
+    if (pzResult.poles && pzResult.zeros) {
+      var fac = formatFactored(pzResult.poles, pzResult.zeros, pzResult.dcGain);
+      ctx.font = '11px "Courier New",monospace'; ctx.fillStyle = '#999';
+      ctx.fillText('= ' + fac.gain + ' \u00D7 ' + fac.numerator + ' / ' + fac.denominator, x, y + 48);
+    }
+  }
+
+  return {
+    formatPolynomial: formatPolynomial, formatCoefficient: formatCoefficient,
+    formatFactored: formatFactored, formatRealFactor: formatRealFactor,
+    formatComplexPair: formatComplexPair, drawTransferFunction: drawTransferFunction
+  };
+})();
+
+// ── Tab Data + Draw Functions ──
+var poleZeroData = null;
+var contourSweepData = null;
+
+function formatComplexNumber(c) {
+  var re = c.re.toExponential(1);
+  if (Math.abs(c.im) < 1e-10) return re;
+  var sign = c.im >= 0 ? '+' : '-';
+  return re + ' ' + sign + ' j' + Math.abs(c.im).toExponential(1);
+}
+
+// ── s-Plane Drawing ──
+function drawSPlane(ctx, poles, zeros, x, y, w, h) {
+  var cx = x + w / 2, cy = y + h / 2;
+  var maxAbs = 1;
+  var all = (poles || []).concat(zeros || []);
+  for (var i = 0; i < all.length; i++) {
+    maxAbs = Math.max(maxAbs, Math.abs(all[i].re) * 1.3, Math.abs(all[i].im) * 1.3);
+  }
+  var sc = (Math.min(w, h) / 2 - 20) / maxAbs;
+
+  // Background: stable (left) vs unstable (right)
+  ctx.fillStyle = 'rgba(0,80,0,0.06)';
+  ctx.fillRect(x, y, w / 2, h);
+  ctx.fillStyle = 'rgba(80,0,0,0.06)';
+  ctx.fillRect(x + w / 2, y, w / 2, h);
+
+  // Grid
+  ctx.strokeStyle = 'rgba(255,255,255,0.06)'; ctx.lineWidth = 0.5;
+  var gridStep = maxAbs / 3;
+  for (var g = -3; g <= 3; g++) {
+    var gx = cx + g * gridStep * sc;
+    ctx.beginPath(); ctx.moveTo(gx, y); ctx.lineTo(gx, y + h); ctx.stroke();
+    var gy = cy + g * gridStep * sc;
+    ctx.beginPath(); ctx.moveTo(x, gy); ctx.lineTo(x + w, gy); ctx.stroke();
+  }
+
+  // Axes
+  ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(x, cy); ctx.lineTo(x + w, cy); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx, y); ctx.lineTo(cx, y + h); ctx.stroke();
+
+  ctx.font = '10px monospace'; ctx.fillStyle = '#666'; ctx.textAlign = 'left';
+  ctx.fillText('Re', x + w - 18, cy - 5);
+  ctx.fillText('j\u03C9', cx + 4, y + 12);
+
+  // Poles: x marks
+  for (var i = 0; i < (poles || []).length; i++) {
+    var px = cx + poles[i].re * sc, py = cy - poles[i].im * sc;
+    ctx.strokeStyle = '#ff4444'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(px - 5, py - 5); ctx.lineTo(px + 5, py + 5); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(px + 5, py - 5); ctx.lineTo(px - 5, py + 5); ctx.stroke();
+  }
+
+  // Zeros: circles
+  for (var i = 0; i < (zeros || []).length; i++) {
+    var zx = cx + zeros[i].re * sc, zy = cy - zeros[i].im * sc;
+    ctx.strokeStyle = '#4488ff'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(zx, zy, 5, 0, Math.PI * 2); ctx.stroke();
+  }
+
+  // Labels
+  ctx.font = '8px monospace';
+  for (var i = 0; i < (poles || []).length; i++) {
+    var px = cx + poles[i].re * sc, py = cy - poles[i].im * sc;
+    ctx.fillStyle = '#ff6666';
+    ctx.fillText(formatComplexNumber(poles[i]), px + 8, py - 4);
+  }
+  for (var i = 0; i < (zeros || []).length; i++) {
+    var zx = cx + zeros[i].re * sc, zy = cy - zeros[i].im * sc;
+    ctx.fillStyle = '#6688ff';
+    ctx.fillText(formatComplexNumber(zeros[i]), zx + 8, zy - 4);
+  }
+}
+
+// ── Tab Draw Functions ──
+function drawPoleZero() {
+  var cvs = document.getElementById('PZC');
+  if (!cvs) return;
+  var r = cvs.parentElement.getBoundingClientRect();
+  if (r.width < 10 || r.height < 10) return;
+  cvs.width = r.width * DPR; cvs.height = r.height * DPR;
+  cvs.style.width = r.width + 'px'; cvs.style.height = r.height + 'px';
+  var c = cvs.getContext('2d'); c.setTransform(DPR, 0, 0, DPR, 0, 0);
+  var w = r.width, h = r.height;
+  c.fillStyle = '#080c14'; c.fillRect(0, 0, w, h);
+
+  if (!poleZeroData || poleZeroData.error) {
+    c.fillStyle = '#5a6a7a'; c.font = '13px Outfit'; c.textAlign = 'center';
+    c.fillText(poleZeroData ? poleZeroData.error : 'Click "Run" to analyze poles & zeros.', w / 2, h / 2);
+    return;
+  }
+
+  var d = poleZeroData;
+  // s-plane on left
+  var sPlaneSize = Math.min(h - 80, w * 0.5 - 20);
+  drawSPlane(c, d.poles, d.zeros, 10, 10, sPlaneSize, sPlaneSize);
+
+  // Info panel on right
+  var ix = sPlaneSize + 30, iy = 14;
+  c.font = '12px "JetBrains Mono",monospace'; c.textAlign = 'left';
+  c.fillStyle = d.isStable ? '#22cc44' : '#ff4444';
+  c.fillText(d.isStable ? '\u2705 Stable' : '\u274C Unstable', ix, iy); iy += 18;
+  c.fillStyle = '#aaa';
+  c.fillText('DC Gain: ' + d.dcGainDB.toFixed(1) + ' dB', ix, iy); iy += 16;
+  c.fillText('Fit Error: ' + d.fittingError.toFixed(1) + ' dB RMS', ix, iy); iy += 16;
+  c.fillText('Order: N=' + d.numerOrder + ' / D=' + d.denomOrder, ix, iy); iy += 22;
+
+  // Poles table
+  c.fillStyle = '#ff6666'; c.fillText('Poles (\u00D7):', ix, iy); iy += 14;
+  c.font = '10px monospace'; c.fillStyle = '#ccc';
+  for (var i = 0; i < d.poles.length; i++) {
+    var p = d.poles[i];
+    var line = formatComplexNumber(p);
+    if (Math.abs(p.im) > 0.01) {
+      var wn = Math.sqrt(p.re * p.re + p.im * p.im);
+      line += '  f=' + (wn / (2 * Math.PI)).toExponential(1) + 'Hz';
+    }
+    c.fillText(line, ix + 6, iy); iy += 13;
+    if (iy > h - 80) break;
+  }
+  iy += 8;
+  // Zeros table
+  c.fillStyle = '#6688ff'; c.font = '12px "JetBrains Mono",monospace';
+  c.fillText('Zeros (\u25CB):', ix, iy); iy += 14;
+  c.font = '10px monospace'; c.fillStyle = '#ccc';
+  for (var i = 0; i < d.zeros.length; i++) {
+    c.fillText(formatComplexNumber(d.zeros[i]), ix + 6, iy); iy += 13;
+    if (iy > h - 80) break;
+  }
+
+  // Transfer function at bottom
+  iy = Math.max(iy + 10, h - 65);
+  VXA.TransferFunc.drawTransferFunction(c, d, 10, iy, w - 20);
+}
+
+function runPoleZero() {
+  if (!S.parts.length) return;
+  poleZeroData = VXA.PoleZero.analyze(1, 2);
+  var ov = document.getElementById('ov-polezero');
+  if (ov) ov.style.display = 'none';
+  switchTab('polezero');
+}
+
+function drawContour2D() {
+  var cvs = document.getElementById('CONTOUR2D');
+  if (!cvs) return;
+  var r = cvs.parentElement.getBoundingClientRect();
+  if (r.width < 10 || r.height < 10) return;
+  cvs.width = r.width * DPR; cvs.height = r.height * DPR;
+  cvs.style.width = r.width + 'px'; cvs.style.height = r.height + 'px';
+  var c = cvs.getContext('2d'); c.setTransform(DPR, 0, 0, DPR, 0, 0);
+  var w = r.width, h = r.height;
+  c.fillStyle = '#080c14'; c.fillRect(0, 0, w, h);
+
+  if (!contourSweepData || contourSweepData.error) {
+    c.fillStyle = '#5a6a7a'; c.font = '13px Outfit'; c.textAlign = 'center';
+    c.fillText(contourSweepData ? contourSweepData.error : 'Select two parameters and click "Run".', w / 2, h / 2);
+    return;
+  }
+
+  VXA.ContourSweep.drawContourPlot(c, contourSweepData, 50, 10, w - 110, h - 50);
+}
+
+function runContour2D() {
+  if (S.sel.length < 1) return;
+  var part1 = S.parts.find(function(p) { return p.id === S.sel[0]; });
+  if (!part1) return;
+  // Find a second passive
+  var part2 = null;
+  for (var i = 0; i < S.parts.length; i++) {
+    if (S.parts[i].id !== part1.id && ['resistor', 'capacitor', 'inductor'].indexOf(S.parts[i].type) >= 0) {
+      part2 = S.parts[i]; break;
+    }
+  }
+  if (!part2) { contourSweepData = { error: 'Need 2+ passive components.' }; switchTab('contour2d'); return; }
+
+  var v1 = part1.val || 1000, v2 = part2.val || 1000;
+  contourSweepData = VXA.ContourSweep.sweep({
+    param1: { partId: part1.id, min: v1 * 0.1, max: v1 * 10, steps: 15, scale: 'log' },
+    param2: { partId: part2.id, min: v2 * 0.1, max: v2 * 10, steps: 15, scale: 'log' },
+    output: { type: 'voltage', nodeIdx: 1 }
+  });
+  contourSweepData.param1.label = part1.name;
+  contourSweepData.param2.label = part2.name;
+  var ov = document.getElementById('ov-contour2d');
+  if (ov) ov.style.display = 'none';
+  switchTab('contour2d');
+}
+
+function drawTransferFunc() {
+  var cvs = document.getElementById('TFUNC');
+  if (!cvs) return;
+  var r = cvs.parentElement.getBoundingClientRect();
+  if (r.width < 10 || r.height < 10) return;
+  cvs.width = r.width * DPR; cvs.height = r.height * DPR;
+  cvs.style.width = r.width + 'px'; cvs.style.height = r.height + 'px';
+  var c = cvs.getContext('2d'); c.setTransform(DPR, 0, 0, DPR, 0, 0);
+  var w = r.width, h = r.height;
+  c.fillStyle = '#080c14'; c.fillRect(0, 0, w, h);
+
+  if (!poleZeroData || poleZeroData.error || !poleZeroData.numerCoeffs) {
+    c.fillStyle = '#5a6a7a'; c.font = '13px Outfit'; c.textAlign = 'center';
+    c.fillText('Run Pole-Zero analysis first.', w / 2, h / 2);
+    return;
+  }
+
+  // H(s) display
+  VXA.TransferFunc.drawTransferFunction(c, poleZeroData, 20, 20, w - 40);
+
+  // Bode overlay: measured vs fitted
+  if (poleZeroData.acData && poleZeroData.acData.length > 2) {
+    var mx = 60, my = 90, pw = w - mx - 20, ph = h - my - 30;
+    // Axes
+    c.strokeStyle = 'rgba(255,255,255,0.1)'; c.lineWidth = 0.5;
+    for (var gi = 0; gi <= 5; gi++) {
+      var gy = my + ph * gi / 5;
+      c.beginPath(); c.moveTo(mx, gy); c.lineTo(mx + pw, gy); c.stroke();
+    }
+    c.strokeStyle = 'rgba(255,255,255,0.2)'; c.lineWidth = 1;
+    c.beginPath(); c.moveTo(mx, my + ph); c.lineTo(mx + pw, my + ph); ctx.stroke && c.stroke();
+    c.beginPath(); c.moveTo(mx, my); c.lineTo(mx, my + ph); c.stroke();
+
+    var acD = poleZeroData.acData;
+    var fMin = Math.log10(acD[0].freq), fMax = Math.log10(acD[acD.length - 1].freq);
+    var gMin = -40, gMax = 20;
+    for (var i = 0; i < acD.length; i++) {
+      if (acD[i].gain_dB < gMin) gMin = acD[i].gain_dB - 5;
+      if (acD[i].gain_dB > gMax) gMax = acD[i].gain_dB + 5;
+    }
+
+    // Measured (blue solid)
+    c.strokeStyle = '#3b82f6'; c.lineWidth = 2;
+    c.beginPath();
+    for (var i = 0; i < acD.length; i++) {
+      var fx = mx + (Math.log10(acD[i].freq) - fMin) / (fMax - fMin) * pw;
+      var fy = my + (1 - (acD[i].gain_dB - gMin) / (gMax - gMin)) * ph;
+      if (i === 0) c.moveTo(fx, fy); else c.lineTo(fx, fy);
+    }
+    c.stroke();
+
+    // Fitted (red dashed)
+    c.strokeStyle = '#ff4444'; c.lineWidth = 1.5; c.setLineDash([4, 3]);
+    c.beginPath();
+    var numC = poleZeroData.numerCoeffs, denC = poleZeroData.denomCoeffs;
+    for (var i = 0; i < acD.length; i++) {
+      var w2 = acD[i].freq * 2 * Math.PI;
+      var Nr = 0, Ni = 0, Dr = 0, Di = 0;
+      for (var p = 0; p < numC.length; p++) {
+        var wp = Math.pow(w2, p), ang = p * Math.PI / 2;
+        Nr += numC[p] * wp * Math.cos(ang); Ni += numC[p] * wp * Math.sin(ang);
+      }
+      for (var p = 0; p < denC.length; p++) {
+        var wp = Math.pow(w2, p), ang = p * Math.PI / 2;
+        Dr += denC[p] * wp * Math.cos(ang); Di += denC[p] * wp * Math.sin(ang);
+      }
+      var dMag = Dr * Dr + Di * Di;
+      var fMag = dMag > 1e-30 ? Math.sqrt((Nr * Dr + Ni * Di) * (Nr * Dr + Ni * Di) + (Ni * Dr - Nr * Di) * (Ni * Dr - Nr * Di)) / Math.sqrt(dMag) : 1e-15;
+      var fDB = 20 * Math.log10(Math.max(fMag, 1e-15));
+      var fx = mx + (Math.log10(acD[i].freq) - fMin) / (fMax - fMin) * pw;
+      var fy = my + (1 - (fDB - gMin) / (gMax - gMin)) * ph;
+      if (i === 0) c.moveTo(fx, fy); else c.lineTo(fx, fy);
+    }
+    c.stroke(); c.setLineDash([]);
+
+    // Legend
+    c.font = '10px monospace';
+    c.fillStyle = '#3b82f6'; c.fillText('\u2500\u2500 Measured', mx + 10, my + 14);
+    c.fillStyle = '#ff4444'; c.fillText('- - Fitted H(s)', mx + 10, my + 28);
+
+    // Axis labels
+    c.fillStyle = '#666'; c.font = '9px monospace'; c.textAlign = 'center';
+    c.fillText('Frequency (Hz)', mx + pw / 2, my + ph + 18);
+    c.textAlign = 'right';
+    c.fillText(gMax.toFixed(0) + ' dB', mx - 4, my + 8);
+    c.fillText(gMin.toFixed(0) + ' dB', mx - 4, my + ph);
+  }
+}
+
+function runTransferFunc() {
+  // Reuses pole-zero data
+  if (!poleZeroData) runPoleZero();
+  var ov = document.getElementById('ov-transferfunc');
+  if (ov) ov.style.display = 'none';
+  switchTab('transferfunc');
+}
+
+
+// ═══ breadboard.js ═══
+// ══════════════════════════════════════════════════════════════
+// VXA.Breadboard — Sprint 20a: 3D Breadboard Render + Auto-Place
+// ══════════════════════════════════════════════════════════════
+VXA.Breadboard = (function() {
+  'use strict';
+
+  // ── CONSTANTS ──
+  var HS = 20;           // Hole spacing (px per grid unit)
+  var HR = 3.5;          // Hole radius
+  var COLS = 63;         // Columns
+  var POWER_ROWS = 2;    // Power rail rows (top/bottom each)
+  var MAIN_ROWS = 5;     // Rows per half (a-e, f-j)
+  var POWER_GAP = 0.8;   // Gap between power rail and main grid (in HS units)
+  var CENTER_GAP = 1.5;  // DIP channel gap (in HS units)
+  var TOTAL_ROWS = 14;   // 2 power + 5 top + 5 bottom + 2 power
+
+  var C = {
+    board: '#f5f0e8', boardEdge: '#d4cfc4', boardDark: '#c8c0b0',
+    hole: '#2a2a2a', holeMetal: '#888', holeOccupied: '#4a90d9',
+    channel: '#e8e0d0', channelLine: '#d0c8b8',
+    railPlus: '#cc3333', railMinus: '#3366cc', railBg: '#f0ebe0',
+    label: '#999', shadow: 'rgba(0,0,0,0.15)',
+    desk: '#1a1a2e', deskLine: 'rgba(255,255,255,0.02)',
+    mount: '#4a4a4a'
+  };
+
+  var WIRE_COLORS = ['#e74c3c','#2ecc71','#3498db','#f39c12','#9b59b6','#1abc9c','#e67e22','#34495e'];
+  var BAND_COLORS = ['#1a1a1a','#8B4513','#cc0000','#ff6600','#ffcc00','#00aa00','#0000cc','#9900cc','#808080','#ffffff'];
+  var TOLERANCE_COLORS = { 5: '#D4AF37', 10: '#C0C0C0', 1: '#8B4513', 2: '#cc0000' };
+
+  // Izometric projection
+  var cosA = Math.cos(30 * Math.PI / 180); // ~0.866
+  var sinA = Math.sin(30 * Math.PI / 180); // ~0.5
+
+  // ── STATE ──
+  var active = false;
+  var scale = 1.0;
+  var placements = [];  // {partId, type, pins:[{row,col}], value, model, damaged, temperature, isOn, brightness}
+  var jumpers = [];     // {fromHole:{row,col}, toHole:{row,col}, color, netName}
+  var occupied = {};    // "row:col" -> true
+  var offX = 0, offY = 0;
+  var fadeAlpha = 1;
+  var fadeDir = 0; // 0=none, 1=fading in, -1=fading out
+  var fadeCallback = null;
+
+  // ── GRID HELPERS ──
+  function rowY(row) {
+    if (row < POWER_ROWS) return row * HS;
+    if (row < POWER_ROWS + MAIN_ROWS) return (row + POWER_GAP) * HS;
+    if (row < POWER_ROWS + MAIN_ROWS * 2) return (row + POWER_GAP + CENTER_GAP) * HS;
+    return (row + POWER_GAP * 2 + CENTER_GAP) * HS;
+  }
+
+  function g2s(row, col, z) {
+    z = z || 0;
+    var x = col * HS;
+    var y = rowY(row);
+    return {
+      x: (x - y) * cosA * scale + offX,
+      y: (x + y) * sinA * scale - z * HS * scale + offY
+    };
+  }
+
+  function rowLabel(r) {
+    if (r === 0 || r === 12) return '+';
+    if (r === 1 || r === 13) return '\u2212';
+    return 'abcdefghij'[r - POWER_ROWS] || '?';
+  }
+
+  function markOccupied(row, col) { occupied[row + ':' + col] = true; }
+  function isOccupied(row, col) { return !!occupied[row + ':' + col]; }
+
+  // ── RESISTOR COLOR BANDS ──
+  function getResistorBands(ohms) {
+    if (!ohms || ohms <= 0) return [0, 0, 0, 5];
+    var exp = Math.floor(Math.log10(ohms));
+    var mantissa = Math.round(ohms / Math.pow(10, Math.max(0, exp - 1)));
+    if (mantissa >= 100) { mantissa = Math.round(mantissa / 10); exp++; }
+    var d1 = Math.floor(mantissa / 10) % 10;
+    var d2 = mantissa % 10;
+    var mult = Math.max(0, exp - 1);
+    return [d1, d2, Math.min(mult, 9), 5]; // 5% tolerance
+  }
+
+  // ── DRAW BOARD ──
+  function drawBoard(ctx, cw, ch) {
+    var bw = (COLS + 2) * HS;
+    var bh = (TOTAL_ROWS + POWER_GAP * 2 + CENTER_GAP + 2) * HS;
+
+    offX = (cw - bw * cosA * scale) / 2 + 100;
+    offY = ch * 0.3;
+
+    // Desk surface
+    ctx.fillStyle = C.desk;
+    ctx.fillRect(0, 0, cw, ch);
+    // Subtle wood lines
+    ctx.strokeStyle = C.deskLine;
+    ctx.lineWidth = 1;
+    for (var dy = 0; dy < ch; dy += 40) {
+      ctx.beginPath(); ctx.moveTo(0, dy); ctx.lineTo(cw, dy); ctx.stroke();
+    }
+
+    // Board shadow
+    var tl = g2s(-1, -1, 0);
+    var tr = g2s(-1, COLS + 1, 0);
+    var br = g2s(TOTAL_ROWS, COLS + 1, 0);
+    var bl = g2s(TOTAL_ROWS, -1, 0);
+    ctx.fillStyle = C.shadow;
+    ctx.beginPath();
+    ctx.moveTo(tl.x + 6, tl.y + 6); ctx.lineTo(tr.x + 6, tr.y + 6);
+    ctx.lineTo(br.x + 6, br.y + 6); ctx.lineTo(bl.x + 6, bl.y + 6);
+    ctx.closePath(); ctx.fill();
+
+    // Board body (isometric parallelogram)
+    ctx.fillStyle = C.board;
+    ctx.beginPath();
+    ctx.moveTo(tl.x, tl.y); ctx.lineTo(tr.x, tr.y);
+    ctx.lineTo(br.x, br.y); ctx.lineTo(bl.x, bl.y);
+    ctx.closePath(); ctx.fill();
+
+    // Board edge (bottom)
+    ctx.fillStyle = C.boardDark;
+    var thickness = 4 * scale;
+    ctx.beginPath();
+    ctx.moveTo(bl.x, bl.y); ctx.lineTo(br.x, br.y);
+    ctx.lineTo(br.x, br.y + thickness); ctx.lineTo(bl.x, bl.y + thickness);
+    ctx.closePath(); ctx.fill();
+    // Board edge (right)
+    ctx.beginPath();
+    ctx.moveTo(tr.x, tr.y); ctx.lineTo(br.x, br.y);
+    ctx.lineTo(br.x, br.y + thickness); ctx.lineTo(tr.x, tr.y + thickness);
+    ctx.closePath(); ctx.fill();
+
+    // Board outline
+    ctx.strokeStyle = C.boardEdge;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(tl.x, tl.y); ctx.lineTo(tr.x, tr.y);
+    ctx.lineTo(br.x, br.y); ctx.lineTo(bl.x, bl.y);
+    ctx.closePath(); ctx.stroke();
+
+    // Mounting holes (4 corners)
+    var corners = [[0, 1], [0, COLS - 2], [TOTAL_ROWS - 1, 1], [TOTAL_ROWS - 1, COLS - 2]];
+    corners.forEach(function(cr) {
+      var p = g2s(cr[0], cr[1], 0);
+      ctx.fillStyle = C.mount;
+      ctx.beginPath(); ctx.arc(p.x, p.y, 4 * scale, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = C.boardEdge;
+      ctx.beginPath(); ctx.arc(p.x, p.y, 2 * scale, 0, Math.PI * 2); ctx.fill();
+    });
+
+    // DIP channel
+    var chLeft = g2s(POWER_ROWS + MAIN_ROWS - 0.3, 0, 0);
+    var chRight = g2s(POWER_ROWS + MAIN_ROWS - 0.3, COLS, 0);
+    var chLeft2 = g2s(POWER_ROWS + MAIN_ROWS + CENTER_GAP * 0.3, 0, 0);
+    var chRight2 = g2s(POWER_ROWS + MAIN_ROWS + CENTER_GAP * 0.3, COLS, 0);
+    ctx.fillStyle = C.channel;
+    ctx.beginPath();
+    ctx.moveTo(chLeft.x, chLeft.y); ctx.lineTo(chRight.x, chRight.y);
+    ctx.lineTo(chRight2.x, chRight2.y); ctx.lineTo(chLeft2.x, chLeft2.y);
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = C.channelLine; ctx.lineWidth = 0.5;
+    ctx.stroke();
+
+    // Power rail stripes
+    drawPowerRails(ctx);
+
+    // Row/column labels
+    drawLabels(ctx);
+  }
+
+  function drawPowerRails(ctx) {
+    // Top power rail: rows 0 (+) and 1 (-)
+    // Bottom power rail: rows 12 (+) and 13 (-)
+    var pairs = [[0, C.railPlus], [1, C.railMinus], [12, C.railPlus], [13, C.railMinus]];
+    pairs.forEach(function(pr) {
+      var row = pr[0], color = pr[1];
+      // Draw stripe segments (every 5 cols break)
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2 * scale;
+      for (var seg = 0; seg < COLS; seg += 5) {
+        var end = Math.min(seg + 4, COLS - 1);
+        var p1 = g2s(row, seg, 0);
+        var p2 = g2s(row, end, 0);
+        // Offset stripe slightly above/below holes
+        var dy = (row % 2 === 0) ? -6 * scale : 6 * scale;
+        ctx.beginPath();
+        ctx.moveTo(p1.x, p1.y + dy);
+        ctx.lineTo(p2.x, p2.y + dy);
+        ctx.stroke();
+      }
+    });
+  }
+
+  function drawLabels(ctx) {
+    ctx.font = (7 * scale) + 'px "JetBrains Mono", monospace';
+    ctx.fillStyle = C.label;
+    // Row labels (left side)
+    for (var r = 0; r < TOTAL_ROWS; r++) {
+      var p = g2s(r, -1.5, 0);
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(rowLabel(r), p.x, p.y);
+    }
+    // Column labels (top, every 5)
+    for (var c = 0; c < COLS; c += 5) {
+      var p2 = g2s(-1.5, c, 0);
+      ctx.fillText(String(c + 1), p2.x, p2.y);
+    }
+  }
+
+  // ── DRAW HOLES ──
+  function drawHoles(ctx) {
+    var hr = HR * scale;
+    for (var r = 0; r < TOTAL_ROWS; r++) {
+      for (var c = 0; c < COLS; c++) {
+        var p = g2s(r, c, 0);
+        var key = r + ':' + c;
+        // Hole body
+        ctx.fillStyle = occupied[key] ? C.holeOccupied : C.hole;
+        ctx.beginPath(); ctx.arc(p.x, p.y, hr, 0, Math.PI * 2); ctx.fill();
+        // Metal glint
+        if (!occupied[key]) {
+          ctx.fillStyle = C.holeMetal;
+          ctx.globalAlpha = 0.3;
+          ctx.beginPath(); ctx.arc(p.x - 0.5 * scale, p.y - 0.5 * scale, 1 * scale, 0, Math.PI * 2); ctx.fill();
+          ctx.globalAlpha = 1;
+        }
+      }
+    }
+  }
+
+  // ── 3D COMPONENT DRAWINGS ──
+
+  function drawLeg(ctx, pos, z, color) {
+    // Vertical leg from z height down to hole (z=0)
+    var top = g2s(pos.row, pos.col, z);
+    var bot = g2s(pos.row, pos.col, 0);
+    ctx.strokeStyle = color || '#aaa';
+    ctx.lineWidth = 1.2 * scale;
+    ctx.beginPath(); ctx.moveTo(top.x, top.y); ctx.lineTo(bot.x, bot.y); ctx.stroke();
+  }
+
+  function drawResistor3D(ctx, pl) {
+    var p1 = pl.pins[0], p2 = pl.pins[1];
+    var z = 0.5; // height above board
+    // Legs
+    drawLeg(ctx, p1, z, '#aaa');
+    drawLeg(ctx, p2, z, '#aaa');
+    // Body — elliptical cylinder between pins
+    var s1 = g2s(p1.row, p1.col, z);
+    var s2 = g2s(p2.row, p2.col, z);
+    var mx = (s1.x + s2.x) / 2, my = (s1.y + s2.y) / 2;
+    var dx = s2.x - s1.x, dy = s2.y - s1.y;
+    var len = Math.sqrt(dx * dx + dy * dy);
+    var bodyLen = len * 0.6;
+    var bodyH = 6 * scale;
+    var angle = Math.atan2(dy, dx);
+
+    ctx.save(); ctx.translate(mx, my); ctx.rotate(angle);
+
+    // Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.1)';
+    ctx.beginPath(); ctx.ellipse(1, 3 * scale, bodyLen / 2, bodyH * 0.8, 0, 0, Math.PI * 2); ctx.fill();
+
+    // Body
+    var bodyColor = pl.damaged ? '#333' : '#c8a882';
+    ctx.fillStyle = bodyColor;
+    ctx.beginPath(); ctx.ellipse(0, 0, bodyLen / 2, bodyH, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = pl.damaged ? '#555' : '#a08060';
+    ctx.lineWidth = 0.5; ctx.stroke();
+
+    // Color bands
+    if (!pl.damaged) {
+      var bands = getResistorBands(pl.value);
+      var bandPositions = [-0.3, -0.15, 0.05, 0.3]; // normalized positions on body
+      for (var bi = 0; bi < bands.length; bi++) {
+        var bx = bandPositions[bi] * bodyLen;
+        var bw = bodyLen * 0.06;
+        var color = (bi === 3) ? (TOLERANCE_COLORS[bands[bi]] || '#D4AF37') : BAND_COLORS[bands[bi]];
+        ctx.fillStyle = color;
+        ctx.fillRect(bx - bw / 2, -bodyH * 0.9, bw, bodyH * 1.8);
+      }
+    }
+
+    // Leads extending to legs
+    ctx.strokeStyle = '#aaa'; ctx.lineWidth = 1.2 * scale;
+    ctx.beginPath(); ctx.moveTo(-bodyLen / 2, 0); ctx.lineTo(-len / 2, 0); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(bodyLen / 2, 0); ctx.lineTo(len / 2, 0); ctx.stroke();
+
+    // Damage: smoke wisps
+    if (pl.damaged) {
+      ctx.strokeStyle = 'rgba(100,100,100,0.4)';
+      ctx.lineWidth = 1;
+      var t = Date.now() / 1000;
+      for (var si = 0; si < 3; si++) {
+        var sx = (si - 1) * bodyLen * 0.2;
+        ctx.beginPath();
+        ctx.moveTo(sx, -bodyH);
+        ctx.bezierCurveTo(sx + Math.sin(t + si) * 3, -bodyH - 8 * scale,
+                          sx - Math.sin(t + si * 2) * 4, -bodyH - 16 * scale,
+                          sx + Math.sin(t + si * 3) * 2, -bodyH - 24 * scale);
+        ctx.stroke();
+      }
+    }
+
+    ctx.restore();
+  }
+
+  function drawLED3D(ctx, pl) {
+    var p1 = pl.pins[0], p2 = pl.pins[1];
+    var z = 0.7;
+    // Legs (anode longer)
+    drawLeg(ctx, p1, z + 0.1, '#aaa');
+    drawLeg(ctx, p2, z, '#aaa');
+
+    // Dome center
+    var s1 = g2s(p1.row, p1.col, z);
+    var s2 = g2s(p2.row, p2.col, z);
+    var cx = (s1.x + s2.x) / 2, cy = (s1.y + s2.y) / 2 - 2 * scale;
+    var domeR = 7 * scale;
+
+    // LED color from part (default red)
+    var part = S.parts.find(function(pp) { return pp.id === pl.partId; });
+    var ledColor = '#ff2222';
+    if (part && part.color === 'green') ledColor = '#22cc22';
+    else if (part && part.color === 'blue') ledColor = '#2266ff';
+    else if (part && part.color === 'yellow') ledColor = '#ffcc00';
+    else if (part && part.color === 'white') ledColor = '#ffffff';
+
+    // Glow (if on)
+    if (pl.isOn && !pl.damaged) {
+      var brightness = Math.min(1, pl.brightness || 0.5);
+      var grad = ctx.createRadialGradient(cx, cy, domeR * 0.5, cx, cy, domeR * 3);
+      grad.addColorStop(0, ledColor.replace(')', ',' + (brightness * 0.6) + ')').replace('rgb', 'rgba').replace('#', ''));
+      // Simpler glow
+      ctx.globalAlpha = brightness * 0.4;
+      ctx.fillStyle = ledColor;
+      ctx.beginPath(); ctx.arc(cx, cy, domeR * 2.5, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+
+    // Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.1)';
+    ctx.beginPath(); ctx.ellipse(cx + 1, cy + 4 * scale, domeR * 0.9, domeR * 0.5, 0, 0, Math.PI * 2); ctx.fill();
+
+    // Dome body
+    if (pl.damaged) {
+      ctx.fillStyle = '#444';
+    } else if (pl.isOn) {
+      ctx.fillStyle = ledColor;
+      ctx.globalAlpha = 0.5 + (pl.brightness || 0.5) * 0.5;
+    } else {
+      // Translucent colored dome
+      ctx.fillStyle = ledColor;
+      ctx.globalAlpha = 0.35;
+    }
+    ctx.beginPath(); ctx.arc(cx, cy, domeR, 0, Math.PI * 2); ctx.fill();
+    ctx.globalAlpha = 1;
+
+    // Dome edge
+    ctx.strokeStyle = pl.damaged ? '#333' : 'rgba(255,255,255,0.3)';
+    ctx.lineWidth = 0.8;
+    ctx.beginPath(); ctx.arc(cx, cy, domeR, 0, Math.PI * 2); ctx.stroke();
+
+    // Highlight
+    if (!pl.damaged) {
+      ctx.fillStyle = 'rgba(255,255,255,0.35)';
+      ctx.beginPath(); ctx.ellipse(cx - domeR * 0.25, cy - domeR * 0.3, domeR * 0.3, domeR * 0.2, -0.3, 0, Math.PI * 2); ctx.fill();
+    }
+
+    // Flat edge (cathode side)
+    var angle = Math.atan2(s2.y - s1.y, s2.x - s1.x);
+    ctx.strokeStyle = pl.damaged ? '#555' : 'rgba(200,200,200,0.3)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(cx + Math.cos(angle + Math.PI / 2) * domeR * 0.7, cy + Math.sin(angle + Math.PI / 2) * domeR * 0.7);
+    ctx.lineTo(cx - Math.cos(angle + Math.PI / 2) * domeR * 0.7, cy - Math.sin(angle + Math.PI / 2) * domeR * 0.7);
+    ctx.stroke();
+
+    // Damage: crack lines
+    if (pl.damaged) {
+      ctx.strokeStyle = 'rgba(200,200,200,0.5)';
+      ctx.lineWidth = 0.8;
+      ctx.beginPath();
+      ctx.moveTo(cx - domeR * 0.5, cy - domeR * 0.3);
+      ctx.lineTo(cx + domeR * 0.2, cy + domeR * 0.1);
+      ctx.lineTo(cx + domeR * 0.5, cy + domeR * 0.4);
+      ctx.stroke();
+    }
+  }
+
+  function drawCapCeramic3D(ctx, pl) {
+    var p1 = pl.pins[0], p2 = pl.pins[1];
+    var z = 0.4;
+    drawLeg(ctx, p1, z, '#aaa');
+    drawLeg(ctx, p2, z, '#aaa');
+
+    var s1 = g2s(p1.row, p1.col, z);
+    var s2 = g2s(p2.row, p2.col, z);
+    var mx = (s1.x + s2.x) / 2, my = (s1.y + s2.y) / 2;
+    var r = 5 * scale;
+
+    // Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.08)';
+    ctx.beginPath(); ctx.arc(mx + 1, my + 2, r, 0, Math.PI * 2); ctx.fill();
+
+    // Disk body (dark orange-yellow)
+    ctx.fillStyle = pl.damaged ? '#555' : '#cc8833';
+    ctx.beginPath(); ctx.arc(mx, my, r, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = pl.damaged ? '#444' : '#996622';
+    ctx.lineWidth = 0.5; ctx.stroke();
+
+    // Marking
+    if (!pl.damaged && scale > 0.8) {
+      ctx.fillStyle = '#333';
+      ctx.font = (4 * scale) + 'px monospace';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      var val = pl.value;
+      var txt = val >= 1e-6 ? (val * 1e6).toFixed(0) + 'u' : (val * 1e9).toFixed(0) + 'n';
+      ctx.fillText(txt, mx, my);
+    }
+  }
+
+  function drawCapElectrolytic3D(ctx, pl) {
+    var p1 = pl.pins[0], p2 = pl.pins[1];
+    var height = Math.min(1.5, 0.8 + (pl.value || 1e-6) * 5e4);
+    var z = height;
+    drawLeg(ctx, p1, z, '#aaa');
+    drawLeg(ctx, p2, z, '#aaa');
+
+    var s1 = g2s(p1.row, p1.col, z);
+    var s2 = g2s(p2.row, p2.col, z);
+    var mx = (s1.x + s2.x) / 2, my = (s1.y + s2.y) / 2;
+    var rw = 6 * scale, rh = height * HS * sinA * scale * 0.5;
+    var bodyBot = g2s((p1.row + p2.row) / 2, (p1.col + p2.col) / 2, 0);
+
+    // Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.1)';
+    ctx.beginPath(); ctx.ellipse(mx + 1, my + rh + 3, rw, rw * 0.5, 0, 0, Math.PI * 2); ctx.fill();
+
+    // Cylinder body
+    var grad = ctx.createLinearGradient(mx - rw, my, mx + rw, my);
+    if (pl.damaged) {
+      grad.addColorStop(0, '#444'); grad.addColorStop(0.5, '#666'); grad.addColorStop(1, '#444');
+    } else {
+      grad.addColorStop(0, '#888'); grad.addColorStop(0.3, '#ccc'); grad.addColorStop(0.7, '#bbb'); grad.addColorStop(1, '#777');
+    }
+    // Cylinder side
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.ellipse(mx, my + rh, rw, rw * 0.4, 0, 0, Math.PI);
+    ctx.ellipse(mx, my - rh, rw, rw * 0.4, 0, Math.PI, 0);
+    ctx.closePath(); ctx.fill();
+
+    // Top cap
+    ctx.fillStyle = pl.damaged ? '#555' : '#aaa';
+    ctx.beginPath(); ctx.ellipse(mx, my - rh, rw, rw * 0.4, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#888'; ctx.lineWidth = 0.5; ctx.stroke();
+
+    // Negative stripe
+    if (!pl.damaged) {
+      ctx.fillStyle = 'rgba(40,40,40,0.4)';
+      ctx.fillRect(mx + rw * 0.4, my - rh, rw * 0.5, rh * 2);
+    }
+
+    // Polarity mark (+)
+    ctx.fillStyle = '#666';
+    ctx.font = (5 * scale) + 'px monospace';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('+', mx - rw * 0.5, my - rh - 3 * scale);
+
+    // Damage: bulging top
+    if (pl.damaged) {
+      ctx.fillStyle = '#6a4a2a';
+      ctx.beginPath(); ctx.ellipse(mx, my - rh - 2 * scale, rw * 0.6, rw * 0.5, 0, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+
+  function drawTransistor3D(ctx, pl) {
+    var z = 0.5;
+    // TO-92 package: 3 pins
+    for (var i = 0; i < pl.pins.length; i++) {
+      drawLeg(ctx, pl.pins[i], z, '#aaa');
+    }
+    // Body center
+    var mid = pl.pins[1] || pl.pins[0]; // center pin
+    var s = g2s(mid.row, mid.col, z);
+    var bw = 8 * scale, bh = 10 * scale;
+
+    // Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.1)';
+    ctx.beginPath(); ctx.ellipse(s.x + 1, s.y + 3, bw, bh * 0.4, 0, 0, Math.PI * 2); ctx.fill();
+
+    // D-shape body (flat front + semicircle back)
+    ctx.fillStyle = pl.damaged ? '#222' : '#1a1a1a';
+    ctx.beginPath();
+    ctx.moveTo(s.x - bw * 0.7, s.y - bh * 0.5);
+    ctx.lineTo(s.x - bw * 0.7, s.y + bh * 0.5);
+    ctx.arc(s.x, s.y, bh * 0.5, Math.PI * 0.5, -Math.PI * 0.5, true);
+    ctx.closePath(); ctx.fill();
+
+    // Outline
+    ctx.strokeStyle = '#444'; ctx.lineWidth = 0.5; ctx.stroke();
+
+    // Label
+    if (scale > 0.8 && pl.model) {
+      ctx.fillStyle = '#ccc';
+      ctx.font = (3.5 * scale) + 'px monospace';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(pl.model.substring(0, 6), s.x - bw * 0.1, s.y);
+    }
+  }
+
+  function drawIC3D(ctx, pl) {
+    if (pl.pins.length < 2) return;
+    var z = 0.4;
+    // Draw all legs
+    for (var i = 0; i < pl.pins.length; i++) {
+      drawLeg(ctx, pl.pins[i], z, '#aaa');
+    }
+
+    // Body spans from first pin to last
+    var topLeft = pl.pins[0];
+    var halfPins = Math.floor(pl.pins.length / 2);
+    var topRight = pl.pins[halfPins - 1];
+    var botLeft = pl.pins[pl.pins.length - 1];
+
+    var tl = g2s(topLeft.row, topLeft.col, z);
+    var tr = g2s(topRight.row, topRight.col, z);
+    var bl = g2s(botLeft.row, botLeft.col, z);
+    var br = g2s(pl.pins[halfPins].row, pl.pins[halfPins].col, z);
+
+    // Rectangular body
+    var pad = 4 * scale;
+    ctx.fillStyle = pl.damaged ? '#1a1a1a' : '#0a0a0a';
+    ctx.beginPath();
+    ctx.moveTo(tl.x - pad, tl.y - pad);
+    ctx.lineTo(tr.x + pad, tr.y - pad);
+    ctx.lineTo(br.x + pad, br.y + pad);
+    ctx.lineTo(bl.x - pad, bl.y + pad);
+    ctx.closePath(); ctx.fill();
+
+    ctx.strokeStyle = '#333'; ctx.lineWidth = 0.8; ctx.stroke();
+
+    // Pin 1 notch
+    ctx.fillStyle = '#222';
+    ctx.beginPath(); ctx.arc(tl.x + 3 * scale, tl.y + 3 * scale, 3 * scale, 0, Math.PI, true); ctx.fill();
+
+    // Pin 1 dot
+    ctx.fillStyle = '#555';
+    ctx.beginPath(); ctx.arc(tl.x + 3 * scale, tl.y + 6 * scale, 1.5 * scale, 0, Math.PI * 2); ctx.fill();
+
+    // Label
+    if (scale > 0.7) {
+      ctx.fillStyle = '#ccc';
+      ctx.font = 'bold ' + (4.5 * scale) + 'px monospace';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      var cx = (tl.x + br.x) / 2, cy = (tl.y + br.y) / 2;
+      ctx.fillText(pl.model || 'IC', cx, cy);
+    }
+  }
+
+  function drawDiode3D(ctx, pl) {
+    var p1 = pl.pins[0], p2 = pl.pins[1];
+    var z = 0.4;
+    drawLeg(ctx, p1, z, '#aaa');
+    drawLeg(ctx, p2, z, '#aaa');
+
+    var s1 = g2s(p1.row, p1.col, z);
+    var s2 = g2s(p2.row, p2.col, z);
+    var mx = (s1.x + s2.x) / 2, my = (s1.y + s2.y) / 2;
+    var len = Math.sqrt((s2.x - s1.x) * (s2.x - s1.x) + (s2.y - s1.y) * (s2.y - s1.y));
+    var angle = Math.atan2(s2.y - s1.y, s2.x - s1.x);
+
+    ctx.save(); ctx.translate(mx, my); ctx.rotate(angle);
+    var bLen = len * 0.4, bH = 4 * scale;
+
+    // Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.08)';
+    ctx.beginPath(); ctx.ellipse(1, 3, bLen / 2, bH, 0, 0, Math.PI * 2); ctx.fill();
+
+    // Glass/plastic body
+    ctx.fillStyle = pl.damaged ? '#333' : (pl.type === 'zener' ? '#222' : '#1a1a1a');
+    ctx.beginPath(); ctx.ellipse(0, 0, bLen / 2, bH, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#555'; ctx.lineWidth = 0.5; ctx.stroke();
+
+    // Cathode band
+    ctx.fillStyle = '#ccc';
+    ctx.fillRect(bLen * 0.25, -bH * 0.9, bLen * 0.08, bH * 1.8);
+
+    // Leads
+    ctx.strokeStyle = '#aaa'; ctx.lineWidth = 1.2 * scale;
+    ctx.beginPath(); ctx.moveTo(-bLen / 2, 0); ctx.lineTo(-len / 2, 0); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(bLen / 2, 0); ctx.lineTo(len / 2, 0); ctx.stroke();
+
+    ctx.restore();
+  }
+
+  function drawJumperWire(ctx, from, to, color) {
+    var z1 = 0.2, z2 = 0.2;
+    var s1 = g2s(from.row, from.col, z1);
+    var s2 = g2s(to.row, to.col, z2);
+    var dist = Math.sqrt((s2.x - s1.x) * (s2.x - s1.x) + (s2.y - s1.y) * (s2.y - s1.y));
+    var sag = Math.max(8 * scale, dist * 0.15);
+
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2.2 * scale;
+    ctx.lineCap = 'round';
+
+    // Bezier curve with sag
+    var mx = (s1.x + s2.x) / 2;
+    var my = (s1.y + s2.y) / 2 - sag;
+    ctx.beginPath();
+    ctx.moveTo(s1.x, s1.y);
+    ctx.quadraticCurveTo(mx, my, s2.x, s2.y);
+    ctx.stroke();
+
+    // Wire ends (tiny bulge at hole entry)
+    ctx.fillStyle = color;
+    ctx.beginPath(); ctx.arc(s1.x, s1.y, 2 * scale, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(s2.x, s2.y, 2 * scale, 0, Math.PI * 2); ctx.fill();
+    ctx.lineCap = 'butt';
+  }
+
+  // ── AUTO-PLACEMENT ALGORITHM ──
+  function autoPlace(parts, wires) {
+    placements = [];
+    jumpers = [];
+    occupied = {};
+
+    if (!parts || !parts.length) return;
+
+    // Classify parts
+    var ics = [], passives = [], semis = [], sources = [], others = [];
+    parts.forEach(function(p) {
+      if (p.type === 'ground' || p.type === 'wire' || p.type === 'netLabel' ||
+          p.type === 'vccLabel' || p.type === 'gndLabel' || p.type === 'probe' ||
+          p.type === 'voltmeter' || p.type === 'ammeter') return; // skip non-physical
+      if (p.type === 'opamp' || (p.type === 'ic')) ics.push(p);
+      else if (['resistor','capacitor','inductor','potentiometer'].indexOf(p.type) >= 0) passives.push(p);
+      else if (['led','diode','zener','npn','pnp','nmos','pmos'].indexOf(p.type) >= 0) semis.push(p);
+      else if (['dcSource','acSource','battery'].indexOf(p.type) >= 0) sources.push(p);
+      else others.push(p);
+    });
+
+    var nextCol = 3;
+
+    // ICs: straddle DIP channel (rows 2-6 top, 7-11 bottom)
+    ics.forEach(function(ic) {
+      var def = COMP[ic.type];
+      var pinCount = def ? def.pins.length : 8;
+      if (pinCount < 2) pinCount = 8;
+      var halfPins = Math.ceil(pinCount / 2);
+      var startCol = nextCol;
+
+      var pins = [];
+      // Left side: top half (rows 2..6), going down
+      for (var i = 0; i < halfPins; i++) {
+        var row = 2 + Math.min(i, 4);
+        pins.push({ row: row, col: startCol + i });
+        markOccupied(row, startCol + i);
+      }
+      // Right side: bottom half (rows 7..11), going up from right
+      for (var j = 0; j < halfPins; j++) {
+        var row2 = 7 + Math.min(halfPins - 1 - j, 4);
+        pins.push({ row: row2, col: startCol + halfPins - 1 - j });
+        markOccupied(row2, startCol + halfPins - 1 - j);
+      }
+
+      placements.push({
+        partId: ic.id, type: 'ic', pins: pins,
+        model: ic.model || ic.name || 'IC', value: null,
+        damaged: ic.damaged || false, temperature: 25,
+        isOn: false, brightness: 0
+      });
+      nextCol += halfPins + 2;
+    });
+
+    // Passives: top half (rows 2-6)
+    var pCol = nextCol, pRow = 2;
+    passives.forEach(function(part) {
+      var span = 3; // 3 holes apart
+      if (pCol + span >= COLS - 2) { pCol = 3; pRow++; if (pRow > 6) pRow = 2; }
+      // Skip occupied
+      while (isOccupied(pRow, pCol) || isOccupied(pRow, pCol + span)) {
+        pCol++;
+        if (pCol + span >= COLS - 2) { pCol = 3; pRow++; if (pRow > 6) pRow = 2; }
+      }
+      var p1 = { row: pRow, col: pCol };
+      var p2 = { row: pRow, col: pCol + span };
+      markOccupied(pRow, pCol);
+      markOccupied(pRow, pCol + span);
+
+      placements.push({
+        partId: part.id, type: part.type,
+        pins: [p1, p2], startHole: p1, endHole: p2,
+        model: part.model || null,
+        value: part.val || part.value || 1000,
+        damaged: part.damaged || false, temperature: part.temperature || 25,
+        isOn: false, brightness: 0
+      });
+      pCol += span + 2;
+    });
+
+    // Sources treated as passives (placed in top rows too)
+    sources.forEach(function(part) {
+      var span = 4;
+      if (pCol + span >= COLS - 2) { pCol = 3; pRow++; if (pRow > 6) pRow = 2; }
+      while (isOccupied(pRow, pCol) || isOccupied(pRow, pCol + span)) {
+        pCol++;
+        if (pCol + span >= COLS - 2) { pCol = 3; pRow++; if (pRow > 6) pRow = 2; }
+      }
+      var p1 = { row: pRow, col: pCol };
+      var p2 = { row: pRow, col: pCol + span };
+      markOccupied(pRow, pCol);
+      markOccupied(pRow, pCol + span);
+      placements.push({
+        partId: part.id, type: part.type,
+        pins: [p1, p2], startHole: p1, endHole: p2,
+        model: null, value: part.val || 5,
+        damaged: false, temperature: 25, isOn: false, brightness: 0
+      });
+      pCol += span + 2;
+    });
+
+    // Semiconductors: bottom half (rows 7-11)
+    var sCol = 3, sRow = 8;
+    semis.forEach(function(part) {
+      var def = COMP[part.type];
+      var pinCount = def ? def.pins.length : 2;
+      if (sCol + pinCount >= COLS - 2) { sCol = 3; sRow++; if (sRow > 11) sRow = 7; }
+      while (isOccupied(sRow, sCol)) {
+        sCol++;
+        if (sCol + pinCount >= COLS - 2) { sCol = 3; sRow++; if (sRow > 11) sRow = 7; }
+      }
+
+      var pins = [];
+      for (var k = 0; k < pinCount; k++) {
+        pins.push({ row: sRow, col: sCol + k });
+        markOccupied(sRow, sCol + k);
+      }
+
+      placements.push({
+        partId: part.id, type: part.type,
+        pins: pins, startHole: pins[0], endHole: pins[pins.length - 1],
+        model: part.model || part.name || null,
+        value: null, damaged: part.damaged || false,
+        temperature: part.temperature || 25,
+        isOn: false, brightness: 0
+      });
+      sCol += pinCount + 2;
+    });
+
+    // Others: fill remaining space
+    others.forEach(function(part) {
+      var def = COMP[part.type];
+      var pinCount = def ? def.pins.length : 2;
+      if (pCol + pinCount >= COLS - 2) { pCol = 3; pRow++; if (pRow > 6) pRow = 2; }
+      var pins = [];
+      for (var k = 0; k < pinCount; k++) {
+        pins.push({ row: pRow, col: pCol + k });
+        markOccupied(pRow, pCol + k);
+      }
+      placements.push({
+        partId: part.id, type: part.type,
+        pins: pins, model: null, value: part.val,
+        damaged: part.damaged || false, temperature: 25,
+        isOn: false, brightness: 0
+      });
+      pCol += pinCount + 2;
+    });
+
+    // Generate jumper wires
+    generateJumpers(wires);
+  }
+
+  function generateJumpers(wires) {
+    if (!wires || !wires.length) return;
+
+    // Build pin→placement hole mapping using schematic coordinates
+    // For each wire, find which parts' pins it connects, then check breadboard connectivity
+    var pinHoleMap = {}; // "worldX:worldY" -> {placement, pinIdx, hole}
+
+    placements.forEach(function(pl) {
+      var part = S.parts.find(function(pp) { return pp.id === pl.partId; });
+      if (!part) return;
+      var def = COMP[part.type];
+      if (!def) return;
+      var worldPins = getPartPins(part);
+      for (var i = 0; i < worldPins.length && i < pl.pins.length; i++) {
+        var key = Math.round(worldPins[i].x) + ':' + Math.round(worldPins[i].y);
+        pinHoleMap[key] = { placement: pl, pinIdx: i, hole: pl.pins[i] };
+      }
+    });
+
+    var wireColorIdx = 0;
+    var addedJumpers = {}; // prevent duplicates
+
+    wires.forEach(function(w) {
+      var k1 = Math.round(w.x1) + ':' + Math.round(w.y1);
+      var k2 = Math.round(w.x2) + ':' + Math.round(w.y2);
+      var from = pinHoleMap[k1];
+      var to = pinHoleMap[k2];
+      if (!from || !to) return;
+      if (!from.hole || !to.hole) return;
+
+      // Check if internally connected on breadboard
+      var sameCol = from.hole.col === to.hole.col;
+      var fromTopHalf = from.hole.row >= 2 && from.hole.row <= 6;
+      var toTopHalf = to.hole.row >= 2 && to.hole.row <= 6;
+      var fromBotHalf = from.hole.row >= 7 && from.hole.row <= 11;
+      var toBotHalf = to.hole.row >= 7 && to.hole.row <= 11;
+      var sameGroup = (fromTopHalf && toTopHalf) || (fromBotHalf && toBotHalf);
+
+      if (sameCol && sameGroup) return; // internally connected, no jumper needed
+
+      // Dedup
+      var jKey = [from.hole.row, from.hole.col, to.hole.row, to.hole.col].join(':');
+      var jKeyRev = [to.hole.row, to.hole.col, from.hole.row, from.hole.col].join(':');
+      if (addedJumpers[jKey] || addedJumpers[jKeyRev]) return;
+      addedJumpers[jKey] = true;
+
+      jumpers.push({
+        fromHole: from.hole,
+        toHole: to.hole,
+        color: WIRE_COLORS[wireColorIdx % WIRE_COLORS.length],
+        netName: 'net_' + wireColorIdx
+      });
+      wireColorIdx++;
+    });
+  }
+
+  // ── MAIN RENDER ──
+  function draw(ctx, cw, ch) {
+    if (!active) return;
+
+    ctx.save();
+    if (fadeAlpha < 1) ctx.globalAlpha = fadeAlpha;
+
+    // 1. Board
+    drawBoard(ctx, cw, ch);
+
+    // 2. Holes
+    drawHoles(ctx);
+
+    // 3. Components (sorted by row for painter's algorithm)
+    var sorted = placements.slice().sort(function(a, b) {
+      return (a.pins[0] ? a.pins[0].row : 0) - (b.pins[0] ? b.pins[0].row : 0);
+    });
+
+    sorted.forEach(function(pl) {
+      switch (pl.type) {
+        case 'resistor': drawResistor3D(ctx, pl); break;
+        case 'led': drawLED3D(ctx, pl); break;
+        case 'capacitor':
+          if (pl.value && pl.value > 1e-6) drawCapElectrolytic3D(ctx, pl);
+          else drawCapCeramic3D(ctx, pl);
+          break;
+        case 'npn': case 'pnp': case 'nmos': case 'pmos':
+          drawTransistor3D(ctx, pl); break;
+        case 'ic': case 'opamp':
+          drawIC3D(ctx, pl); break;
+        case 'diode': case 'zener':
+          drawDiode3D(ctx, pl); break;
+        default:
+          // Generic 2-pin component: draw as resistor-like
+          if (pl.pins.length >= 2) drawResistor3D(ctx, pl);
+          break;
+      }
+    });
+
+    // 4. Jumper wires (on top)
+    jumpers.forEach(function(j) {
+      drawJumperWire(ctx, j.fromHole, j.toHole, j.color);
+    });
+
+    // 5. Overlay badge
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    ctx.fillRect(6, 6, 140, 36);
+    ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+    ctx.strokeRect(6, 6, 140, 36);
+    ctx.fillStyle = '#00e09e';
+    ctx.font = 'bold 11px "JetBrains Mono", monospace';
+    ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    ctx.fillText('\uD83D\uDD32 BREADBOARD', 12, 11);
+    ctx.fillStyle = 'rgba(255,255,255,0.4)';
+    ctx.font = '10px "JetBrains Mono", monospace';
+    var hint = (typeof currentLang !== 'undefined' && currentLang === 'tr') ? 'Ctrl+B: \u015Eemati\u011Fe d\u00F6n' : 'Ctrl+B: Back to schematic';
+    ctx.fillText(hint, 12, 27);
+
+    ctx.restore();
+  }
+
+  // ── SIMULATION STATE SYNC ──
+  function syncSimState() {
+    if (!active) return;
+    placements.forEach(function(pl) {
+      var part = S.parts.find(function(pp) { return pp.id === pl.partId; });
+      if (!part) return;
+      pl.damaged = part.damaged || false;
+      pl.temperature = (part._thermal && part._thermal.T) || 25;
+      if (part.type === 'led') {
+        pl.isOn = Math.abs(part._i || 0) > 0.001;
+        pl.brightness = Math.min(1, Math.abs(part._i || 0) / 0.020);
+      }
+    });
+  }
+
+  // ── TRANSITION ──
+  function activateWithTransition() {
+    autoPlace(S.parts, S.wires);
+    active = true;
+    fadeAlpha = 0;
+    fadeDir = 1;
+    needsRender = true;
+  }
+
+  function deactivateWithTransition() {
+    fadeDir = -1;
+    fadeCallback = function() { active = false; };
+    needsRender = true;
+  }
+
+  function updateFade() {
+    if (fadeDir === 0) return;
+    fadeAlpha += fadeDir * 0.08;
+    if (fadeAlpha >= 1) { fadeAlpha = 1; fadeDir = 0; }
+    if (fadeAlpha <= 0) {
+      fadeAlpha = 0; fadeDir = 0;
+      if (fadeCallback) { fadeCallback(); fadeCallback = null; }
+    }
+    needsRender = true;
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  // Sprint 20b — Interaction Layer
+  // ══════════════════════════════════════════════════════════════
+
+  var dragState = null;
+  var hoveredHole = null;
+  var hoveredComponent = null;
+  var _bbQuickAddEl = null;
+
+  // ── SCREEN → GRID (inverse isometric) ──
+  function s2g(sx, sy) {
+    // Undo the forward transform: g2s(row, col, 0) → screen
+    // sx = (col*HS - rowY) * cosA * scale + offX
+    // sy = (col*HS + rowY) * sinA * scale + offY
+    // Let u = col*HS, v = rowY:
+    //   sx - offX = (u - v) * cosA * scale
+    //   sy - offY = (u + v) * sinA * scale
+    //   u - v = (sx - offX) / (cosA * scale)
+    //   u + v = (sy - offY) / (sinA * scale)
+    //   u = ((sx-offX)/(cosA*scale) + (sy-offY)/(sinA*scale)) / 2
+    //   v = ((sy-offY)/(sinA*scale) - (sx-offX)/(cosA*scale)) / 2
+    var dx = (sx - offX) / (cosA * scale);
+    var dy = (sy - offY) / (sinA * scale);
+    var u = (dx + dy) / 2; // col * HS
+    var v = (dy - dx) / 2; // rowY
+    var col = Math.round(u / HS);
+
+    // Inverse rowY: find nearest row
+    var bestRow = -1, bestDist = Infinity;
+    for (var r = 0; r < TOTAL_ROWS; r++) {
+      var dist = Math.abs(rowY(r) - v);
+      if (dist < bestDist) { bestDist = dist; bestRow = r; }
+    }
+
+    if (col < 0 || col >= COLS || bestRow < 0 || bestRow >= TOTAL_ROWS) return null;
+    // Check if close enough to a hole (within half spacing)
+    if (bestDist > HS * 0.8) return null;
+    return { row: bestRow, col: col };
+  }
+
+  function isValidHole(row, col) {
+    return row >= 0 && row < TOTAL_ROWS && col >= 0 && col < COLS;
+  }
+
+  function isOccupiedByOther(row, col, excludePartId) {
+    var key = row + ':' + col;
+    if (!occupied[key]) return false;
+    // Check if the occupation is by a different part
+    for (var i = 0; i < placements.length; i++) {
+      if (placements[i].partId === excludePartId) continue;
+      for (var j = 0; j < placements[i].pins.length; j++) {
+        if (placements[i].pins[j].row === row && placements[i].pins[j].col === col) return true;
+      }
+    }
+    return false;
+  }
+
+  // ── HIT TESTS ──
+  function hitTestComponent(sx, sy) {
+    // Check placements from top (closest to camera) to back
+    for (var i = placements.length - 1; i >= 0; i--) {
+      var pl = placements[i];
+      if (!pl.pins || pl.pins.length < 1) continue;
+      // Bounding box in screen coords
+      var minSx = Infinity, maxSx = -Infinity, minSy = Infinity, maxSy = -Infinity;
+      for (var j = 0; j < pl.pins.length; j++) {
+        var p = g2s(pl.pins[j].row, pl.pins[j].col, 0);
+        if (p.x < minSx) minSx = p.x;
+        if (p.x > maxSx) maxSx = p.x;
+        if (p.y < minSy) minSy = p.y;
+        if (p.y > maxSy) maxSy = p.y;
+      }
+      // Expand bounding box for component body
+      var pad = 12 * scale;
+      minSx -= pad; maxSx += pad;
+      minSy -= pad - 15 * scale; maxSy += pad; // extra upward for component height
+      if (sx >= minSx && sx <= maxSx && sy >= minSy && sy <= maxSy) return pl;
+    }
+    return null;
+  }
+
+  function hitTestJumper(sx, sy) {
+    for (var ji = 0; ji < jumpers.length; ji++) {
+      var j = jumpers[ji];
+      var from = g2s(j.fromHole.row, j.fromHole.col, 0.2);
+      var to = g2s(j.toHole.row, j.toHole.col, 0.2);
+      var dist2 = Math.sqrt((to.x - from.x) * (to.x - from.x) + (to.y - from.y) * (to.y - from.y));
+      var sag = Math.max(8 * scale, dist2 * 0.15);
+      var midX = (from.x + to.x) / 2;
+      var midY = (from.y + to.y) / 2 - sag;
+      // Sample 20 points along the quadratic bezier
+      for (var t = 0; t <= 1; t += 0.05) {
+        var px = (1 - t) * (1 - t) * from.x + 2 * (1 - t) * t * midX + t * t * to.x;
+        var py = (1 - t) * (1 - t) * from.y + 2 * (1 - t) * t * midY + t * t * to.y;
+        var d = Math.sqrt((px - sx) * (px - sx) + (py - sy) * (py - sy));
+        if (d < 8 * scale) return j;
+      }
+    }
+    return null;
+  }
+
+  // ── EVENT HANDLERS ──
+  function onMouseDown(e) {
+    var rect = cvs.getBoundingClientRect();
+    var mx = e.clientX - rect.left;
+    var my = e.clientY - rect.top;
+
+    // Hide quick-add menu if open
+    hideBBQuickAdd();
+
+    // Right-click handled separately
+    if (e.button === 2) return;
+    // Middle-click: pan (delegate to default handler by not consuming)
+    if (e.button === 1) return false;
+
+    // 1. Component hit?
+    var hitPl = hitTestComponent(mx, my);
+    if (hitPl) {
+      var refPos = g2s(hitPl.pins[0].row, hitPl.pins[0].col, 0);
+      dragState = {
+        type: 'component',
+        placement: hitPl,
+        originalPins: JSON.parse(JSON.stringify(hitPl.pins)),
+        offsetX: mx - refPos.x,
+        offsetY: my - refPos.y,
+        preview: null,
+        moved: false
+      };
+      // Select in schematic too
+      S.sel = [hitPl.partId];
+      needsRender = true;
+      return true; // consumed
+    }
+
+    // 2. Jumper hit? → select it
+    var hitJ = hitTestJumper(mx, my);
+    if (hitJ) {
+      // Just highlight for now, context menu on right-click
+      needsRender = true;
+      return true;
+    }
+
+    // 3. Empty hole? → start jumper draw
+    var hole = s2g(mx, my);
+    if (hole && isValidHole(hole.row, hole.col)) {
+      dragState = {
+        type: 'jumper',
+        startHole: hole,
+        targetHole: null,
+        currentMouse: { x: mx, y: my }
+      };
+      return true;
+    }
+
+    return false; // not consumed
+  }
+
+  function onMouseMove(e) {
+    var rect = cvs.getBoundingClientRect();
+    var mx = e.clientX - rect.left;
+    var my = e.clientY - rect.top;
+
+    if (!dragState) {
+      // Hover
+      hoveredHole = s2g(mx, my);
+      hoveredComponent = hitTestComponent(mx, my);
+      var wrap = document.getElementById('canvas-wrap');
+      if (wrap) {
+        if (hoveredComponent) wrap.style.cursor = 'grab';
+        else if (hoveredHole) wrap.style.cursor = 'crosshair';
+        else wrap.style.cursor = 'default';
+      }
+      needsRender = true;
+      return;
+    }
+
+    if (dragState.type === 'component') {
+      var wrap2 = document.getElementById('canvas-wrap');
+      if (wrap2) wrap2.style.cursor = 'grabbing';
+      dragState.moved = true;
+      // Calculate target grid position
+      var targetHole = s2g(mx - dragState.offsetX, my - dragState.offsetY);
+      if (targetHole) {
+        var dr = targetHole.row - dragState.originalPins[0].row;
+        var dc = targetHole.col - dragState.originalPins[0].col;
+        dragState.preview = { deltaRow: dr, deltaCol: dc };
+      }
+      needsRender = true;
+    }
+
+    if (dragState.type === 'jumper') {
+      dragState.currentMouse = { x: mx, y: my };
+      dragState.targetHole = s2g(mx, my);
+      needsRender = true;
+    }
+  }
+
+  function onMouseUp(e) {
+    if (!dragState) return;
+
+    if (dragState.type === 'component' && dragState.moved && dragState.preview) {
+      var pl = dragState.placement;
+      var dr = dragState.preview.deltaRow;
+      var dc = dragState.preview.deltaCol;
+      var newPins = pl.pins.map(function(pin) {
+        return { row: dragState.originalPins[pl.pins.indexOf(pin)].row + dr, col: dragState.originalPins[pl.pins.indexOf(pin)].col + dc };
+      });
+      // Recompute from original pins
+      newPins = dragState.originalPins.map(function(pin) {
+        return { row: pin.row + dr, col: pin.col + dc };
+      });
+
+      var allValid = true;
+      for (var k = 0; k < newPins.length; k++) {
+        if (!isValidHole(newPins[k].row, newPins[k].col) || isOccupiedByOther(newPins[k].row, newPins[k].col, pl.partId)) {
+          allValid = false; break;
+        }
+      }
+
+      if (allValid && (dr !== 0 || dc !== 0)) {
+        // Free old holes
+        dragState.originalPins.forEach(function(pin) { delete occupied[pin.row + ':' + pin.col]; });
+        // Set new pins
+        pl.pins = newPins;
+        if (pl.startHole) pl.startHole = newPins[0];
+        if (pl.endHole) pl.endHole = newPins[newPins.length - 1];
+        // Mark new holes
+        newPins.forEach(function(pin) { occupied[pin.row + ':' + pin.col] = true; });
+        // Regenerate jumpers
+        regenJumpers();
+      }
+      // else: snap back (no change needed, original pins still set)
+    }
+
+    if (dragState.type === 'jumper' && dragState.targetHole) {
+      var from = dragState.startHole;
+      var to = dragState.targetHole;
+      if (from.row !== to.row || from.col !== to.col) {
+        if (isValidHole(to.row, to.col)) {
+          jumpers.push({
+            fromHole: from, toHole: to,
+            color: WIRE_COLORS[jumpers.length % WIRE_COLORS.length],
+            netName: 'manual_' + jumpers.length,
+            isManual: true
+          });
+          // Sync to schematic: add wire
+          syncJumperToSchematic(from, to);
+        }
+      }
+    }
+
+    dragState = null;
+    var wrap = document.getElementById('canvas-wrap');
+    if (wrap) wrap.style.cursor = 'default';
+    needsRender = true;
+  }
+
+  function onDblClick(e) {
+    var rect = cvs.getBoundingClientRect();
+    var mx = e.clientX - rect.left;
+    var my = e.clientY - rect.top;
+
+    var hitPl = hitTestComponent(mx, my);
+    if (hitPl) {
+      // Select part and open inline edit
+      S.sel = [hitPl.partId];
+      var part = S.parts.find(function(pp) { return pp.id === hitPl.partId; });
+      if (part && typeof openInlineEdit === 'function') openInlineEdit(part);
+      return;
+    }
+
+    var hole = s2g(mx, my);
+    if (hole && isValidHole(hole.row, hole.col) && !isOccupied(hole.row, hole.col)) {
+      showBBQuickAdd(hole, e.clientX, e.clientY);
+    }
+  }
+
+  function onContextMenu(e) {
+    e.preventDefault();
+    var rect = cvs.getBoundingClientRect();
+    var mx = e.clientX - rect.left;
+    var my = e.clientY - rect.top;
+
+    var hitPl = hitTestComponent(mx, my);
+    if (hitPl) {
+      showBBContextMenu(e.clientX, e.clientY, [
+        { label: (typeof currentLang !== 'undefined' && currentLang === 'tr') ? '\u270E D\u00FCzenle' : '\u270E Edit', action: function() {
+          S.sel = [hitPl.partId];
+          var part = S.parts.find(function(pp) { return pp.id === hitPl.partId; });
+          if (part && typeof openInlineEdit === 'function') openInlineEdit(part);
+        }},
+        { label: (typeof currentLang !== 'undefined' && currentLang === 'tr') ? '\u21BB D\u00F6nd\u00FCr' : '\u21BB Rotate', action: function() { rotateOnBoard(hitPl); }},
+        { label: (typeof currentLang !== 'undefined' && currentLang === 'tr') ? '\u2715 Sil' : '\u2715 Delete', action: function() { removeFromBoard(hitPl); }, danger: true }
+      ]);
+      return;
+    }
+
+    var hitJ = hitTestJumper(mx, my);
+    if (hitJ) {
+      showBBContextMenu(e.clientX, e.clientY, [
+        { label: (typeof currentLang !== 'undefined' && currentLang === 'tr') ? '\u2715 Kabloyu Sil' : '\u2715 Delete Wire', action: function() { removeJumper(hitJ); }, danger: true }
+      ]);
+    }
+  }
+
+  // ── CONTEXT MENU ──
+  function showBBContextMenu(x, y, items) {
+    hideBBContextMenu();
+    var menu = document.createElement('div');
+    menu.id = 'bb-ctx-menu';
+    menu.style.cssText = 'position:fixed;left:' + x + 'px;top:' + y + 'px;background:rgba(12,16,28,0.95);border:1px solid #336;border-radius:8px;padding:4px 0;z-index:9999;min-width:140px;backdrop-filter:blur(8px);box-shadow:0 8px 32px rgba(0,0,0,0.5);font:12px "JetBrains Mono",monospace';
+    items.forEach(function(item) {
+      var btn = document.createElement('div');
+      btn.textContent = item.label;
+      btn.style.cssText = 'padding:6px 14px;cursor:pointer;color:' + (item.danger ? '#f66' : '#ddd') + ';transition:background 0.15s';
+      btn.onmouseenter = function() { btn.style.background = 'rgba(255,255,255,0.08)'; };
+      btn.onmouseleave = function() { btn.style.background = 'none'; };
+      btn.onclick = function() { item.action(); hideBBContextMenu(); needsRender = true; };
+      menu.appendChild(btn);
+    });
+    document.body.appendChild(menu);
+    // Close on outside click
+    setTimeout(function() {
+      document.addEventListener('mousedown', _bbCtxOutside);
+    }, 30);
+  }
+  function hideBBContextMenu() {
+    var el = document.getElementById('bb-ctx-menu');
+    if (el) el.remove();
+    document.removeEventListener('mousedown', _bbCtxOutside);
+  }
+  function _bbCtxOutside(e) {
+    var el = document.getElementById('bb-ctx-menu');
+    if (el && !el.contains(e.target)) hideBBContextMenu();
+  }
+
+  // ── QUICK-ADD MENU ──
+  function showBBQuickAdd(hole, px, py) {
+    hideBBQuickAdd();
+    var items = [
+      { type: 'resistor', label: 'R', name: (typeof currentLang !== 'undefined' && currentLang === 'tr') ? 'Diren\u00E7' : 'Resistor' },
+      { type: 'capacitor', label: 'C', name: (typeof currentLang !== 'undefined' && currentLang === 'tr') ? 'Kapasit\u00F6r' : 'Capacitor' },
+      { type: 'led', label: 'L', name: 'LED' }
+    ];
+    var menu = document.createElement('div');
+    menu.id = 'bb-quick-add';
+    menu.style.cssText = 'position:fixed;left:' + px + 'px;top:' + py + 'px;background:rgba(12,16,28,0.95);border:1px solid #336;border-radius:8px;padding:4px 0;z-index:9999;min-width:120px;backdrop-filter:blur(8px);box-shadow:0 8px 24px rgba(0,0,0,0.5);font:12px "JetBrains Mono",monospace';
+    items.forEach(function(item) {
+      var btn = document.createElement('div');
+      btn.textContent = item.label + '  ' + item.name;
+      btn.style.cssText = 'padding:6px 14px;cursor:pointer;color:#ddd;transition:background 0.15s';
+      btn.onmouseenter = function() { btn.style.background = 'rgba(255,255,255,0.08)'; };
+      btn.onmouseleave = function() { btn.style.background = 'none'; };
+      btn.onclick = function() {
+        addPartAtHole(item.type, hole);
+        hideBBQuickAdd();
+        needsRender = true;
+      };
+      menu.appendChild(btn);
+    });
+    document.body.appendChild(menu);
+    _bbQuickAddEl = menu;
+    setTimeout(function() {
+      document.addEventListener('mousedown', _bbQAOutside);
+    }, 30);
+  }
+  function hideBBQuickAdd() {
+    if (_bbQuickAddEl) { _bbQuickAddEl.remove(); _bbQuickAddEl = null; }
+    document.removeEventListener('mousedown', _bbQAOutside);
+  }
+  function _bbQAOutside(e) {
+    if (_bbQuickAddEl && !_bbQuickAddEl.contains(e.target)) hideBBQuickAdd();
+  }
+
+  // ── ADD PART AT HOLE ──
+  function addPartAtHole(type, hole) {
+    var def = COMP[type];
+    if (!def) return;
+    var pinCount = def.pins.length;
+    var span = pinCount === 2 ? 3 : pinCount;
+    // Check space
+    for (var i = 0; i < span; i++) {
+      if (isOccupied(hole.row, hole.col + i)) return;
+      if (hole.col + i >= COLS) return;
+    }
+    // Add to schematic
+    if (typeof saveUndo === 'function') saveUndo();
+    var p = { id: S.nextId++, type: type, name: (typeof nextName === 'function' ? nextName(type) : type + S.nextId), x: 200, y: 200, rot: 0, val: def.def, flipH: false, flipV: false };
+    S.parts.push(p);
+    // Add to breadboard
+    var pins = [];
+    for (var k = 0; k < Math.min(pinCount, span); k++) {
+      pins.push({ row: hole.row, col: hole.col + k });
+      markOccupied(hole.row, hole.col + k);
+    }
+    placements.push({
+      partId: p.id, type: type,
+      pins: pins, startHole: pins[0], endHole: pins[pins.length - 1],
+      model: null, value: def.def,
+      damaged: false, temperature: 25, isOn: false, brightness: 0
+    });
+    S.sel = [p.id];
+    if (typeof updateInspector === 'function') updateInspector();
+  }
+
+  // ── ROTATE ──
+  function rotateOnBoard(pl) {
+    if (pl.pins.length !== 2) return;
+    var p0 = pl.pins[0], p1 = pl.pins[1];
+    var dc = p1.col - p0.col, dr = p1.row - p0.row;
+    // 90° rotation: (dc, dr) → (-dr, dc)
+    var newP1 = { row: p0.row + dc, col: p0.col - dr };
+    if (!isValidHole(newP1.row, newP1.col)) return;
+    if (isOccupiedByOther(newP1.row, newP1.col, pl.partId)) return;
+    delete occupied[p1.row + ':' + p1.col];
+    pl.pins[1] = newP1;
+    if (pl.endHole) pl.endHole = newP1;
+    occupied[newP1.row + ':' + newP1.col] = true;
+    regenJumpers();
+    needsRender = true;
+  }
+
+  // ── REMOVE ──
+  function removeFromBoard(pl) {
+    pl.pins.forEach(function(pin) { delete occupied[pin.row + ':' + pin.col]; });
+    var idx = placements.indexOf(pl);
+    if (idx >= 0) placements.splice(idx, 1);
+    // Remove related jumpers
+    jumpers = jumpers.filter(function(j) {
+      var fromMatch = pl.pins.some(function(p) { return p.row === j.fromHole.row && p.col === j.fromHole.col; });
+      var toMatch = pl.pins.some(function(p) { return p.row === j.toHole.row && p.col === j.toHole.col; });
+      return !fromMatch && !toMatch;
+    });
+    // Remove from schematic
+    if (typeof saveUndo === 'function') saveUndo();
+    S.parts = S.parts.filter(function(p) { return p.id !== pl.partId; });
+    S.sel = [];
+    if (typeof updateInspector === 'function') updateInspector();
+    needsRender = true;
+  }
+
+  function removeJumper(j) {
+    var idx = jumpers.indexOf(j);
+    if (idx >= 0) jumpers.splice(idx, 1);
+    needsRender = true;
+  }
+
+  // ── SYNC ──
+  function syncJumperToSchematic(from, to) {
+    // Find which parts are at these holes and their pin world coords
+    var fromPl = null, fromPinIdx = -1, toPl = null, toPinIdx = -1;
+    placements.forEach(function(pl) {
+      for (var i = 0; i < pl.pins.length; i++) {
+        if (pl.pins[i].row === from.row && pl.pins[i].col === from.col) { fromPl = pl; fromPinIdx = i; }
+        if (pl.pins[i].row === to.row && pl.pins[i].col === to.col) { toPl = pl; toPinIdx = i; }
+      }
+    });
+    if (!fromPl || !toPl) return;
+    var fromPart = S.parts.find(function(p) { return p.id === fromPl.partId; });
+    var toPart = S.parts.find(function(p) { return p.id === toPl.partId; });
+    if (!fromPart || !toPart) return;
+    var fromPins = getPartPins(fromPart);
+    var toPins = getPartPins(toPart);
+    if (fromPinIdx >= fromPins.length || toPinIdx >= toPins.length) return;
+    // Add wire to schematic
+    if (typeof saveUndo === 'function') saveUndo();
+    S.wires.push({
+      x1: Math.round(fromPins[fromPinIdx].x), y1: Math.round(fromPins[fromPinIdx].y),
+      x2: Math.round(toPins[toPinIdx].x), y2: Math.round(toPins[toPinIdx].y)
+    });
+  }
+
+  function syncFromSchematic() {
+    if (!active) return;
+    var existingIds = {};
+    placements.forEach(function(p) { existingIds[p.partId] = true; });
+
+    // Add new parts
+    S.parts.forEach(function(part) {
+      if (existingIds[part.id]) return;
+      if (['ground','wire','netLabel','vccLabel','gndLabel','probe','voltmeter','ammeter'].indexOf(part.type) >= 0) return;
+      addSinglePartToBoard(part);
+    });
+
+    // Remove deleted parts
+    var currentIds = {};
+    S.parts.forEach(function(p) { currentIds[p.id] = true; });
+    for (var i = placements.length - 1; i >= 0; i--) {
+      if (!currentIds[placements[i].partId]) {
+        placements[i].pins.forEach(function(pin) { delete occupied[pin.row + ':' + pin.col]; });
+        placements.splice(i, 1);
+      }
+    }
+
+    // Update values
+    placements.forEach(function(pl) {
+      var part = S.parts.find(function(pp) { return pp.id === pl.partId; });
+      if (part) { pl.value = part.val || pl.value; pl.damaged = part.damaged || false; }
+    });
+
+    regenJumpers();
+    needsRender = true;
+  }
+
+  function regenJumpers() {
+    var manualJ = jumpers.filter(function(j) { return j.isManual; });
+    jumpers = [];
+    generateJumpers(S.wires);
+    for (var i = 0; i < manualJ.length; i++) jumpers.push(manualJ[i]);
+  }
+
+  function addSinglePartToBoard(part) {
+    var def = COMP[part.type];
+    var pinCount = def ? def.pins.length : 2;
+    var span = pinCount === 2 ? 3 : pinCount;
+    var searchRow, searchRowEnd;
+    if (['resistor','capacitor','inductor','potentiometer'].indexOf(part.type) >= 0) {
+      searchRow = 2; searchRowEnd = 6;
+    } else if (['led','diode','zener','npn','pnp','nmos','pmos'].indexOf(part.type) >= 0) {
+      searchRow = 7; searchRowEnd = 11;
+    } else if (['opamp','ic'].indexOf(part.type) >= 0) {
+      searchRow = 2; searchRowEnd = 6;
+    } else { searchRow = 2; searchRowEnd = 6; }
+
+    for (var row = searchRow; row <= searchRowEnd; row++) {
+      for (var col = 2; col <= COLS - span - 2; col++) {
+        var fits = true;
+        for (var i = 0; i < span; i++) {
+          if (occupied[(row) + ':' + (col + i)]) { fits = false; break; }
+        }
+        if (fits) {
+          var pins = [];
+          for (var j = 0; j < Math.min(pinCount, span); j++) {
+            pins.push({ row: row, col: col + j });
+            occupied[row + ':' + (col + j)] = true;
+          }
+          placements.push({
+            partId: part.id, type: part.type,
+            pins: pins, startHole: pins[0], endHole: pins[pins.length - 1],
+            model: part.model || null, value: part.val || 0,
+            damaged: part.damaged || false, temperature: 25, isOn: false, brightness: 0
+          });
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  // ── DRAW INTERACTION OVERLAYS ──
+  function drawHoverEffects(ctx) {
+    if (dragState) return;
+    if (hoveredHole && isValidHole(hoveredHole.row, hoveredHole.col)) {
+      var pos = g2s(hoveredHole.row, hoveredHole.col, 0);
+      var pulse = 0.4 + 0.3 * Math.sin(Date.now() / 300);
+      ctx.strokeStyle = 'rgba(74, 144, 226, ' + pulse + ')';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(pos.x, pos.y, 6 * scale, 0, Math.PI * 2); ctx.stroke();
+    }
+    if (hoveredComponent) {
+      // Glow around hovered component
+      var pl = hoveredComponent;
+      for (var i = 0; i < pl.pins.length; i++) {
+        var pp = g2s(pl.pins[i].row, pl.pins[i].col, 0);
+        ctx.strokeStyle = 'rgba(74, 144, 226, 0.4)';
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(pp.x, pp.y, 5 * scale, 0, Math.PI * 2); ctx.stroke();
+      }
+    }
+  }
+
+  function drawDragPreview(ctx) {
+    if (!dragState) return;
+
+    if (dragState.type === 'component' && dragState.preview) {
+      var dr = dragState.preview.deltaRow, dc = dragState.preview.deltaCol;
+      var newPins = dragState.originalPins.map(function(pin) { return { row: pin.row + dr, col: pin.col + dc }; });
+      var valid = true;
+      for (var k = 0; k < newPins.length; k++) {
+        if (!isValidHole(newPins[k].row, newPins[k].col) || isOccupiedByOther(newPins[k].row, newPins[k].col, dragState.placement.partId)) {
+          valid = false; break;
+        }
+      }
+      // Draw ghost pins
+      ctx.globalAlpha = 0.5;
+      for (var i = 0; i < newPins.length; i++) {
+        var p = g2s(newPins[i].row, newPins[i].col, 0);
+        ctx.fillStyle = valid ? '#2ecc71' : '#e74c3c';
+        ctx.beginPath(); ctx.arc(p.x, p.y, 5 * scale, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    if (dragState.type === 'jumper') {
+      var fromPos = g2s(dragState.startHole.row, dragState.startHole.col, 0);
+      ctx.strokeStyle = WIRE_COLORS[jumpers.length % WIRE_COLORS.length];
+      ctx.lineWidth = 2.5 * scale;
+      ctx.setLineDash([5, 3]);
+
+      if (dragState.targetHole && isValidHole(dragState.targetHole.row, dragState.targetHole.col)) {
+        var toPos = g2s(dragState.targetHole.row, dragState.targetHole.col, 0);
+        var midY = Math.min(fromPos.y, toPos.y) - 15 * scale;
+        ctx.beginPath();
+        ctx.moveTo(fromPos.x, fromPos.y);
+        ctx.quadraticCurveTo((fromPos.x + toPos.x) / 2, midY, toPos.x, toPos.y);
+        ctx.stroke();
+        // Target halo
+        ctx.setLineDash([]);
+        ctx.strokeStyle = '#2ecc71'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(toPos.x, toPos.y, 6 * scale, 0, Math.PI * 2); ctx.stroke();
+      } else {
+        ctx.beginPath();
+        ctx.moveTo(fromPos.x, fromPos.y);
+        ctx.lineTo(dragState.currentMouse.x, dragState.currentMouse.y);
+        ctx.stroke();
+      }
+      ctx.setLineDash([]);
+    }
+  }
+
+  // ── PUBLIC API ──
+  return {
+    activate: function() { activateWithTransition(); },
+    deactivate: function() { deactivateWithTransition(); },
+    toggle: function() {
+      if (active) this.deactivate();
+      else this.activate();
+    },
+    isActive: function() { return active; },
+    draw: function(ctx, w, h) {
+      updateFade();
+      draw(ctx, w, h);
+      if (active) {
+        drawHoverEffects(ctx);
+        drawDragPreview(ctx);
+      }
+    },
+    syncSimState: syncSimState,
+    getPlacements: function() { return placements; },
+    getJumpers: function() { return jumpers; },
+    reset: function() {
+      placements = []; jumpers = []; occupied = {};
+      active = false; fadeAlpha = 1; fadeDir = 0;
+      dragState = null; hoveredHole = null; hoveredComponent = null;
+    },
+    setScale: function(s) { scale = Math.max(0.3, Math.min(3.0, s)); needsRender = true; },
+    getScale: function() { return scale; },
+    // Sprint 20b — Interaction
+    handleMouseDown: function(e) { return onMouseDown(e); },
+    handleMouseMove: function(e) { onMouseMove(e); },
+    handleMouseUp: function(e) { onMouseUp(e); },
+    handleDblClick: function(e) { onDblClick(e); },
+    handleContextMenu: function(e) { onContextMenu(e); },
+    syncFromSchematic: function() { syncFromSchematic(); },
+    addSinglePart: function(part) { return addSinglePartToBoard(part); },
+    // Testing
+    _autoPlace: function(parts, wires) { autoPlace(parts, wires); },
+    _gridToScreen: g2s,
+    _screenToGrid: s2g,
+    _getOccupied: function() { return occupied; },
+    _hitTestComponent: hitTestComponent,
+    _hitTestJumper: hitTestJumper,
+    _getDragState: function() { return dragState; },
+    _setDragState: function(ds) { dragState = ds; },
+    _rotateOnBoard: rotateOnBoard,
+    _removeFromBoard: removeFromBoard,
+    _removeJumper: removeJumper,
+    _addSinglePartToBoard: addSinglePartToBoard,
+    _regenJumpers: regenJumpers,
+    _isOccupiedByOther: isOccupiedByOther
+  };
+})();
+
+
 // ═══ ux-extras.js ═══
 // ──────── UX EXTRAS: POPUP + PROBE DOCK + RULERS ────────
 
@@ -14145,10 +16983,25 @@ loadSettingsFromStorage();
 
 
 // ═══ crt.js ═══
-// ──────── 4.1: CRT / PHOSPHOR OSCILLOSCOPE MODE ────────
-var _crtTraceHistory = [[], [], [], []]; // 4 channel × N frames
-var CRT_PERSISTENCE_FRAMES = 5;
+// ══════════════════════════════════════════════════════════════
+// CRT OSCILLOSCOPE MODE + CURSOR + MEASUREMENTS (Sprint 22 Enhanced)
+// ══════════════════════════════════════════════════════════════
+
+// ── CRT State ──
+var _crtTraceHistory = [[], [], [], []];
+var CRT_PERSISTENCE_FRAMES = 15;
 var _crtPhosphorColors = ['#00ff41', '#41ff41', '#ffff00', '#00ffff'];
+var _crtPersistence = 35; // 0-100 slider value
+var _crtPhosphorType = 'P31'; // P31, P7, P1, P43
+var _crtBootAnim = 0; // 0=no anim, >0 = ms since CRT turned on
+var _crtBootStart = 0;
+
+var CRT_PHOSPHOR_PALETTES = {
+  P31: { name: 'P31 (Classic Green)', main: '#00ff41', fade: '#004010', all: ['#00ff41','#00ff41','#00ff41','#00ff41'] },
+  P7:  { name: 'P7 (Blue-Green)',     main: '#00ccaa', fade: '#003322', all: ['#00ccaa','#00ccaa','#00ccaa','#00ccaa'] },
+  P1:  { name: 'P1 (Green Short)',    main: '#33ff33', fade: '#003300', all: ['#33ff33','#33ff33','#33ff33','#33ff33'] },
+  P43: { name: 'P43 (Green Medium)',  main: '#22dd44', fade: '#002208', all: ['#22dd44','#22dd44','#22dd44','#22dd44'] }
+};
 
 function toggleCRT() {
   S.crtMode = !S.crtMode;
@@ -14158,12 +17011,52 @@ function toggleCRT() {
   var vg = document.getElementById('crt-vignette');
   if (sl) sl.style.display = S.crtMode ? 'block' : 'none';
   if (vg) vg.style.display = S.crtMode ? 'block' : 'none';
-  if (!S.crtMode) { _crtTraceHistory = [[], [], [], []]; }
+  if (S.crtMode) {
+    _crtBootStart = performance.now();
+    _crtBootAnim = 1;
+    // Apply phosphor palette
+    var pal = CRT_PHOSPHOR_PALETTES[_crtPhosphorType] || CRT_PHOSPHOR_PALETTES.P31;
+    _crtPhosphorColors = pal.all.slice();
+  } else {
+    _crtTraceHistory = [[], [], [], []];
+    _crtBootAnim = 0;
+  }
   needsRender = true;
 }
 
-// ──────── 4.2: CURSOR MEASUREMENT SYSTEM ────────
+function setCRTPersistence(val) {
+  _crtPersistence = Math.max(0, Math.min(100, val));
+  CRT_PERSISTENCE_FRAMES = Math.max(1, Math.round(_crtPersistence / 100 * 30));
+  needsRender = true;
+}
+
+function setCRTPhosphor(type) {
+  _crtPhosphorType = type;
+  var pal = CRT_PHOSPHOR_PALETTES[type] || CRT_PHOSPHOR_PALETTES.P31;
+  _crtPhosphorColors = pal.all.slice();
+  needsRender = true;
+}
+
+// CRT boot animation progress (0-1, or -1 if done)
+function getCRTBootProgress() {
+  if (!_crtBootAnim) return -1;
+  var elapsed = performance.now() - _crtBootStart;
+  if (elapsed >= 1000) { _crtBootAnim = 0; return -1; }
+  return elapsed / 1000;
+}
+
+// Beam intensity: slower movement = brighter
+function computeBeamIntensity(vals, i) {
+  if (i <= 0 || i >= vals.length) return 1;
+  var dv = Math.abs(vals[i] - vals[i - 1]);
+  var maxDv = 0.5; // normalize factor
+  return 1 / (1 + dv / maxDv * 2);
+}
+
+// ── CURSOR SYSTEM (Enhanced) ──
 var _scopeCursorDrag = null; // 'a' | 'b' | null
+var _scopeCursorMode = 'time'; // 'time' | 'voltage' | 'cross'
+var _scopeCursorVY1 = 60, _scopeCursorVY2 = 140; // voltage cursor Y positions
 
 function _initScopeCursorHandlers() {
   var sw = document.getElementById('scope-wrap');
@@ -14172,15 +17065,25 @@ function _initScopeCursorHandlers() {
     if (!S.scope.cursors) return;
     var rect = sw.querySelector('canvas').getBoundingClientRect();
     var mx = e.clientX - rect.left;
-    if (Math.abs(mx - S.scope.cx1) < 10) { _scopeCursorDrag = 'a'; e.preventDefault(); }
-    else if (Math.abs(mx - S.scope.cx2) < 10) { _scopeCursorDrag = 'b'; e.preventDefault(); }
+    var my = e.clientY - rect.top;
+    if (_scopeCursorMode === 'time' || _scopeCursorMode === 'cross') {
+      if (Math.abs(mx - S.scope.cx1) < 12) { _scopeCursorDrag = 'a'; e.preventDefault(); return; }
+      if (Math.abs(mx - S.scope.cx2) < 12) { _scopeCursorDrag = 'b'; e.preventDefault(); return; }
+    }
+    if (_scopeCursorMode === 'voltage' || _scopeCursorMode === 'cross') {
+      if (Math.abs(my - _scopeCursorVY1) < 12) { _scopeCursorDrag = 'va'; e.preventDefault(); return; }
+      if (Math.abs(my - _scopeCursorVY2) < 12) { _scopeCursorDrag = 'vb'; e.preventDefault(); return; }
+    }
   });
   sw.addEventListener('mousemove', function(e) {
     if (!_scopeCursorDrag) return;
     var rect = sw.querySelector('canvas').getBoundingClientRect();
     var mx = Math.max(0, Math.min(rect.width, e.clientX - rect.left));
+    var my = Math.max(0, Math.min(rect.height, e.clientY - rect.top));
     if (_scopeCursorDrag === 'a') S.scope.cx1 = mx;
-    else S.scope.cx2 = mx;
+    else if (_scopeCursorDrag === 'b') S.scope.cx2 = mx;
+    else if (_scopeCursorDrag === 'va') _scopeCursorVY1 = my;
+    else if (_scopeCursorDrag === 'vb') _scopeCursorVY2 = my;
     needsRender = true;
   });
   sw.addEventListener('mouseup', function() { _scopeCursorDrag = null; });
@@ -14188,7 +17091,14 @@ function _initScopeCursorHandlers() {
 }
 _initScopeCursorHandlers();
 
-// ──────── 4.3: SCOPE MEASUREMENT PANEL ENHANCEMENT ────────
+function cycleCursorMode() {
+  var modes = ['time', 'voltage', 'cross'];
+  var idx = modes.indexOf(_scopeCursorMode);
+  _scopeCursorMode = modes[(idx + 1) % modes.length];
+  needsRender = true;
+}
+
+// ── ENHANCED MEASUREMENTS ──
 function computeScopeMeasurements(buf, ptr, tDiv) {
   var vals = [];
   for (var i = 0; i < 600; i++) vals.push(buf[(ptr + i) % 600]);
@@ -14206,47 +17116,75 @@ function computeScopeMeasurements(buf, ptr, tDiv) {
   var vavg = sum / vals.length;
   var vrms = Math.sqrt(sumSq / vals.length);
 
-  // Frequency: count positive zero-crossings relative to vavg
-  var crossings = 0;
+  // Frequency: zero-crossing with LINEAR INTERPOLATION for ±0.1% accuracy
+  var crossings = [];
   for (var i = 1; i < vals.length; i++) {
-    if (vals[i - 1] < vavg && vals[i] >= vavg) crossings++;
+    if (vals[i - 1] < vavg && vals[i] >= vavg) {
+      // Interpolate exact crossing point
+      var frac = (vavg - vals[i - 1]) / (vals[i] - vals[i - 1]);
+      crossings.push(i - 1 + frac);
+    }
   }
-  var samplesPerSec = 600 / (tDiv * 10);
-  var freq = crossings > 1 ? (crossings - 1) * samplesPerSec / 600 / 2 : 0;
-  var period = freq > 0 ? 1 / freq : 0;
+  var dtPerSample = tDiv * 10 / 600;
+  var freq = 0, period = 0;
+  if (crossings.length >= 2) {
+    var totalCycles = crossings.length - 1;
+    var totalSamples = crossings[crossings.length - 1] - crossings[0];
+    period = totalSamples * dtPerSample / totalCycles;
+    freq = period > 0 ? 1 / period : 0;
+  }
+
+  // Vrms over last complete period (more accurate)
+  if (crossings.length >= 3) {
+    var startIdx = Math.floor(crossings[0]);
+    var endIdx = Math.ceil(crossings[crossings.length - 1]);
+    var pSum = 0, pN = 0;
+    for (var i = startIdx; i <= endIdx && i < vals.length; i++) {
+      pSum += vals[i] * vals[i]; pN++;
+    }
+    if (pN > 0) vrms = Math.sqrt(pSum / pN);
+  }
 
   // Duty cycle
   var aboveAvg = 0;
   for (var i = 0; i < vals.length; i++) { if (vals[i] > vavg) aboveAvg++; }
   var duty = (aboveAvg / vals.length) * 100;
 
-  // Rise time (10% → 90%)
+  // Rise time (10% → 90%) with interpolation
   var v10 = vmin + vpp * 0.1, v90 = vmin + vpp * 0.9;
   var riseStart = -1, riseEnd = -1;
   for (var i = 1; i < vals.length; i++) {
-    if (vals[i - 1] < v10 && vals[i] >= v10 && riseStart < 0) riseStart = i;
-    if (riseStart >= 0 && vals[i - 1] < v90 && vals[i] >= v90) { riseEnd = i; break; }
+    if (vals[i - 1] < v10 && vals[i] >= v10 && riseStart < 0) {
+      riseStart = i - 1 + (v10 - vals[i - 1]) / (vals[i] - vals[i - 1]);
+    }
+    if (riseStart >= 0 && vals[i - 1] < v90 && vals[i] >= v90) {
+      riseEnd = i - 1 + (v90 - vals[i - 1]) / (vals[i] - vals[i - 1]);
+      break;
+    }
   }
-  var dtPerSample = tDiv * 10 / 600;
   var riseTime = (riseStart >= 0 && riseEnd > riseStart) ? (riseEnd - riseStart) * dtPerSample : 0;
 
-  // Fall time (90% → 10%)
+  // Fall time (90% → 10%) with interpolation
   var fallStart = -1, fallEnd = -1;
   for (var i = 1; i < vals.length; i++) {
-    if (vals[i - 1] > v90 && vals[i] <= v90 && fallStart < 0) fallStart = i;
-    if (fallStart >= 0 && vals[i - 1] > v10 && vals[i] <= v10) { fallEnd = i; break; }
+    if (vals[i - 1] > v90 && vals[i] <= v90 && fallStart < 0) {
+      fallStart = i - 1 + (v90 - vals[i - 1]) / (vals[i] - vals[i - 1]);
+    }
+    if (fallStart >= 0 && vals[i - 1] > v10 && vals[i] <= v10) {
+      fallEnd = i - 1 + (v10 - vals[i - 1]) / (vals[i] - vals[i - 1]);
+      break;
+    }
   }
   var fallTime = (fallStart >= 0 && fallEnd > fallStart) ? (fallEnd - fallStart) * dtPerSample : 0;
 
-  // THD (basic: compute ratio of harmonics to fundamental using simple FFT-like approach)
+  // THD
   var thd = 0;
   if (freq > 0 && vpp > 0.01) {
     var fundamental = 0, harmonics = 0;
     var N = vals.length;
-    // Compute power at fundamental and first 5 harmonics
     for (var h = 1; h <= 6; h++) {
       var re = 0, im = 0;
-      var fBin = crossings > 1 ? (crossings - 1) * h : h;
+      var fBin = crossings.length > 1 ? (crossings.length - 1) * h : h;
       for (var i = 0; i < N; i++) {
         var angle = 2 * Math.PI * fBin * i / N;
         re += vals[i] * Math.cos(angle);
@@ -14258,14 +17196,57 @@ function computeScopeMeasurements(buf, ptr, tDiv) {
     if (fundamental > 0) thd = Math.sqrt(harmonics) / fundamental * 100;
   }
 
-  return { vmin: vmin, vmax: vmax, vpp: vpp, vavg: vavg, vrms: vrms, freq: freq, period: period, duty: duty, riseTime: riseTime, fallTime: fallTime, thd: thd };
+  // ── NEW: Overshoot, Settling Time, Slew Rate, Crest Factor ──
+  // Overshoot: (peak - steady) / steady * 100
+  var overshoot = 0;
+  if (vpp > 0.01) {
+    var lastQuarter = vals.slice(Math.floor(vals.length * 0.75));
+    var steadyState = lastQuarter.reduce(function(a, b) { return a + b; }, 0) / lastQuarter.length;
+    if (Math.abs(steadyState) > 0.001) {
+      overshoot = Math.max(0, (vmax - steadyState) / Math.abs(steadyState) * 100);
+    }
+  }
+
+  // Slew rate: max |dV/dt| in V/µs
+  var maxDvDt = 0;
+  for (var i = 1; i < vals.length; i++) {
+    var dvdt = Math.abs(vals[i] - vals[i - 1]) / dtPerSample;
+    if (dvdt > maxDvDt) maxDvDt = dvdt;
+  }
+  var slewRate = maxDvDt * 1e-6; // V/µs
+
+  // Crest factor: Vpeak / Vrms
+  var crestFactor = vrms > 0 ? Math.max(Math.abs(vmax), Math.abs(vmin)) / vrms : 0;
+
+  // Settling time (±2% band around steady state)
+  var settlingTime = 0;
+  if (vpp > 0.01) {
+    var ss = vals.slice(Math.floor(vals.length * 0.8));
+    var ssAvg = ss.reduce(function(a, b) { return a + b; }, 0) / ss.length;
+    var band = Math.abs(ssAvg) * 0.02 || vpp * 0.02;
+    for (var i = vals.length - 1; i >= 0; i--) {
+      if (Math.abs(vals[i] - ssAvg) > band) {
+        settlingTime = (vals.length - 1 - i) * dtPerSample;
+        settlingTime = (vals.length - 1 - i) > 0 ? i * dtPerSample : 0;
+        break;
+      }
+    }
+  }
+
+  return {
+    vmin: vmin, vmax: vmax, vpp: vpp, vavg: vavg, vrms: vrms,
+    freq: freq, period: period, duty: duty,
+    riseTime: riseTime, fallTime: fallTime, thd: thd,
+    // Sprint 22 new:
+    overshoot: overshoot, slewRate: slewRate,
+    crestFactor: crestFactor, settlingTime: settlingTime
+  };
 }
 
-// ──────── 4.4: REFERENCE WAVEFORM (REF) ────────
+// ── REFERENCE WAVEFORM ──
 var scopeRefData = [null, null, null, null];
 
 function toggleRef() {
-  // Find first active channel
   var activeCh = -1;
   for (var c = 0; c < 4; c++) { if (S.scope.ch[c].on) { activeCh = c; break; } }
   if (activeCh < 0) return;
@@ -14279,6 +17260,33 @@ function toggleRef() {
   var btn = document.getElementById('btn-ref');
   var hasAny = scopeRefData.some(function(r) { return r !== null; });
   if (btn) btn.classList.toggle('active', hasAny);
+  needsRender = true;
+}
+
+// ── AUTO SCALE ──
+function autoScaleScope() {
+  // Find best V/div and T/div for visible signals
+  var maxVpp = 0;
+  for (var c = 0; c < 4; c++) {
+    if (!S.scope.ch[c].on) continue;
+    var buf = S.scope.ch[c].buf;
+    var mn = Infinity, mx = -Infinity;
+    for (var i = 0; i < 600; i++) { var v = buf[i]; if (v < mn) mn = v; if (v > mx) mx = v; }
+    var vpp = mx - mn;
+    if (vpp > maxVpp) maxVpp = vpp;
+  }
+  if (maxVpp > 0) {
+    // Nice V/div: signal fills ~6 divisions
+    var nice = [0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50];
+    var targetVdiv = maxVpp / 6;
+    var bestVdiv = nice[nice.length - 1];
+    for (var i = 0; i < nice.length; i++) {
+      if (nice[i] >= targetVdiv) { bestVdiv = nice[i]; break; }
+    }
+    for (var c = 0; c < 4; c++) S.scope.ch[c].vDiv = bestVdiv;
+    var el = document.getElementById('sc-vdiv');
+    if (el) el.value = String(bestVdiv);
+  }
   needsRender = true;
 }
 
@@ -14498,9 +17506,42 @@ function exportScopeCSV() {
 function exportScopePNG() {
   var cvs = document.getElementById('SC');
   if (!cvs) return;
+  // Sprint 22: 2x retina export with timestamp
+  var expCvs = document.createElement('canvas');
+  expCvs.width = cvs.width * 2; expCvs.height = cvs.height * 2;
+  var ec = expCvs.getContext('2d');
+  ec.scale(2, 2);
+  ec.drawImage(cvs, 0, 0, cvs.width, cvs.height);
+  // Add timestamp watermark
+  ec.scale(0.5, 0.5); // reset to pixel coords
+  ec.fillStyle = 'rgba(255,255,255,0.3)';
+  ec.font = '14px "JetBrains Mono",monospace';
+  ec.textAlign = 'right';
+  var dateStr = new Date().toISOString().slice(0, 10);
+  ec.fillText('VoltXAmpere \u2014 ' + dateStr, expCvs.width - 10, expCvs.height - 10);
   var a = document.createElement('a');
-  a.href = cvs.toDataURL('image/png');
-  a.download = 'vxa_scope_' + Date.now() + '.png';
+  a.href = expCvs.toDataURL('image/png');
+  a.download = 'voltxampere_scope_' + dateStr + '.png';
+  a.click();
+}
+
+function exportAnalysisPNG2x(canvasId, prefix) {
+  var cvs = document.getElementById(canvasId);
+  if (!cvs) return;
+  var expCvs = document.createElement('canvas');
+  expCvs.width = cvs.width * 2; expCvs.height = cvs.height * 2;
+  var ec = expCvs.getContext('2d');
+  ec.scale(2, 2);
+  ec.drawImage(cvs, 0, 0, cvs.width, cvs.height);
+  ec.scale(0.5, 0.5);
+  ec.fillStyle = 'rgba(255,255,255,0.3)';
+  ec.font = '14px "JetBrains Mono",monospace';
+  ec.textAlign = 'right';
+  var dateStr = new Date().toISOString().slice(0, 10);
+  ec.fillText('VoltXAmpere \u2014 ' + dateStr, expCvs.width - 10, expCvs.height - 10);
+  var a = document.createElement('a');
+  a.href = expCvs.toDataURL('image/png');
+  a.download = 'voltxampere_' + (prefix || 'analysis') + '_' + dateStr + '.png';
   a.click();
 }
 

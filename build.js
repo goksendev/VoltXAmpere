@@ -126,6 +126,9 @@ const JS_FILES = [
   // Engine: sensitivity
   'src/engine/sensitivity.js',
 
+  // Engine: pole-zero analysis (Sprint 21)
+  'src/engine/pole-zero.js',
+
   // UI: graph engine
   'src/ui/graph.js',
 
@@ -227,6 +230,12 @@ const JS_FILES = [
 
   // Sprint 19: SPICE Import Modal + UX
   'src/ui/spice-modal.js',
+
+  // UI: advanced analysis (Sprint 21: P-Z, Contour, H(s))
+  'src/ui/advanced-analysis.js',
+
+  // UI: breadboard 3D view
+  'src/ui/breadboard.js',
 
   // UX extras: popup, probe dock, rulers
   'src/ui/ux-extras.js',

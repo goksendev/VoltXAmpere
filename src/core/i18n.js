@@ -103,6 +103,9 @@ var STR = {
     clear:'Temizle', lines:'satır', spice_import:'SPICE Import',
     empty_canvas_hint:'Sol panelden bileşen sürükleyin veya Ctrl+V ile SPICE yapıştırın',
     wire_placed:'Kablo bağlandı', wire_mode_on:'Kablo Modu — bir pine tıklayın',
+    breadboard:'Breadboard', breadboard_view:'Breadboard Görünümü', breadboard_back:'Şematiğe dön',
+    tabPoleZero:'Kutup-Sıfır', tabContour2D:'2D Sweep', tabTransferFunc:'H(s)',
+    runPoleZero:'▶ Kutup-Sıfır Analizi', runContour2D:'▶ 2D Sweep Başlat', runTransferFunc:'▶ H(s) Göster',
   },
   en: {
     undo:'Undo', redo:'Redo', wire:'Wire', rotate:'Rotate', del:'Delete',
@@ -205,6 +208,9 @@ var STR = {
     clear:'Clear', lines:'lines', spice_import:'SPICE Import',
     empty_canvas_hint:'Drag components from panel or paste SPICE with Ctrl+V',
     wire_placed:'Wire connected', wire_mode_on:'Wire Mode — click a pin',
+    breadboard:'Breadboard', breadboard_view:'Breadboard View', breadboard_back:'Back to schematic',
+    tabPoleZero:'Pole-Zero', tabContour2D:'2D Sweep', tabTransferFunc:'H(s)',
+    runPoleZero:'\u25B6 Pole-Zero Analysis', runContour2D:'\u25B6 Run 2D Sweep', runTransferFunc:'\u25B6 Show H(s)',
   }
 };
 

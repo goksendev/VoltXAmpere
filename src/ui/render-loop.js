@@ -9,6 +9,17 @@ function isInViewport(part) {
 function render() {
   const w = cvs.width / DPR, h = cvs.height / DPR;
   ctx.clearRect(0, 0, w, h);
+  // Breadboard mode: render breadboard instead of schematic
+  if (VXA.Breadboard && VXA.Breadboard.isActive()) {
+    VXA.Breadboard.draw(ctx, w, h);
+    // Sync sim state
+    if (S.sim.running) { simulationStep(); VXA.Breadboard.syncSimState(); }
+    // FPS counter
+    S._fc++;
+    var _bbNow = performance.now();
+    if (_bbNow - S._ft >= 1000) { S.fps = S._fc; S._fc = 0; S._ft = _bbNow; }
+    return;
+  }
   if (S.showGrid) drawGrid();
   else { ctx.fillStyle = '#06080c'; ctx.fillRect(0, 0, w, h); }
   if (typeof drawEmptyCanvasHint === 'function') drawEmptyCanvasHint(ctx, w, h);
@@ -150,7 +161,11 @@ function loadPreset(id) {
   S.parts = []; S.wires = []; S.nextId = 1; S.sel = [];
   if (S.sim.running) toggleSim();
   pr.parts.forEach(p => {
-    S.parts.push({ id: S.nextId++, type: p.type, name: nextName(p.type), x: p.x, y: p.y, rot: p.rot || 0, val: p.val, freq: p.freq || 0, flipH: false, flipV: false, closed: false });
+    var newPart = { id: S.nextId++, type: p.type, name: nextName(p.type), x: p.x, y: p.y, rot: p.rot || 0, val: p.val, freq: p.freq || 0, flipH: false, flipV: false, closed: false };
+    // Sprint 24: Apply model from preset or default
+    if (p.model) { newPart.model = p.model; if (typeof applyModel === 'function') applyModel(newPart, p.model); }
+    else { var defModel = VXA.Models && VXA.Models.getDefault ? VXA.Models.getDefault(p.type) : null; if (defModel) { newPart.model = defModel; if (typeof applyModel === 'function') applyModel(newPart, defModel); } }
+    S.parts.push(newPart);
   });
   pr.wires.forEach(w => S.wires.push({ x1: w.x1, y1: w.y1, x2: w.x2, y2: w.y2 }));
   // Center view on preset

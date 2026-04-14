@@ -101,9 +101,42 @@ function exportScopeCSV() {
 function exportScopePNG() {
   var cvs = document.getElementById('SC');
   if (!cvs) return;
+  // Sprint 22: 2x retina export with timestamp
+  var expCvs = document.createElement('canvas');
+  expCvs.width = cvs.width * 2; expCvs.height = cvs.height * 2;
+  var ec = expCvs.getContext('2d');
+  ec.scale(2, 2);
+  ec.drawImage(cvs, 0, 0, cvs.width, cvs.height);
+  // Add timestamp watermark
+  ec.scale(0.5, 0.5); // reset to pixel coords
+  ec.fillStyle = 'rgba(255,255,255,0.3)';
+  ec.font = '14px "JetBrains Mono",monospace';
+  ec.textAlign = 'right';
+  var dateStr = new Date().toISOString().slice(0, 10);
+  ec.fillText('VoltXAmpere \u2014 ' + dateStr, expCvs.width - 10, expCvs.height - 10);
   var a = document.createElement('a');
-  a.href = cvs.toDataURL('image/png');
-  a.download = 'vxa_scope_' + Date.now() + '.png';
+  a.href = expCvs.toDataURL('image/png');
+  a.download = 'voltxampere_scope_' + dateStr + '.png';
+  a.click();
+}
+
+function exportAnalysisPNG2x(canvasId, prefix) {
+  var cvs = document.getElementById(canvasId);
+  if (!cvs) return;
+  var expCvs = document.createElement('canvas');
+  expCvs.width = cvs.width * 2; expCvs.height = cvs.height * 2;
+  var ec = expCvs.getContext('2d');
+  ec.scale(2, 2);
+  ec.drawImage(cvs, 0, 0, cvs.width, cvs.height);
+  ec.scale(0.5, 0.5);
+  ec.fillStyle = 'rgba(255,255,255,0.3)';
+  ec.font = '14px "JetBrains Mono",monospace';
+  ec.textAlign = 'right';
+  var dateStr = new Date().toISOString().slice(0, 10);
+  ec.fillText('VoltXAmpere \u2014 ' + dateStr, expCvs.width - 10, expCvs.height - 10);
+  var a = document.createElement('a');
+  a.href = expCvs.toDataURL('image/png');
+  a.download = 'voltxampere_' + (prefix || 'analysis') + '_' + dateStr + '.png';
   a.click();
 }
 

@@ -29,13 +29,16 @@ VXA.Models = (function() {
     'BAT54':{ IS:1e-7, N:1.03, RS:1, BV:30, CJO:10e-12, VJ:0.25, M:0.35, TT:5e-9, desc:'Schottky 200mA 30V, SOT-23' },
   };
   var LED = {
-    'RED_5MM':{ IS:93.2e-12, N:3.73, RS:0.636, BV:5, CJO:2e-12, Vf_typ:1.8, If_max:0.02, color:'#f0454a', desc:'Red LED 5mm, 20mA' },
-    'GREEN_5MM':{ IS:93.2e-12, N:4.0, RS:0.9, BV:5, CJO:2e-12, Vf_typ:2.2, If_max:0.02, color:'#22c55e', desc:'Green LED 5mm, 20mA' },
-    'BLUE_5MM':{ IS:93.2e-12, N:5.0, RS:1.2, BV:5, CJO:2e-12, Vf_typ:3.2, If_max:0.02, color:'#3b82f6', desc:'Blue LED 5mm, 20mA' },
-    'YELLOW_5MM':{ IS:93.2e-12, N:3.9, RS:0.8, BV:5, CJO:2e-12, Vf_typ:2.0, If_max:0.02, color:'#eab308', desc:'Yellow LED 5mm, 20mA' },
-    'WHITE_5MM':{ IS:93.2e-12, N:4.5, RS:1.0, BV:5, CJO:2e-12, Vf_typ:3.3, If_max:0.02, color:'#e0e7f0', desc:'White LED 5mm, 20mA' },
-    'IR_5MM':{ IS:1e-10, N:2.0, RS:0.4, BV:5, CJO:2e-12, Vf_typ:1.3, If_max:0.05, color:'#440000', desc:'IR LED 940nm, 50mA' },
-    'POWER_1W':{ IS:1e-11, N:3.5, RS:0.3, BV:5, CJO:5e-12, Vf_typ:3.2, If_max:0.35, color:'#e0e7f0', desc:'Power LED 1W, 350mA' },
+    // Sprint 25: Calibrated IS via Vf = N*Vt*ln(If/IS) at If=20mA
+    // N=2.0 uniform for convergence stability, IS tuned per color
+    // eski Sprint 24b: IS=93.2e-12, N=3.73-6.6 (NR convergence issues)
+    'RED_5MM':   { IS:2.0e-17,  N:2.0, RS:0.7, BV:5, IBV:1e-5, CJO:25e-12, VJ:0.7, M:0.33, TT:5e-9, Vf_typ:1.8, If_max:0.02, color:'#f0454a', desc:'Red LED 5mm, 20mA' },
+    'GREEN_5MM': { IS:5.7e-20,  N:2.0, RS:0.9, BV:5, IBV:1e-5, CJO:20e-12, VJ:0.7, M:0.33, TT:5e-9, Vf_typ:2.1, If_max:0.02, color:'#22c55e', desc:'Green LED 5mm, 20mA' },
+    'BLUE_5MM':  { IS:3.7e-29,  N:2.0, RS:1.2, BV:5, IBV:1e-5, CJO:15e-12, VJ:0.7, M:0.33, TT:5e-9, Vf_typ:3.2, If_max:0.02, color:'#3b82f6', desc:'Blue LED 5mm, 20mA' },
+    'WHITE_5MM': { IS:3.7e-29,  N:2.0, RS:1.0, BV:5, IBV:1e-5, CJO:15e-12, VJ:0.7, M:0.33, TT:5e-9, Vf_typ:3.2, If_max:0.02, color:'#e0e7f0', desc:'White LED 5mm, 20mA' },
+    'YELLOW_5MM':{ IS:3.8e-19,  N:2.0, RS:0.8, BV:5, IBV:1e-5, CJO:22e-12, VJ:0.7, M:0.33, TT:5e-9, Vf_typ:2.0, If_max:0.02, color:'#eab308', desc:'Yellow LED 5mm, 20mA' },
+    'IR_5MM':    { IS:1.5e-13,  N:1.8, RS:0.6, BV:5, IBV:1e-5, CJO:30e-12, VJ:0.7, M:0.33, TT:5e-9, Vf_typ:1.2, If_max:0.05, color:'#440000', desc:'IR LED 940nm, 50mA' },
+    'POWER_1W':  { IS:2.0e-27,  N:2.0, RS:0.4, BV:5, IBV:1e-5, CJO:40e-12, VJ:0.7, M:0.33, TT:5e-9, Vf_typ:3.0, If_max:0.35, color:'#e0e7f0', desc:'Power LED 1W, 350mA' },
   };
   var ZENER = {
     '1N4728':{ Vz:3.3, Zz:10, Iz:76e-3, Pd:1, desc:'3.3V Zener 1W' },

@@ -4,6 +4,8 @@ const wrap = document.getElementById('canvas-wrap');
 wrap.addEventListener('mousemove', e => {
   const r = cvs.getBoundingClientRect();
   S.mouse.x = e.clientX - r.left; S.mouse.y = e.clientY - r.top;
+  // Breadboard mode: redirect mouse events
+  if (VXA.Breadboard && VXA.Breadboard.isActive()) { VXA.Breadboard.handleMouseMove(e); return; }
   const w = s2w(S.mouse.x, S.mouse.y); S.mouse.wx = w.x; S.mouse.wy = w.y;
   S.hoveredPin = findNearestPin(w.x, w.y);
   S.hovered = hitTestPart(w.x, w.y);
@@ -73,6 +75,8 @@ wrap.addEventListener('mousemove', e => {
 
 wrap.addEventListener('mousedown', e => {
   hideCtx();
+  // Breadboard mode: redirect mouse events
+  if (VXA.Breadboard && VXA.Breadboard.isActive()) { if (VXA.Breadboard.handleMouseDown(e)) return; }
   const w = s2w(S.mouse.x, S.mouse.y);
 
   // middle-click pan
@@ -181,7 +185,9 @@ wrap.addEventListener('mousedown', e => {
   }
 });
 
-wrap.addEventListener('mouseup', () => {
+wrap.addEventListener('mouseup', (e) => {
+  // Breadboard mode: redirect mouse events
+  if (VXA.Breadboard && VXA.Breadboard.isActive()) { VXA.Breadboard.handleMouseUp(e); return; }
   // Sprint 14: Probe drop
   if (VXA.Probes && VXA.Probes.isDragging()) {
     var _pw = s2w(S.mouse.x, S.mouse.y);
@@ -199,7 +205,9 @@ wrap.addEventListener('mouseup', () => {
   }
 });
 
-wrap.addEventListener('dblclick', () => {
+wrap.addEventListener('dblclick', (e) => {
+  // Breadboard mode: redirect dblclick
+  if (VXA.Breadboard && VXA.Breadboard.isActive()) { VXA.Breadboard.handleDblClick(e); return; }
   if (S.mode === 'wire') {
     S.wireStart = null; S.wirePreview = null; S.mode = 'select';
     document.getElementById('btn-wire').classList.remove('active'); needsRender = true;
@@ -243,6 +251,8 @@ wrap.addEventListener('wheel', e => {
 }, { passive: false });
 
 wrap.addEventListener('contextmenu', function(e) {
+  // Breadboard mode: redirect context menu
+  if (VXA.Breadboard && VXA.Breadboard.isActive()) { VXA.Breadboard.handleContextMenu(e); return; }
   showSmartCtxMenu(e);
 });
 

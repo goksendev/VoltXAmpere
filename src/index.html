@@ -52,7 +52,7 @@
     <button class="tb-btn" onclick="generateReport()" title="Rapor">&#128196; Rapor</button>
     <button class="tb-btn" onclick="shareURL()" title="Paylaş">&#128279; Paylaş</button>
     <div class="tb-sep"></div>
-    <button class="tb-btn" id="btn-vmap" onclick="S.voltageMap=!S.voltageMap;needsRender=true">&#9889; Renk Haritası</button>
+    <button class="tb-btn" id="btn-vmap" onclick="S.voltageMap=!S.voltageMap;needsRender=true" title="Voltaj Renk Haritası" aria-label="Toggle voltage color map">&#9889; Renk Haritası</button>
     <button class="tb-btn" onclick="showTutorialList()" title="Dersler">&#128214; Dersler</button>
     <button class="tb-btn" onclick="openSettings()" title="Ayarlar">&#9881; Ayarlar</button>
     <button class="tb-btn" id="btn-realistic" onclick="toggleRealisticBtn()" title="Gerçekçi Mod (Shift+R)">&#128737; Gerçekçi</button>
@@ -60,6 +60,7 @@
     <button class="tb-btn" onclick="fitToScreen()" title="Sığdır (Ctrl+Shift+F)">&#128208; Sığdır</button>
     <button class="tb-btn" id="btn-chaos" onclick="toggleChaosPanel()" title="Kaos Testi (Shift+K)" style="color:#ff8800">⚡ Kaos</button>
     <button class="tb-btn" id="btn-probes" onclick="toggleProbeMode()" title="Prob Modu (Shift+P)" style="color:#4a9eff">🔌 Prob</button>
+    <button class="tb-btn" id="btn-breadboard" onclick="if(VXA.Breadboard)VXA.Breadboard.toggle()" title="Breadboard (Ctrl+B)" style="color:#f5e0b0">🔲 Breadboard</button>
     <div class="sim-badge">
       <button class="tb-btn" style="font-size:10px" onclick="if(typeof _tlEnterPlayback==='function')_tlEnterPlayback()" title="Time Machine (M)" id="btn-timemachine">&#9194; Rewind</button>
       <button class="tb-btn" style="font-size:10px" onclick="simStep()" title="Tek Ad&#305;m">&#9193; Ad&#305;m</button>
@@ -70,7 +71,7 @@
       </select>
       <span class="tb-badge" id="sim-label">DURDURULDU</span>
       <div class="sim-dot" id="sim-dot"></div>
-      <button class="tb-btn" id="btn-sim" onclick="toggleSim()">&#9654; Başlat</button>
+      <button class="tb-btn" id="btn-sim" onclick="toggleSim()" title="Simülasyonu Başlat/Durdur (Space)" aria-label="Toggle simulation">&#9654; Başlat</button>
       <button class="tb-btn" id="lang-btn" onclick="setLanguage(currentLang==='tr'?'en':'tr')" title="TR/EN" style="margin-left:8px">🌐 TR</button>
       <button class="tb-btn" onclick="changeFontSize(-1)" aria-label="Decrease font" title="A-">A-</button>
       <button class="tb-btn" onclick="changeFontSize(1)" aria-label="Increase font" title="A+">A+</button>
@@ -95,7 +96,7 @@
 
   <!-- BOTTOM -->
   <div id="bottom" style="display:grid;grid-template-rows:auto 1fr;grid-template-columns:1fr">
-    <div style="display:flex;gap:2px;padding:3px 8px;background:var(--surface-2);border-bottom:1px solid var(--border)">
+    <div style="display:flex;gap:2px;padding:3px 8px;background:var(--surface-2);border-bottom:1px solid var(--border);overflow-x:auto;overflow-y:hidden;white-space:nowrap;scrollbar-width:thin">
       <button class="btab active" data-tab="scope" onclick="switchTab('scope')">Osiloskop</button>
       <button class="btab" data-tab="bode" onclick="switchTab('bode')">Bode Plot</button>
       <button class="btab" data-tab="dcsweep" onclick="switchTab('dcsweep')">DC Sweep</button>
@@ -107,6 +108,9 @@
       <button class="btab" data-tab="sensitivity" onclick="switchTab('sensitivity')">Duyarl&#305;l&#305;k</button>
       <button class="btab" data-tab="worstcase" onclick="switchTab('worstcase')">Worst Case</button>
       <button class="btab" data-tab="timing" onclick="switchTab('timing')">Timing</button>
+      <button class="btab" data-tab="polezero" onclick="switchTab('polezero')">&#127919; P-Z</button>
+      <button class="btab" data-tab="contour2d" onclick="switchTab('contour2d')">&#128506; 2D</button>
+      <button class="btab" data-tab="transferfunc" onclick="switchTab('transferfunc')">&#128208; H(s)</button>
     </div>
     <div id="tab-scope" class="tab-panel active" style="grid-template-columns:1fr 200px">
       <div id="scope-wrap">
@@ -136,8 +140,15 @@
             <span class="sc-label">V/div</span>
             <select id="sc-vdiv" onchange="setVDiv(this.value)">
               <option value="0">Oto</option>
+              <option value="0.001">1 mV</option>
+              <option value="0.002">2 mV</option>
+              <option value="0.005">5 mV</option>
               <option value="0.01">10 mV</option>
+              <option value="0.02">20 mV</option>
+              <option value="0.05">50 mV</option>
               <option value="0.1">100 mV</option>
+              <option value="0.2">200 mV</option>
+              <option value="0.5">500 mV</option>
               <option value="1">1 V</option>
               <option value="2" selected>2 V</option>
               <option value="5">5 V</option>
@@ -157,12 +168,13 @@
             </select>
           </div>
           <div class="sc-group">
-            <button class="tb-btn" style="font-size:10px;padding:2px 6px" onclick="toggleScopeMode('xy')">X-Y</button>
-            <button class="tb-btn" style="font-size:10px;padding:2px 6px" onclick="toggleScopeMode('roll')">Roll</button>
-            <button class="tb-btn" style="font-size:10px;padding:2px 6px" onclick="S.scope.persist=!S.scope.persist;needsRender=true">Persist</button>
-            <button class="tb-btn" style="font-size:10px;padding:2px 6px" id="btn-crt" onclick="toggleCRT()">CRT</button>
-            <button class="tb-btn" style="font-size:10px;padding:2px 6px" onclick="toggleCursors()">Cursor</button>
-            <button class="tb-btn" style="font-size:10px;padding:2px 6px" id="btn-ref" onclick="toggleRef()">REF</button>
+            <button class="tb-btn" style="font-size:10px;padding:2px 6px" onclick="toggleScopeMode('xy')" title="X-Y Lissajous Modu" aria-label="Toggle XY scope mode">X-Y</button>
+            <button class="tb-btn" style="font-size:10px;padding:2px 6px" onclick="toggleScopeMode('roll')" title="Roll Modu" aria-label="Toggle roll scope mode">Roll</button>
+            <button class="tb-btn" style="font-size:10px;padding:2px 6px;color:#ffcc00" onclick="autoScaleScope()" title="Auto Scale">&#8596; Auto</button>
+            <button class="tb-btn" style="font-size:10px;padding:2px 6px" onclick="S.scope.persist=!S.scope.persist;needsRender=true" title="Persistence Modu" aria-label="Toggle trace persistence">Persist</button>
+            <button class="tb-btn" style="font-size:10px;padding:2px 6px" id="btn-crt" onclick="toggleCRT()" title="CRT Fosfor Modu" aria-label="Toggle CRT mode">CRT</button>
+            <button class="tb-btn" style="font-size:10px;padding:2px 6px" onclick="toggleCursors()" title="Cursor Ölçüm (C)" aria-label="Toggle measurement cursors">Cursor</button>
+            <button class="tb-btn" style="font-size:10px;padding:2px 6px" id="btn-ref" onclick="toggleRef()" title="Referans Dalga Formu" aria-label="Save/toggle reference waveform">REF</button>
             <button class="sc-export-btn" onclick="exportScopeCSV()" title="CSV">&#128229;</button>
             <button class="sc-export-btn" onclick="exportScopePNG()" title="PNG">&#128247;</button>
           </div>
@@ -203,6 +215,9 @@
     <div id="tab-sensitivity" class="tab-panel" style="position:relative"><canvas id="SENSC" style="width:100%;height:100%"></canvas><div class="tab-overlay" id="ov-sensitivity"><p>Hangi bile&scedil;en en kritik?</p><button class="run-btn" onclick="runSensitivity()">&#9654; Duyarl&inodot;l&inodot;k Analizi</button></div></div>
     <div id="tab-worstcase" class="tab-panel" style="position:relative"><canvas id="WCC" style="width:100%;height:100%"></canvas><div class="tab-overlay" id="ov-worstcase"><p>Tolerans u&ccedil;lar&inodot;n&inodot; test edin</p><button class="run-btn" onclick="runWorstCase('evp')">&#9654; EVP (&plusmn;10%)</button> <button class="run-btn" onclick="runWorstCase('rss')" style="margin-left:6px">&#9654; RSS (&plusmn;10%)</button></div></div>
     <div id="tab-timing" class="tab-panel" style="position:relative"><canvas id="TIMING" style="width:100%;height:100%"></canvas><div class="tab-overlay" id="ov-timing"><p>Dijital devre kurun, sim&uuml;lasyonu ba&scedil;lat&inodot;n</p><button class="run-btn" onclick="if(VXA.Digital)VXA.Digital.init(S.parts)">&#9654; Timing Kaydet</button></div></div>
+    <div id="tab-polezero" class="tab-panel" style="position:relative"><canvas id="PZC" style="width:100%;height:100%"></canvas><div class="tab-overlay" id="ov-polezero"><p>AC devre kurun &mdash; kutup ve s&inodot;f&inodot;r analizi</p><button class="run-btn" onclick="runPoleZero()">&#9654; Pole-Zero Analizi</button></div></div>
+    <div id="tab-contour2d" class="tab-panel" style="position:relative"><canvas id="CONTOUR2D" style="width:100%;height:100%"></canvas><div class="tab-overlay" id="ov-contour2d"><p>&#304;ki bile&scedil;en se&ccedil;in &mdash; 2D parametre taramas&inodot;</p><button class="run-btn" onclick="runContour2D()">&#9654; 2D Sweep Ba&scedil;lat</button></div></div>
+    <div id="tab-transferfunc" class="tab-panel" style="position:relative"><canvas id="TFUNC" style="width:100%;height:100%"></canvas><div class="tab-overlay" id="ov-transferfunc"><p>&Ouml;nce Pole-Zero analizi &ccedil;al&inodot;&scedil;t&inodot;r&inodot;n</p><button class="run-btn" onclick="runTransferFunc()">&#9654; H(s) G&ouml;ster</button></div></div>
   </div>
 
   <!-- TIMELINE BAR (Sprint 11: Time Machine) -->
