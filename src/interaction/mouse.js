@@ -26,7 +26,24 @@ wrap.addEventListener('mousemove', e => {
     const dx = w.x - S.drag.sx, dy = w.y - S.drag.sy;
     S.drag.parts.forEach(d => {
       const p = S.parts.find(pp => pp.id === d.id);
-      if (p) { p.x = snap(d.ox + dx); p.y = snap(d.oy + dy); }
+      if (!p) return;
+      // Get OLD pin positions before moving
+      var oldPins = getPartPins(p);
+      // Move part
+      p.x = snap(d.ox + dx); p.y = snap(d.oy + dy);
+      // Get NEW pin positions after moving
+      var newPins = getPartPins(p);
+      // Move wire endpoints that were connected to old pin positions
+      for (var pi = 0; pi < oldPins.length; pi++) {
+        var opx = Math.round(oldPins[pi].x), opy = Math.round(oldPins[pi].y);
+        var npx = Math.round(newPins[pi].x), npy = Math.round(newPins[pi].y);
+        if (opx === npx && opy === npy) continue;
+        for (var wi = 0; wi < S.wires.length; wi++) {
+          var ww = S.wires[wi];
+          if (Math.abs(ww.x1 - opx) < 5 && Math.abs(ww.y1 - opy) < 5) { ww.x1 = npx; ww.y1 = npy; }
+          if (Math.abs(ww.x2 - opx) < 5 && Math.abs(ww.y2 - opy) < 5) { ww.x2 = npx; ww.y2 = npy; }
+        }
+      }
     });
     needsRender = true;
   }
@@ -99,7 +116,15 @@ wrap.addEventListener('mousedown', e => {
       S.wires.push({ x1: S.wireStart.x, y1: S.wireStart.y, x2: tx, y2: ty });
       // Sprint 14: Flash effect on connection
       if (typeof onWireConnected === 'function') onWireConnected(tx, ty);
-      S.wireStart = { x: tx, y: ty }; S.wirePreview = null;
+      // Auto-close wire mode if both ends hit a pin (unless Shift held for continuous)
+      if (pin && !e.shiftKey) {
+        S.wireStart = null; S.wirePreview = null; S.mode = 'select';
+        document.getElementById('btn-wire').classList.remove('active');
+        if (typeof announce === 'function') announce(t('wire_placed') || 'Kablo bağlandı');
+      } else {
+        S.wireStart = { x: tx, y: ty };
+      }
+      S.wirePreview = null;
       if (typeof resetWireLag === 'function') resetWireLag();
       needsRender = true;
     }

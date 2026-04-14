@@ -411,6 +411,14 @@
 
 <noscript><div style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#06080c;color:#e0e7f0;font-family:sans-serif;text-align:center;padding:40px"><div><h1 style="color:#00e09e;margin-bottom:12px">VoltXAmpere</h1><p>Bu uygulama JavaScript gerektirir.<br>Lütfen tarayıcınızda JavaScript'i etkinleştirin.</p></div></div></noscript>
 
+<!-- Zoom controls — canvas right side -->
+<div id="zoom-controls" style="position:fixed;right:12px;bottom:130px;display:flex;gap:2px;background:rgba(15,20,35,0.85);padding:4px;border-radius:8px;border:1px solid #333;z-index:90">
+  <button class="canvas-fab" onclick="S.view.zoom=Math.max(S.view.minZoom,S.view.zoom/1.2);needsRender=true" title="Uzaklaştır" style="font-size:18px">−</button>
+  <button class="canvas-fab" onclick="S.view.zoom=1;S.view.ox=cvs.width/DPR/2;S.view.oy=cvs.height/DPR/2;needsRender=true" title="Sıfırla" style="font-size:10px" id="zoom-level">100%</button>
+  <button class="canvas-fab" onclick="S.view.zoom=Math.min(S.view.maxZoom,S.view.zoom*1.2);needsRender=true" title="Yakınlaştır" style="font-size:18px">+</button>
+  <button class="canvas-fab" onclick="fitToScreen()" title="Sığdır">&#8862;</button>
+</div>
+
 <!-- Floating tool buttons — canvas right side -->
 <div id="canvas-fab-group" style="position:fixed;right:12px;bottom:76px;display:flex;flex-direction:column;gap:6px;z-index:90">
   <button class="canvas-fab" onclick="toggleProbeMode()" title="Prob (Shift+P)" id="fab-probe">&#128270;</button>

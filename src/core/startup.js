@@ -440,10 +440,10 @@ function rebuildPalette() {
       var d = document.createElement('div'); d.className = 'comp-item';
       // Mini canvas thumbnail (16×12px)
       var mc = document.createElement('canvas');
-      mc.width = 16; mc.height = 12; mc.style.cssText = 'width:16px;height:12px;margin-right:6px;vertical-align:middle;flex-shrink:0';
+      mc.width = 24; mc.height = 18; mc.style.cssText = 'width:24px;height:18px;margin-right:6px;vertical-align:middle;flex-shrink:0';
       try {
         var mctx = mc.getContext('2d');
-        mctx.save(); mctx.translate(8, 6); mctx.scale(0.18, 0.18);
+        mctx.save(); mctx.translate(12, 9); mctx.scale(0.27, 0.27);
         v.draw(mctx, 20, { val: v.def, type: k });
         mctx.restore();
       } catch(err) {}

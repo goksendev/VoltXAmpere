@@ -125,10 +125,12 @@ function render() {
   const now = performance.now();
   if (now - S._ft >= 1000) { S.fps = S._fc; S._fc = 0; S._ft = now; }
 
-  // Statusbar
+  // Statusbar + zoom level
   document.getElementById('sb-time').textContent = 't=' + (S.sim.t*1000).toFixed(3) + 'ms';
   document.getElementById('sb-fps').textContent = S.fps + ' fps';
   document.getElementById('sb-nodes').textContent = S.parts.length + ' parts \u00B7 ' + S.wires.length + ' wires';
+  var zl = document.getElementById('zoom-level');
+  if (zl) zl.textContent = Math.round(S.view.zoom * 100) + '%';
   if (S.sim.error) document.getElementById('sb-dt').textContent = S.sim.error;
   else document.getElementById('sb-dt').textContent = 'dt=10\u00B5s \u00B7 ' + S.wireStyle + ' \u00B7 ' + S.symbolStd + ' \u00B7 ' + (S.realisticMode ? '\uD83D\uDEE1\uFE0F' : '\uD83C\uDF93');
 }

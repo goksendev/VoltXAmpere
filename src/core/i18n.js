@@ -102,6 +102,7 @@ var STR = {
     components_imported:'bileşen import edildi', drop_spice:'.cir dosyası sürükleyin veya tıklayın',
     clear:'Temizle', lines:'satır', spice_import:'SPICE Import',
     empty_canvas_hint:'Sol panelden bileşen sürükleyin veya Ctrl+V ile SPICE yapıştırın',
+    wire_placed:'Kablo bağlandı', wire_mode_on:'Kablo Modu — bir pine tıklayın',
   },
   en: {
     undo:'Undo', redo:'Redo', wire:'Wire', rotate:'Rotate', del:'Delete',
@@ -203,6 +204,7 @@ var STR = {
     components_imported:'components imported', drop_spice:'Drop .cir file or click',
     clear:'Clear', lines:'lines', spice_import:'SPICE Import',
     empty_canvas_hint:'Drag components from panel or paste SPICE with Ctrl+V',
+    wire_placed:'Wire connected', wire_mode_on:'Wire Mode — click a pin',
   }
 };
 

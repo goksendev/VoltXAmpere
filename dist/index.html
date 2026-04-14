@@ -804,6 +804,14 @@ input:focus{border-color:var(--accent)}
 
 <noscript><div style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#06080c;color:#e0e7f0;font-family:sans-serif;text-align:center;padding:40px"><div><h1 style="color:#00e09e;margin-bottom:12px">VoltXAmpere</h1><p>Bu uygulama JavaScript gerektirir.<br>Lütfen tarayıcınızda JavaScript'i etkinleştirin.</p></div></div></noscript>
 
+<!-- Zoom controls — canvas right side -->
+<div id="zoom-controls" style="position:fixed;right:12px;bottom:130px;display:flex;gap:2px;background:rgba(15,20,35,0.85);padding:4px;border-radius:8px;border:1px solid #333;z-index:90">
+  <button class="canvas-fab" onclick="S.view.zoom=Math.max(S.view.minZoom,S.view.zoom/1.2);needsRender=true" title="Uzaklaştır" style="font-size:18px">−</button>
+  <button class="canvas-fab" onclick="S.view.zoom=1;S.view.ox=cvs.width/DPR/2;S.view.oy=cvs.height/DPR/2;needsRender=true" title="Sıfırla" style="font-size:10px" id="zoom-level">100%</button>
+  <button class="canvas-fab" onclick="S.view.zoom=Math.min(S.view.maxZoom,S.view.zoom*1.2);needsRender=true" title="Yakınlaştır" style="font-size:18px">+</button>
+  <button class="canvas-fab" onclick="fitToScreen()" title="Sığdır">&#8862;</button>
+</div>
+
 <!-- Floating tool buttons — canvas right side -->
 <div id="canvas-fab-group" style="position:fixed;right:12px;bottom:76px;display:flex;flex-direction:column;gap:6px;z-index:90">
   <button class="canvas-fab" onclick="toggleProbeMode()" title="Prob (Shift+P)" id="fab-probe">&#128270;</button>
@@ -1066,6 +1074,7 @@ var STR = {
     components_imported:'bileşen import edildi', drop_spice:'.cir dosyası sürükleyin veya tıklayın',
     clear:'Temizle', lines:'satır', spice_import:'SPICE Import',
     empty_canvas_hint:'Sol panelden bileşen sürükleyin veya Ctrl+V ile SPICE yapıştırın',
+    wire_placed:'Kablo bağlandı', wire_mode_on:'Kablo Modu — bir pine tıklayın',
   },
   en: {
     undo:'Undo', redo:'Redo', wire:'Wire', rotate:'Rotate', del:'Delete',
@@ -1167,6 +1176,7 @@ var STR = {
     components_imported:'components imported', drop_spice:'Drop .cir file or click',
     clear:'Clear', lines:'lines', spice_import:'SPICE Import',
     empty_canvas_hint:'Drag components from panel or paste SPICE with Ctrl+V',
+    wire_placed:'Wire connected', wire_mode_on:'Wire Mode — click a pin',
   }
 };
 
@@ -2815,7 +2825,24 @@ wrap.addEventListener('mousemove', e => {
     const dx = w.x - S.drag.sx, dy = w.y - S.drag.sy;
     S.drag.parts.forEach(d => {
       const p = S.parts.find(pp => pp.id === d.id);
-      if (p) { p.x = snap(d.ox + dx); p.y = snap(d.oy + dy); }
+      if (!p) return;
+      // Get OLD pin positions before moving
+      var oldPins = getPartPins(p);
+      // Move part
+      p.x = snap(d.ox + dx); p.y = snap(d.oy + dy);
+      // Get NEW pin positions after moving
+      var newPins = getPartPins(p);
+      // Move wire endpoints that were connected to old pin positions
+      for (var pi = 0; pi < oldPins.length; pi++) {
+        var opx = Math.round(oldPins[pi].x), opy = Math.round(oldPins[pi].y);
+        var npx = Math.round(newPins[pi].x), npy = Math.round(newPins[pi].y);
+        if (opx === npx && opy === npy) continue;
+        for (var wi = 0; wi < S.wires.length; wi++) {
+          var ww = S.wires[wi];
+          if (Math.abs(ww.x1 - opx) < 5 && Math.abs(ww.y1 - opy) < 5) { ww.x1 = npx; ww.y1 = npy; }
+          if (Math.abs(ww.x2 - opx) < 5 && Math.abs(ww.y2 - opy) < 5) { ww.x2 = npx; ww.y2 = npy; }
+        }
+      }
     });
     needsRender = true;
   }
@@ -2888,7 +2915,15 @@ wrap.addEventListener('mousedown', e => {
       S.wires.push({ x1: S.wireStart.x, y1: S.wireStart.y, x2: tx, y2: ty });
       // Sprint 14: Flash effect on connection
       if (typeof onWireConnected === 'function') onWireConnected(tx, ty);
-      S.wireStart = { x: tx, y: ty }; S.wirePreview = null;
+      // Auto-close wire mode if both ends hit a pin (unless Shift held for continuous)
+      if (pin && !e.shiftKey) {
+        S.wireStart = null; S.wirePreview = null; S.mode = 'select';
+        document.getElementById('btn-wire').classList.remove('active');
+        if (typeof announce === 'function') announce(t('wire_placed') || 'Kablo bağlandı');
+      } else {
+        S.wireStart = { x: tx, y: ty };
+      }
+      S.wirePreview = null;
       if (typeof resetWireLag === 'function') resetWireLag();
       needsRender = true;
     }
@@ -3415,7 +3450,7 @@ function drawPart(part) {
         return (Math.abs(w.x1 - pin.x) < 5 && Math.abs(w.y1 - pin.y) < 5) ||
                (Math.abs(w.x2 - pin.x) < 5 && Math.abs(w.y2 - pin.y) < 5);
       });
-      ctx.fillStyle = connected ? '#5a6a7a' : '#ff4444';
+      ctx.fillStyle = connected ? '#44cc44' : '#ff4444';
       ctx.beginPath(); ctx.arc(pin.x, pin.y, connected ? 3 : 3.5, 0, Math.PI * 2); ctx.fill();
     });
   }
@@ -6652,10 +6687,12 @@ function render() {
   const now = performance.now();
   if (now - S._ft >= 1000) { S.fps = S._fc; S._fc = 0; S._ft = now; }
 
-  // Statusbar
+  // Statusbar + zoom level
   document.getElementById('sb-time').textContent = 't=' + (S.sim.t*1000).toFixed(3) + 'ms';
   document.getElementById('sb-fps').textContent = S.fps + ' fps';
   document.getElementById('sb-nodes').textContent = S.parts.length + ' parts \u00B7 ' + S.wires.length + ' wires';
+  var zl = document.getElementById('zoom-level');
+  if (zl) zl.textContent = Math.round(S.view.zoom * 100) + '%';
   if (S.sim.error) document.getElementById('sb-dt').textContent = S.sim.error;
   else document.getElementById('sb-dt').textContent = 'dt=10\u00B5s \u00B7 ' + S.wireStyle + ' \u00B7 ' + S.symbolStd + ' \u00B7 ' + (S.realisticMode ? '\uD83D\uDEE1\uFE0F' : '\uD83C\uDF93');
 }
@@ -9061,10 +9098,10 @@ function rebuildPalette() {
       var d = document.createElement('div'); d.className = 'comp-item';
       // Mini canvas thumbnail (16×12px)
       var mc = document.createElement('canvas');
-      mc.width = 16; mc.height = 12; mc.style.cssText = 'width:16px;height:12px;margin-right:6px;vertical-align:middle;flex-shrink:0';
+      mc.width = 24; mc.height = 18; mc.style.cssText = 'width:24px;height:18px;margin-right:6px;vertical-align:middle;flex-shrink:0';
       try {
         var mctx = mc.getContext('2d');
-        mctx.save(); mctx.translate(8, 6); mctx.scale(0.18, 0.18);
+        mctx.save(); mctx.translate(12, 9); mctx.scale(0.27, 0.27);
         v.draw(mctx, 20, { val: v.def, type: k });
         mctx.restore();
       } catch(err) {}

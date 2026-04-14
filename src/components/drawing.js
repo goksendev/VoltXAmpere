@@ -356,7 +356,7 @@ function drawPart(part) {
         return (Math.abs(w.x1 - pin.x) < 5 && Math.abs(w.y1 - pin.y) < 5) ||
                (Math.abs(w.x2 - pin.x) < 5 && Math.abs(w.y2 - pin.y) < 5);
       });
-      ctx.fillStyle = connected ? '#5a6a7a' : '#ff4444';
+      ctx.fillStyle = connected ? '#44cc44' : '#ff4444';
       ctx.beginPath(); ctx.arc(pin.x, pin.y, connected ? 3 : 3.5, 0, Math.PI * 2); ctx.fill();
     });
   }
