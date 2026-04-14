@@ -906,10 +906,10 @@ const S = {
   sim: { running: false, t: 0, error: '' },
   scope: {
     ch: [
-      { on: true,  color: '#00e09e', label: 'KN1', buf: new Float64Array(600), src: null, vDiv: 2 },
-      { on: true,  color: '#3b82f6', label: 'KN2', buf: new Float64Array(600), src: null, vDiv: 2 },
-      { on: false, color: '#f59e0b', label: 'KN3', buf: new Float64Array(600), src: null, vDiv: 2 },
-      { on: false, color: '#a855f7', label: 'KN4', buf: new Float64Array(600), src: null, vDiv: 2 },
+      { on: true,  color: '#00e09e', label: 'KN1', buf: new Float64Array(600), src: null, vDiv: 0 },
+      { on: true,  color: '#3b82f6', label: 'KN2', buf: new Float64Array(600), src: null, vDiv: 0 },
+      { on: false, color: '#f59e0b', label: 'KN3', buf: new Float64Array(600), src: null, vDiv: 0 },
+      { on: false, color: '#a855f7', label: 'KN4', buf: new Float64Array(600), src: null, vDiv: 0 },
     ],
     ptr: 0,
     tDiv: 1e-3,
@@ -933,7 +933,7 @@ const S = {
   // v6.0 state
   realisticMode: true,
   ambientTemp: 25,
-  soundOn: false,
+  soundOn: true,
   soundVolume: 50,
   crtMode: false,
   currentDirection: 'conventional',
@@ -3403,11 +3403,22 @@ function drawPart(part) {
 
   // LED glow (only when not damaged)
   if (part.type === 'led' && !part.damaged && (part._i || 0) > 0.001) {
-    const bri = Math.min(part._i / 0.02, 1);
-    ctx.save(); ctx.translate(part.x, part.y); ctx.rotate(rot);
-    ctx.shadowColor = '#eab308'; ctx.shadowBlur = 25 * bri;
-    ctx.fillStyle = 'rgba(234,179,8,' + (bri * 0.5) + ')';
-    ctx.beginPath(); ctx.arc(0, 0, 10, 0, Math.PI*2); ctx.fill();
+    var bri = Math.min(Math.abs(part._i) / 0.02, 1);
+    ctx.save();
+    // Radial gradient glow — visible even without shadowBlur
+    var glowR = 10 + bri * 18;
+    var grad = ctx.createRadialGradient(part.x, part.y, 2, part.x, part.y, glowR);
+    grad.addColorStop(0, 'rgba(234,179,8,' + (bri * 0.9) + ')');
+    grad.addColorStop(0.4, 'rgba(234,179,8,' + (bri * 0.4) + ')');
+    grad.addColorStop(1, 'rgba(234,179,8,0)');
+    ctx.fillStyle = grad;
+    ctx.beginPath(); ctx.arc(part.x, part.y, glowR, 0, Math.PI * 2); ctx.fill();
+    // Shadow layer for extra bloom
+    if (bri > 0.3) {
+      ctx.shadowColor = '#eab308'; ctx.shadowBlur = 20 * bri;
+      ctx.fillStyle = 'rgba(234,179,8,' + (bri * 0.3) + ')';
+      ctx.beginPath(); ctx.arc(part.x, part.y, 8, 0, Math.PI * 2); ctx.fill();
+    }
     ctx.restore();
   }
   // value label (not in overview)
@@ -5619,22 +5630,30 @@ VXA.SimV2 = (function() {
       }
     }
 
-    // Wire currents
+    // Wire currents — match wire endpoints to nearby component pins
     for (var wi = 0; wi < S.wires.length; wi++) {
       var w = S.wires[wi];
-      var wv1 = nodeV[w._n1] || 0, wv2 = nodeV[w._n2] || 0;
-      var cur = 0;
-      if (w._n1 !== undefined && w._n2 !== undefined && w._n1 !== w._n2) {
-        for (var ci = 0; ci < SIM.comps.length; ci++) {
-          var c = SIM.comps[ci];
-          if ((c.n1 === w._n1 && c.n2 === w._n2) || (c.n1 === w._n2 && c.n2 === w._n1)) {
-            if (c.part && c.part._i) { cur = c.part._i * ((wv1 > wv2) ? 1 : -1); break; }
-            if (c.type === 'R') { cur = (wv1 - wv2) / c.val; break; }
+      var bestCur = 0;
+      // Check each wire endpoint against all component pins
+      for (var pi = 0; pi < S.parts.length; pi++) {
+        var pp = S.parts[pi];
+        var pCur = Math.abs(pp._i || 0);
+        if (pCur < 1e-9) continue;
+        var def = COMP[pp.type]; if (!def || !def.pins) continue;
+        var pRot = (pp.rot || 0) * Math.PI / 2;
+        var pCos = Math.cos(pRot), pSin = Math.sin(pRot);
+        for (var pk = 0; pk < def.pins.length; pk++) {
+          var pinX = pp.x + def.pins[pk].dx * pCos - def.pins[pk].dy * pSin;
+          var pinY = pp.y + def.pins[pk].dx * pSin + def.pins[pk].dy * pCos;
+          var d1 = Math.abs(w.x1 - pinX) + Math.abs(w.y1 - pinY);
+          var d2 = Math.abs(w.x2 - pinX) + Math.abs(w.y2 - pinY);
+          if (d1 < 8 || d2 < 8) {
+            if (pCur > Math.abs(bestCur)) bestCur = (pp._i || 0);
+            break;
           }
         }
-        if (cur === 0 && Math.abs(wv1 - wv2) > 0.001) cur = (wv1 - wv2) / 1000;
       }
-      w._current = cur;
+      w._current = bestCur;
     }
 
     // Scope
@@ -12765,6 +12784,15 @@ function closeInlineEdit() {
   document.getElementById('inline-edit').style.display = 'none';
 }
 
+// Close inline edit on outside click
+document.addEventListener('mousedown', function(e) {
+  if (!_inlineEditActive) return;
+  var ie = document.getElementById('inline-edit');
+  if (!ie || ie.style.display === 'none') return;
+  if (ie.contains(e.target)) return; // Click inside inline edit — ignore
+  confirmInlineEdit();
+});
+
 // Scroll wheel E12 stepping on selected part
 wrap.addEventListener('wheel', function(e) {
   if (!S.sel.length || e.ctrlKey && e.shiftKey) return; // let zoom handle Ctrl
@@ -14094,7 +14122,16 @@ function drawScope() {
     var vd = ch.vDiv || 2;
     var mn = Infinity, mx = -Infinity;
     for (var i = 0; i < 600; i++) { var v = buf[(ptr + i) % 600]; if (v < mn) mn = v; if (v > mx) mx = v; }
-    var autoVDiv = vd === 0 ? Math.max((mx - mn) / 6, 0.01) : vd;
+    var autoVDiv = vd;
+    if (vd === 0) {
+      var range = mx - mn;
+      if (range < 0.01) { autoVDiv = 0.01; } else {
+        var target = range / 4;
+        var nice = [0.001,0.002,0.005,0.01,0.02,0.05,0.1,0.2,0.5,1,2,5,10,20,50,100];
+        autoVDiv = nice[nice.length - 1];
+        for (var ni = 0; ni < nice.length; ni++) { if (nice[ni] >= target) { autoVDiv = nice[ni]; break; } }
+      }
+    }
     var yScale = (plotH / 8) / autoVDiv;
     var mid = vd === 0 ? (mx + mn) / 2 : 0;
 

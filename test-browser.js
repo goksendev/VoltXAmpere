@@ -211,7 +211,7 @@ const path = require('path');
   const v6Result = await page.evaluate(() => {
     try {
       return {
-        hasConfig: typeof VXA.Config === 'object' && VXA.Config.VERSION === '6.0',
+        hasConfig: typeof VXA.Config === 'object' && VXA.Config.VERSION === '8.0',
         hasEventBus: typeof VXA.EventBus === 'object' && typeof VXA.EventBus.on === 'function',
         hasAutoSave: typeof VXA.AutoSave === 'object' && typeof VXA.AutoSave.save === 'function',
         hasSetBg: typeof VXA.setBackground === 'function',
@@ -493,7 +493,7 @@ const path = require('path');
 
         // 4.5: Sound System
         hasSoundModule: typeof VXA !== 'undefined' && typeof VXA.Sound !== 'undefined' && typeof VXA.Sound.play === 'function',
-        soundOffByDefault: S.soundOn === false,
+        soundOffByDefault: S.soundOn === true, // Sprint 19B: default changed to ON
         soundNoPlayWhenOff: (() => {
           S.soundOn = false;
           VXA.Sound.play('click'); // should not throw
@@ -1245,7 +1245,7 @@ const path = require('path');
       var hasViewportCull = typeof isInViewport === 'function';
 
       // Version check
-      var titleV7 = document.title.indexOf('v7.') >= 0;
+      var titleV7 = document.title.indexOf('v8.') >= 0;
 
       return {
         // PWA
@@ -1757,9 +1757,9 @@ const path = require('path');
 
       // 17.3: Version checks
       var title = document.title;
-      var titleV71 = title.indexOf('v7.1') >= 0;
+      var titleV71 = title.indexOf('v8.0') >= 0;
       var sbAbout = document.getElementById('sb-about');
-      var sbV71 = sbAbout ? sbAbout.textContent.indexOf('v7.1') >= 0 : false;
+      var sbV71 = sbAbout ? sbAbout.textContent.indexOf('v8.0') >= 0 : false;
 
       // 17.1: Mobile responsive
       var hasViewportFit = false;

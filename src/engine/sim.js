@@ -423,22 +423,30 @@ VXA.SimV2 = (function() {
       }
     }
 
-    // Wire currents
+    // Wire currents — match wire endpoints to nearby component pins
     for (var wi = 0; wi < S.wires.length; wi++) {
       var w = S.wires[wi];
-      var wv1 = nodeV[w._n1] || 0, wv2 = nodeV[w._n2] || 0;
-      var cur = 0;
-      if (w._n1 !== undefined && w._n2 !== undefined && w._n1 !== w._n2) {
-        for (var ci = 0; ci < SIM.comps.length; ci++) {
-          var c = SIM.comps[ci];
-          if ((c.n1 === w._n1 && c.n2 === w._n2) || (c.n1 === w._n2 && c.n2 === w._n1)) {
-            if (c.part && c.part._i) { cur = c.part._i * ((wv1 > wv2) ? 1 : -1); break; }
-            if (c.type === 'R') { cur = (wv1 - wv2) / c.val; break; }
+      var bestCur = 0;
+      // Check each wire endpoint against all component pins
+      for (var pi = 0; pi < S.parts.length; pi++) {
+        var pp = S.parts[pi];
+        var pCur = Math.abs(pp._i || 0);
+        if (pCur < 1e-9) continue;
+        var def = COMP[pp.type]; if (!def || !def.pins) continue;
+        var pRot = (pp.rot || 0) * Math.PI / 2;
+        var pCos = Math.cos(pRot), pSin = Math.sin(pRot);
+        for (var pk = 0; pk < def.pins.length; pk++) {
+          var pinX = pp.x + def.pins[pk].dx * pCos - def.pins[pk].dy * pSin;
+          var pinY = pp.y + def.pins[pk].dx * pSin + def.pins[pk].dy * pCos;
+          var d1 = Math.abs(w.x1 - pinX) + Math.abs(w.y1 - pinY);
+          var d2 = Math.abs(w.x2 - pinX) + Math.abs(w.y2 - pinY);
+          if (d1 < 8 || d2 < 8) {
+            if (pCur > Math.abs(bestCur)) bestCur = (pp._i || 0);
+            break;
           }
         }
-        if (cur === 0 && Math.abs(wv1 - wv2) > 0.001) cur = (wv1 - wv2) / 1000;
       }
-      w._current = cur;
+      w._current = bestCur;
     }
 
     // Scope

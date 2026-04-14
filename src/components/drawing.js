@@ -356,11 +356,22 @@ function drawPart(part) {
 
   // LED glow (only when not damaged)
   if (part.type === 'led' && !part.damaged && (part._i || 0) > 0.001) {
-    const bri = Math.min(part._i / 0.02, 1);
-    ctx.save(); ctx.translate(part.x, part.y); ctx.rotate(rot);
-    ctx.shadowColor = '#eab308'; ctx.shadowBlur = 25 * bri;
-    ctx.fillStyle = 'rgba(234,179,8,' + (bri * 0.5) + ')';
-    ctx.beginPath(); ctx.arc(0, 0, 10, 0, Math.PI*2); ctx.fill();
+    var bri = Math.min(Math.abs(part._i) / 0.02, 1);
+    ctx.save();
+    // Radial gradient glow — visible even without shadowBlur
+    var glowR = 10 + bri * 18;
+    var grad = ctx.createRadialGradient(part.x, part.y, 2, part.x, part.y, glowR);
+    grad.addColorStop(0, 'rgba(234,179,8,' + (bri * 0.9) + ')');
+    grad.addColorStop(0.4, 'rgba(234,179,8,' + (bri * 0.4) + ')');
+    grad.addColorStop(1, 'rgba(234,179,8,0)');
+    ctx.fillStyle = grad;
+    ctx.beginPath(); ctx.arc(part.x, part.y, glowR, 0, Math.PI * 2); ctx.fill();
+    // Shadow layer for extra bloom
+    if (bri > 0.3) {
+      ctx.shadowColor = '#eab308'; ctx.shadowBlur = 20 * bri;
+      ctx.fillStyle = 'rgba(234,179,8,' + (bri * 0.3) + ')';
+      ctx.beginPath(); ctx.arc(part.x, part.y, 8, 0, Math.PI * 2); ctx.fill();
+    }
     ctx.restore();
   }
   // value label (not in overview)

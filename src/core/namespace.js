@@ -58,10 +58,10 @@ const S = {
   sim: { running: false, t: 0, error: '' },
   scope: {
     ch: [
-      { on: true,  color: '#00e09e', label: 'KN1', buf: new Float64Array(600), src: null, vDiv: 2 },
-      { on: true,  color: '#3b82f6', label: 'KN2', buf: new Float64Array(600), src: null, vDiv: 2 },
-      { on: false, color: '#f59e0b', label: 'KN3', buf: new Float64Array(600), src: null, vDiv: 2 },
-      { on: false, color: '#a855f7', label: 'KN4', buf: new Float64Array(600), src: null, vDiv: 2 },
+      { on: true,  color: '#00e09e', label: 'KN1', buf: new Float64Array(600), src: null, vDiv: 0 },
+      { on: true,  color: '#3b82f6', label: 'KN2', buf: new Float64Array(600), src: null, vDiv: 0 },
+      { on: false, color: '#f59e0b', label: 'KN3', buf: new Float64Array(600), src: null, vDiv: 0 },
+      { on: false, color: '#a855f7', label: 'KN4', buf: new Float64Array(600), src: null, vDiv: 0 },
     ],
     ptr: 0,
     tDiv: 1e-3,
@@ -85,7 +85,7 @@ const S = {
   // v6.0 state
   realisticMode: true,
   ambientTemp: 25,
-  soundOn: false,
+  soundOn: true,
   soundVolume: 50,
   crtMode: false,
   currentDirection: 'conventional',

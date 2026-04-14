@@ -47,7 +47,16 @@ function drawScope() {
     var vd = ch.vDiv || 2;
     var mn = Infinity, mx = -Infinity;
     for (var i = 0; i < 600; i++) { var v = buf[(ptr + i) % 600]; if (v < mn) mn = v; if (v > mx) mx = v; }
-    var autoVDiv = vd === 0 ? Math.max((mx - mn) / 6, 0.01) : vd;
+    var autoVDiv = vd;
+    if (vd === 0) {
+      var range = mx - mn;
+      if (range < 0.01) { autoVDiv = 0.01; } else {
+        var target = range / 4;
+        var nice = [0.001,0.002,0.005,0.01,0.02,0.05,0.1,0.2,0.5,1,2,5,10,20,50,100];
+        autoVDiv = nice[nice.length - 1];
+        for (var ni = 0; ni < nice.length; ni++) { if (nice[ni] >= target) { autoVDiv = nice[ni]; break; } }
+      }
+    }
     var yScale = (plotH / 8) / autoVDiv;
     var mid = vd === 0 ? (mx + mn) / 2 : 0;
 

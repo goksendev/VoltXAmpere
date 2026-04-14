@@ -129,6 +129,15 @@ function closeInlineEdit() {
   document.getElementById('inline-edit').style.display = 'none';
 }
 
+// Close inline edit on outside click
+document.addEventListener('mousedown', function(e) {
+  if (!_inlineEditActive) return;
+  var ie = document.getElementById('inline-edit');
+  if (!ie || ie.style.display === 'none') return;
+  if (ie.contains(e.target)) return; // Click inside inline edit — ignore
+  confirmInlineEdit();
+});
+
 // Scroll wheel E12 stepping on selected part
 wrap.addEventListener('wheel', function(e) {
   if (!S.sel.length || e.ctrlKey && e.shiftKey) return; // let zoom handle Ctrl
