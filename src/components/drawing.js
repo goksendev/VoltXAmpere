@@ -210,7 +210,7 @@ function drawPart(part) {
     ctx.globalAlpha = 0.6;
   }
 
-  if (S.sel.includes(part.id)) { ctx.shadowColor = def.color; ctx.shadowBlur = 14; }
+  if (S.sel.includes(part.id)) { ctx.shadowColor = '#88ccff'; ctx.shadowBlur = 18; ctx.lineWidth = (ctx.lineWidth || 2) + 1; }
   def.draw(ctx, GRID, part);
   ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0;
 
@@ -348,10 +348,17 @@ function drawPart(part) {
     ctx.shadowBlur = 0; ctx.restore();
   }
 
-  // pins visible at normal+ zoom
+  // pins visible at normal+ zoom — unconnected pins shown in red
   if (detail === 'normal' || detail === 'detail' || detail === 'microscope') {
-    const pins = getPartPins(part);
-    pins.forEach(pin => { ctx.fillStyle = '#5a6a7a'; ctx.beginPath(); ctx.arc(pin.x, pin.y, 3, 0, Math.PI * 2); ctx.fill(); });
+    var pins = getPartPins(part);
+    pins.forEach(function(pin) {
+      var connected = S.wires.some(function(w) {
+        return (Math.abs(w.x1 - pin.x) < 5 && Math.abs(w.y1 - pin.y) < 5) ||
+               (Math.abs(w.x2 - pin.x) < 5 && Math.abs(w.y2 - pin.y) < 5);
+      });
+      ctx.fillStyle = connected ? '#5a6a7a' : '#ff4444';
+      ctx.beginPath(); ctx.arc(pin.x, pin.y, connected ? 3 : 3.5, 0, Math.PI * 2); ctx.fill();
+    });
   }
 
   // LED glow (only when not damaged)
@@ -530,14 +537,14 @@ function drawWire(w) {
     var speed = Math.min(200, 20 + cur * 100);
     var animT = (performance.now() / 1000) * speed;
 
-    // Dot color and size based on current magnitude
+    // Dot color and size based on current magnitude — warm yellow→orange→red
     var dotColor, dotSize;
-    if (cur < 0.001)      { dotColor = 'rgba(63,185,80,0.5)';  dotSize = 1.5; }
-    else if (cur < 0.01)  { dotColor = 'rgba(63,185,80,0.8)';  dotSize = 2; }
-    else if (cur < 0.1)   { dotColor = '#3fb950';               dotSize = 2.5; }
-    else if (cur < 0.5)   { dotColor = '#d29922';               dotSize = 3; }
-    else if (cur < 1)     { dotColor = '#f85149';               dotSize = 3.5; }
-    else                  { dotColor = '#ff6666';               dotSize = 4; }
+    if (cur < 0.001)      { dotColor = 'rgba(255,238,102,0.5)'; dotSize = 1.5; }
+    else if (cur < 0.01)  { dotColor = 'rgba(255,204,0,0.8)';   dotSize = 2; }
+    else if (cur < 0.1)   { dotColor = '#ffcc00';                dotSize = 2.5; }
+    else if (cur < 0.5)   { dotColor = '#ff8800';                dotSize = 3; }
+    else if (cur < 1)     { dotColor = '#ff4422';                dotSize = 3.5; }
+    else                  { dotColor = '#ff2222';                dotSize = 4; }
 
     ctx.fillStyle = dotColor;
     ctx.save();

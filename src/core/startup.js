@@ -438,7 +438,21 @@ function rebuildPalette() {
     items.forEach(function(e) {
       var k = e[0], v = e[1];
       var d = document.createElement('div'); d.className = 'comp-item';
-      d.innerHTML = '<span style="display:flex;align-items:center"><span class="dot" style="background:'+v.color+'"></span>'+v.name+'</span>'+(v.key ? '<span class="key">'+v.key+'</span>' : '');
+      // Mini canvas thumbnail (16×12px)
+      var mc = document.createElement('canvas');
+      mc.width = 16; mc.height = 12; mc.style.cssText = 'width:16px;height:12px;margin-right:6px;vertical-align:middle;flex-shrink:0';
+      try {
+        var mctx = mc.getContext('2d');
+        mctx.save(); mctx.translate(8, 6); mctx.scale(0.18, 0.18);
+        v.draw(mctx, 20, { val: v.def, type: k });
+        mctx.restore();
+      } catch(err) {}
+      var span = document.createElement('span');
+      span.style.cssText = 'display:flex;align-items:center';
+      span.appendChild(mc);
+      span.appendChild(document.createTextNode(v.name));
+      d.appendChild(span);
+      if (v.key) { var ks = document.createElement('span'); ks.className = 'key'; ks.textContent = v.key; d.appendChild(ks); }
       d.addEventListener('click', function(){ startPlace(k); });
       body.appendChild(d);
     });

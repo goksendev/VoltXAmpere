@@ -27,7 +27,7 @@ input:focus{border-color:var(--accent)}
 #bottom{grid-column:1/-1;background:var(--surface);border-top:1px solid var(--border)}
 #scope-wrap{position:relative;overflow:hidden}
 #scope-wrap canvas{width:100%;height:100%}
-#scope-side{padding:10px;border-left:1px solid var(--border);display:flex;flex-direction:column;gap:6px}
+#scope-side{padding:6px;border-left:1px solid var(--border);display:grid;grid-template-columns:1fr 1fr;gap:4px;overflow-y:auto}
 #statusbar{grid-column:1/-1;display:flex;align-items:center;padding:0 12px;gap:16px;background:var(--surface-2);border-top:1px solid var(--border);font-size:11px;color:var(--text-3);font-family:var(--font-mono)}
 
 /* TOPBAR */
@@ -64,9 +64,9 @@ input:focus{border-color:var(--accent)}
 .mcard-val{font-family:var(--font-mono);font-size:18px;font-weight:600}
 
 /* SCOPE */
-.scope-card{background:var(--surface-2);border:1px solid var(--border);border-radius:6px;padding:8px}
-.scope-card .lbl{font-size:10px;color:var(--text-3);margin-bottom:2px}
-.scope-card .val{font-family:var(--font-mono);font-size:14px;font-weight:600}
+.scope-card{background:var(--surface-2);border:1px solid var(--border);border-radius:4px;padding:4px 6px}
+.scope-card .lbl{font-size:9px;color:var(--text-3);margin-bottom:1px}
+.scope-card .val{font-family:var(--font-mono);font-size:12px;font-weight:600}
 
 /* CONTEXT MENU */
 #ctx-menu{display:none;position:fixed;z-index:999;background:var(--surface-2);border:1px solid var(--border-2);border-radius:8px;padding:4px;min-width:160px;box-shadow:0 8px 30px rgba(0,0,0,.5)}
@@ -335,6 +335,10 @@ input:focus{border-color:var(--accent)}
 #ai-fab:hover{transform:scale(1.1);box-shadow:0 6px 25px rgba(100,50,150,.6)}
 @keyframes ai-pulse{0%,100%{box-shadow:0 4px 15px rgba(100,50,150,.4)}50%{box-shadow:0 4px 30px rgba(100,50,150,.8)}}
 #ai-fab.pulse{animation:ai-pulse 2s ease-in-out 3}
+.canvas-fab{width:34px;height:34px;border-radius:8px;border:1px solid #444;
+  background:rgba(20,20,40,0.8);color:#ccc;font-size:16px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;transition:.15s;backdrop-filter:blur(4px)}
+.canvas-fab:hover{background:rgba(40,40,70,0.95);color:#fff;border-color:#666;transform:scale(1.08)}
 #ai-key-row{padding:8px 12px;border-top:1px solid var(--border);display:flex;gap:6px}
 #ai-key-input{flex:1;background:var(--surface-3);border:1px solid var(--border);color:var(--text);
   border-radius:6px;padding:4px 8px;font:11px var(--font-mono)}
