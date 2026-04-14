@@ -387,7 +387,7 @@ VXA.SimV2 = (function() {
         var _nVtD = (c.NF || 1) * VT_VAL;
         var _vcritD = _nVtD * Math.log(_nVtD / (Math.sqrt(2) * (c.IS || 1e-14)));
         var _vbeDisp = vbe > _vcritD ? _vcritD + _nVtD * Math.log(Math.max(1, 1 + (vbe - _vcritD) / _nVtD)) : vbe;
-        if (_vbeDisp > 0.85) _vbeDisp = 0.85;
+        if (_vbeDisp > 0.80) _vbeDisp = 0.80;
         c.part._vbe = _vbeDisp; c.part._vce = vce; c.part._ic = ic;
         c.part._region = (vbe > 0.5 && vbc < 0) ? 'Aktif' : (vbe > 0.5 && vbc > 0) ? 'Doyma' : 'Kesim';
       } else if (c.type === 'MOS') {

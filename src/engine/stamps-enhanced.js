@@ -57,9 +57,9 @@ VXA.Stamps.bjt_gp = function(matrix, rhs, nB, nC, nE, pol, params, nodeV, dt) {
   // SPICE3 junction limiting
   if (vbe > vcrit) vbe = vcrit + nVtF * Math.log(Math.max(1, 1 + (vbe - vcrit) / nVtF));
   if (vbc > vcrit) vbc = vcrit + nVtR * Math.log(Math.max(1, 1 + (vbc - vcrit) / nVtR));
-  // Hard physical clamp: silicon VBE cannot exceed ~0.85V forward bias
-  if (vbe > 0.85) vbe = 0.85;
-  if (vbc > 0.85) vbc = 0.85;
+  // Hard physical clamp: silicon VBE forward bias limit
+  if (vbe > 0.80) vbe = 0.80;
+  if (vbc > 0.80) vbc = 0.80;
   var eVbe = Math.exp(Math.min(vbe / nVtF, 500));
   var eVbc = Math.exp(Math.min(vbc / nVtR, 500));
   // Base charge factor (Early + high-current)
