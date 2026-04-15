@@ -52,7 +52,7 @@ function showAbout() {
     + '<div>\u2705 \uD83D\uDD0D ' + (tr?'Ak\u0131ll\u0131 Bile\u015fen Arama':'Smart Component Search') + '</div>'
     + '<div>\u2705 555 Timer IC</div>'
     + '<div>\u2705 \uD83D\uDD0A ' + (tr?'Speaker + Buzzer':'Speaker + Buzzer') + '</div>'
-    + '<div>\u2705 \uD83D\uDCCA 15 ' + (tr?'Analiz Sekmesi':'Analysis Tabs') + '</div>'
+    + '<div>\u2705 \uD83D\uDCCA 16 ' + (tr?'Analiz Sekmesi':'Analysis Tabs') + '</div>'
     + '<div>\u2705 LED \u00B129mV ' + (tr?'Kalibrasyon':'Calibration') + '</div>'
     + '<div>\u2705 ' + (tr?'Zener SPICE 3 Modeli':'Zener SPICE 3 Model') + '</div>'
     + '<div>\u2705 \uD83C\uDD95 BSIM3v3 ' + (tr?'MOSFET (180/90nm)':'MOSFET (180/90nm)') + '</div>'

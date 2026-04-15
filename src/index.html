@@ -127,6 +127,7 @@
       <button class="btab" data-tab="contour2d" onclick="switchTab('contour2d')">&#128506; 2D</button>
       <button class="btab" data-tab="transferfunc" onclick="switchTab('transferfunc')">&#128208; H(s)</button>
       <button class="btab" data-tab="commands" onclick="switchTab('commands')">&#9000; Komutlar</button>
+      <button class="btab" data-tab="sparam" onclick="switchTab('sparam')">&#128225; S-Param</button>
     </div>
     <div id="tab-scope" class="tab-panel active" style="grid-template-columns:1fr 200px">
       <div id="scope-wrap">
@@ -247,6 +248,18 @@
         <span id="cmd-status" style="font:11px var(--font-mono);color:var(--text-3)"></span>
       </div>
       <pre id="cmd-output" style="flex:1;min-height:120px;background:var(--surface-2);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:8px;font:11px var(--font-mono);overflow:auto;white-space:pre-wrap"></pre>
+    </div>
+    <div id="tab-sparam" class="tab-panel" style="display:none;flex-direction:column;padding:8px;gap:6px;overflow:auto">
+      <div style="font:600 11px var(--font-mono);color:var(--text-3)">S-Parameter Analysis (RF)</div>
+      <div style="display:flex;gap:8px;align-items:center;font:11px var(--font-mono)">
+        <span>f: </span><input id="sparam-fStart" value="1e6" style="width:70px;background:var(--surface-3);color:var(--text);border:1px solid var(--border);padding:3px"> →
+        <input id="sparam-fStop" value="1e9" style="width:70px;background:var(--surface-3);color:var(--text);border:1px solid var(--border);padding:3px">
+        <span>N:</span><input id="sparam-N" value="100" style="width:50px;background:var(--surface-3);color:var(--text);border:1px solid var(--border);padding:3px">
+        <span>Z₀:</span><input id="sparam-Z0" value="50" style="width:50px;background:var(--surface-3);color:var(--text);border:1px solid var(--border);padding:3px">
+        <button class="run-btn" id="sparam-run-btn" onclick="runSParam({fStart:parseFloat(document.getElementById('sparam-fStart').value),fStop:parseFloat(document.getElementById('sparam-fStop').value),numPoints:parseInt(document.getElementById('sparam-N').value),Z0ref:parseFloat(document.getElementById('sparam-Z0').value)})">&#9654; &Ccedil;al&inodot;&scedil;t&inodot;r</button>
+      </div>
+      <canvas id="SPARAM_CANVAS" width="700" height="360" style="background:#040a04;border:1px solid var(--border);border-radius:4px"></canvas>
+      <div id="sparam-summary" style="font:11px var(--font-mono);color:var(--text-3);padding:4px"></div>
     </div>
   </div>
 

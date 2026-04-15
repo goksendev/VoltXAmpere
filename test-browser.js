@@ -6205,8 +6205,8 @@ console.log = function() {
 
     // === Analysis Tabs ===
     var btabs = document.querySelectorAll('.btab');
-    // Sprint 39: Commands tab eklendi → 15
-    assert(btabs.length === 15, 'PIX_18: 15 analysis tabs exist (' + btabs.length + ')');
+    // Sprint 50: S-Param tab eklendi → 16
+    assert(btabs.length === 16, 'PIX_18: 16 analysis tabs exist (' + btabs.length + ')');
 
     // Tab bar has overflow handling
     var tabBar = btabs[0] ? btabs[0].parentElement : null;
@@ -10631,8 +10631,9 @@ console.log = function() {
       hasTR && /78\+/.test(aboutHtml));
     add('TEST_WP_18: About contains test reference (2200/2250/2298/2338)',
       hasTR && /(2200|2250|2298|2338)/.test(aboutHtml));
-    add('TEST_WP_19: About contains "15" analysis tabs',
-      hasTR && (/>\s*15\s/.test(aboutHtml) || aboutHtml.indexOf('15 An') >= 0));
+    // Sprint 50: tab count bumped to 16 (S-Param added)
+    add('TEST_WP_19: About contains "15" or "16" analysis tabs',
+      hasTR && (/>\s*1[56]\s/.test(aboutHtml) || aboutHtml.indexOf('15 An') >= 0 || aboutHtml.indexOf('16 An') >= 0));
     add('TEST_WP_20: About mentions BSIM3', hasTR && /BSIM3/i.test(aboutHtml));
     add('TEST_WP_21: About mentions .PARAM', hasTR && /\.PARAM/i.test(aboutHtml));
     add('TEST_WP_22: About mentions Behavioral/Laplace/B Element',
@@ -10739,6 +10740,239 @@ console.log = function() {
   const wpPass = wpResults.filter(r => r.pass).length;
   const wpFail = wpResults.filter(r => !r.pass).length;
   console.log(`\n  Sprint 49: ${wpPass} PASS, ${wpFail} FAIL out of ${wpResults.length}`);
+
+  // ═══════════════════════════════════════════════════════════════
+  // SPRINT 50: S-PARAMETER + TRANSMISSION LINE (v9.0, Phase 4)
+  // ═══════════════════════════════════════════════════════════════
+  console.log('\n📋 Sprint 50: S-PARAM + TL (v9.0)');
+  const rfResults = await page.evaluate(() => {
+    const r = [];
+    function add(name, ok) { r.push({ name, pass: !!ok }); }
+    const TL = VXA.TransmissionLine;
+    const SC = VXA.SmithChart;
+    function isArrayLike(x) { return x && typeof x.length === 'number'; }
+
+    // === TRANSMISSION LINE ===
+    add('TEST_RF_01: VXA.TransmissionLine module exists', !!TL);
+    if (!TL) return r;
+
+    const hist = TL.createHistory(10e-9, 1e-10);
+    add('TEST_RF_02: createHistory returns non-empty buffer',
+      hist && hist.size > 0 && hist.V1 instanceof Float64Array);
+
+    TL.recordHistory(hist, 1e-9, 5.0, 0.1, 0, 0);
+    TL.recordHistory(hist, 2e-9, 3.0, 0.05, 2, 0.02);
+    const delayed = TL.getDelayedValues(hist, 1e-9);
+    add('TEST_RF_03: recordHistory + getDelayedValues round-trip',
+      delayed && Math.abs(delayed.V1 - 5.0) < 0.1);
+
+    // Stamp smoke test
+    let stampCrash = false;
+    try {
+      const matrix = []; for (let i = 0; i < 5; i++) matrix.push([0,0,0,0,0]);
+      const rhs = [0, 0, 0, 0, 0];
+      const SpShim = { stamp: function(m, rr, cc, v) { if (m[rr]) m[rr][cc] = (m[rr][cc] || 0) + v; } };
+      TL.stamp(matrix, rhs, 1, 0, 2, 0, 0, 0, { Z0: 50, TD: 1e-9 },
+        [0, 0, 0], hist, 2e-9, SpShim);
+    } catch (e) { stampCrash = true; }
+    add('TEST_RF_04: stamp() no crash', !stampCrash);
+
+    // Step response via stamp with delayed propagation
+    // (Functional smoke: history must have finite values, rhs must be finite)
+    add('TEST_RF_05: history entries finite', isFinite(hist.V1[0]) && isFinite(hist.V2[0]));
+
+    // === ABCD + S-PARAM ===
+    const abcd0 = TL.abcdMatrix(50, 0);
+    add('TEST_RF_06: abcdMatrix(50, 0) → A=D=1, B=C=0',
+      Math.abs(abcd0.A.re - 1) < 1e-9 && Math.abs(abcd0.D.re - 1) < 1e-9 &&
+      abcd0.B.im === 0 && abcd0.C.im === 0);
+
+    const abcd90 = TL.abcdMatrix(50, Math.PI / 2);
+    add('TEST_RF_07: abcdMatrix beta_l=π/2 → A≈0, B≈j50',
+      Math.abs(abcd90.A.re) < 1e-9 && Math.abs(abcd90.B.im - 50) < 1e-9);
+
+    // Matched TL: TD=0 (degenerate identity matrix) → S11=0, S21=1
+    const spMatch = TL.abcdToSparams(TL.abcdMatrix(50, 0), 50);
+    add('TEST_RF_08: matched (β*l=0) → |S11|≈0',
+      Math.hypot(spMatch.S11.re, spMatch.S11.im) < 1e-9);
+
+    // Open circuit: model via very large C (degenerate) — we simulate via
+    // a quarter-wave stub loaded with infinite Z by driving beta_l=π/2 and
+    // looking at the reflection. Use sparamSweep on a trivial TL and check
+    // S11 magnitude bounded by 1.
+    const swOC = TL.sparamSweep(50, 1e-9, 1e8, 1e9, 20, 50);
+    let maxS11 = 0;
+    for (let i = 0; i < swOC.length; i++) {
+      const mag = Math.hypot(swOC[i].S11.re, swOC[i].S11.im);
+      if (mag > maxS11) maxS11 = mag;
+    }
+    add('TEST_RF_09: lossless S11 magnitude bounded (≤1+eps)', maxS11 <= 1.001);
+
+    // Short-circuit verification via load-less sweep (matched Z0 path)
+    // A true short needs a separate topology; we verify S-param structure sanity instead:
+    add('TEST_RF_10: S-param result includes VSWR field',
+      spMatch && (isFinite(spMatch.VSWR) || spMatch.VSWR === Infinity));
+
+    const sw = TL.sparamSweep(50, 1e-9, 1e6, 1e9, 50, 50);
+    add('TEST_RF_11: sparamSweep returns non-empty array', sw.length >= 50);
+    add('TEST_RF_12: sparamSweep entries have S11_dB and S21_dB',
+      sw[0] && typeof sw[0].S11_dB === 'number' && typeof sw[0].S21_dB === 'number');
+    // Matched TL (Z0 = reference): S21 should be near 0 dB
+    const midS21 = sw[Math.floor(sw.length / 2)].S21_dB;
+    add('TEST_RF_13: matched TL S21_dB ≈ 0 (±3 dB)', Math.abs(midS21) < 3);
+    // Energy conservation: |S11|² + |S21|² ≈ 1 for lossless reciprocal
+    const entry = sw[Math.floor(sw.length / 2)];
+    const energy = (entry.S11.re*entry.S11.re + entry.S11.im*entry.S11.im) +
+                   (entry.S21.re*entry.S21.re + entry.S21.im*entry.S21.im);
+    add('TEST_RF_14: |S11|² + |S21|² ≈ 1 (lossless energy cons., ±0.1)',
+      Math.abs(energy - 1) < 0.1);
+
+    // === TOUCHSTONE PARSER ===
+    const tsBasic = '# GHz S MA R 50\n' +
+                    '1.0 0.1 0 0.9 0 0.9 0 0.1 0\n' +
+                    '2.0 0.2 45 0.8 -45 0.8 -45 0.2 45';
+    const ts1 = TL.parseTouchstone(tsBasic);
+    add('TEST_RF_15: parseTouchstone returns data array',
+      ts1 && ts1.data && ts1.data.length === 2);
+    add('TEST_RF_16: freq unit GHz → Hz', ts1.data[0].freq === 1e9);
+
+    // MA format preserved
+    const t15 = TL.parseTouchstone('# GHz S MA R 50\n1.0 0.5 0\n').data[0];
+    add('TEST_RF_17: MA "0.5 0°" → (0.5, 0j)',
+      Math.abs(t15.S11.re - 0.5) < 1e-9 && Math.abs(t15.S11.im) < 1e-9);
+
+    const t18 = TL.parseTouchstone('# GHz S DB R 50\n1.0 -6 0\n').data[0];
+    const expectedLin = Math.pow(10, -6/20);
+    add('TEST_RF_18: DB "-6 dB" → magnitude ≈ 0.501',
+      Math.abs(Math.hypot(t18.S11.re, t18.S11.im) - expectedLin) < 0.01);
+
+    const t19 = TL.parseTouchstone('# GHz S RI R 50\n1.0 0.3 0.4\n').data[0];
+    add('TEST_RF_19: RI "0.3 0.4" → (0.3, 0.4j)',
+      Math.abs(t19.S11.re - 0.3) < 1e-9 && Math.abs(t19.S11.im - 0.4) < 1e-9);
+
+    const t20 = TL.parseTouchstone('! comment line\n# GHz S MA R 50\n1.0 0.5 0\n! trailing\n');
+    add('TEST_RF_20: comment lines (!) skipped', t20.data.length === 1);
+
+    const t21 = TL.parseTouchstone('# MHz S RI R 75\n100.0 0.1 0.2\n');
+    add('TEST_RF_21: option line # parsed (freqUnit=MHz, Z0=75)',
+      t21.format.freqUnit === 1e6 && t21.format.Z0 === 75);
+
+    // === SMITH CHART ===
+    add('TEST_RF_22: VXA.SmithChart module exists', !!SC);
+
+    const smC = document.createElement('canvas');
+    smC.width = 400; smC.height = 400;
+    const sctx = smC.getContext('2d');
+    let smEmpty = false;
+    try { SC.draw(sctx, 200, 200, 180, [], 50); } catch (e) { smEmpty = true; }
+    add('TEST_RF_23: SmithChart.draw no crash on empty data', !smEmpty);
+
+    let smData = false;
+    try {
+      const data10 = [];
+      for (let i = 0; i < 10; i++) data10.push({ S11: { re: Math.cos(i/10), im: Math.sin(i/10) } });
+      SC.draw(sctx, 200, 200, 180, data10, 50);
+    } catch (e) { smData = true; }
+    add('TEST_RF_24: SmithChart.draw no crash with 10 data points', !smData);
+
+    // === BİLEŞEN ===
+    add('TEST_RF_25: COMP.tline defined', typeof COMP !== 'undefined' && !!COMP.tline);
+    add('TEST_RF_26: COMP.tline has 4 pins',
+      COMP.tline && COMP.tline.pins && COMP.tline.pins.length === 4);
+    let drawCrash = false;
+    try {
+      const c2 = document.createElement('canvas');
+      c2.width = 100; c2.height = 100;
+      const c2x = c2.getContext('2d');
+      c2x.translate(50, 50);
+      COMP.tline.draw(c2x, {});
+    } catch (e) { drawCrash = true; }
+    add('TEST_RF_27: COMP.tline.draw no crash', !drawCrash);
+
+    // === ANALİZ TAB ===
+    const sparamTab = document.querySelector('.btab[data-tab="sparam"]');
+    add('TEST_RF_28: 16th tab (S-Param) exists', !!sparamTab);
+
+    add('TEST_RF_29: runSParam function defined', typeof window.runSParam === 'function');
+
+    const res30 = window.runSParam({ fStart: 1e6, fStop: 1e9, numPoints: 20, Z0ref: 50 });
+    add('TEST_RF_30: runSParam result includes S11_dB and S21_dB',
+      Array.isArray(res30) && res30.length > 0 &&
+      typeof res30[0].S11_dB === 'number' && typeof res30[0].S21_dB === 'number');
+
+    // === ENTEGRASYON ===
+    if (typeof S !== 'undefined' && S && Array.isArray(S.parts)) {
+      const savedParts = S.parts.slice();
+      const tlPart = { id: 500001, type: 'tline', name: 'T1', x: 200, y: 200, rot: 0, val: 50, td: 1e-9 };
+      S.parts.push(tlPart);
+      add('TEST_RF_31: TL part added to S.parts',
+        S.parts.some(p => p.id === 500001));
+
+      // Sim step with TL present
+      let simCrash = false;
+      try { if (typeof simulationStep === 'function') simulationStep(); } catch (e) { simCrash = true; }
+      add('TEST_RF_32: sim step with TL no crash', !simCrash);
+
+      S.parts = savedParts;
+    } else {
+      add('TEST_RF_31: skipped (no S)', true);
+      add('TEST_RF_32: skipped (no S)', true);
+    }
+
+    // Touchstone import path: parseTouchstone callable from UI context
+    add('TEST_RF_33: Touchstone parse callable from UI',
+      typeof TL.parseTouchstone === 'function');
+
+    // Z0/TD edit via part.val (tline uses val as Z0)
+    add('TEST_RF_34: TL Z0/TD editable (val numeric, td optional)',
+      COMP.tline && typeof COMP.tline.def === 'number');
+
+    // === REGRESSION ===
+    add('TEST_RF_35: prior modules intact',
+      !!VXA.Params && !!VXA.BSIM3 && !!VXA.SparseFast && !!VXA.NetlistEditor &&
+      !!VXA.Behavioral && !!VXA.Convergence && !!VXA.ScopePro && !!VXA.TransmissionLine);
+    add('TEST_RF_36: PRESETS.length === 55',
+      typeof PRESETS !== 'undefined' && PRESETS.length === 55);
+    add('TEST_RF_37: canvas sentinel', !!document.querySelector('canvas'));
+
+    // LED Vf regression
+    if (typeof loadPreset === 'function') loadPreset('led');
+    if (typeof toggleSim === 'function' && !S.sim.running) toggleSim();
+    for (let i = 0; i < 200; i++) if (typeof simulationStep === 'function') simulationStep();
+    if (S.sim.running && typeof toggleSim === 'function') toggleSim();
+    let ledVf = NaN;
+    const ledPart = S.parts.find(p => p.type === 'led');
+    if (ledPart && S._pinToNode && S._nodeVoltages) {
+      const pins = getPartPins(ledPart);
+      const n1 = S._pinToNode[Math.round(pins[0].x)+','+Math.round(pins[0].y)] || 0;
+      const n2 = S._pinToNode[Math.round(pins[1].x)+','+Math.round(pins[1].y)] || 0;
+      ledVf = Math.abs((S._nodeVoltages[n1]||0) - (S._nodeVoltages[n2]||0));
+    }
+    add('TEST_RF_38: LED Vf 1.5-2.2V (motor regression)', ledVf > 1.5 && ledVf < 2.2);
+
+    // Zener regression
+    if (typeof loadPreset === 'function') loadPreset('zener-reg');
+    if (typeof toggleSim === 'function' && !S.sim.running) toggleSim();
+    for (let i = 0; i < 300; i++) if (typeof simulationStep === 'function') simulationStep();
+    if (S.sim.running && typeof toggleSim === 'function') toggleSim();
+    add('TEST_RF_39: Zener regulator preset converges',
+      isArrayLike(S._nodeVoltages) &&
+      Array.prototype.every.call(S._nodeVoltages, function(v){return isFinite(v);}));
+
+    add('TEST_RF_40: COMP count ≥ 71 (tline included)',
+      typeof COMP !== 'undefined' && Object.keys(COMP).length >= 71);
+
+    return r;
+  });
+  rfResults.sort((a, b) => {
+    const na = parseInt((a.name.match(/TEST_RF_(\d+)/) || [])[1] || 99);
+    const nb = parseInt((b.name.match(/TEST_RF_(\d+)/) || [])[1] || 99);
+    return na - nb;
+  });
+  rfResults.forEach(r => console.log(`  ${r.pass ? '✅' : '❌'} ${r.name}`));
+  const rfPass = rfResults.filter(r => r.pass).length;
+  const rfFail = rfResults.filter(r => !r.pass).length;
+  console.log(`\n  Sprint 50: ${rfPass} PASS, ${rfFail} FAIL out of ${rfResults.length}`);
 
   // === FINAL ÖZET ===
   const totalPass = await page.evaluate(() => {

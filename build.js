@@ -128,6 +128,9 @@ const JS_FILES = [
   // Engine: Convergence Ultimate (pseudo-transient + 4-tier DC OP) — Sprint 48 (v9.0)
   'src/engine/convergence.js',
 
+  // Engine: Transmission line + S-Parameter (Sprint 50 — v9.0)
+  'src/engine/transmission-line.js',
+
   // Engine: legacy MNA sim
   'src/engine/sim-legacy.js',
 
@@ -294,6 +297,10 @@ const JS_FILES = [
   // UI: Waveform Viewer Pro + Convergence warning — Sprint 49 (v9.0)
   'src/ui/scope-pro.js',
   'src/ui/convergence-warning.js',
+
+  // UI: Smith chart + S-Param analysis runner — Sprint 50 (v9.0)
+  'src/ui/smith-chart.js',
+  'src/ui/sparam-analysis.js',
 
   // UI: breadboard 3D view
   'src/ui/breadboard.js',
