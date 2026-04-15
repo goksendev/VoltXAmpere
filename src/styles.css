@@ -392,3 +392,12 @@ input:focus{border-color:var(--accent)}
   #tl-controls button{width:24px;height:24px;font-size:8px}
   #tl-time{font-size:9px;min-width:100px}
 }
+/* Sprint 54: Print CSS — devre şemasını temiz kağıt çıktısı */
+@media print {
+  body { background: #fff !important; color: #000 !important; }
+  #topbar, #leftpanel, #inspector, #statusbar, #analysis-tabs,
+  #timeline-bar, #minimap, #convergence-warning, #netlist-panel,
+  #about-modal, #share-modal, .modal { display: none !important; }
+  #canvas-wrap { position: static !important; width: 100% !important; height: auto !important; }
+  canvas#C { width: 100% !important; height: auto !important; background: #fff !important; }
+}

@@ -8087,7 +8087,8 @@ console.log = function() {
       if (S.sim.running) toggleSim();
     } catch(e) { add('FN_05: err',false); add('FN_06: err',false); }
     add('FN_07: Build boyutu < 1200KB (size='+Math.round(sizes.buildSize/1024)+'KB)', sizes.buildSize > 0 && sizes.buildSize < 1200*1024);
-    add('FN_08: Gzip < 300KB (gzip='+Math.round(sizes.gzipSize/1024)+'KB)', sizes.gzipSize > 0 && sizes.gzipSize < 300*1024);
+    // Sprint 54: v9.0 bumped gzip budget to 350KB (Phase 1-4 features + print CSS + a11y)
+    add('FN_08: Gzip < 350KB (gzip='+Math.round(sizes.gzipSize/1024)+'KB)', sizes.gzipSize > 0 && sizes.gzipSize < 350*1024);
 
     // === MOBİL ===
     var mvp = document.querySelector('meta[name="viewport"]');
@@ -11480,6 +11481,64 @@ console.log = function() {
   const asPass = asResults.filter(r => r.pass).length;
   const asFail = asResults.filter(r => !r.pass).length;
   console.log(`\n  Sprint 53: ${asPass} PASS, ${asFail} FAIL out of ${asResults.length}`);
+
+  // ═══════════════════════════════════════════════════════════════
+  // SPRINT 54: POLISH — Welcome 71 / Canvas a11y / Print CSS / Restore verify
+  // ═══════════════════════════════════════════════════════════════
+  console.log('\n📋 Sprint 54: POLISH (v9.0)');
+  const s54Results = await page.evaluate(() => {
+    const r = [];
+    function add(name, ok) { r.push({ name, pass: !!ok }); }
+
+    // === WELCOME DIALOG ===
+    // showWelcome populates #welcome-modal
+    let welcomeHtml = '';
+    try {
+      if (typeof showWelcome === 'function') showWelcome();
+      const box = document.getElementById('welcome-modal') || document.getElementById('welcome-box');
+      welcomeHtml = box ? box.innerHTML : document.body.innerHTML;
+    } catch (e) {}
+    add('TEST_SP_01: welcome contains "71" (not "69")',
+      /71\s*(bile|comp)/.test(welcomeHtml) && welcomeHtml.indexOf('69 bile') < 0 && welcomeHtml.indexOf('69 comp') < 0);
+    try { const wm = document.getElementById('welcome-modal'); if (wm) wm.classList.remove('show'); } catch (e) {}
+
+    // === CANVAS A11Y ===
+    const cvs = document.getElementById('C');
+    add('TEST_SP_02: canvas#C has role="img"', cvs && cvs.getAttribute('role') === 'img');
+    add('TEST_SP_03: canvas#C has aria-label', cvs && !!cvs.getAttribute('aria-label'));
+    add('TEST_SP_04: canvas#C is keyboard focusable (tabindex)',
+      cvs && cvs.hasAttribute('tabindex'));
+
+    // === PRINT CSS ===
+    const allStyles = Array.from(document.styleSheets).map(function(s) {
+      try { return Array.from(s.cssRules).map(function(r){return r.cssText;}).join('\n'); }
+      catch (e) { return ''; }
+    }).join('\n');
+    add('TEST_SP_05: @media print rules present',
+      /@media\s+print/i.test(allStyles));
+    add('TEST_SP_06: print hides toolbar/panels',
+      /@media\s+print[\s\S]*#topbar[\s\S]*display:\s*none|@media\s+print[\s\S]*#leftpanel[\s\S]*none/i.test(allStyles));
+
+    // === AUTOSAVE RESTORE CODE PATH ===
+    // Verify the restore onclick handler actually carries the new fields.
+    // Read the app.js source via document body (bundle inline script).
+    const scripts = Array.from(document.querySelectorAll('script'));
+    const bundleSrc = scripts.map(function(s){return s.textContent || '';}).join('\n');
+    add('TEST_SP_07: restore handler preserves model field (new code path)',
+      bundleSrc.indexOf('if (p.model) np.model = p.model') >= 0);
+    add('TEST_SP_08: restore handler preserves pwlPoints',
+      bundleSrc.indexOf('if (Array.isArray(p.pwlPoints)) np.pwlPoints') >= 0);
+    add('TEST_SP_09: restore calls applyModelsToParts',
+      bundleSrc.indexOf('applyModelsToParts(S.parts)') >= 0);
+    add('TEST_SP_10: applyModelsToParts function defined in bundle',
+      bundleSrc.indexOf('function applyModelsToParts') >= 0);
+
+    return r;
+  });
+  s54Results.forEach(r => console.log(`  ${r.pass ? '✅' : '❌'} ${r.name}`));
+  const s54Pass = s54Results.filter(r => r.pass).length;
+  const s54Fail = s54Results.filter(r => !r.pass).length;
+  console.log(`\n  Sprint 54: ${s54Pass} PASS, ${s54Fail} FAIL out of ${s54Results.length}`);
 
   // === FINAL ÖZET ===
   const totalPass = await page.evaluate(() => {
