@@ -262,6 +262,7 @@ const JS_FILES = [
   // UI: interactive tutorials
   'src/ui/tutorials.js',
   'src/ui/tutorials-extended.js',
+  'src/ui/sim-speed.js',
 
   // Components: encyclopedia
   'src/components/encyclopedia.js',
