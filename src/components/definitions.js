@@ -500,6 +500,24 @@ var COMP = {
       c.beginPath(); c.moveTo(25, 0); c.lineTo(40, 0); c.stroke();
     }
   },
+  behavioral: {
+    name: 'B Kaynak', en: 'B Source', color: '#e91e63', unit: '', def: 0, cat: 'Sources',
+    pins: [{ dx: 0, dy: -25 }, { dx: 0, dy: 25 }],
+    draw(c, part) {
+      c.strokeStyle = this.color; c.lineWidth = 2;
+      c.beginPath(); c.arc(0, 0, 16, 0, Math.PI * 2); c.stroke();
+      c.font = 'bold 14px sans-serif'; c.fillStyle = this.color; c.textAlign = 'center';
+      c.fillText('B', 0, 5);
+      c.beginPath(); c.moveTo(0, -25); c.lineTo(0, -16); c.stroke();
+      c.beginPath(); c.moveTo(0, 16); c.lineTo(0, 25); c.stroke();
+      if (part && part.expression) {
+        c.font = '7px monospace'; c.fillStyle = 'rgba(255,255,255,0.6)';
+        var expr = String(part.expression).replace(/^\{|\}$/g, '');
+        if (expr.length > 20) expr = expr.substring(0, 18) + '...';
+        c.fillText(expr, 0, 32);
+      }
+    }
+  },
   subcircuit: {
     name: 'Subcircuit (.SUBCKT)', en: 'Subckt', color: '#9b59b6', unit: '', def: 0, cat: 'ICs',
     // Default 5-pin layout; per-instance pins are written into part.pins on placement.

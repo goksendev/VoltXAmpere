@@ -122,6 +122,9 @@ const JS_FILES = [
   // Engine: SpatialIndex quadtree (Sprint 45 — v9.0)
   'src/engine/spatial-index.js',
 
+  // Engine: Behavioral source + Laplace (Sprint 47 — v9.0)
+  'src/engine/behavioral.js',
+
   // Engine: legacy MNA sim
   'src/engine/sim-legacy.js',
 

@@ -10091,6 +10091,191 @@ console.log = function() {
   const nlFail = nlResults.filter(r => !r.pass).length;
   console.log(`\n  Sprint 46: ${nlPass} PASS, ${nlFail} FAIL out of ${nlResults.length}`);
 
+  // ═══════════════════════════════════════════════════════════════
+  // SPRINT 47: BEHAVIORAL SOURCE + LAPLACE (v9.0)
+  // ═══════════════════════════════════════════════════════════════
+  console.log('\n📋 Sprint 47: BEHAVIORAL + LAPLACE (v9.0)');
+  const beResults = await page.evaluate(() => {
+    const r = [];
+    function add(name, ok) { r.push({ name, pass: !!ok }); }
+    const B = VXA.Behavioral;
+
+    // === CORE ===
+    add('TEST_BE_01: VXA.Behavioral module exists', !!B);
+    if (!B) return r;
+
+    // Helper to evaluate with a simple node array
+    function ev(expr, nv, t) {
+      const src = B.create('{' + expr + '}');
+      return B.evaluate(src, nv || [], [], t || 0, 1e-5, null);
+    }
+
+    const src1 = B.create('{5}', 'V');
+    add('TEST_BE_02: create() returns source object',
+      src1 && src1.expression === '5' && src1.outputType === 'V');
+
+    add('TEST_BE_03: evaluate("5") = 5', ev('5') === 5);
+    add('TEST_BE_04: evaluate("V(1)*2") with V(1)=3 → 6', ev('V(1)*2', [0, 3]) === 6);
+    add('TEST_BE_05: if(V(1)>2.5,5,0) with V(1)=3 → 5', ev('if(V(1)>2.5,5,0)', [0, 3]) === 5);
+    add('TEST_BE_06: if(V(1)>2.5,5,0) with V(1)=1 → 0', ev('if(V(1)>2.5,5,0)', [0, 1]) === 0);
+    add('TEST_BE_07: abs(V(1)) with V(1)=-3 → 3', ev('abs(V(1))', [0, -3]) === 3);
+    add('TEST_BE_08: limit(V(1),-5,5) with V(1)=10 → 5', ev('limit(V(1),-5,5)', [0, 10]) === 5);
+    add('TEST_BE_09: sqrt(V(1)) with V(1)=9 → 3', ev('sqrt(V(1))', [0, 9]) === 3);
+    // time-based sine
+    const sinAt250us = ev('sin(2*pi*1000*time)', [], 0.25e-3);
+    add('TEST_BE_10: sin(2πft) peak near t=0.25ms at f=1kHz',
+      Math.abs(sinAt250us - 1) < 0.01);
+    add('TEST_BE_11a: uramp(-2) = 0', ev('uramp(V(1))', [0, -2]) === 0);
+    add('TEST_BE_11b: uramp(3) = 3', ev('uramp(V(1))', [0, 3]) === 3);
+    add('TEST_BE_12a: u(-1) = 0', ev('u(V(1))', [0, -1]) === 0);
+    add('TEST_BE_12b: u(1) = 1', ev('u(V(1))', [0, 1]) === 1);
+    add('TEST_BE_13: unsafe expr returns 0 (no throw)',
+      ev('window.alert(1)', []) === 0);
+
+    // === LAPLACE PARSING ===
+    const lap = B.parseLaplace('Laplace(V(1), 1000/(s+1000))');
+    add('TEST_BE_14: parseLaplace inputNode="1"',
+      lap && lap.inputNode === '1');
+
+    const poly1 = B.parsePolynomial('s+1000');
+    add('TEST_BE_15: parsePolynomial("s+1000") = [1000, 1]',
+      poly1.length === 2 && poly1[0] === 1000 && poly1[1] === 1);
+
+    const poly2 = B.parsePolynomial('s^2+100*s+10000');
+    add('TEST_BE_16: parsePolynomial("s^2+100*s+10000") = [10000, 100, 1]',
+      poly2.length === 3 && poly2[0] === 10000 && poly2[1] === 100 && poly2[2] === 1);
+
+    const poly3 = B.parsePolynomial('1000');
+    add('TEST_BE_17: parsePolynomial("1000") = [1000]',
+      poly3.length === 1 && poly3[0] === 1000);
+
+    const poly4 = B.parsePolynomial('s');
+    add('TEST_BE_18: parsePolynomial("s") = [0, 1]',
+      poly4.length === 2 && poly4[0] === 0 && poly4[1] === 1);
+
+    const sf = B.splitFraction('1000/(s+1000)');
+    add('TEST_BE_19: splitFraction → num="1000", den="s+1000"',
+      sf.num === '1000' && sf.den === 's+1000');
+
+    const tf = B.parseTransferFunction('s/(s+1000)');
+    add('TEST_BE_20: parseTransferFunction("s/(s+1000)") = {num:[0,1], den:[1000,1]}',
+      tf.num[0] === 0 && tf.num[1] === 1 && tf.den[0] === 1000 && tf.den[1] === 1);
+
+    // === LAPLACE FILTER ===
+    const spec1 = { inputNode: '1', numCoeffs: [1000], denCoeffs: [1000, 1] };
+    const f1 = B.createLaplaceFilter(spec1, 1e5);
+    add('TEST_BE_21: 1st-order filter type=iir1', f1.type === 'iir1');
+
+    const spec2 = { inputNode: '1', numCoeffs: [1e6], denCoeffs: [1e6, 1000, 1] };
+    const f2 = B.createLaplaceFilter(spec2, 1e5);
+    add('TEST_BE_22: 2nd-order filter type=iir2', f2.type === 'iir2');
+
+    const gainF = B.createLaplaceFilter({ numCoeffs: [5], denCoeffs: [1] }, 1e5);
+    add('TEST_BE_23: gain filter: input 3 → 15',
+      B.processLaplaceFilter(gainF, 3) === 15);
+
+    // 1st-order LPF step response: output should settle near input (DC gain=1)
+    const lpf = B.createLaplaceFilter({ numCoeffs: [1000], denCoeffs: [1000, 1] }, 1e5);
+    let yLpf = 0;
+    for (let i = 0; i < 2000; i++) yLpf = B.processLaplaceFilter(lpf, 1.0);
+    add('TEST_BE_24: LPF step input → DC settles ≈ 1 (±10%)',
+      Math.abs(yLpf - 1) < 0.1);
+
+    // 1st-order HPF: steady DC → 0
+    const hpf = B.createLaplaceFilter({ numCoeffs: [0, 1], denCoeffs: [1000, 1] }, 1e5);
+    let yHpf = 0;
+    for (let i = 0; i < 3000; i++) yHpf = B.processLaplaceFilter(hpf, 1.0);
+    add('TEST_BE_25: HPF step input → DC settles ≈ 0 (±0.1)',
+      Math.abs(yHpf) < 0.1);
+
+    // -3 dB corner frequency check: feed sine at fc, gain ≈ 0.707 for LPF
+    // fc = 1000 / 2π ≈ 159 Hz
+    const lpfAC = B.createLaplaceFilter({ numCoeffs: [1000], denCoeffs: [1000, 1] }, 1e5);
+    const fc = 1000 / (2 * Math.PI);
+    let maxOut = 0;
+    // Run long enough to reach steady state, then measure peak
+    for (let i = 0; i < 20000; i++) {
+      const t = i * 1e-5;
+      const inp = Math.sin(2 * Math.PI * fc * t);
+      const out = B.processLaplaceFilter(lpfAC, inp);
+      if (i > 10000 && Math.abs(out) > maxOut) maxOut = Math.abs(out);
+    }
+    add('TEST_BE_26: LPF at fc → gain ≈ 0.707 (±30% tolerance)',
+      maxOut > 0.5 && maxOut < 0.95);
+
+    // === STAMP ===
+    const matrix = [];
+    for (let i = 0; i < 5; i++) matrix.push([0, 0, 0, 0, 0]);
+    const rhs = [0, 0, 0, 0, 0];
+    const SpShim = { stamp: function(m, rr, cc, v) { if (m[rr]) m[rr][cc] = (m[rr][cc] || 0) + v; } };
+    const bV = B.create('{3.3}', 'V');
+    B.stamp(matrix, rhs, bV, 1, 0, 3, [0, 0], [], 0, 1e-5, null, SpShim);
+    add('TEST_BE_27: V-type stamp writes rhs[bi]=value', rhs[3] === 3.3);
+
+    const rhs2 = [0, 0, 0, 0, 0];
+    const bI = B.create('{0.01}', 'I');
+    B.stamp(matrix, rhs2, bI, 1, 2, 0, [0, 0, 0], [], 0, 1e-5, null, SpShim);
+    add('TEST_BE_28: I-type stamp subtracts/adds to rhs[n1/n2]',
+      rhs2[0] === -0.01 && rhs2[1] === 0.01);
+
+    let noCrash = true;
+    try {
+      B.stamp(matrix, rhs, B.create('{V(1)+1}', 'V'), 1, 0, 4, [0, 5], [], 0, 1e-5, null, SpShim);
+    } catch (e) { noCrash = false; }
+    add('TEST_BE_29: stamp with V() reference no-crash', noCrash);
+
+    // === BİLEŞEN / UI ===
+    add('TEST_BE_30: COMP.behavioral defined',
+      typeof COMP !== 'undefined' && !!COMP.behavioral);
+    // Inspector fields — we cover via creation; UI panel will be exposed by user spec.
+    add('TEST_BE_31: COMP.behavioral has 2 pins',
+      COMP.behavioral && COMP.behavioral.pins && COMP.behavioral.pins.length === 2);
+    add('TEST_BE_32: COMP.behavioral is in Sources cat',
+      COMP.behavioral && COMP.behavioral.cat === 'Sources');
+    add('TEST_BE_33: B Source draw function defined',
+      typeof COMP.behavioral.draw === 'function');
+
+    // === ENTEGRASYON ===
+    // TEST_BE_34: comparator logic via evaluate
+    add('TEST_BE_34: behavioral comparator: V(1)>V(2) → 5, else 0',
+      ev('if(V(1)>V(2),5,0)', [0, 3, 1]) === 5 && ev('if(V(1)>V(2),5,0)', [0, 1, 3]) === 0);
+
+    // TEST_BE_35: Laplace LPF via evaluate() with _laplace caching
+    const lapSrc = B.create('{Laplace(V(1), 1000/(s+1000))}', 'V');
+    let yLp = 0;
+    for (let i = 0; i < 3000; i++) yLp = B.evaluate(lapSrc, [0, 1.0], [], i * 1e-5, 1e-5, null);
+    add('TEST_BE_35: Laplace source LPF step → ≈1',
+      Math.abs(yLp - 1) < 0.15);
+
+    // TEST_BE_36: SPICE export B line (synthetic — user's netlist panel doesn't own B yet)
+    // We validate that netlist editor doesn't crash on B-line
+    const bLineTest = VXA.NetlistEditor.parseNetlistLine('B1 1 0 V={V(2)*2}');
+    add('TEST_BE_36: netlist parse B-line no crash', bLineTest === null || typeof bLineTest === 'object');
+
+    // TEST_BE_37: highlight B line
+    const highlighted = VXA.NetlistEditor.highlight('B1 1 0 V={V(2)*2}');
+    add('TEST_BE_37: highlight B-line (no throw, produces HTML)',
+      typeof highlighted === 'string' && highlighted.length > 0);
+
+    // === REGRESSION ===
+    add('TEST_BE_38: prior modules intact',
+      !!VXA.Params && !!VXA.BSIM3 && !!VXA.SparseFast && !!VXA.NetlistEditor && !!VXA.Behavioral);
+    add('TEST_BE_39: PRESETS.length === 55', typeof PRESETS !== 'undefined' && PRESETS.length === 55);
+    add('TEST_BE_40: COMP count ≥ 71 (added behavioral)',
+      typeof COMP !== 'undefined' && Object.keys(COMP).length >= 71);
+
+    return r;
+  });
+  beResults.sort((a, b) => {
+    const na = parseInt((a.name.match(/TEST_BE_(\d+)/) || [])[1] || 99);
+    const nb = parseInt((b.name.match(/TEST_BE_(\d+)/) || [])[1] || 99);
+    return na - nb;
+  });
+  beResults.forEach(r => console.log(`  ${r.pass ? '✅' : '❌'} ${r.name}`));
+  const bePass = beResults.filter(r => r.pass).length;
+  const beFail = beResults.filter(r => !r.pass).length;
+  console.log(`\n  Sprint 47: ${bePass} PASS, ${beFail} FAIL out of ${beResults.length}`);
+
   // === FINAL ÖZET ===
   const totalPass = await page.evaluate(() => {
     return { parts: typeof COMP !== 'undefined' ? Object.keys(COMP).length : 0, lines: document.querySelector('script') ? 'OK' : 'FAIL' };
