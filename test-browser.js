@@ -11133,7 +11133,9 @@ console.log = function() {
       }
     } catch (e) {}
 
-    add('TEST_BM_14: About contains "72"', /72\+/.test(aboutHtml));
+    // Sprint 53: component count corrected 72→71 (timer555 counted)
+    add('TEST_BM_14: About contains "71" or "72" (component count)',
+      /(71|72)\+/.test(aboutHtml));
     add('TEST_BM_15: About contains "78"', /78\+/.test(aboutHtml));
     add('TEST_BM_16: About contains test count (2418/2400/2300/2338)',
       /(2418|2400|2300|2338)/.test(aboutHtml));
@@ -11151,8 +11153,9 @@ console.log = function() {
     // === META FINAL ===
     const metaDesc = document.querySelector('meta[name="description"]');
     const jsonLd = document.querySelector('script[type="application/ld+json"]');
-    add('TEST_BM_21: Meta description contains "72"',
-      metaDesc && /72\+?/.test(metaDesc.content));
+    // Sprint 53: corrected to 71
+    add('TEST_BM_21: Meta description contains "71" or "72"',
+      metaDesc && /(71|72)\+?/.test(metaDesc.content));
     add('TEST_BM_22: Meta description mentions S-parameter or Smith',
       metaDesc && /S-parameter|S-Parameter|Smith/i.test(metaDesc.content));
     add('TEST_BM_23: JSON-LD mentions Transmission or S-Parameter',
@@ -11263,6 +11266,220 @@ console.log = function() {
   const bmPass = bmResults.filter(r => r.pass).length;
   const bmFail = bmResults.filter(r => !r.pass).length;
   console.log(`\n  Sprint 52: ${bmPass} PASS, ${bmFail} FAIL out of ${bmResults.length}`);
+
+  // ═══════════════════════════════════════════════════════════════
+  // SPRINT 53: ACİL FIX — Autosave + A11y + Version + Component + Touch
+  // ═══════════════════════════════════════════════════════════════
+  console.log('\n📋 Sprint 53: ACİL FIX (v9.0)');
+  const _sp53_fs = require('fs');
+  const _sp53_buildText = _sp53_fs.readFileSync(require('path').resolve('dist/index.html'), 'utf8');
+
+  const asResults = await page.evaluate((buildText) => {
+    const r = [];
+    function add(name, ok) { r.push({ name, pass: !!ok }); }
+
+    // === AUTOSAVE FIELD PERSISTENCE ===
+    const AS = VXA.AutoSave;
+    if (!AS) { add('TEST_AS_01: VXA.AutoSave missing', false); return r; }
+
+    // Backup and clear
+    const savedBackup = localStorage.getItem('vxa_autosave');
+    localStorage.removeItem('vxa_autosave');
+    const savedPartsBak = S.parts.slice();
+    const savedWiresBak = S.wires.slice();
+    const savedAuto = S.autoSave;
+    S.autoSave = true;
+
+    // Build a rich test circuit
+    S.parts = [
+      { id: 530001, type: 'led', name: 'D1', x: 100, y: 100, rot: 0, val: 0, model: 'RED_5MM', ledColor: '#f0454a' },
+      { id: 530002, type: 'potentiometer', name: 'RP1', x: 200, y: 100, rot: 0, val: 10000, wiper: 0.3 },
+      { id: 530003, type: 'netLabel', name: 'NL1', x: 300, y: 100, rot: 0, val: 0, label: 'VCC' },
+      { id: 530004, type: 'vdc', name: 'V1', x: 400, y: 100, rot: 0, val: 5, srcType: 'PWL', pwlPoints: [[0,0],[1e-3,5],[2e-3,0]], amplitude: 5, dcOffset: 0.1, phase: 0, duty: 0.6 },
+      { id: 530005, type: 'capacitor', name: 'C1', x: 500, y: 100, rot: 0, val: 1e-6, icVoltage: 3.3 },
+      { id: 530006, type: 'subcircuit', name: 'X1', x: 600, y: 100, rot: 0, val: 0, subcktName: 'SIMPLE_OPAMP' },
+      { id: 530007, type: 'vdc', name: 'V2', x: 700, y: 100, rot: 0, val: 5, srcType: 'EXP', expParams: { v1:0, v2:5, td1:0, tau1:1e-3, td2:3e-3, tau2:1e-3 } },
+      { id: 530008, type: 'vdc', name: 'V3', x: 800, y: 100, rot: 0, val: 1, srcType: 'SFFM', sffmParams: { voff:0, vamp:1, fcar:1000, mdi:5, fsig:100 } }
+    ];
+    S.wires = [];
+    AS.save();
+    const savedData = JSON.parse(localStorage.getItem('vxa_autosave'));
+
+    function findPart(id) { return savedData.parts.find(p => p.id === id); }
+
+    add('TEST_AS_01: save() preserves model (LED RED_5MM)',
+      findPart(530001) && findPart(530001).model === 'RED_5MM');
+    add('TEST_AS_02: save() preserves ledColor',
+      findPart(530001) && findPart(530001).ledColor === '#f0454a');
+    add('TEST_AS_03: save() preserves wiper (0.3)',
+      findPart(530002) && Math.abs(findPart(530002).wiper - 0.3) < 1e-9);
+    add('TEST_AS_04: save() preserves label ("VCC")',
+      findPart(530003) && findPart(530003).label === 'VCC');
+    add('TEST_AS_05: save() preserves srcType (PWL)',
+      findPart(530004) && findPart(530004).srcType === 'PWL');
+    add('TEST_AS_06: save() preserves pwlPoints',
+      findPart(530004) && Array.isArray(findPart(530004).pwlPoints) && findPart(530004).pwlPoints.length === 3);
+    add('TEST_AS_07: save() preserves icVoltage (3.3)',
+      findPart(530005) && findPart(530005).icVoltage === 3.3);
+    add('TEST_AS_08: save() preserves subcktName',
+      findPart(530006) && findPart(530006).subcktName === 'SIMPLE_OPAMP');
+
+    const restored = AS.restore();
+    add('TEST_AS_09: restore() returns data with parts array',
+      restored && Array.isArray(restored.parts) && restored.parts.length === 8);
+    // Apply models
+    const applied = AS.applyModelsToParts(restored.parts);
+    add('TEST_AS_10: applyModelsToParts() applies model (count > 0)',
+      typeof applied === 'number' && applied > 0);
+
+    // Round-trip simulation check
+    const restoredLed = restored.parts.find(p => p.type === 'led');
+    add('TEST_AS_11: LED round-trip → model=RED_5MM preserved',
+      restoredLed && restoredLed.model === 'RED_5MM');
+
+    const restoredPot = restored.parts.find(p => p.type === 'potentiometer');
+    add('TEST_AS_12: pot round-trip → wiper=0.3 preserved',
+      restoredPot && Math.abs(restoredPot.wiper - 0.3) < 1e-9);
+
+    const restoredPwl = restored.parts.find(p => p.srcType === 'PWL');
+    add('TEST_AS_13: PWL round-trip → pwlPoints preserved',
+      restoredPwl && Array.isArray(restoredPwl.pwlPoints) && restoredPwl.pwlPoints.length === 3);
+
+    // Backward compat: save without model, applyModelsToParts should assign default
+    const legacyParts = [{ type: 'led', x: 0, y: 0, val: 0 }];
+    const n14 = AS.applyModelsToParts(legacyParts);
+    add('TEST_AS_14: backward compat → default model assigned when missing',
+      legacyParts[0].model && typeof legacyParts[0].model === 'string');
+
+    // Restore state
+    S.parts = savedPartsBak;
+    S.wires = savedWiresBak;
+    S.autoSave = savedAuto;
+    if (savedBackup !== null) localStorage.setItem('vxa_autosave', savedBackup);
+    else localStorage.removeItem('vxa_autosave');
+
+    // === ACCESSIBILITY (VIEWPORT META) ===
+    const viewport = document.querySelector('meta[name="viewport"]');
+    const vpContent = viewport ? viewport.content : '';
+    add('TEST_AS_15: viewport has NO "user-scalable=no"',
+      vpContent && vpContent.indexOf('user-scalable=no') < 0);
+    add('TEST_AS_16: viewport has NO "maximum-scale=1" (or > 3)',
+      vpContent && vpContent.indexOf('maximum-scale=1') < 0);
+
+    // === VERSION CONSISTENCY (build text scan) ===
+    // namespace.js: "VoltXAmpere v9.0 — Browser Circuit Simulator"
+    add('TEST_AS_17: namespace.js build text contains "v9.0 — Browser Circuit"',
+      buildText.indexOf('VoltXAmpere v9.0 — Browser Circuit Simulator') >= 0 ||
+      buildText.indexOf('VoltXAmpere v9.0 \u2014 Browser Circuit Simulator') >= 0);
+    // spice-export.js: "* VoltXAmpere v9.0 — SPICE Netlist"
+    add('TEST_AS_18: spice-export "v9.0 — SPICE Netlist" present',
+      /v9\.0\s*(—|\u2014)\s*SPICE Netlist/.test(buildText));
+    // benchmark.js: "VoltXAmpere v9.0 Benchmark"
+    add('TEST_AS_19: benchmark.js "v9.0 Benchmark" present',
+      buildText.indexOf('VoltXAmpere v9.0 Benchmark') >= 0);
+    // startup.js console: "v6.0 Settings:" replaced with "Settings API:"
+    add('TEST_AS_20: console log "v6.0 Settings:" removed',
+      buildText.indexOf("'%cv6.0 Settings:'") < 0);
+
+    // === COMPONENT COUNT CONSISTENCY ===
+    let aboutHtml = '';
+    try {
+      if (typeof showAbout === 'function') {
+        showAbout();
+        const box = document.getElementById('about-box');
+        aboutHtml = box ? box.innerHTML : '';
+      }
+    } catch (e) {}
+    add('TEST_AS_21: About says "71+ Bileşen" or "71+ Components" (not 72+)',
+      aboutHtml.indexOf('71+') >= 0 && aboutHtml.indexOf('72+') < 0);
+
+    const metaDesc = document.querySelector('meta[name="description"]');
+    add('TEST_AS_22: Meta description contains "71+ components" or "71+"',
+      metaDesc && /71\+/.test(metaDesc.content));
+
+    const jsonLd = document.querySelector('script[type="application/ld+json"]');
+    add('TEST_AS_23: JSON-LD featureList contains "71 components" or "71"',
+      jsonLd && /71\s*components|71\+/.test(jsonLd.textContent));
+
+    try { document.getElementById('about-modal').classList.remove('show'); } catch (e) {}
+
+    // === TOUCHCANCEL ===
+    add('TEST_AS_24: touchcancel handler registered in build',
+      buildText.indexOf('touchcancel') >= 0);
+
+    // === SIMULATION ROUND-TRIP CORRECTNESS ===
+    function isArrayLike(x) { return x && typeof x.length === 'number'; }
+    function loadSaveRestoreSim(presetId, steps) {
+      loadPreset(presetId);
+      AS.save();
+      S.parts = []; S.wires = [];
+      const d = AS.restore();
+      if (!d || !d.parts) return false;
+      d.parts.forEach(function(p) {
+        const np = Object.assign({}, p, { id: S.nextId++ });
+        S.parts.push(np);
+      });
+      AS.applyModelsToParts(S.parts);
+      d.wires.forEach(function(w) { S.wires.push({ x1:w.x1, y1:w.y1, x2:w.x2, y2:w.y2 }); });
+      if (!S.sim.running) toggleSim();
+      for (let i = 0; i < (steps||200); i++) simulationStep();
+      if (S.sim.running) toggleSim();
+      return true;
+    }
+
+    // TEST_AS_25: LED save→restore → Vf check
+    loadSaveRestoreSim('led', 200);
+    let ledVf = NaN;
+    const ledPart = S.parts.find(p => p.type === 'led');
+    if (ledPart && S._pinToNode && S._nodeVoltages) {
+      const pins = getPartPins(ledPart);
+      const n1 = S._pinToNode[Math.round(pins[0].x)+','+Math.round(pins[0].y)] || 0;
+      const n2 = S._pinToNode[Math.round(pins[1].x)+','+Math.round(pins[1].y)] || 0;
+      ledVf = Math.abs((S._nodeVoltages[n1]||0) - (S._nodeVoltages[n2]||0));
+    }
+    add('TEST_AS_25: LED save→restore→sim Vf in [1.5, 2.2]V',
+      ledVf > 1.5 && ledVf < 2.2);
+
+    // TEST_AS_26: Zener save→restore → Vz check
+    loadSaveRestoreSim('zener-reg', 300);
+    let zVz = NaN;
+    const zPart = S.parts.find(p => p.type === 'zener');
+    if (zPart && S._pinToNode && S._nodeVoltages) {
+      const pins = getPartPins(zPart);
+      const n1 = S._pinToNode[Math.round(pins[0].x)+','+Math.round(pins[0].y)] || 0;
+      const n2 = S._pinToNode[Math.round(pins[1].x)+','+Math.round(pins[1].y)] || 0;
+      zVz = Math.abs((S._nodeVoltages[n1]||0) - (S._nodeVoltages[n2]||0));
+    }
+    add('TEST_AS_26: Zener save→restore→sim Vz in [4.0, 6.5]V',
+      zVz > 4.0 && zVz < 6.5);
+
+    // TEST_AS_27: CE amp finite
+    loadSaveRestoreSim('ce-amp', 400);
+    let allFin = isArrayLike(S._nodeVoltages) &&
+      Array.prototype.every.call(S._nodeVoltages, function(v){return isFinite(v);});
+    add('TEST_AS_27: CE amp save→restore→sim finite',
+      allFin);
+
+    // === REGRESSION ===
+    add('TEST_AS_28: prior v9.0 modules intact',
+      !!VXA.Params && !!VXA.BSIM3 && !!VXA.Behavioral && !!VXA.Convergence &&
+      !!VXA.TransmissionLine && !!VXA.NetlistEditor);
+    add('TEST_AS_29: PRESETS.length === 55',
+      typeof PRESETS !== 'undefined' && PRESETS.length === 55);
+    add('TEST_AS_30: canvas sentinel', !!document.querySelector('canvas'));
+
+    return r;
+  }, _sp53_buildText);
+
+  asResults.sort((a, b) => {
+    const na = parseInt((a.name.match(/TEST_AS_(\d+)/) || [])[1] || 99);
+    const nb = parseInt((b.name.match(/TEST_AS_(\d+)/) || [])[1] || 99);
+    return na - nb;
+  });
+  asResults.forEach(r => console.log(`  ${r.pass ? '✅' : '❌'} ${r.name}`));
+  const asPass = asResults.filter(r => r.pass).length;
+  const asFail = asResults.filter(r => !r.pass).length;
+  console.log(`\n  Sprint 53: ${asPass} PASS, ${asFail} FAIL out of ${asResults.length}`);
 
   // === FINAL ÖZET ===
   const totalPass = await page.evaluate(() => {

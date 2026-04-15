@@ -14,7 +14,7 @@ VXA.SpiceExport = (function() {
   function generate() {
     buildCircuitFromCanvas();
     if (!SIM) return '* Empty circuit\n.end\n';
-    var lines = ['* VoltXAmpere v8.0 — SPICE Netlist', '* Date: ' + new Date().toISOString().slice(0, 10), '*'];
+    var lines = ['* VoltXAmpere v9.0 — SPICE Netlist', '* Date: ' + new Date().toISOString().slice(0, 10), '*'];
     var usedModels = {};
     for (var i = 0; i < SIM.comps.length; i++) {
       var c = SIM.comps[i], p = c.part;

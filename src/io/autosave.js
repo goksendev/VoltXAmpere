@@ -11,7 +11,31 @@ VXA.AutoSave = (function() {
     try {
       var data = {
         parts: S.parts.map(function(p) {
-          return { type: p.type, id: p.id, x: p.x, y: p.y, rot: p.rot || 0, val: p.val, freq: p.freq || 0, flipH: p.flipH, flipV: p.flipV, closed: p.closed };
+          var entry = { type: p.type, id: p.id, x: p.x, y: p.y, rot: p.rot || 0, val: p.val, freq: p.freq || 0, flipH: p.flipH, flipV: p.flipV, closed: p.closed };
+          // Sprint 53: Share format v2 ile uyumlu ekstra alanlar — model kaybını önler
+          if (p.model) entry.model = p.model;
+          if (p.name) entry.name = p.name;
+          if (p.ledColor) entry.ledColor = p.ledColor;
+          if (p.wiper !== undefined && p.wiper !== 0.5) entry.wiper = p.wiper;
+          if (p.label) entry.label = p.label;
+          if (p.coupling) entry.coupling = p.coupling;
+          if (p.L1) entry.L1 = p.L1;
+          if (p.L2) entry.L2 = p.L2;
+          if (p.phase) entry.phase = p.phase;
+          if (p.duty) entry.duty = p.duty;
+          if (p.dcOffset) entry.dcOffset = p.dcOffset;
+          if (p.impedance && p.impedance !== 8) entry.impedance = p.impedance;
+          if (p.srcType) entry.srcType = p.srcType;
+          if (p.amplitude) entry.amplitude = p.amplitude;
+          if (Array.isArray(p.pwlPoints) && p.pwlPoints.length) entry.pwlPoints = p.pwlPoints;
+          if (p.expParams) entry.expParams = p.expParams;
+          if (p.sffmParams) entry.sffmParams = p.sffmParams;
+          if (typeof p.icVoltage === 'number' && p.icVoltage !== 0) entry.icVoltage = p.icVoltage;
+          if (p.subcktName) entry.subcktName = p.subcktName;
+          if (p.subcktParams) entry.subcktParams = p.subcktParams;
+          if (p.beta) entry.beta = p.beta;
+          if (p.pins && Array.isArray(p.pins)) entry.pins = p.pins;
+          return entry;
         }),
         wires: S.wires.map(function(w) {
           return { x1: w.x1, y1: w.y1, x2: w.x2, y2: w.y2 };
@@ -40,6 +64,29 @@ VXA.AutoSave = (function() {
       return data;
     } catch(e) { return false; }
   }
+  // Sprint 53: Model'leri restore edilen parts'a uygula.
+  // Eski save'lerde (Sprint 52 öncesi) p.model yoksa default atanır.
+  function applyModelsToParts(parts) {
+    if (!Array.isArray(parts)) return 0;
+    var n = 0;
+    parts.forEach(function(p) {
+      if (!p || !p.type) return;
+      if (p.model) {
+        if (typeof applyModel === 'function') {
+          try { applyModel(p, p.model); n++; } catch (e) {}
+        }
+      } else if (typeof VXA !== 'undefined' && VXA.Models && VXA.Models.getDefault) {
+        var def = VXA.Models.getDefault(p.type);
+        if (def) {
+          p.model = def;
+          if (typeof applyModel === 'function') {
+            try { applyModel(p, def); n++; } catch (e) {}
+          }
+        }
+      }
+    });
+    return n;
+  }
   function clear() { localStorage.removeItem('vxa_autosave'); }
-  return { start: start, save: save, restore: restore, clear: clear };
+  return { start: start, save: save, restore: restore, applyModelsToParts: applyModelsToParts, clear: clear };
 })();

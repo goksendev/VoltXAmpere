@@ -1,5 +1,5 @@
 /* ============================================================
-   VoltXAmpere v8.0 — Browser Circuit Simulator
+   VoltXAmpere v9.0 — Browser Circuit Simulator
    ============================================================ */
 
 // ──────── VXA NAMESPACE ────────

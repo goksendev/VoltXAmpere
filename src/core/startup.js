@@ -267,12 +267,12 @@ VXA.help = function() {
   console.log('VXA.loadPreset(id) \u2014 load preset circuit');
   console.log('VXA.describe() \u2014 circuit description text');
   console.log('VXA.exportJSON() \u2014 download circuit JSON');
-  console.log('%cv6.0 Settings:', 'color:#f59e0b;font-weight:bold');
+  console.log('%cSettings API:', 'color:#f59e0b;font-weight:bold');
   console.log('VXA.setBackground(style) \u2014 techGrid|engPaper|blueprint|oscBg|whiteBg');
   console.log('VXA.setWireStyle(style) \u2014 catenary|manhattan|straight|spline');
   console.log('VXA.setSymbolStd(std) \u2014 IEC|ANSI');
   console.log('VXA.setCurrentDir(dir) \u2014 conventional|electron');
-  console.log('%cv6.0 Sprint 2 — Thermal & Damage:', 'color:#f0454a;font-weight:bold');
+  console.log('%cThermal & Damage:', 'color:#f0454a;font-weight:bold');
   console.log('VXA.Thermal.getTemperature(part) \u2014 component temperature');
   console.log('VXA.Thermal.reset() \u2014 reset all temperatures');
   console.log('VXA.Damage.repair(part) \u2014 repair a damaged part');

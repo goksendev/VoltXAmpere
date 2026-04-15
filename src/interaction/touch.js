@@ -61,4 +61,11 @@
     }
     e.preventDefault();
   }, { passive: false });
+
+  // Sprint 53: touchcancel — parmak ekran dışına çıkarsa drag state temizle
+  wrap.addEventListener('touchcancel', function(e) {
+    wrap.dispatchEvent(new MouseEvent('mouseup', {}));
+    lastTouches = null;
+    lastDist = 0;
+  }, { passive: false });
 })();

@@ -69,8 +69,35 @@ document.addEventListener('keydown', function(e) {
     document.body.appendChild(rDiv);
     document.getElementById('_vxa_restore_yes').onclick = function() {
       saved.parts.forEach(function(p) {
-        S.parts.push({ id: S.nextId++, type: p.type, name: nextName(p.type), x: p.x, y: p.y, rot: p.rot || 0, val: p.val, freq: p.freq || 0, flipH: p.flipH||false, flipV: p.flipV||false, closed: p.closed||false });
+        // Sprint 53: tüm kritik alanları taşı + model uygula
+        var np = { id: S.nextId++, type: p.type, name: p.name || nextName(p.type),
+          x: p.x, y: p.y, rot: p.rot || 0, val: p.val, freq: p.freq || 0,
+          flipH: p.flipH||false, flipV: p.flipV||false, closed: p.closed||false };
+        if (p.model) np.model = p.model;
+        if (p.ledColor) np.ledColor = p.ledColor;
+        if (p.wiper !== undefined) np.wiper = p.wiper;
+        if (p.label) np.label = p.label;
+        if (p.coupling) np.coupling = p.coupling;
+        if (p.L1) np.L1 = p.L1;
+        if (p.L2) np.L2 = p.L2;
+        if (p.phase) np.phase = p.phase;
+        if (p.duty) np.duty = p.duty;
+        if (p.dcOffset) np.dcOffset = p.dcOffset;
+        if (p.impedance) np.impedance = p.impedance;
+        if (p.srcType) np.srcType = p.srcType;
+        if (p.amplitude) np.amplitude = p.amplitude;
+        if (Array.isArray(p.pwlPoints)) np.pwlPoints = p.pwlPoints;
+        if (p.expParams) np.expParams = p.expParams;
+        if (p.sffmParams) np.sffmParams = p.sffmParams;
+        if (typeof p.icVoltage === 'number') np.icVoltage = p.icVoltage;
+        if (p.subcktName) np.subcktName = p.subcktName;
+        if (p.subcktParams) np.subcktParams = p.subcktParams;
+        if (p.beta) np.beta = p.beta;
+        if (Array.isArray(p.pins)) np.pins = p.pins;
+        S.parts.push(np);
       });
+      // Sprint 53: restore sonrası model'leri uygula (eski save'lerde default atanır)
+      if (VXA.AutoSave.applyModelsToParts) VXA.AutoSave.applyModelsToParts(S.parts);
       saved.wires.forEach(function(w) { S.wires.push({ x1: w.x1, y1: w.y1, x2: w.x2, y2: w.y2 }); });
       if (saved.netNames) S.netNames = saved.netNames;
       needsRender = true;
