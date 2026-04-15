@@ -44,9 +44,16 @@
     <button class="tb-btn" onclick="exportJSON()" title="Kaydet (Ctrl+S)">&#128190; Kaydet</button>
     <button class="tb-btn" onclick="importJSON()" title="Aç (Ctrl+O)">&#128194; Aç</button>
     <button class="tb-btn" onclick="showSpiceImportModal()" title="SPICE Import (Ctrl+I)">&#9881; SPICE</button>
-    <button class="tb-btn" onclick="exportPNG()" title="PNG İndir">&#128247; PNG</button>
-    <button class="tb-btn" onclick="exportSVG()" title="SVG İndir">SVG</button>
-    <button class="tb-btn" onclick="exportCSV()" title="CSV İndir">CSV</button>
+    <div class="tb-dropdown" id="export-dropdown-wrap" style="position:relative;display:inline-block">
+      <button class="tb-btn" id="btn-export" onclick="toggleExportMenu(event)" title="Export">&#128229; Export &#9662;</button>
+      <div id="export-dropdown" style="display:none;position:absolute;top:100%;left:0;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,.4);z-index:1000;min-width:160px;padding:4px">
+        <div class="dropdown-item" onclick="hideExportMenu();exportPNG()" style="padding:8px 12px;cursor:pointer;font:12px var(--font-ui);color:var(--text);border-radius:4px" onmouseover="this.style.background='var(--surface-3)'" onmouseout="this.style.background='transparent'">&#128247; PNG (G&#246;r&#252;nt&#252;)</div>
+        <div class="dropdown-item" onclick="hideExportMenu();exportSVG()" style="padding:8px 12px;cursor:pointer;font:12px var(--font-ui);color:var(--text);border-radius:4px" onmouseover="this.style.background='var(--surface-3)'" onmouseout="this.style.background='transparent'">&#128208; SVG (Vekt&#246;rel)</div>
+        <div class="dropdown-item" onclick="hideExportMenu();exportSPICE()" style="padding:8px 12px;cursor:pointer;font:12px var(--font-ui);color:var(--text);border-radius:4px" onmouseover="this.style.background='var(--surface-3)'" onmouseout="this.style.background='transparent'">&#9881; SPICE Netlist</div>
+        <div class="dropdown-item" onclick="hideExportMenu();generateReport()" style="padding:8px 12px;cursor:pointer;font:12px var(--font-ui);color:var(--text);border-radius:4px" onmouseover="this.style.background='var(--surface-3)'" onmouseout="this.style.background='transparent'">&#128203; Rapor (PDF)</div>
+        <div class="dropdown-item" onclick="hideExportMenu();exportCSV()" style="padding:8px 12px;cursor:pointer;font:12px var(--font-ui);color:var(--text);border-radius:4px" onmouseover="this.style.background='var(--surface-3)'" onmouseout="this.style.background='transparent'">&#128202; CSV (Veri)</div>
+      </div>
+    </div>
     <button class="tb-btn" onclick="showBOM()" title="BOM">&#128203; BOM</button>
     <button class="tb-btn" onclick="showGallery()" title="Gallery">&#128218; <span class="tb-gallery-label"></span></button>
     <button class="tb-btn" onclick="generateReport()" title="Rapor">&#128196; Rapor</button>
