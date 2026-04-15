@@ -26,9 +26,12 @@ var galleryFilter = 'all';
   };
   PRESETS.forEach(function(pr) {
     pr.category = catMap[pr.id] || 'basic';
-    pr.difficulty = diffMap[pr.id] || 1;
+    // Sprint 34: Don't overwrite difficulty if PRESET_META has set a richer value (1-5 scale)
+    if (pr.difficulty == null) pr.difficulty = diffMap[pr.id] || 1;
     pr.componentCount = pr.parts ? pr.parts.length : 0;
   });
+  // Sprint 34: Re-apply preset metadata after gallery setup
+  if (typeof decoratePresets === 'function') decoratePresets();
 })();
 
 function showGallery() {
@@ -56,18 +59,44 @@ function showGallery() {
     var name = typeof pr.name === 'object' ? (pr.name[currentLang] || pr.name.tr || pr.name) : pr.name;
     var desc = typeof pr.desc === 'object' ? (pr.desc[currentLang] || pr.desc.tr || pr.desc) : pr.desc;
     if (search && name.toLowerCase().indexOf(search) === -1 && (desc||'').toLowerCase().indexOf(search) === -1) return;
-    var stars = pr.difficulty === 1 ? '\u2B50' : pr.difficulty === 2 ? '\u2B50\u2B50' : '\u2B50\u2B50\u2B50';
-    var diffLabel = pr.difficulty === 1 ? t('diffEasy') : pr.difficulty === 2 ? t('diffMedium') : t('diffHard');
+    // Sprint 34: 1-5 difficulty stars + rich details + nextPreset link
+    var diff = pr.difficulty || 2;
+    var stars = '';
+    for (var s = 0; s < 5; s++) stars += s < diff ? '\u2B50' : '\u2606';
+    var diffLabel = diff <= 2 ? t('diffEasy') : diff === 3 ? t('diffMedium') : t('diffHard');
+    // Sprint 34: Use rich details if available
+    var richDesc = '';
+    if (pr.details && typeof pr.details === 'object') {
+      richDesc = pr.details[currentLang] || pr.details.tr || pr.details.en || '';
+    }
     var card = document.createElement('div');
     card.className = 'gallery-card';
+    var nextLink = '';
+    if (pr.nextPreset) {
+      var nextPr = PRESETS.find(function(x){ return x.id === pr.nextPreset; });
+      if (nextPr) {
+        var nextName = typeof nextPr.name === 'object' ? (nextPr.name[currentLang] || nextPr.name.tr) : nextPr.name;
+        nextLink = '<div class="gc-next" data-next="'+pr.nextPreset+'" style="font:10px var(--font-ui);color:var(--accent);margin-top:4px;cursor:pointer">'
+          + (currentLang==='tr' ? 'Sonraki' : 'Next') + ': ' + nextName + ' \u2192</div>';
+      }
+    }
     card.innerHTML = '<div class="gc-name"><span class="gc-dot" style="background:'+(pr.color||'#888')+'"></span>'+name+'</div>'
-      + '<div class="gc-desc">'+(desc||'')+'</div>'
-      + '<div class="gc-meta"><span>'+stars+' '+diffLabel+'</span><span>'+pr.componentCount+' '+t('parts')+'</span></div>'
+      + '<div class="gc-desc">'+(richDesc || desc || '')+'</div>'
+      + '<div class="gc-meta"><span style="letter-spacing:-1px">'+stars+'</span><span>'+pr.componentCount+' '+t('parts')+'</span></div>'
+      + nextLink
       + '<button class="gc-load" data-id="'+pr.id+'">'+t('galleryLoad')+'</button>';
     card.querySelector('.gc-load').addEventListener('click', function() {
       loadPreset(this.getAttribute('data-id'));
       document.getElementById('gallery-modal').classList.remove('show');
     });
+    var nextEl = card.querySelector('.gc-next');
+    if (nextEl) {
+      nextEl.addEventListener('click', function(ev) {
+        ev.stopPropagation();
+        loadPreset(this.getAttribute('data-next'));
+        document.getElementById('gallery-modal').classList.remove('show');
+      });
+    }
     grid.appendChild(card);
   });
   document.getElementById('gallery-modal').classList.add('show');

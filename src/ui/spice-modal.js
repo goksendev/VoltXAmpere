@@ -280,23 +280,31 @@ document.addEventListener('paste', function(e) {
   });
 })();
 
-// ===== EMPTY CANVAS HINT =====
+// ===== EMPTY CANVAS HINT (Sprint 34: enriched guide) =====
 function drawEmptyCanvasHint(ctx, w, h) {
   if (S.parts.length > 0 || S.sim.running) return;
   var lang = (typeof currentLang !== 'undefined' ? currentLang : 'en');
   var tr = lang === 'tr';
+  var cx = w / 2, cy = h / 2;
 
   ctx.save();
-  ctx.fillStyle = 'rgba(136, 153, 170, 0.25)';
-  ctx.font = '15px var(--font-ui, sans-serif)';
+  // Title (brand)
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(tr ? 'Sol panelden bileşen sürükleyin veya Ctrl+V ile SPICE yapıştırın' :
-    'Drag components from panel or paste SPICE with Ctrl+V', w / 2, h / 2);
+  ctx.fillStyle = 'rgba(0, 224, 158, 0.55)';
+  ctx.font = '600 22px var(--font-ui, sans-serif)';
+  ctx.fillText('\u26A1 VoltXAmpere', cx, cy - 36);
 
+  // Hint line 1
+  ctx.fillStyle = 'rgba(136, 153, 170, 0.55)';
+  ctx.font = '14px var(--font-ui, sans-serif)';
+  ctx.fillText(tr ? 'Sol panelden bile\u015fen s\u00fcr\u00fckleyin veya / ile arama yap\u0131n'
+                  : 'Drag components from left panel or press / to search', cx, cy);
+
+  // Hint line 2
+  ctx.fillStyle = 'rgba(136, 153, 170, 0.40)';
   ctx.font = '12px var(--font-ui, sans-serif)';
-  ctx.fillStyle = 'rgba(136, 153, 170, 0.18)';
-  ctx.fillText((tr ? '\uD83D\uDCCB SPICE Import (Ctrl+I)  \u2022  \uD83D\uDCDA Presets  \u2022  \uD83E\uDD16 AI Asistan (Ctrl+/)' :
-    '\uD83D\uDCCB SPICE Import (Ctrl+I)  \u2022  \uD83D\uDCDA Presets  \u2022  \uD83E\uDD16 AI Assistant (Ctrl+/)'), w / 2, h / 2 + 28);
+  ctx.fillText(tr ? '\uD83D\uDCDA Preset Galerisi (G)  \u00B7  \uD83C\uDF93 Dersler  \u00B7  \uD83E\uDD16 AI Asistan (Ctrl+/)'
+                  : '\uD83D\uDCDA Preset Gallery (G)  \u00B7  \uD83C\uDF93 Tutorials  \u00B7  \uD83E\uDD16 AI Assistant (Ctrl+/)', cx, cy + 26);
   ctx.restore();
 }

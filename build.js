@@ -26,6 +26,7 @@ const JS_FILES = [
 
   // Presets
   'src/components/presets.js',
+  'src/components/preset-meta.js',
 
   // Canvas setup, coords, pins
   'src/interaction/canvas-setup.js',

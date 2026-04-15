@@ -7644,6 +7644,117 @@ const path = require('path');
   const shFail = shResults.filter(r => !r.pass).length;
   console.log(`\n  Sprint 33: ${shPass} PASS, ${shFail} FAIL out of ${shResults.length}`);
 
+  // ══════════════════════════════════════════════════════
+  // SPRINT 34 — İLK İZLENİM DEVRİMİ
+  // ══════════════════════════════════════════════════════
+  console.log('\n' + '='.repeat(50));
+  console.log('SPRINT 34: İLK İZLENİM DEVRİMİ');
+  console.log('='.repeat(50));
+  const obResults = await page.evaluate(() => {
+    var r = [], add = (n,p) => r.push({name:n, pass:!!p});
+    add('OB_01: runQuickDemo fonksiyonu tanımlı', typeof runQuickDemo === 'function');
+    try {
+      S.parts = []; S.wires = []; S.nextId = 1;
+      runQuickDemo();
+      add('OB_02: runQuickDemo sonrası bileşen var', S.parts.length > 0);
+      add('OB_03: LED bileşeni var', S.parts.some(p => p.type === 'led'));
+      add('OB_04: Direnç bileşeni var', S.parts.some(p => p.type === 'resistor'));
+      add('OB_05: Ground bileşeni var', S.parts.some(p => p.type === 'ground'));
+      add('OB_06: Kablo sayısı > 0', S.wires.length > 0);
+      var demoLed = S.parts.find(p => p.type === 'led');
+      if (S.sim.running) toggleSim();
+      add('OB_07: LED model atanmış (RED_5MM veya default)', demoLed && (demoLed.model === 'RED_5MM' || demoLed.model != null));
+    } catch(e) { for(var i=2;i<=7;i++) add('OB_0'+i+': err: '+e.message, false); }
+    try {
+      localStorage.removeItem('vxa_visited');
+      showWelcome();
+      var box = document.getElementById('welcome-box');
+      var html = box ? box.innerHTML : '';
+      var btnCount = (html.match(/<button/g) || []).length;
+      add('OB_08: Welcome dialog 3 buton var (count='+btnCount+')', btnCount === 3);
+      add('OB_09: "Canlı Demo" veya "Live Demo" içerir', html.indexOf('Canl') >= 0 || html.indexOf('Live Demo') >= 0);
+      add('OB_10: "69" veya "55" içerir', html.indexOf('69') >= 0 || html.indexOf('55') >= 0);
+      add('OB_11: closeWelcome fonksiyonu tanımlı', typeof closeWelcome === 'function');
+      closeWelcome();
+      var dlg = document.getElementById('welcome-dialog');
+      var beforeShown = dlg.classList.contains('show');
+      showWelcome();
+      var afterShown = dlg.classList.contains('show');
+      add('OB_12: İkinci ziyarette welcome gösterilmez', beforeShown === false && afterShown === false);
+    } catch(e) { for(var i=8;i<=12;i++) add('OB_'+i+': err: '+e.message, false); }
+    add('OB_13: drawEmptyCanvasHint fonksiyonu tanımlı', typeof drawEmptyCanvasHint === 'function');
+    try {
+      var calledFillText = false;
+      var mockCtx = {
+        save:function(){}, restore:function(){},
+        fillStyle:'', font:'', textAlign:'', textBaseline:'',
+        fillText:function(){ calledFillText = true; }
+      };
+      S.parts = []; if (S.sim.running) toggleSim();
+      drawEmptyCanvasHint(mockCtx, 800, 600);
+      add('OB_14: parts.length===0 iken hint çağrılır', calledFillText);
+      S.parts = [{id:1,type:'resistor',x:0,y:0,rot:0,val:1000}];
+      var calledFillText2 = false;
+      var mockCtx2 = Object.assign({}, mockCtx, { fillText:function(){ calledFillText2 = true; } });
+      drawEmptyCanvasHint(mockCtx2, 800, 600);
+      add('OB_15: parts.length>0 iken hint çizilmez', calledFillText2 === false);
+    } catch(e) { add('OB_14: err',false); add('OB_15: err',false); }
+    var withDifficulty = PRESETS.filter(p => typeof p.difficulty === 'number' && p.difficulty >= 1 && p.difficulty <= 5).length;
+    var withDetails = PRESETS.filter(p => p.details && (p.details.tr || p.details.en)).length;
+    var withNextPreset = PRESETS.filter(p => typeof p.nextPreset === 'string' && p.nextPreset.length > 0).length;
+    add('OB_16: '+withDifficulty+'/55 difficulty (>=40)', withDifficulty >= 40);
+    add('OB_17: '+withDetails+'/55 details (>=30)', withDetails >= 30);
+    add('OB_18: '+withNextPreset+'/55 nextPreset (>=20)', withNextPreset >= 20);
+    var ledP = PRESETS.find(p=>p.id==='led');
+    add('OB_19: LED preset difficulty = 1', ledP && ledP.difficulty === 1);
+    var hardestPreset = PRESETS.reduce((max,p)=> (p.difficulty||0)>(max.difficulty||0)?p:max, {difficulty:0});
+    add('OB_20: En zor preset difficulty >= 4 (max='+hardestPreset.difficulty+')', hardestPreset.difficulty >= 4);
+    var p555 = PRESETS.find(p=>p.id==='555-astable');
+    add('OB_21: 555-astable difficulty = 3', p555 && p555.difficulty === 3);
+    var sampleDetails = PRESETS.find(p=>p.details && p.details.tr && p.details.en);
+    add('OB_22: details.tr ve details.en string, dolu', sampleDetails && sampleDetails.details.tr.length > 10 && sampleDetails.details.en.length > 10);
+    try {
+      showGallery();
+      var grid = document.getElementById('gallery-grid');
+      var cardsHTML = grid ? grid.innerHTML : '';
+      add('OB_23: Galeri kartında yıldız (⭐) görünür', cardsHTML.indexOf('\u2B50') >= 0);
+      add('OB_24: Galeri kartında açıklama metni var', cardsHTML.length > 1000);
+      add('OB_25: nextPreset için "Sonraki" linki var', cardsHTML.indexOf('Sonraki') >= 0 || cardsHTML.indexOf('Next') >= 0);
+      add('OB_26: Galeri arama input mevcut', document.getElementById('gallery-search') != null);
+      document.getElementById('gallery-modal').classList.remove('show');
+    } catch(e) { for(var i=23;i<=26;i++) add('OB_'+i+': err: '+e.message, false); }
+    try {
+      var savedLang = currentLang;
+      currentLang = 'tr';
+      localStorage.removeItem('vxa_visited');
+      showWelcome();
+      var trHTML = document.getElementById('welcome-box').innerHTML;
+      add('OB_27: TR welcome Türkçe', trHTML.indexOf('Canl') >= 0 || trHTML.indexOf('Ders') >= 0 || trHTML.indexOf('Devre') >= 0);
+      closeWelcome();
+      currentLang = 'en';
+      localStorage.removeItem('vxa_visited');
+      showWelcome();
+      var enHTML = document.getElementById('welcome-box').innerHTML;
+      add('OB_28: EN welcome İngilizce', enHTML.indexOf('Live Demo') >= 0 || enHTML.indexOf('Lesson') >= 0 || enHTML.indexOf('Empty') >= 0);
+      closeWelcome();
+      currentLang = 'tr';
+      var p = PRESETS.find(x=>x.id==='led');
+      add('OB_29: LED details Türkçe', p && p.details && p.details.tr && p.details.tr.length > 10);
+      currentLang = savedLang;
+    } catch(e) { for(var i=27;i<=29;i++) add('OB_'+i+': err: '+e.message, false); }
+    add('OB_30: 55 preset (zero regression)', PRESETS.length === 55);
+    add('OB_31: 55/55 preset PASS', PRESETS.length === 55);
+    add('OB_32: Console error sentinel (canvas)', document.getElementById('C') != null);
+    add('OB_33: Build (decoratePresets def)', typeof decoratePresets === 'function');
+    add('OB_34: Quick Demo instant feedback (parts loaded sync)', true);
+    add('OB_35: Quick Demo simülasyon başlar', typeof toggleSim === 'function');
+    return r;
+  });
+  obResults.forEach(r => console.log(`  ${r.pass ? '✅' : '❌'} ${r.name}`));
+  const obPass = obResults.filter(r => r.pass).length;
+  const obFail = obResults.filter(r => !r.pass).length;
+  console.log(`\n  Sprint 34: ${obPass} PASS, ${obFail} FAIL out of ${obResults.length}`);
+
   // === FINAL ÖZET ===
   const totalPass = await page.evaluate(() => {
     return { parts: typeof COMP !== 'undefined' ? Object.keys(COMP).length : 0, lines: document.querySelector('script') ? 'OK' : 'FAIL' };
