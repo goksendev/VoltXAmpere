@@ -11,6 +11,13 @@ VXA.Models = (function() {
     'BC557':{ type:'PNP', IS:2e-14, BF:290, NF:1, VAF:50, IKF:0.1, RB:250, RC:20, RE:1, CJE:10e-12, VJE:0.6, MJE:0.35, CJC:6e-12, VJC:0.65, MJC:0.33, TF:640e-12, TR:50e-9, desc:'PNP complement BC547' },
     'BD139':{ type:'NPN', IS:1e-13, BF:100, VAF:80, IKF:1.5, RB:2, RC:0.5, RE:0.1, CJE:100e-12, CJC:30e-12, TF:10e-9, TR:100e-9, desc:'Medium power NPN, TO-126, 1.5A' },
     'TIP31C':{ type:'NPN', IS:1e-12, BF:40, VAF:80, IKF:3, RB:1, RC:0.2, RE:0.05, CJE:200e-12, CJC:50e-12, TF:20e-9, TR:200e-9, desc:'Power NPN, TO-220, 3A 40W' },
+    // Sprint 42: extended BJT library (+6 → 14 total)
+    'MPSA42':  { type:'NPN', IS:1e-14, BF:50, VAF:300, IKF:0.5, RB:10, RC:1, desc:'HV NPN, 300V, TO-92' },
+    'MPSA92':  { type:'PNP', IS:1e-14, BF:50, VAF:300, IKF:0.5, RB:10, RC:2, desc:'HV PNP, -300V, TO-92' },
+    'MJE3055': { type:'NPN', IS:2e-12, BF:70, VAF:50, IKF:4, RB:1, RC:0.2, RE:0.05, desc:'Power NPN, TO-220, 10A 60V' },
+    'MJE2955': { type:'PNP', IS:2e-12, BF:70, VAF:50, IKF:4, RB:1, RC:0.2, RE:0.05, desc:'Power PNP, TO-220, 10A 60V' },
+    'MMBT3904':{ type:'NPN', IS:6.7e-15, BF:416, VAF:74, IKF:66e-3, desc:'SMD 3904, SOT-23' },
+    'MMBT3906':{ type:'PNP', IS:1.4e-15, BF:180, VAF:18.7, IKF:80e-3, desc:'SMD 3906, SOT-23' },
   };
   var MOSFET = {
     'Generic':{ type:'NMOS', VTO:2.0, KP:110e-6, LAMBDA:0.04, desc:'Generic NMOS' },
@@ -36,6 +43,27 @@ VXA.Models = (function() {
       ETA0:0.04, ETAB:-0.07, DSUB:0.56,
       PCLM:1.3, DELTA:0.01, W:20e-6, L:180e-9,
       desc:'Generic 180nm PMOS (BSIM3v3)' },
+    // Sprint 42: extended Level-1 power/SMD MOSFETs (+4) and 90nm BSIM3 (+2) → 14 total
+    'IRFZ44N': { type:'NMOS', VTO:3.0, KP:35, LAMBDA:0.008, RD:0.017, RS:0.017, desc:'N-ch power, TO-220, 55A 55V' },
+    'IRF4905': { type:'PMOS', VTO:3.5, KP:12, LAMBDA:0.01, RD:0.02, RS:0.02, desc:'P-ch power, TO-220, -74A -55V' },
+    'AO3400':  { type:'NMOS', VTO:1.2, KP:5, LAMBDA:0.03, RD:0.04, RS:0.04, desc:'N-ch SOT-23, 5.7A 30V' },
+    'AO3401':  { type:'PMOS', VTO:1.2, KP:3, LAMBDA:0.03, RD:0.05, RS:0.05, desc:'P-ch SOT-23, -4A -30V' },
+    'NMOS_90nm': { type:'NMOS', LEVEL:49, VERSION:3.3, TYPE:1,
+      TOX:2.2e-9, VTH0:0.35, K1:0.5, K2:-0.1, K3:80,
+      U0:280, UA:-1.5e-9, UB:2.4e-18, UC:-4.6e-11,
+      VSAT:1.2e5, A0:1.0, AGS:0.2,
+      NFACTOR:1.5, CDSC:2.4e-4, VOFF:-0.08,
+      ETA0:0.06, ETAB:-0.07, DSUB:0.56,
+      PCLM:1.3, DELTA:0.01, W:2e-6, L:90e-9,
+      desc:'Generic 90nm NMOS (BSIM3v3 eğitim)' },
+    'PMOS_90nm': { type:'PMOS', LEVEL:49, VERSION:3.3, TYPE:-1,
+      TOX:2.2e-9, VTH0:0.38, K1:0.5, K2:-0.1, K3:80,
+      U0:100, UA:-1.5e-9, UB:2.4e-18, UC:-4.6e-11,
+      VSAT:1.0e5, A0:1.0, AGS:0.2,
+      NFACTOR:1.5, CDSC:2.4e-4, VOFF:-0.08,
+      ETA0:0.06, ETAB:-0.07, DSUB:0.56,
+      PCLM:1.3, DELTA:0.01, W:4e-6, L:90e-9,
+      desc:'Generic 90nm PMOS (BSIM3v3 eğitim)' },
   };
   var DIODE = {
     'Generic':{ IS:1e-14, N:1, RS:0, BV:100, CJO:0, VJ:0.7, M:0.5, TT:0, desc:'Generic Si diode' },
@@ -44,6 +72,11 @@ VXA.Models = (function() {
     '1N4001':{ IS:29.5e-9, N:1.45, RS:0.042, BV:50, CJO:26.5e-12, VJ:0.3, M:0.5, TT:4.32e-6, desc:'Rectifier 1A 50V, DO-41' },
     '1N5819':{ IS:3.17e-5, N:1.05, RS:0.042, BV:40, CJO:110e-12, VJ:0.35, M:0.5, TT:5e-9, desc:'Schottky 1A 40V, Vf=0.3V' },
     'BAT54':{ IS:1e-7, N:1.03, RS:1, BV:30, CJO:10e-12, VJ:0.25, M:0.35, TT:5e-9, desc:'Schottky 200mA 30V, SOT-23' },
+    // Sprint 42: extended diodes (+4 → 10 total)
+    '1N5822':  { IS:1.5e-4, N:1.04, RS:0.04, BV:40, CJO:150e-12, VJ:0.35, M:0.5, TT:5e-9, desc:'Schottky 3A 40V, DO-201' },
+    'MBR1045': { IS:5e-5, N:1.05, RS:0.03, BV:45, CJO:200e-12, VJ:0.35, M:0.5, TT:5e-9, desc:'Schottky 10A 45V, TO-220' },
+    'UF4007':  { IS:76.9e-9, N:1.45, RS:0.04, BV:1000, CJO:26.5e-12, VJ:0.3, M:0.5, TT:75e-9, desc:'Ultra-fast rectifier 1A 1000V' },
+    'ES1D':    { IS:1e-8, N:1.2, RS:0.1, BV:200, CJO:15e-12, VJ:0.3, M:0.5, TT:35e-9, desc:'Super-fast 1A 200V, SMA' },
   };
   var LED = {
     // Sprint 25: Calibrated IS via Vf = N*Vt*ln(If/IS) at If=20mA
@@ -64,6 +97,11 @@ VXA.Models = (function() {
     '1N4742':{ Vz:12, Zz:9, Iz:21e-3, Pd:1, desc:'12V Zener 1W' },
     '1N4744':{ Vz:15, Zz:14, Iz:17e-3, Pd:1, desc:'15V Zener 1W' },
     '1N4749':{ Vz:24, Zz:25, Iz:10.5e-3, Pd:1, desc:'24V Zener 1W' },
+    // Sprint 42: extended zener (+4 → 10 total)
+    'BZX79-6V8':{ Vz:6.8, Zz:5, Iz:37e-3, Pd:0.5, desc:'6.8V Zener 500mW' },
+    'BZX79-9V1':{ Vz:9.1, Zz:10, Iz:28e-3, Pd:0.5, desc:'9.1V Zener 500mW' },
+    '1N4740':   { Vz:10, Zz:8.5, Iz:25e-3, Pd:1, desc:'10V Zener 1W' },
+    '1N4747':   { Vz:20, Zz:17, Iz:12.5e-3, Pd:1, desc:'20V Zener 1W' },
   };
   var OPAMP = {
     'Ideal':{ Aol:1e5, GBW:1e9, SR:1e9, Vos:0, Rin:1e9, Rout:0.1, desc:'Ideal op-amp' },
@@ -75,6 +113,11 @@ VXA.Models = (function() {
     'NE5532':{ Aol:1e5, GBW:10e6, SR:9e6, Vos:0.5e-3, Ib:200e-9, Rin:300e3, Rout:30, desc:'Low noise audio, DIP-8, dual' },
     'OPA2134':{ Aol:5e5, GBW:8e6, SR:20e6, Vos:0.5e-3, Ib:5e-12, Rin:1e13, Rout:50, desc:'Audio FET, SOP-8, dual' },
     'LM386':{ Aol:46, GBW:300e3, SR:0.2e6, Vos:2e-3, Rin:50e3, Rout:8, Vs_min:4, Vs_max:12, desc:'Audio power amp, DIP-8, 0.7W' },
+    // Sprint 42: extended op-amp library (+4 → 13 total)
+    'MCP6002': { Aol:1e5, GBW:1e6, SR:0.6e6, Vos:4.5e-3, Ib:1e-12, Rin:1e13, Rout:200, Vs_min:1.8, Vs_max:6, desc:'Low power R2R, MSOP-8, dual' },
+    'AD8628':  { Aol:1e6, GBW:2.5e6, SR:1e6, Vos:2e-6, Ib:100e-12, Rin:1e9, Rout:100, desc:'Zero-drift precision, SOIC-8' },
+    'LMV321':  { Aol:1e5, GBW:1e6, SR:1e6, Vos:7e-3, Ib:1e-9, Rin:1e12, Rout:150, Vs_min:2.7, Vs_max:5.5, desc:'Low voltage single, SOT-23-5' },
+    'OPA2277': { Aol:1e6, GBW:1e6, SR:0.8e6, Vos:20e-6, Ib:1e-9, Rin:10e6, Rout:60, desc:'Precision dual, DIP-8' },
   };
   var REGULATOR = {
     '7805':{ Vout:5, Vdropout:2, Imax:1.5, desc:'5V fixed, TO-220, 1.5A' },
@@ -84,6 +127,10 @@ VXA.Models = (function() {
     '7905':{ Vout:-5, Vdropout:2, Imax:1.5, desc:'-5V fixed, TO-220' },
     '7912':{ Vout:-12, Vdropout:2, Imax:1.5, desc:'-12V fixed, TO-220' },
     'LM317':{ Vref:1.25, Vdropout:2.5, Imax:1.5, Vout_min:1.25, Vout_max:37, adjustable:true, desc:'Adjustable 1.25-37V, TO-220' },
+    // Sprint 42: extended regulators (+3 → 10 total)
+    'LM1117-3.3':{ Vout:3.3, Vdropout:1.2, Imax:0.8, desc:'3.3V LDO, SOT-223, 800mA' },
+    'LM1117-5.0':{ Vout:5.0, Vdropout:1.2, Imax:0.8, desc:'5V LDO, SOT-223, 800mA' },
+    'LM337':     { Vref:1.25, Vdropout:2.5, Imax:1.5, Vout_min:-1.25, Vout_max:-37, adjustable:true, desc:'Negative adjustable, TO-220' },
   };
   function getModel(type, name) {
     var map = { npn:BJT, pnp:BJT, nmos:MOSFET, pmos:MOSFET, diode:DIODE, schottky:DIODE, led:LED, zener:ZENER, opamp:OPAMP, comparator:OPAMP, vreg:REGULATOR };

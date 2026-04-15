@@ -98,6 +98,9 @@ const JS_FILES = [
   // Models: subcircuit (.SUBCKT) — Sprint 38 (v9.0)
   'src/models/subcircuit.js',
 
+  // Models: .LIB import + vendor library loader — Sprint 42 (v9.0)
+  'src/models/lib-import.js',
+
   // Engine: parametric design (Sprint 39 — v9.0)
   'src/engine/params.js',
   'src/engine/step-analysis.js',
@@ -256,6 +259,9 @@ const JS_FILES = [
 
   // UI: Inspector source-type + IC add-ons (Sprint 40 — v9.0)
   'src/ui/inspector-sources.js',
+
+  // UI: Model Browser modal — Sprint 42 (v9.0)
+  'src/ui/model-browser.js',
 
   // UI: breadboard 3D view
   'src/ui/breadboard.js',

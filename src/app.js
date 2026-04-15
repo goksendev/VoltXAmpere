@@ -98,5 +98,13 @@ setTimeout(function() {
   if (typeof localStorage !== 'undefined' && localStorage.getItem('vxa_high_contrast') === '1') {
     S.highContrast = true; document.documentElement.setAttribute('data-contrast', 'high');
   }
+  // Sprint 42: restore user-imported .LIB models + wire up canvas drop zone
+  try {
+    if (typeof VXA !== 'undefined' && VXA.LibImport) {
+      VXA.LibImport.loadFromStorage();
+      var dropZone = document.getElementById('canvas-wrap') || document.body;
+      if (dropZone) VXA.LibImport.setupFileDrop(dropZone);
+    }
+  } catch (e) { /* non-fatal */ }
 }, 500);
 </script>

@@ -8916,6 +8916,191 @@ console.log = function() {
   const b3Fail = b3Results.filter(r => !r.pass).length;
   console.log(`\n  Sprint 41: ${b3Pass} PASS, ${b3Fail} FAIL out of ${b3Results.length}`);
 
+  // ═══════════════════════════════════════════════════════════════
+  // SPRINT 42: .LIB IMPORT + EXTENDED LIBRARY + MODEL BROWSER (v9.0)
+  // ═══════════════════════════════════════════════════════════════
+  console.log('\n📋 Sprint 42: .LIB IMPORT + Model Browser (v9.0)');
+  const lbResults = await page.evaluate(() => {
+    const r = [];
+    function add(name, ok) { r.push({ name, pass: !!ok }); }
+
+    // === .LIB PARSER ===
+    add('TEST_LB_01: VXA.LibImport module exists', typeof VXA !== 'undefined' && !!VXA.LibImport);
+    if (!VXA || !VXA.LibImport) return r;
+    const LI = VXA.LibImport;
+
+    // Simple .MODEL
+    let parsed = LI.parseLibFile('.MODEL MYBJT NPN(IS=1e-14 BF=200)');
+    add('TEST_LB_02: parseLibFile handles .MODEL',
+      parsed && parsed.models.length >= 1 && parsed.models.some(function(m) { return m.name === 'MYBJT'; }));
+
+    // .SUBCKT block
+    parsed = LI.parseLibFile('.SUBCKT MYSUB A B\nR1 A B 1k\n.ENDS');
+    add('TEST_LB_03: parseLibFile handles .SUBCKT',
+      parsed && parsed.subcircuits.length >= 1);
+
+    // Continuation lines
+    parsed = LI.parseLibFile('.MODEL QCON NPN (IS=1e-14\n+ BF=300\n+ VAF=50)');
+    add('TEST_LB_04: continuation (+) merged into single card',
+      parsed && parsed.models.length >= 1 &&
+      (parsed.models[0].params.BF === 300 || parsed.models.some(function(m){return m.params.BF === 300;})));
+
+    // Comments
+    parsed = LI.parseLibFile('* leading comment\n.MODEL QCMT NPN(IS=1e-14 BF=100)\n* trailing');
+    add('TEST_LB_05: comment lines (* and ;) skipped',
+      parsed && parsed.models.some(function(m) { return m.name === 'QCMT'; }));
+
+    // BSIM3 tagging
+    parsed = LI.parseLibFile('.MODEL TBSIM NMOS (LEVEL=49 VERSION=3.3 TOX=4.1E-9 VTH0=0.42)');
+    add('TEST_LB_06: BSIM3 model flagged',
+      parsed && parsed.models.some(function(m) { return m.name === 'TBSIM' && m.isBSIM3 === true; }));
+
+    // Multiple models + subcircuit together
+    parsed = LI.parseLibFile(
+      '.MODEL Q1 NPN(IS=1e-14 BF=100)\n' +
+      '.MODEL Q2 PNP(IS=1e-14 BF=80)\n' +
+      '.SUBCKT MYAMP IN OUT\nR1 IN OUT 1k\n.ENDS'
+    );
+    add('TEST_LB_07: multi-model + subckt parsed together',
+      parsed && parsed.models.length >= 2 && parsed.subcircuits.length >= 1);
+
+    // === IMPORT ===
+    // Clean slate for import tests
+    LI.clearStorage();
+    const result8 = LI.parseLibFile('.MODEL TIMPORT NPN(IS=1e-14 BF=150)');
+    const imp8 = LI.importToLibrary(result8, { persist: false });
+    add('TEST_LB_08: importToLibrary counts registered',
+      imp8 && imp8.models === 1);
+    add('TEST_LB_09: getModel returns imported model after import',
+      VXA.Models.getModel('npn', 'TIMPORT') !== null);
+    add('TEST_LB_10: listModels includes imported model',
+      VXA.Models.listModels('npn').some(function(m) { return m.name === 'TIMPORT'; }));
+
+    // Duplicate import update
+    const result11 = LI.parseLibFile('.MODEL TIMPORT NPN(IS=1e-14 BF=999)');
+    LI.importToLibrary(result11, { persist: false });
+    const updated = VXA.Models.getModel('npn', 'TIMPORT');
+    add('TEST_LB_11: duplicate import updates model (BF=999)',
+      updated && updated.BF === 999);
+
+    // === STORAGE ===
+    LI.clearStorage();
+    LI.saveToStorage({ models: [{ name:'TPERS', type:'NPN', category:'npn', params:{IS:1e-14, BF:222} }] });
+    let raw = '';
+    try { raw = localStorage.getItem('vxa_custom_models') || ''; } catch (e) {}
+    add('TEST_LB_12: saveToStorage writes localStorage', raw.indexOf('TPERS') >= 0);
+    VXA.Models.addCustomModel('npn', 'TPERS_PREV', { IS:1e-14, BF:111 }); // noise
+    const loaded = LI.loadFromStorage();
+    add('TEST_LB_13: loadFromStorage returns count', typeof loaded === 'number' && loaded >= 1);
+    add('TEST_LB_14: loaded model accessible via getModel',
+      VXA.Models.getModel('npn', 'TPERS') !== null);
+    LI.clearStorage();
+
+    // === EXTENDED LIBRARY COUNTS ===
+    const bjtList = VXA.Models.listModels('npn').concat(VXA.Models.listModels('pnp'));
+    add('TEST_LB_15: BJT ≥ 14 models', bjtList.length >= 14);
+
+    const mosList = VXA.Models.listModels('nmos').concat(VXA.Models.listModels('pmos'));
+    add('TEST_LB_16: MOSFET ≥ 14 models', mosList.length >= 14);
+
+    add('TEST_LB_17: DIODE ≥ 10 models', VXA.Models.listModels('diode').length >= 10);
+    add('TEST_LB_18: OPAMP ≥ 13 models', VXA.Models.listModels('opamp').length >= 13);
+    add('TEST_LB_19: ZENER ≥ 10 models', VXA.Models.listModels('zener').length >= 10);
+    add('TEST_LB_20: REGULATOR ≥ 10 models', VXA.Models.listModels('vreg').length >= 10);
+    add('TEST_LB_21: LED ≥ 7 models', VXA.Models.listModels('led').length >= 7);
+
+    const total = bjtList.length + mosList.length +
+                  VXA.Models.listModels('diode').length +
+                  VXA.Models.listModels('opamp').length +
+                  VXA.Models.listModels('zener').length +
+                  VXA.Models.listModels('vreg').length +
+                  VXA.Models.listModels('led').length;
+    add('TEST_LB_22: total library ≥ 78 models', total >= 78);
+
+    add('TEST_LB_23: NMOS_180nm present', VXA.Models.getModel('nmos', 'NMOS_180nm') !== null);
+    add('TEST_LB_24: PMOS_180nm present', VXA.Models.getModel('pmos', 'PMOS_180nm') !== null);
+    add('TEST_LB_25: MPSA42 (new HV BJT) present', VXA.Models.getModel('npn', 'MPSA42') !== null);
+    add('TEST_LB_26: MCP6002 (new op-amp) present', VXA.Models.getModel('opamp', 'MCP6002') !== null);
+
+    // === MODEL BROWSER ===
+    add('TEST_LB_27: openModelBrowser function defined', typeof window.openModelBrowser === 'function');
+
+    // Search filter
+    const searchRes = window.vxaModelBrowserFilter({ q: '2N' });
+    add('TEST_LB_28: search "2N" matches 2N2222/2N3904/2N7000',
+      searchRes.length >= 3 &&
+      searchRes.some(function(m) { return m.name === '2N2222'; }) &&
+      searchRes.some(function(m) { return m.name === '2N7000'; }));
+
+    // Category filter
+    const catRes = window.vxaModelBrowserFilter({ category: 'npn' });
+    add('TEST_LB_29: category "npn" filter only shows NPN',
+      catRes.length > 0 && catRes.every(function(m) { return m.category === 'npn'; }));
+
+    // Pick function assigns model to selected part
+    if (typeof S !== 'undefined' && S && Array.isArray(S.parts)) {
+      const savedSel = S.sel.slice();
+      const qpart = { id: 920001, type: 'npn', name: 'Q1', x: 0, y: 0, rot: 0, val: 100 };
+      S.parts.push(qpart);
+      S.sel = [920001];
+      window.vxaModelBrowserPick('MPSA42', 'npn');
+      add('TEST_LB_30: Seç button assigns model to part', qpart.model === 'MPSA42');
+      S.parts = S.parts.filter(function(p) { return p.id !== 920001; });
+      S.sel = savedSel;
+    } else {
+      add('TEST_LB_30: skipped (no S)', true);
+    }
+
+    // === FILE IMPORT ===
+    add('TEST_LB_31: setupFileDrop runs without crash',
+      (function() {
+        try {
+          var el = document.createElement('div');
+          LI.setupFileDrop(el);
+          return true;
+        } catch (e) { return false; }
+      })());
+
+    // Simulate text-file import via direct parseLibFile+import (bypass FileReader)
+    const simResult = LI.parseLibFile('.MODEL SIMTEST NPN(IS=1e-14 BF=77)', 'sim.lib');
+    LI.importToLibrary(simResult, { persist: false });
+    add('TEST_LB_32: imported model reachable',
+      VXA.Models.getModel('npn', 'SIMTEST') !== null);
+
+    // === ENTEGRASYON ===
+    add('TEST_LB_33: new model appears in listModels',
+      VXA.Models.listModels('npn').some(function(m) { return m.name === 'SIMTEST'; }));
+
+    add('TEST_LB_34: new BJT usable (getModel returns params)',
+      (function() {
+        var m = VXA.Models.getModel('npn', 'MJE3055');
+        return m && m.BF === 70;
+      })());
+    add('TEST_LB_35: new MOSFET usable (getModel returns params)',
+      (function() {
+        var m = VXA.Models.getModel('nmos', 'IRFZ44N');
+        return m && m.VTO === 3.0;
+      })());
+
+    add('TEST_LB_36: loadFromStorage callable at startup', typeof LI.loadFromStorage === 'function');
+
+    // === REGRESSION ===
+    add('TEST_LB_37: PRESETS still 55', typeof PRESETS !== 'undefined' && PRESETS.length === 55);
+    add('TEST_LB_38: COMP intact (≥ 70 components)',
+      typeof COMP !== 'undefined' && Object.keys(COMP).length >= 70);
+    add('TEST_LB_39: canvas sentinel', !!document.querySelector('canvas'));
+    add('TEST_LB_40: prior sprint modules intact',
+      !!VXA.Params && !!VXA.StepAnalysis && !!VXA.Measure &&
+      !!VXA.InitialConditions && !!VXA.Sources &&
+      !!VXA.Subcircuit && !!VXA.BSIM3);
+
+    return r;
+  });
+  lbResults.forEach(r => console.log(`  ${r.pass ? '✅' : '❌'} ${r.name}`));
+  const lbPass = lbResults.filter(r => r.pass).length;
+  const lbFail = lbResults.filter(r => !r.pass).length;
+  console.log(`\n  Sprint 42: ${lbPass} PASS, ${lbFail} FAIL out of ${lbResults.length}`);
+
   // === FINAL ÖZET ===
   const totalPass = await page.evaluate(() => {
     return { parts: typeof COMP !== 'undefined' ? Object.keys(COMP).length : 0, lines: document.querySelector('script') ? 'OK' : 'FAIL' };

@@ -23,7 +23,11 @@
                     p.type === 'idc' || p.type === 'iac');
     var isCap = (p.type === 'capacitor' || p.type === 'cap');
     var isMOS = (p.type === 'nmos' || p.type === 'pmos');
-    if (!isSource && !isCap && !isMOS) return;
+    // Sprint 42: show Model Browser trigger for any component that uses a SPICE model
+    var isModeled = (p.type === 'npn' || p.type === 'pnp' || p.type === 'nmos' || p.type === 'pmos' ||
+                     p.type === 'diode' || p.type === 'led' || p.type === 'schottky' ||
+                     p.type === 'zener' || p.type === 'opamp' || p.type === 'vreg');
+    if (!isSource && !isCap && !isMOS && !isModeled) return;
 
     var container = document.createElement('div');
     container.style.borderTop = '1px solid var(--border)';
@@ -101,6 +105,20 @@
           container.innerHTML += readoutHtml;
         }
       }
+    }
+
+    // Sprint 42: Model Browser trigger button for any modeled component
+    if (isModeled) {
+      var catMap = { npn:'npn', pnp:'pnp', nmos:'nmos', pmos:'pmos',
+                     diode:'diode', schottky:'diode', led:'led',
+                     zener:'zener', opamp:'opamp', vreg:'vreg' };
+      var cat = catMap[p.type] || '';
+      var btnHtml = '<div class="insp-param" style="margin-top:4px">' +
+                    '<button id="mb-open-btn" onclick="openModelBrowser(\'' + cat + '\')" ' +
+                    'style="flex:1;background:var(--surface-3);color:var(--text);border:1px solid var(--border);' +
+                    'padding:4px 8px;border-radius:4px;cursor:pointer;font:12px var(--font-ui)">' +
+                    '🔍 Tüm Modeller</button></div>';
+      container.innerHTML += btnHtml;
     }
 
     el.appendChild(container);

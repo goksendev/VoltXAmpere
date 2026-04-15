@@ -674,7 +674,7 @@ input:focus{border-color:var(--accent)}
     <span id="sb-temp" style="color:var(--text-3)"></span>
     <span id="sb-engine" style="color:var(--text-4)"></span>
     <span id="sb-extra" style="color:var(--text-3)"></span>
-    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v9.0 — Build: 2026-04-15 10:32 — © 2026</span>
+    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v9.0 — Build: 2026-04-15 10:56 — © 2026</span>
   </div>
 </div>
 
@@ -6637,6 +6637,13 @@ VXA.Models = (function() {
     'BC557':{ type:'PNP', IS:2e-14, BF:290, NF:1, VAF:50, IKF:0.1, RB:250, RC:20, RE:1, CJE:10e-12, VJE:0.6, MJE:0.35, CJC:6e-12, VJC:0.65, MJC:0.33, TF:640e-12, TR:50e-9, desc:'PNP complement BC547' },
     'BD139':{ type:'NPN', IS:1e-13, BF:100, VAF:80, IKF:1.5, RB:2, RC:0.5, RE:0.1, CJE:100e-12, CJC:30e-12, TF:10e-9, TR:100e-9, desc:'Medium power NPN, TO-126, 1.5A' },
     'TIP31C':{ type:'NPN', IS:1e-12, BF:40, VAF:80, IKF:3, RB:1, RC:0.2, RE:0.05, CJE:200e-12, CJC:50e-12, TF:20e-9, TR:200e-9, desc:'Power NPN, TO-220, 3A 40W' },
+    // Sprint 42: extended BJT library (+6 → 14 total)
+    'MPSA42':  { type:'NPN', IS:1e-14, BF:50, VAF:300, IKF:0.5, RB:10, RC:1, desc:'HV NPN, 300V, TO-92' },
+    'MPSA92':  { type:'PNP', IS:1e-14, BF:50, VAF:300, IKF:0.5, RB:10, RC:2, desc:'HV PNP, -300V, TO-92' },
+    'MJE3055': { type:'NPN', IS:2e-12, BF:70, VAF:50, IKF:4, RB:1, RC:0.2, RE:0.05, desc:'Power NPN, TO-220, 10A 60V' },
+    'MJE2955': { type:'PNP', IS:2e-12, BF:70, VAF:50, IKF:4, RB:1, RC:0.2, RE:0.05, desc:'Power PNP, TO-220, 10A 60V' },
+    'MMBT3904':{ type:'NPN', IS:6.7e-15, BF:416, VAF:74, IKF:66e-3, desc:'SMD 3904, SOT-23' },
+    'MMBT3906':{ type:'PNP', IS:1.4e-15, BF:180, VAF:18.7, IKF:80e-3, desc:'SMD 3906, SOT-23' },
   };
   var MOSFET = {
     'Generic':{ type:'NMOS', VTO:2.0, KP:110e-6, LAMBDA:0.04, desc:'Generic NMOS' },
@@ -6662,6 +6669,27 @@ VXA.Models = (function() {
       ETA0:0.04, ETAB:-0.07, DSUB:0.56,
       PCLM:1.3, DELTA:0.01, W:20e-6, L:180e-9,
       desc:'Generic 180nm PMOS (BSIM3v3)' },
+    // Sprint 42: extended Level-1 power/SMD MOSFETs (+4) and 90nm BSIM3 (+2) → 14 total
+    'IRFZ44N': { type:'NMOS', VTO:3.0, KP:35, LAMBDA:0.008, RD:0.017, RS:0.017, desc:'N-ch power, TO-220, 55A 55V' },
+    'IRF4905': { type:'PMOS', VTO:3.5, KP:12, LAMBDA:0.01, RD:0.02, RS:0.02, desc:'P-ch power, TO-220, -74A -55V' },
+    'AO3400':  { type:'NMOS', VTO:1.2, KP:5, LAMBDA:0.03, RD:0.04, RS:0.04, desc:'N-ch SOT-23, 5.7A 30V' },
+    'AO3401':  { type:'PMOS', VTO:1.2, KP:3, LAMBDA:0.03, RD:0.05, RS:0.05, desc:'P-ch SOT-23, -4A -30V' },
+    'NMOS_90nm': { type:'NMOS', LEVEL:49, VERSION:3.3, TYPE:1,
+      TOX:2.2e-9, VTH0:0.35, K1:0.5, K2:-0.1, K3:80,
+      U0:280, UA:-1.5e-9, UB:2.4e-18, UC:-4.6e-11,
+      VSAT:1.2e5, A0:1.0, AGS:0.2,
+      NFACTOR:1.5, CDSC:2.4e-4, VOFF:-0.08,
+      ETA0:0.06, ETAB:-0.07, DSUB:0.56,
+      PCLM:1.3, DELTA:0.01, W:2e-6, L:90e-9,
+      desc:'Generic 90nm NMOS (BSIM3v3 eğitim)' },
+    'PMOS_90nm': { type:'PMOS', LEVEL:49, VERSION:3.3, TYPE:-1,
+      TOX:2.2e-9, VTH0:0.38, K1:0.5, K2:-0.1, K3:80,
+      U0:100, UA:-1.5e-9, UB:2.4e-18, UC:-4.6e-11,
+      VSAT:1.0e5, A0:1.0, AGS:0.2,
+      NFACTOR:1.5, CDSC:2.4e-4, VOFF:-0.08,
+      ETA0:0.06, ETAB:-0.07, DSUB:0.56,
+      PCLM:1.3, DELTA:0.01, W:4e-6, L:90e-9,
+      desc:'Generic 90nm PMOS (BSIM3v3 eğitim)' },
   };
   var DIODE = {
     'Generic':{ IS:1e-14, N:1, RS:0, BV:100, CJO:0, VJ:0.7, M:0.5, TT:0, desc:'Generic Si diode' },
@@ -6670,6 +6698,11 @@ VXA.Models = (function() {
     '1N4001':{ IS:29.5e-9, N:1.45, RS:0.042, BV:50, CJO:26.5e-12, VJ:0.3, M:0.5, TT:4.32e-6, desc:'Rectifier 1A 50V, DO-41' },
     '1N5819':{ IS:3.17e-5, N:1.05, RS:0.042, BV:40, CJO:110e-12, VJ:0.35, M:0.5, TT:5e-9, desc:'Schottky 1A 40V, Vf=0.3V' },
     'BAT54':{ IS:1e-7, N:1.03, RS:1, BV:30, CJO:10e-12, VJ:0.25, M:0.35, TT:5e-9, desc:'Schottky 200mA 30V, SOT-23' },
+    // Sprint 42: extended diodes (+4 → 10 total)
+    '1N5822':  { IS:1.5e-4, N:1.04, RS:0.04, BV:40, CJO:150e-12, VJ:0.35, M:0.5, TT:5e-9, desc:'Schottky 3A 40V, DO-201' },
+    'MBR1045': { IS:5e-5, N:1.05, RS:0.03, BV:45, CJO:200e-12, VJ:0.35, M:0.5, TT:5e-9, desc:'Schottky 10A 45V, TO-220' },
+    'UF4007':  { IS:76.9e-9, N:1.45, RS:0.04, BV:1000, CJO:26.5e-12, VJ:0.3, M:0.5, TT:75e-9, desc:'Ultra-fast rectifier 1A 1000V' },
+    'ES1D':    { IS:1e-8, N:1.2, RS:0.1, BV:200, CJO:15e-12, VJ:0.3, M:0.5, TT:35e-9, desc:'Super-fast 1A 200V, SMA' },
   };
   var LED = {
     // Sprint 25: Calibrated IS via Vf = N*Vt*ln(If/IS) at If=20mA
@@ -6690,6 +6723,11 @@ VXA.Models = (function() {
     '1N4742':{ Vz:12, Zz:9, Iz:21e-3, Pd:1, desc:'12V Zener 1W' },
     '1N4744':{ Vz:15, Zz:14, Iz:17e-3, Pd:1, desc:'15V Zener 1W' },
     '1N4749':{ Vz:24, Zz:25, Iz:10.5e-3, Pd:1, desc:'24V Zener 1W' },
+    // Sprint 42: extended zener (+4 → 10 total)
+    'BZX79-6V8':{ Vz:6.8, Zz:5, Iz:37e-3, Pd:0.5, desc:'6.8V Zener 500mW' },
+    'BZX79-9V1':{ Vz:9.1, Zz:10, Iz:28e-3, Pd:0.5, desc:'9.1V Zener 500mW' },
+    '1N4740':   { Vz:10, Zz:8.5, Iz:25e-3, Pd:1, desc:'10V Zener 1W' },
+    '1N4747':   { Vz:20, Zz:17, Iz:12.5e-3, Pd:1, desc:'20V Zener 1W' },
   };
   var OPAMP = {
     'Ideal':{ Aol:1e5, GBW:1e9, SR:1e9, Vos:0, Rin:1e9, Rout:0.1, desc:'Ideal op-amp' },
@@ -6701,6 +6739,11 @@ VXA.Models = (function() {
     'NE5532':{ Aol:1e5, GBW:10e6, SR:9e6, Vos:0.5e-3, Ib:200e-9, Rin:300e3, Rout:30, desc:'Low noise audio, DIP-8, dual' },
     'OPA2134':{ Aol:5e5, GBW:8e6, SR:20e6, Vos:0.5e-3, Ib:5e-12, Rin:1e13, Rout:50, desc:'Audio FET, SOP-8, dual' },
     'LM386':{ Aol:46, GBW:300e3, SR:0.2e6, Vos:2e-3, Rin:50e3, Rout:8, Vs_min:4, Vs_max:12, desc:'Audio power amp, DIP-8, 0.7W' },
+    // Sprint 42: extended op-amp library (+4 → 13 total)
+    'MCP6002': { Aol:1e5, GBW:1e6, SR:0.6e6, Vos:4.5e-3, Ib:1e-12, Rin:1e13, Rout:200, Vs_min:1.8, Vs_max:6, desc:'Low power R2R, MSOP-8, dual' },
+    'AD8628':  { Aol:1e6, GBW:2.5e6, SR:1e6, Vos:2e-6, Ib:100e-12, Rin:1e9, Rout:100, desc:'Zero-drift precision, SOIC-8' },
+    'LMV321':  { Aol:1e5, GBW:1e6, SR:1e6, Vos:7e-3, Ib:1e-9, Rin:1e12, Rout:150, Vs_min:2.7, Vs_max:5.5, desc:'Low voltage single, SOT-23-5' },
+    'OPA2277': { Aol:1e6, GBW:1e6, SR:0.8e6, Vos:20e-6, Ib:1e-9, Rin:10e6, Rout:60, desc:'Precision dual, DIP-8' },
   };
   var REGULATOR = {
     '7805':{ Vout:5, Vdropout:2, Imax:1.5, desc:'5V fixed, TO-220, 1.5A' },
@@ -6710,6 +6753,10 @@ VXA.Models = (function() {
     '7905':{ Vout:-5, Vdropout:2, Imax:1.5, desc:'-5V fixed, TO-220' },
     '7912':{ Vout:-12, Vdropout:2, Imax:1.5, desc:'-12V fixed, TO-220' },
     'LM317':{ Vref:1.25, Vdropout:2.5, Imax:1.5, Vout_min:1.25, Vout_max:37, adjustable:true, desc:'Adjustable 1.25-37V, TO-220' },
+    // Sprint 42: extended regulators (+3 → 10 total)
+    'LM1117-3.3':{ Vout:3.3, Vdropout:1.2, Imax:0.8, desc:'3.3V LDO, SOT-223, 800mA' },
+    'LM1117-5.0':{ Vout:5.0, Vdropout:1.2, Imax:0.8, desc:'5V LDO, SOT-223, 800mA' },
+    'LM337':     { Vref:1.25, Vdropout:2.5, Imax:1.5, Vout_min:-1.25, Vout_max:-37, adjustable:true, desc:'Negative adjustable, TO-220' },
   };
   function getModel(type, name) {
     var map = { npn:BJT, pnp:BJT, nmos:MOSFET, pmos:MOSFET, diode:DIODE, schottky:DIODE, led:LED, zener:ZENER, opamp:OPAMP, comparator:OPAMP, vreg:REGULATOR };
@@ -7583,6 +7630,178 @@ VXA.Subcircuit = (function() {
     clearLibrary: function() { library = {}; loadBuiltins(); },
     getCount: function() { return Object.keys(library).length; },
     BUILT_IN: BUILT_IN
+  };
+})();
+
+
+// ═══ lib-import.js ═══
+// ──────── SPRINT 42: .LIB IMPORT (v9.0) ────────
+// Parse vendor SPICE libraries: .MODEL lines, .SUBCKT blocks.
+// Route BSIM3-class cards through VXA.BSIM3.parseModelParams.
+// Persist custom models in localStorage ('vxa_custom_models').
+
+VXA.LibImport = (function() {
+  'use strict';
+
+  var STORAGE_KEY = 'vxa_custom_models';
+
+  function parseLibFile(text, fileName) {
+    var result = { models: [], subcircuits: [], warnings: [], fileName: fileName || 'unknown' };
+
+    // Delegate .SUBCKT parsing to the dedicated module.
+    // NOTE: VXA.Subcircuit.parse also collects top-level .MODEL cards; we intentionally
+    // ignore that list here — our own top-level loop (below) is authoritative so we
+    // don't double-count. Subcircuits themselves stay.
+    if (typeof VXA.Subcircuit !== 'undefined' && typeof VXA.Subcircuit.parse === 'function') {
+      try {
+        var scResult = VXA.Subcircuit.parse(text);
+        result.subcircuits = scResult.subcircuits || [];
+      } catch (e) {
+        result.warnings.push('.SUBCKT parse error: ' + e.message);
+      }
+    }
+
+    // Collect top-level .MODEL lines (skip lines inside .SUBCKT blocks — already handled).
+    var rawLines = String(text).split('\n');
+    var merged = [];
+    var inSub = false;
+    var acc = '';
+    for (var i = 0; i < rawLines.length; i++) {
+      var raw = rawLines[i].replace(/\r$/, '');
+      var t = raw.trim();
+      if (t === '' || t.charAt(0) === '*' || t.charAt(0) === ';') {
+        if (acc) { merged.push(acc); acc = ''; }
+        continue;
+      }
+      if (/^\.subckt/i.test(t)) { inSub = true; if (acc) { merged.push(acc); acc = ''; } continue; }
+      if (/^\.ends/i.test(t))   { inSub = false; if (acc) { merged.push(acc); acc = ''; } continue; }
+      if (inSub) continue;
+      if (t.charAt(0) === '+') { acc += ' ' + t.substring(1).trim(); }
+      else { if (acc) merged.push(acc); acc = t; }
+    }
+    if (acc) merged.push(acc);
+
+    for (var j = 0; j < merged.length; j++) {
+      var line = merged[j];
+      var upper = line.toUpperCase();
+      if (upper.indexOf('.MODEL') === 0) {
+        if (typeof VXA.SpiceParser === 'undefined') continue;
+        var m = VXA.SpiceParser.parseModelLine(line);
+        if (m) {
+          if (VXA.BSIM3 && VXA.BSIM3.isBSIM3Model(m.params)) {
+            m.params = VXA.BSIM3.parseModelParams(m.params);
+            m.isBSIM3 = true;
+          }
+          result.models.push(m);
+        }
+      } else if (upper.indexOf('.LIB') === 0) {
+        result.warnings.push('Nested .LIB references not supported: ' + line);
+      }
+    }
+
+    return result;
+  }
+
+  function importToLibrary(parseResult, opts) {
+    var imported = { models: 0, subcircuits: 0 };
+    if (!parseResult) return imported;
+    var persist = !opts || opts.persist !== false;
+    (parseResult.models || []).forEach(function(m) {
+      var category = m.category;
+      // Refine category by type for MOSFET/PNP cases
+      if (m.type === 'PNP') category = 'pnp';
+      else if (m.type === 'PMOS' || m.type === 'PFET') category = 'pmos';
+      else if (m.type === 'NMOS' || m.type === 'NFET') category = 'nmos';
+      if (typeof VXA.Models !== 'undefined' && VXA.Models.addCustomModel) {
+        VXA.Models.addCustomModel(category, m.name, m.params);
+      }
+      imported.models++;
+    });
+    imported.subcircuits = (parseResult.subcircuits || []).length;
+    if (persist) saveToStorage(parseResult);
+    return imported;
+  }
+
+  function saveToStorage(parseResult) {
+    try {
+      if (typeof localStorage === 'undefined') return;
+      var existing = [];
+      try { existing = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch (e) { existing = []; }
+      (parseResult.models || []).forEach(function(m) {
+        var idx = existing.findIndex(function(e) { return e.name === m.name; });
+        var entry = { name: m.name, type: m.type, category: m.category, params: m.params };
+        if (idx >= 0) existing[idx] = entry;
+        else existing.push(entry);
+      });
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(existing));
+    } catch (e) {
+      console.warn('[LibImport] storage error:', e.message);
+    }
+  }
+
+  function loadFromStorage() {
+    try {
+      if (typeof localStorage === 'undefined') return 0;
+      var stored = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+      stored.forEach(function(m) {
+        var category = m.category || 'diode';
+        if (m.type === 'PNP') category = 'pnp';
+        else if (m.type === 'PMOS' || m.type === 'PFET') category = 'pmos';
+        if (VXA.Models && VXA.Models.addCustomModel) VXA.Models.addCustomModel(category, m.name, m.params);
+      });
+      return stored.length;
+    } catch (e) { return 0; }
+  }
+
+  function clearStorage() {
+    try { if (typeof localStorage !== 'undefined') localStorage.removeItem(STORAGE_KEY); } catch (e) {}
+  }
+
+  function readAndImport(file, onDone) {
+    if (!file || typeof FileReader === 'undefined') return;
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      var text = e.target.result;
+      var result = parseLibFile(text, file.name);
+      var imported = importToLibrary(result);
+      if (typeof onDone === 'function') onDone(result, imported);
+      if (typeof showInfoCard === 'function') {
+        var msg = file.name + ': ' + imported.models + ' model';
+        if (imported.subcircuits > 0) msg += ' + ' + imported.subcircuits + ' subcircuit';
+        msg += ' yüklendi.';
+        showInfoCard(msg, '', '');
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  function setupFileDrop(dropZone) {
+    if (!dropZone || dropZone._vxaLibDropBound) return;
+    dropZone._vxaLibDropBound = true;
+    dropZone.addEventListener('dragover', function(e) {
+      e.preventDefault(); e.stopPropagation();
+      dropZone.classList.add('drag-over');
+    });
+    dropZone.addEventListener('dragleave', function() {
+      dropZone.classList.remove('drag-over');
+    });
+    dropZone.addEventListener('drop', function(e) {
+      e.preventDefault(); e.stopPropagation();
+      dropZone.classList.remove('drag-over');
+      if (!e.dataTransfer || !e.dataTransfer.files) return;
+      for (var i = 0; i < e.dataTransfer.files.length; i++) readAndImport(e.dataTransfer.files[i]);
+    });
+  }
+
+  return {
+    parseLibFile: parseLibFile,
+    importToLibrary: importToLibrary,
+    saveToStorage: saveToStorage,
+    loadFromStorage: loadFromStorage,
+    clearStorage: clearStorage,
+    readAndImport: readAndImport,
+    setupFileDrop: setupFileDrop,
+    STORAGE_KEY: STORAGE_KEY
   };
 })();
 
@@ -17847,7 +18066,11 @@ function runTransferFunc() {
                     p.type === 'idc' || p.type === 'iac');
     var isCap = (p.type === 'capacitor' || p.type === 'cap');
     var isMOS = (p.type === 'nmos' || p.type === 'pmos');
-    if (!isSource && !isCap && !isMOS) return;
+    // Sprint 42: show Model Browser trigger for any component that uses a SPICE model
+    var isModeled = (p.type === 'npn' || p.type === 'pnp' || p.type === 'nmos' || p.type === 'pmos' ||
+                     p.type === 'diode' || p.type === 'led' || p.type === 'schottky' ||
+                     p.type === 'zener' || p.type === 'opamp' || p.type === 'vreg');
+    if (!isSource && !isCap && !isMOS && !isModeled) return;
 
     var container = document.createElement('div');
     container.style.borderTop = '1px solid var(--border)';
@@ -17927,6 +18150,20 @@ function runTransferFunc() {
       }
     }
 
+    // Sprint 42: Model Browser trigger button for any modeled component
+    if (isModeled) {
+      var catMap = { npn:'npn', pnp:'pnp', nmos:'nmos', pmos:'pmos',
+                     diode:'diode', schottky:'diode', led:'led',
+                     zener:'zener', opamp:'opamp', vreg:'vreg' };
+      var cat = catMap[p.type] || '';
+      var btnHtml = '<div class="insp-param" style="margin-top:4px">' +
+                    '<button id="mb-open-btn" onclick="openModelBrowser(\'' + cat + '\')" ' +
+                    'style="flex:1;background:var(--surface-3);color:var(--text);border:1px solid var(--border);' +
+                    'padding:4px 8px;border-radius:4px;cursor:pointer;font:12px var(--font-ui)">' +
+                    '🔍 Tüm Modeller</button></div>';
+      container.innerHTML += btnHtml;
+    }
+
     el.appendChild(container);
   }
 
@@ -18000,6 +18237,177 @@ function runTransferFunc() {
     var n = parseFloat(v);
     p.icVoltage = isFinite(n) ? n : 0;
     if (typeof needsRender !== 'undefined') needsRender = true;
+  };
+})();
+
+
+// ═══ model-browser.js ═══
+// ──────── SPRINT 42: Model Browser UI ────────
+// Modal: search + category filter across all VXA.Models.* libraries.
+// Global API: vxaModelBrowserFilter({q, category}) returns filtered list —
+// UI-independent so tests can validate filtering directly.
+
+(function() {
+  var CATEGORIES = [
+    { key: 'npn',   label: 'BJT NPN'     },
+    { key: 'pnp',   label: 'BJT PNP'     },
+    { key: 'nmos',  label: 'NMOS'        },
+    { key: 'pmos',  label: 'PMOS'        },
+    { key: 'diode', label: 'Diode'       },
+    { key: 'led',   label: 'LED'         },
+    { key: 'zener', label: 'Zener'       },
+    { key: 'opamp', label: 'Op-Amp'      },
+    { key: 'vreg',  label: 'Regulator'   }
+  ];
+
+  function allModels() {
+    var out = [];
+    if (typeof VXA === 'undefined' || !VXA.Models) return out;
+    CATEGORIES.forEach(function(c) {
+      var list = VXA.Models.listModels(c.key) || [];
+      list.forEach(function(m) {
+        out.push({ name: m.name, desc: m.desc || '', category: c.key, categoryLabel: c.label });
+      });
+    });
+    return out;
+  }
+
+  // Pure filter — used by tests AND by the modal render loop.
+  function filterModels(opts) {
+    opts = opts || {};
+    var q = (opts.q || '').trim().toLowerCase();
+    var cat = opts.category || null;
+    var list = allModels();
+    if (cat) list = list.filter(function(m) { return m.category === cat; });
+    if (q) {
+      list = list.filter(function(m) {
+        return m.name.toLowerCase().indexOf(q) >= 0 ||
+               m.desc.toLowerCase().indexOf(q) >= 0;
+      });
+    }
+    return list;
+  }
+
+  function ensureModal() {
+    var modal = document.getElementById('model-browser-modal');
+    if (modal) return modal;
+    modal = document.createElement('div');
+    modal.id = 'model-browser-modal';
+    modal.className = 'modal';
+    modal.style.cssText = 'display:none;position:fixed;inset:0;z-index:10050;background:rgba(0,0,0,0.55);align-items:center;justify-content:center';
+    modal.innerHTML =
+      '<div style="background:var(--surface,#1b1b1b);color:var(--text,#eee);border:1px solid var(--border,#333);border-radius:8px;width:min(720px,92vw);max-height:82vh;display:flex;flex-direction:column;overflow:hidden">' +
+      '  <div style="padding:12px 16px;border-bottom:1px solid var(--border,#333);display:flex;align-items:center;gap:8px">' +
+      '    <span style="flex:1;font:600 14px var(--font-ui)">📦 Model Kütüphanesi</span>' +
+      '    <button onclick="vxaModelBrowserClose()" style="background:transparent;color:var(--text);border:none;font:18px var(--font-ui);cursor:pointer">✕</button>' +
+      '  </div>' +
+      '  <div style="padding:10px 16px;display:flex;gap:8px;align-items:center;border-bottom:1px solid var(--border,#333)">' +
+      '    <input id="mb-search" placeholder="Ara..." oninput="vxaModelBrowserRender()" ' +
+      '           style="flex:1;background:var(--surface-3,#222);border:1px solid var(--border,#333);color:var(--text);padding:6px 8px;border-radius:4px;font:12px var(--font-mono)">' +
+      '    <select id="mb-cat" onchange="vxaModelBrowserRender()" style="background:var(--surface-3,#222);border:1px solid var(--border,#333);color:var(--text);padding:6px;border-radius:4px;font:12px var(--font-mono)">' +
+      '      <option value="">Tümü</option>' +
+      CATEGORIES.map(function(c) { return '<option value="' + c.key + '">' + c.label + '</option>'; }).join('') +
+      '    </select>' +
+      '  </div>' +
+      '  <div id="mb-list" style="flex:1;overflow:auto;padding:8px 12px;font:12px var(--font-mono)"></div>' +
+      '  <div style="padding:10px 16px;border-top:1px solid var(--border,#333);display:flex;gap:8px">' +
+      '    <button onclick="vxaModelBrowserPickFile()" style="background:var(--accent,#00e09e);color:#000;border:none;padding:6px 12px;border-radius:4px;cursor:pointer;font:600 12px var(--font-ui)">📂 .LIB Yükle</button>' +
+      '    <button onclick="vxaModelBrowserPaste()" style="background:var(--surface-3,#222);color:var(--text);border:1px solid var(--border,#333);padding:6px 12px;border-radius:4px;cursor:pointer;font:12px var(--font-ui)">📋 SPICE Yapıştır</button>' +
+      '    <span style="flex:1"></span>' +
+      '    <span id="mb-count" style="color:var(--text-3,#999);font:11px var(--font-mono);align-self:center"></span>' +
+      '  </div>' +
+      '</div>';
+    document.body.appendChild(modal);
+    return modal;
+  }
+
+  function renderList() {
+    var modal = document.getElementById('model-browser-modal'); if (!modal) return;
+    var q = document.getElementById('mb-search').value || '';
+    var cat = document.getElementById('mb-cat').value || null;
+    var rows = filterModels({ q: q, category: cat });
+    var listEl = document.getElementById('mb-list');
+    if (!rows.length) {
+      listEl.innerHTML = '<div style="padding:20px;color:var(--text-3,#999);text-align:center">Eşleşme yok</div>';
+    } else {
+      listEl.innerHTML = rows.map(function(m) {
+        return '<div class="mb-row" data-name="' + m.name + '" data-cat="' + m.category + '" style="display:flex;gap:8px;padding:6px 4px;border-bottom:1px solid var(--border,#2a2a2a)">' +
+               '<span style="color:var(--accent,#00e09e);width:110px">' + m.name + '</span>' +
+               '<span style="flex:1;color:var(--text-2,#ccc)">' + m.desc + '</span>' +
+               '<span style="color:var(--text-3,#999);width:80px">' + m.categoryLabel + '</span>' +
+               '<button onclick="vxaModelBrowserPick(\'' + m.name + '\',\'' + m.category + '\')" style="background:var(--surface-3,#222);color:var(--text);border:1px solid var(--border,#333);padding:3px 8px;border-radius:3px;cursor:pointer;font:11px var(--font-ui)">Seç</button>' +
+               '</div>';
+      }).join('');
+    }
+    var cnt = document.getElementById('mb-count');
+    if (cnt) cnt.textContent = rows.length + ' / ' + allModels().length;
+  }
+
+  // ── Public API (global window.* handlers so onclick attributes work) ──
+  window.openModelBrowser = function(prefillCategory) {
+    var modal = ensureModal();
+    modal.style.display = 'flex';
+    if (prefillCategory) {
+      var sel = document.getElementById('mb-cat'); if (sel) sel.value = prefillCategory;
+    }
+    var q = document.getElementById('mb-search'); if (q) q.value = '';
+    renderList();
+  };
+  window.vxaModelBrowserClose = function() {
+    var modal = document.getElementById('model-browser-modal');
+    if (modal) modal.style.display = 'none';
+  };
+  window.vxaModelBrowserRender = renderList;
+  window.vxaModelBrowserFilter = filterModels;
+  window.vxaModelBrowserAll = allModels;
+
+  window.vxaModelBrowserPick = function(name, category) {
+    // Assign to selected part if compatible
+    if (typeof S === 'undefined' || !Array.isArray(S.parts) || !S.sel || !S.sel.length) {
+      window.vxaModelBrowserClose();
+      return;
+    }
+    var p = S.parts.find(function(pp) { return pp.id === S.sel[0]; });
+    if (!p) { window.vxaModelBrowserClose(); return; }
+    // Compatibility: allow if category matches part.type (npn→npn, nmos→nmos, etc.)
+    var typeCompat = (p.type === category) ||
+                     (p.type === 'led' && category === 'led') ||
+                     (p.type === 'schottky' && category === 'diode');
+    if (!typeCompat) {
+      if (typeof showInfoCard === 'function') {
+        showInfoCard('Model tipi uyumsuz: ' + p.type + ' ≠ ' + category, '', '');
+      }
+      return;
+    }
+    p.model = name;
+    if (typeof applyModel === 'function') applyModel(p, name);
+    if (typeof needsRender !== 'undefined') needsRender = true;
+    if (typeof updateInspector === 'function') updateInspector();
+    window.vxaModelBrowserClose();
+  };
+
+  window.vxaModelBrowserPickFile = function() {
+    var input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.lib,.mod,.txt,.spice,.cir,.sub';
+    input.onchange = function(e) {
+      var file = e.target.files && e.target.files[0]; if (!file) return;
+      if (VXA.LibImport) VXA.LibImport.readAndImport(file, function() { renderList(); });
+    };
+    input.click();
+  };
+
+  window.vxaModelBrowserPaste = function() {
+    var text = prompt('.MODEL veya .SUBCKT içeriğini yapıştırın:', '');
+    if (!text) return;
+    if (VXA.LibImport) {
+      var res = VXA.LibImport.parseLibFile(text, 'pasted');
+      VXA.LibImport.importToLibrary(res);
+      if (typeof showInfoCard === 'function') {
+        showInfoCard('Yapıştırılan içerik: ' + res.models.length + ' model + ' + res.subcircuits.length + ' subckt', '', '');
+      }
+      renderList();
+    }
   };
 })();
 
@@ -22316,6 +22724,14 @@ setTimeout(function() {
   if (typeof localStorage !== 'undefined' && localStorage.getItem('vxa_high_contrast') === '1') {
     S.highContrast = true; document.documentElement.setAttribute('data-contrast', 'high');
   }
+  // Sprint 42: restore user-imported .LIB models + wire up canvas drop zone
+  try {
+    if (typeof VXA !== 'undefined' && VXA.LibImport) {
+      VXA.LibImport.loadFromStorage();
+      var dropZone = document.getElementById('canvas-wrap') || document.body;
+      if (dropZone) VXA.LibImport.setupFileDrop(dropZone);
+    }
+  } catch (e) { /* non-fatal */ }
 }, 500);
 </script>
 
