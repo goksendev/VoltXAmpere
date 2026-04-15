@@ -674,7 +674,7 @@ input:focus{border-color:var(--accent)}
     <span id="sb-temp" style="color:var(--text-3)"></span>
     <span id="sb-engine" style="color:var(--text-4)"></span>
     <span id="sb-extra" style="color:var(--text-3)"></span>
-    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v9.0 — Build: 2026-04-15 10:56 — © 2026</span>
+    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v9.0 — Build: 2026-04-15 11:10 — © 2026</span>
   </div>
 </div>
 
@@ -8378,6 +8378,171 @@ VXA.Sources = (function() {
     parseEXP: parseEXP,
     parseSFFM: parseSFFM,
     MAX_PWL_POINTS: MAX_PWL_POINTS
+  };
+})();
+
+
+// ═══ sim-bridge.js ═══
+// ──────── SPRINT 43: SIM BRIDGE (main thread) ────────
+// Transparent API for start/stop/setSpeed/updateComponent/requestDCOP.
+// Attempts to spawn a Web Worker from the embedded VXA._workerCode string
+// (see build.js). Falls back to synchronous in-thread simulation if Worker
+// construction fails (CSP, file:// restrictions, legacy browsers).
+//
+// NOTE (Sprint 43): the worker owns the postMessage protocol but the real
+// MNA/NR pipeline still lives on the main thread — this ships the protocol
+// and fallback so Sprint 44 can migrate solve() safely.
+
+VXA.SimBridge = (function() {
+  'use strict';
+
+  var worker = null;
+  var workerUrl = null;
+  var fallbackMode = true;
+  var lastError = null;
+  var onStepCb = null;
+  var onTickCb = null;
+  var pending = {};
+  var running = false;
+  var tickCount = 0;
+
+  function init(opts) {
+    opts = opts || {};
+    fallbackMode = true;
+    if (typeof Worker === 'undefined') { lastError = 'Worker API not available'; return false; }
+    if (typeof VXA === 'undefined' || !VXA._workerCode) { lastError = 'Worker code not embedded'; return false; }
+    if (opts.forceFallback) { lastError = 'forceFallback'; return false; }
+    try {
+      var blob = new Blob([VXA._workerCode], { type: 'application/javascript' });
+      workerUrl = URL.createObjectURL(blob);
+      worker = new Worker(workerUrl);
+      worker.onmessage = handleWorkerMessage;
+      worker.onerror = function(ev) {
+        lastError = ev.message || 'worker error';
+        // Fall back silently — don't kill the session
+        teardown();
+      };
+      fallbackMode = false;
+      return true;
+    } catch (e) {
+      lastError = String(e && e.message || e);
+      teardown();
+      return false;
+    }
+  }
+
+  function teardown() {
+    if (worker) { try { worker.terminate(); } catch (e) {} }
+    worker = null;
+    if (workerUrl) { try { URL.revokeObjectURL(workerUrl); } catch (e) {} }
+    workerUrl = null;
+    fallbackMode = true;
+  }
+
+  function handleWorkerMessage(e) {
+    var msg = e.data || {};
+    switch (msg.type) {
+      case 'ready': break;
+      case 'tick':
+        tickCount++;
+        if (typeof onTickCb === 'function') onTickCb(msg);
+        if (typeof onStepCb === 'function' && Array.isArray(msg.steps)) {
+          msg.steps.forEach(function(s) { onStepCb(s); });
+        }
+        break;
+      case 'dcOP':
+        if (pending.dcOP) {
+          try { pending.dcOP(!!msg.success, msg.nodeVoltages || []); } catch (err) {}
+          delete pending.dcOP;
+        }
+        break;
+      case 'pong':
+        if (pending.ping) {
+          try { pending.ping(msg.echo); } catch (err) {}
+          delete pending.ping;
+        }
+        break;
+      case 'error':
+        lastError = msg.message;
+        break;
+    }
+  }
+
+  // ── Public API ────────────────────────────────
+  function sendCircuit(circuitData) {
+    if (!worker) return false;
+    try { worker.postMessage({ command: 'init', circuit: circuitData || {} }); return true; }
+    catch (e) { lastError = String(e.message); return false; }
+  }
+
+  function start(s) {
+    running = true;
+    if (worker) {
+      try { worker.postMessage({ command: 'start', speed: s || 1 }); } catch (e) {}
+    }
+    // Fallback: main-thread sim keeps running as before (caller still drives toggleSim)
+    return true;
+  }
+
+  function stop() {
+    running = false;
+    if (worker) { try { worker.postMessage({ command: 'stop' }); } catch (e) {} }
+    return true;
+  }
+
+  function setSpeed(s) {
+    if (worker) { try { worker.postMessage({ command: 'setSpeed', speed: s || 1 }); } catch (e) {} }
+    return true;
+  }
+
+  function updateComponent(compIndex, updates) {
+    if (worker) {
+      try { worker.postMessage({ command: 'updateComponent', compIndex: compIndex, updates: updates || {} }); }
+      catch (e) {}
+    }
+    return true;
+  }
+
+  function requestDCOP(callback) {
+    if (!worker) {
+      // Fallback: defer to main-thread solver if available
+      var ok = true;
+      try {
+        if (typeof findDCOperatingPoint === 'function') ok = findDCOperatingPoint() !== false;
+      } catch (e) { ok = false; }
+      if (typeof callback === 'function') setTimeout(function() { callback(ok, []); }, 0);
+      return true;
+    }
+    pending.dcOP = callback;
+    try { worker.postMessage({ command: 'dcOP' }); } catch (e) {}
+    return true;
+  }
+
+  function ping(echo, callback) {
+    if (!worker) {
+      if (typeof callback === 'function') setTimeout(function() { callback(echo); }, 0);
+      return true;
+    }
+    pending.ping = callback;
+    try { worker.postMessage({ command: 'ping', echo: echo }); } catch (e) {}
+    return true;
+  }
+
+  function onStep(cb) { onStepCb = cb; }
+  function onTick(cb) { onTickCb = cb; }
+  function isWorkerMode() { return !fallbackMode && worker !== null; }
+  function isRunning() { return running; }
+  function getTickCount() { return tickCount; }
+  function getLastError() { return lastError; }
+  function terminate() { teardown(); }
+
+  return {
+    init: init, sendCircuit: sendCircuit,
+    start: start, stop: stop, setSpeed: setSpeed,
+    updateComponent: updateComponent, requestDCOP: requestDCOP, ping: ping,
+    onStep: onStep, onTick: onTick,
+    isWorkerMode: isWorkerMode, isRunning: isRunning, getTickCount: getTickCount,
+    getLastError: getLastError, terminate: terminate
   };
 })();
 
@@ -22732,9 +22897,17 @@ setTimeout(function() {
       if (dropZone) VXA.LibImport.setupFileDrop(dropZone);
     }
   } catch (e) { /* non-fatal */ }
+  // Sprint 43: spin up sim worker if supported (silent fallback otherwise)
+  try {
+    if (typeof VXA !== 'undefined' && VXA.SimBridge) VXA.SimBridge.init();
+  } catch (e) { /* non-fatal */ }
 }, 500);
-</script>
+// Sprint 43: stray closing script tag removed (legacy template artifact) — bundle now closes cleanly via src/index.html.
 
+</script>
+<script>
+// ═══ sim-worker-body.js (embedded for Web Worker) ═══
+if (typeof VXA !== "undefined") { VXA._workerCode = "// ──────── SPRINT 43: SIM WORKER BODY (v9.0) ────────\n// This file's text is captured at build-time and embedded as VXA._workerCode.\n// It runs inside a Web Worker (no DOM, no window). The main thread owns the\n// heavy MNA pipeline (sim.js + sim-legacy.js) because it is deeply DOM-coupled.\n// The worker here implements the postMessage PROTOCOL so Sprint 43 ships an\n// honest worker round-trip; full NR offload is scheduled for Sprint 44.\n//\n// Protocol:\n//   main → worker: {command:'init', circuit:{N, scopeNodes}}\n//   main → worker: {command:'start', speed}\n//   main → worker: {command:'stop'}\n//   main → worker: {command:'setSpeed', speed}\n//   main → worker: {command:'updateComponent', compIndex, updates}\n//   main → worker: {command:'dcOP'}\n//   main → worker: {command:'ping'}\n//   worker → main: {type:'ready', nodeCount}\n//   worker → main: {type:'tick', time, batch}   (scope streaming)\n//   worker → main: {type:'dcOP', success, nodeVoltages}\n//   worker → main: {type:'pong'}\n//   worker → main: {type:'error', message}\n(function() {\n  'use strict';\n  var running = false;\n  var speed = 1;\n  var batchId = 0;\n  var circuit = null;\n  var stepsPerTick = 10;\n  var timer = null;\n\n  function tick() {\n    if (!running) return;\n    var now = Date.now();\n    var steps = [];\n    // Synthetic timebase — main thread still drives the real solver and will\n    // correlate with these ticks when Sprint 44 lands the full offload.\n    for (var i = 0; i < stepsPerTick * speed; i++) {\n      steps.push({ t: now + i, ack: batchId });\n    }\n    batchId++;\n    self.postMessage({ type: 'tick', time: now, batch: batchId, steps: steps });\n    timer = setTimeout(tick, 16);\n  }\n\n  self.onmessage = function(e) {\n    var msg = e.data || {};\n    try {\n      switch (msg.command) {\n        case 'init':\n          circuit = msg.circuit || null;\n          self.postMessage({ type: 'ready', nodeCount: circuit ? (circuit.N || 0) : 0 });\n          break;\n        case 'start':\n          running = true;\n          speed = msg.speed || 1;\n          if (timer) clearTimeout(timer);\n          tick();\n          break;\n        case 'stop':\n          running = false;\n          if (timer) { clearTimeout(timer); timer = null; }\n          break;\n        case 'setSpeed':\n          speed = msg.speed || 1;\n          break;\n        case 'updateComponent':\n          if (circuit && typeof msg.compIndex === 'number' && circuit.comps) {\n            var c = circuit.comps[msg.compIndex];\n            if (c && msg.updates) for (var k in msg.updates) c[k] = msg.updates[k];\n          }\n          break;\n        case 'dcOP':\n          // Placeholder — real DC solve handled by main thread (Sprint 44 moves it here).\n          self.postMessage({ type: 'dcOP', success: true, nodeVoltages: [] });\n          break;\n        case 'ping':\n          self.postMessage({ type: 'pong', echo: msg.echo || null });\n          break;\n      }\n    } catch (err) {\n      self.postMessage({ type: 'error', message: String(err && err.message || err) });\n    }\n  };\n})();\n"; }
 </script>
 </body>
 </html>

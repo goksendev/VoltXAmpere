@@ -110,6 +110,11 @@ const JS_FILES = [
   'src/engine/initial-conditions.js',
   'src/engine/sources.js',
 
+  // Engine: SimBridge (Sprint 43 — v9.0)
+  // NOTE: sim-worker-body.js is embedded separately via VXA._workerCode;
+  // it is NOT concatenated into the main bundle.
+  'src/engine/sim-bridge.js',
+
   // Engine: legacy MNA sim
   'src/engine/sim-legacy.js',
 
@@ -342,10 +347,32 @@ function build() {
   // 3. Read HTML template
   let html = fs.readFileSync('src/index.html', 'utf8');
 
+  // Sprint 43: capture worker body text and expose as VXA._workerCode
+  // NOTE: src/app.js ends with an inline </script> tag (legacy), so we cannot
+  // append the worker-code assignment to the main bundle. Instead, inject a
+  // separate <script> block right before </body>, using a safe JSON.stringify.
+  const WORKER_BODY_PATH = 'src/engine/sim-worker-body.js';
+  let workerCode = '';
+  if (fs.existsSync(WORKER_BODY_PATH)) {
+    workerCode = fs.readFileSync(WORKER_BODY_PATH, 'utf8');
+  }
+  // Guard: escape any </script in the payload to avoid HTML parser breakage
+  const safeWorkerCode = JSON.stringify(workerCode).replace(/<\/script/gi, '<\\/script');
+  const workerScriptBlock =
+    '<script>\n// ═══ sim-worker-body.js (embedded for Web Worker) ═══\n' +
+    'if (typeof VXA !== "undefined") { VXA._workerCode = ' + safeWorkerCode + '; }\n' +
+    '</script>\n';
+
   // 4. Inline CSS, JS, and build timestamp
   html = html.replace('/* __CSS_PLACEHOLDER__ */', css);
   html = html.replace('/* __JS_PLACEHOLDER__ */', jsBundle);
   html = html.replace('__BUILD_TIME__', new Date().toISOString().slice(0, 16).replace('T', ' '));
+  // Inject worker-code block before the final </body>. Use lastIndexOf to avoid
+  // matching a literal '</body>' string inside JS (e.g. startup.js report template).
+  const bodyIdx = html.lastIndexOf('</body>');
+  if (bodyIdx >= 0) {
+    html = html.slice(0, bodyIdx) + workerScriptBlock + html.slice(bodyIdx);
+  }
 
   // 5. Write dist/index.html
   fs.mkdirSync('dist', { recursive: true });

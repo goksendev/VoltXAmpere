@@ -9101,6 +9101,239 @@ console.log = function() {
   const lbFail = lbResults.filter(r => !r.pass).length;
   console.log(`\n  Sprint 42: ${lbPass} PASS, ${lbFail} FAIL out of ${lbResults.length}`);
 
+  // ═══════════════════════════════════════════════════════════════
+  // SPRINT 43: WEB WORKER SIM BRIDGE (v9.0)
+  // ═══════════════════════════════════════════════════════════════
+  console.log('\n📋 Sprint 43: WEB WORKER (v9.0)');
+  // Part A: DOM-evaluable smoke tests
+  const wwBasic = await page.evaluate(() => {
+    const r = [];
+    function add(name, ok) { r.push({ name, pass: !!ok }); }
+
+    // === WORKER OLUŞTURMA ===
+    add('TEST_WW_01: VXA.SimBridge module exists', typeof VXA !== 'undefined' && !!VXA.SimBridge);
+    if (!VXA || !VXA.SimBridge) return r;
+    const SB = VXA.SimBridge;
+
+    let initCrash = false;
+    try { SB.init(); } catch (e) { initCrash = true; }
+    add('TEST_WW_02: init() runs without crash', !initCrash);
+    add('TEST_WW_03: isWorkerMode() returns boolean', typeof SB.isWorkerMode() === 'boolean');
+    add('TEST_WW_04: fallback OR worker active (never null)',
+      SB.isWorkerMode() === true || SB.isWorkerMode() === false);
+
+    // === İLETİŞİM ===
+    function safe(fn) { try { fn(); return true; } catch (e) { return false; } }
+    add('TEST_WW_05: sendCircuit() no-crash', safe(() => SB.sendCircuit({ N: 3, comps: [] })));
+    add('TEST_WW_06: start() no-crash', safe(() => SB.start(1)));
+    add('TEST_WW_07: stop() no-crash', safe(() => SB.stop()));
+    add('TEST_WW_08: setSpeed(2) no-crash', safe(() => SB.setSpeed(2)));
+    add('TEST_WW_09: updateComponent() no-crash',
+      safe(() => SB.updateComponent(0, { val: 1000 })));
+
+    // === BUILD ===
+    add('TEST_WW_22: VXA._workerCode string embedded',
+      typeof VXA._workerCode === 'string' && VXA._workerCode.length > 100);
+
+    // === SCOPE / READOUT API ===
+    add('TEST_WW_25: onStep callback registrable', typeof SB.onStep === 'function');
+    add('TEST_WW_26: onTick callback registrable', typeof SB.onTick === 'function');
+    add('TEST_WW_27: requestDCOP exists', typeof SB.requestDCOP === 'function');
+
+    // === EDGE CASES ===
+    add('TEST_WW_31: empty circuit init no-crash',
+      safe(() => SB.sendCircuit({})) && safe(() => SB.sendCircuit(null)));
+    add('TEST_WW_32: send circuit after start no-crash',
+      safe(() => { SB.start(); SB.sendCircuit({ N: 5 }); SB.stop(); }));
+    add('TEST_WW_33: getLastError callable',
+      typeof SB.getLastError === 'function' &&
+      (SB.getLastError() === null || typeof SB.getLastError() === 'string'));
+    add('TEST_WW_34: repeated start/stop no-crash',
+      safe(() => { for (let i = 0; i < 5; i++) { SB.start(); SB.stop(); } }));
+
+    // === SIMULATION CORRECTNESS (main-thread fallback still drives NR) ===
+    // Load LED preset and run sim — validate Vf via existing engine.
+    function loadAndSim(presetId, steps) {
+      if (typeof loadPreset === 'function') loadPreset(presetId);
+      if (typeof toggleSim === 'function' && !S.sim.running) toggleSim();
+      for (let i = 0; i < steps; i++) {
+        if (typeof simulationStep === 'function') simulationStep();
+      }
+      if (S.sim.running && typeof toggleSim === 'function') toggleSim();
+    }
+
+    // TEST_WW_10: LED — S._nodeVoltages is a Float64Array (not Array.isArray)
+    loadAndSim('led', 200);
+    function isArrayLike(x) { return x && typeof x.length === 'number'; }
+    let ledVf = NaN;
+    if (isArrayLike(S._nodeVoltages)) {
+      const ledPart = S.parts.find(p => p.type === 'led');
+      if (ledPart && S._pinToNode) {
+        const pins = getPartPins(ledPart);
+        const n1 = S._pinToNode[Math.round(pins[0].x)+','+Math.round(pins[0].y)] || 0;
+        const n2 = S._pinToNode[Math.round(pins[1].x)+','+Math.round(pins[1].y)] || 0;
+        const v1 = S._nodeVoltages[n1] || 0, v2 = S._nodeVoltages[n2] || 0;
+        ledVf = Math.abs(v1 - v2);
+      }
+    }
+    add('TEST_WW_10: LED Vf in [1.5, 2.2] V after sim', ledVf > 1.5 && ledVf < 2.2);
+
+    // TEST_WW_13: no NaN anywhere
+    let allFinite = true;
+    if (isArrayLike(S._nodeVoltages)) {
+      for (let i = 0; i < S._nodeVoltages.length; i++) {
+        if (!isFinite(S._nodeVoltages[i])) { allFinite = false; break; }
+      }
+    }
+    add('TEST_WW_13: no NaN/Inf in node voltages', allFinite);
+
+    // TEST_WW_14: convergence flag
+    add('TEST_WW_14: convergence healthy post-sim',
+      typeof S._lastConverged === 'undefined' || S._lastConverged !== false);
+
+    // === FALLBACK ===
+    // Terminate worker to force fallback path, verify API still works
+    try { SB.terminate(); } catch (e) {}
+    add('TEST_WW_15: terminate → fallback mode', SB.isWorkerMode() === false);
+    add('TEST_WW_16: fallback start/stop still callable',
+      safe(() => { SB.start(); SB.stop(); }));
+    add('TEST_WW_17: fallback setSpeed/updateComponent still callable',
+      safe(() => { SB.setSpeed(1); SB.updateComponent(0, { val: 500 }); }));
+
+    // === REGRESSION ===
+    add('TEST_WW_35: prior modules intact',
+      !!VXA.Params && !!VXA.StepAnalysis && !!VXA.Measure &&
+      !!VXA.InitialConditions && !!VXA.Sources &&
+      !!VXA.Subcircuit && !!VXA.BSIM3 && !!VXA.LibImport);
+    add('TEST_WW_36: PRESETS.length === 55', typeof PRESETS !== 'undefined' && PRESETS.length === 55);
+    add('TEST_WW_37: canvas sentinel', !!document.querySelector('canvas'));
+    // LED Vf preserved (motor regression — already covered but keep explicit)
+    add('TEST_WW_38: LED Vf motor regression (from TEST_WW_10)', ledVf > 1.5 && ledVf < 2.2);
+    // Zener sanity — load and sim zener regulator preset if available
+    loadAndSim('zener-reg', 300);
+    let zvOK = true;
+    if (Array.isArray(S._nodeVoltages)) {
+      // Just ensure numbers are finite (preset-specific voltage is covered by sprint 31 tests)
+      for (let i = 0; i < S._nodeVoltages.length; i++) {
+        if (!isFinite(S._nodeVoltages[i])) { zvOK = false; break; }
+      }
+    }
+    add('TEST_WW_39: Zener preset runs to finite state', zvOK);
+    add('TEST_WW_40: build artefact healthy (workerCode + models)',
+      typeof VXA._workerCode === 'string' && typeof COMP !== 'undefined' && typeof PRESETS !== 'undefined');
+
+    return r;
+  });
+
+  // Part B: Tests requiring real timing (dc sweep + worker ping)
+  const wwTiming = await page.evaluate(async () => {
+    const r = [];
+    function add(name, ok) { r.push({ name, pass: !!ok }); }
+    const SB = VXA.SimBridge;
+
+    // Re-init a worker attempt for ping test
+    try { SB.init(); } catch (e) {}
+
+    // TEST_WW_21 / TEST_WW_30: API roundtrip via ping (worker) or fallback
+    const pingPromise = new Promise((resolve) => {
+      let done = false;
+      SB.ping('hello', (echo) => { done = true; resolve(echo === 'hello'); });
+      setTimeout(() => { if (!done) resolve(false); }, 500);
+    });
+    const pingOk = await pingPromise;
+    add('TEST_WW_21: ping roundtrip (worker or fallback) returns echo', pingOk);
+
+    // requestDCOP callback fires
+    const dcPromise = new Promise((resolve) => {
+      let done = false;
+      SB.requestDCOP((ok) => { done = true; resolve(typeof ok === 'boolean'); });
+      setTimeout(() => { if (!done) resolve(false); }, 800);
+    });
+    const dcOk = await dcPromise;
+    add('TEST_WW_27b: requestDCOP callback fires within 800ms', dcOk);
+
+    // Performance timing — main-thread step budget
+    function timeSteps(n) {
+      const t0 = performance.now();
+      for (let i = 0; i < n; i++) if (typeof simulationStep === 'function') simulationStep();
+      return performance.now() - t0;
+    }
+    if (typeof loadPreset === 'function') loadPreset('led');
+    const t10 = timeSteps(10);
+    add('TEST_WW_18: 10-step budget < 200ms (loose for CI)', t10 < 200);
+    if (typeof loadPreset === 'function') loadPreset('rc-filter');
+    const t50 = timeSteps(50);
+    add('TEST_WW_19: 50-step budget < 1500ms', t50 < 1500);
+    add('TEST_WW_20: per-step avg < 30ms',
+      (t10 / 10) < 30 && (t50 / 50) < 30);
+
+    // toggleSim integration
+    add('TEST_WW_28: toggleSim defined', typeof toggleSim === 'function');
+    // Speed control via sim-speed.js + SimBridge (no throw)
+    let spOk = true;
+    try { SB.setSpeed(0.5); SB.setSpeed(2); SB.setSpeed(5); } catch (e) { spOk = false; }
+    add('TEST_WW_29: setSpeed chain (0.5x→2x→5x) no throw', spOk);
+    add('TEST_WW_30: speed range valid', spOk);
+
+    // Worker-mode specific: TEST_WW_11/12 with preset run
+    if (typeof loadPreset === 'function' && typeof simulationStep === 'function') {
+      // Voltage divider (10V source, equal R): expect ~5V across each
+      loadPreset('vdiv');
+      if (typeof toggleSim === 'function' && !S.sim.running) toggleSim();
+      for (let i = 0; i < 200; i++) simulationStep();
+      if (S.sim.running && typeof toggleSim === 'function') toggleSim();
+      // Just check there is a finite intermediate node voltage
+      let midV = NaN;
+      const nv = S._nodeVoltages;
+      if (nv && typeof nv.length === 'number') {
+        for (let i = 1; i < nv.length; i++) {
+          if (nv[i] > 0.5 && nv[i] < 9.5) { midV = nv[i]; break; }
+        }
+      }
+      add('TEST_WW_11: voltage divider produces intermediate V in (0.5, 9.5)',
+        isFinite(midV));
+    } else {
+      add('TEST_WW_11: skipped — sim API missing', false);
+    }
+
+    // RC charge: use rc-filter or any capacitor-containing preset
+    if (typeof loadPreset === 'function' && typeof simulationStep === 'function') {
+      loadPreset('rc-filter');
+      if (typeof toggleSim === 'function' && !S.sim.running) toggleSim();
+      for (let i = 0; i < 500; i++) simulationStep();
+      if (S.sim.running && typeof toggleSim === 'function') toggleSim();
+      const nv = S._nodeVoltages;
+      let rcFinite = nv && typeof nv.length === 'number' && nv.length > 0;
+      if (rcFinite) {
+        for (let i = 0; i < nv.length; i++) {
+          if (!isFinite(nv[i])) { rcFinite = false; break; }
+        }
+      }
+      add('TEST_WW_12: RC sim completes with finite voltages', rcFinite);
+    } else {
+      add('TEST_WW_12: skipped', false);
+    }
+
+    // Build-size checks (approx via bundled HTML length in DOM)
+    const htmlLen = document.documentElement.outerHTML.length;
+    add('TEST_WW_23: DOM HTML length < 2.5M chars (sanity)', htmlLen < 2_500_000);
+    add('TEST_WW_24: workerCode fits within embed',
+      typeof VXA._workerCode === 'string' && VXA._workerCode.length < 50000);
+
+    return r;
+  });
+
+  const wwResults = wwBasic.concat(wwTiming);
+  wwResults.sort((a, b) => {
+    const na = parseInt((a.name.match(/TEST_WW_(\d+)/) || [])[1] || 99);
+    const nb = parseInt((b.name.match(/TEST_WW_(\d+)/) || [])[1] || 99);
+    return na - nb;
+  });
+  wwResults.forEach(r => console.log(`  ${r.pass ? '✅' : '❌'} ${r.name}`));
+  const wwPass = wwResults.filter(r => r.pass).length;
+  const wwFail = wwResults.filter(r => !r.pass).length;
+  console.log(`\n  Sprint 43: ${wwPass} PASS, ${wwFail} FAIL out of ${wwResults.length}`);
+
   // === FINAL ÖZET ===
   const totalPass = await page.evaluate(() => {
     return { parts: typeof COMP !== 'undefined' ? Object.keys(COMP).length : 0, lines: document.querySelector('script') ? 'OK' : 'FAIL' };

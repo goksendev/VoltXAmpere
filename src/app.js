@@ -106,5 +106,9 @@ setTimeout(function() {
       if (dropZone) VXA.LibImport.setupFileDrop(dropZone);
     }
   } catch (e) { /* non-fatal */ }
+  // Sprint 43: spin up sim worker if supported (silent fallback otherwise)
+  try {
+    if (typeof VXA !== 'undefined' && VXA.SimBridge) VXA.SimBridge.init();
+  } catch (e) { /* non-fatal */ }
 }, 500);
-</script>
+// Sprint 43: stray closing script tag removed (legacy template artifact) — bundle now closes cleanly via src/index.html.
