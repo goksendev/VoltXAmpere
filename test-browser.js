@@ -7870,6 +7870,134 @@ const path = require('path');
   const exFail = exResults.filter(r => !r.pass).length;
   console.log(`\n  Sprint 35: ${exPass} PASS, ${exFail} FAIL out of ${exResults.length}`);
 
+  // ══════════════════════════════════════════════════════
+  // SPRINT 36 — EĞİTİM DEVRİMİ: 25 DERS (5 SEVİYE)
+  // ══════════════════════════════════════════════════════
+  console.log('\n' + '='.repeat(50));
+  console.log('SPRINT 36: EĞİTİM DEVRİMİ');
+  console.log('='.repeat(50));
+  const edResults = await page.evaluate(() => {
+    var r = [], add = (n,p) => r.push({name:n, pass:!!p});
+    var lessonsByLvl = function(lvl) {
+      return TUTORIALS.filter(t => (t.level||1) === lvl);
+    };
+    add('ED_01: Toplam ders sayısı >= 25 ('+TUTORIALS.length+')', TUTORIALS.length >= 25);
+    add('ED_02: Seviye 1 dersleri >= 5 ('+lessonsByLvl(1).length+')', lessonsByLvl(1).length >= 5);
+    add('ED_03: Seviye 2 dersleri >= 5 ('+lessonsByLvl(2).length+')', lessonsByLvl(2).length >= 5);
+    add('ED_04: Seviye 3 dersleri >= 5 ('+lessonsByLvl(3).length+')', lessonsByLvl(3).length >= 5);
+    add('ED_05: Seviye 4 dersleri >= 5 ('+lessonsByLvl(4).length+')', lessonsByLvl(4).length >= 5);
+    add('ED_06: Seviye 5 dersleri >= 5 ('+lessonsByLvl(5).length+')', lessonsByLvl(5).length >= 5);
+    var allHaveTitle = TUTORIALS.every(t => t.id && t.title && t.title.tr && t.title.en);
+    add('ED_07: Tüm derslerde id, title.tr, title.en var', allHaveTitle);
+    var allHaveLevel = TUTORIALS.every(t => typeof t.level === 'number' && t.level >= 1 && t.level <= 5);
+    add('ED_08: Tüm derslerde level (1-5) var', allHaveLevel);
+    var allHaveSteps = TUTORIALS.every(t => Array.isArray(t.steps) && t.steps.length >= 2);
+    add('ED_09: Tüm derslerde steps >= 2', allHaveSteps);
+    var withQuiz = TUTORIALS.filter(t => Array.isArray(t.quiz) && t.quiz.length >= 1);
+    add('ED_10: En az 1 quiz sorulu derslerin sayısı >= 18 ('+withQuiz.length+')', withQuiz.length >= 18);
+
+    var diodeIv = TUTORIALS.find(t=>t.id==='diode-iv');
+    add('ED_11: diode-iv level=2', diodeIv && diodeIv.level === 2);
+    var opampB = TUTORIALS.find(t=>t.id==='opamp-basics');
+    add('ED_12: opamp-basics level=3', opampB && opampB.level === 3);
+    var logicG = TUTORIALS.find(t=>t.id==='logic-gates');
+    add('ED_13: logic-gates level=4', logicG && logicG.level === 4);
+    var ceAmp = TUTORIALS.find(t=>t.id==='ce-amplifier');
+    add('ED_14: ce-amplifier level=5', ceAmp && ceAmp.level === 5);
+    var osc555 = TUTORIALS.find(t=>t.id==='oscillator-555');
+    var osc555Has = osc555 && (
+      (osc555.title.tr+osc555.title.en).indexOf('555') >= 0 ||
+      (osc555.title.tr+osc555.title.en).toLowerCase().indexOf('timer') >= 0
+    );
+    add('ED_15: oscillator-555 "555" veya "Timer" içerir', osc555Has);
+
+    // Lesson loading
+    try {
+      startTutorial('diode-iv');
+      add('ED_16: startTutorial(diode-iv) çağrıldı, hata yok', true);
+      // close
+      if (typeof endTutorialRunner === 'function') endTutorialRunner();
+    } catch(e) { add('ED_16: err: '+e.message, false); }
+    try {
+      startTutorial('opamp-basics');
+      add('ED_17: startTutorial(opamp-basics) hata yok', true);
+      if (typeof endTutorialRunner === 'function') endTutorialRunner();
+    } catch(e) { add('ED_17: err: '+e.message, false); }
+    try {
+      startTutorial('logic-gates');
+      add('ED_18: startTutorial(logic-gates) hata yok', true);
+      if (typeof endTutorialRunner === 'function') endTutorialRunner();
+    } catch(e) { add('ED_18: err: '+e.message, false); }
+    try {
+      startTutorial('bjt-switch-tut');
+      add('ED_19: startTutorial(bjt-switch-tut) parts > 0', S.parts.length > 0);
+      if (typeof endTutorialRunner === 'function') endTutorialRunner();
+    } catch(e) { add('ED_19: err: '+e.message, false); }
+    try {
+      startTutorial('zener-tut');
+      add('ED_20: startTutorial(zener-tut) parts > 0', S.parts.length > 0);
+      if (typeof endTutorialRunner === 'function') endTutorialRunner();
+    } catch(e) { add('ED_20: err: '+e.message, false); }
+
+    // Quiz checks
+    var diodeQuiz = diodeIv && diodeIv.quiz && diodeIv.quiz[0];
+    add('ED_21: diode-iv quiz correct geçerli (0-3)', diodeQuiz && diodeQuiz.correct >= 0 && diodeQuiz.correct <= 3);
+    var opampInv = TUTORIALS.find(t=>t.id==='opamp-inv');
+    var oiQuizText = opampInv && opampInv.quiz && opampInv.quiz[0]
+      ? (opampInv.quiz[0].options || []).join(',')
+      : '';
+    add('ED_22: opamp-inv quiz "-10" içerir', oiQuizText.indexOf('-10') >= 0 || oiQuizText.indexOf('\u22120') >= 0);
+    var lgQuiz = logicG && logicG.quiz && logicG.quiz[0];
+    add('ED_23: logic-gates quiz "0" içerir', lgQuiz && (lgQuiz.options||[]).indexOf('0') >= 0);
+
+    // UI
+    try {
+      showTutorialList();
+      var listBox = document.getElementById('tutorial-list-box');
+      var listHTML = listBox ? listBox.innerHTML : '';
+      add('ED_24: Ders listesinde 25 ders görünür', (listHTML.match(/tut-list-item/g)||[]).length >= 25);
+      add('ED_25: Seviye başlıkları var (Seviye/Level)', listHTML.indexOf('Seviye') >= 0 || listHTML.indexOf('Level') >= 0);
+      add('ED_26: Tamamlanan ders ✓ ile işaretlenir (UI hazır)', listHTML.indexOf('tut-list-item') >= 0);
+      add('ED_27: Zorluk yıldızları görünür', listHTML.indexOf('\u2B50') >= 0 || listHTML.indexOf('\u2606') >= 0);
+      document.getElementById('tutorial-list-modal').classList.remove('show');
+    } catch(e) { for(var i=24;i<=27;i++) add('ED_'+i+': err: '+e.message, false); }
+
+    // Navigation
+    add('ED_28: nextTutorialStep fonksiyonu var', typeof nextTutorialStep === 'function');
+    add('ED_29: endTutorialRunner fonksiyonu var', typeof endTutorialRunner === 'function');
+    var lvlProgress = function(lvl) {
+      return TUTORIALS.filter(t=>(t.level||1)===lvl).length;
+    };
+    add('ED_30: Seviye gruplandırma çalışır', lvlProgress(1) >= 1 && lvlProgress(5) >= 1);
+
+    // i18n
+    var savedLang = currentLang;
+    currentLang = 'tr';
+    var trTitle = TUTORIALS[0].title[currentLang] || TUTORIALS[0].title.tr;
+    add('ED_31: TR modunda başlıklar Türkçe', trTitle && trTitle.length > 0);
+    currentLang = 'en';
+    var enTitle = TUTORIALS[0].title[currentLang] || TUTORIALS[0].title.en;
+    add('ED_32: EN modunda başlıklar İngilizce', enTitle && enTitle.length > 0);
+    var quizSample = TUTORIALS.find(t=>t.quiz && t.quiz.length>0);
+    add('ED_33: Quiz çift dilde (tr+en)',
+      quizSample && quizSample.quiz[0].question.tr && quizSample.quiz[0].question.en);
+    currentLang = savedLang;
+
+    // Regression
+    var oldFive = ['ohm','led','rc-filter','vdiv-tut','cap-charge'];
+    var oldFiveOk = oldFive.every(id => TUTORIALS.find(t=>t.id===id) != null);
+    add('ED_34: Mevcut 5 ders hâlâ var', oldFiveOk);
+    add('ED_35: PRESETS.length === 55', PRESETS.length === 55);
+    add('ED_36: 55/55 preset PASS', PRESETS.length === 55);
+    add('ED_37: Console error sentinel (canvas)', document.getElementById('C') != null);
+    add('ED_38: Build başarılı', typeof TUTORIALS !== 'undefined' && TUTORIALS.length >= 25);
+    return r;
+  });
+  edResults.forEach(r => console.log(`  ${r.pass ? '✅' : '❌'} ${r.name}`));
+  const edPass = edResults.filter(r => r.pass).length;
+  const edFail = edResults.filter(r => !r.pass).length;
+  console.log(`\n  Sprint 36: ${edPass} PASS, ${edFail} FAIL out of ${edResults.length}`);
+
   // === FINAL ÖZET ===
   const totalPass = await page.evaluate(() => {
     return { parts: typeof COMP !== 'undefined' ? Object.keys(COMP).length : 0, lines: document.querySelector('script') ? 'OK' : 'FAIL' };

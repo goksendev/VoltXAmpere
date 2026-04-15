@@ -72,17 +72,41 @@ function showTutorialList() {
   var html = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">'
     + '<h2 style="font:600 18px var(--font-ui);color:var(--accent)">📖 ' + (currentLang==='tr'?'İnteraktif Dersler':'Interactive Tutorials') + '</h2>'
     + '<button style="font-size:20px;color:var(--text-3);cursor:pointer;background:none;border:none" onclick="document.getElementById(\'tutorial-list-modal\').classList.remove(\'show\')">&times;</button></div>';
-  html += '<div style="font:11px var(--font-ui);color:var(--text-3);margin-bottom:12px">' + (currentLang==='tr'?'Seviye 1 — Başlangıç':'Level 1 — Beginner') + '</div>';
-  TUTORIALS.forEach(function(tut, idx) {
-    var done = progress[tut.id] && progress[tut.id].completed;
-    if (done) completed++;
-    var title = tut.title[currentLang] || tut.title.tr;
-    var desc = tut.desc[currentLang] || tut.desc.tr;
-    html += '<div class="tut-list-item" onclick="startTutorial(\'' + tut.id + '\')">'
-      + '<div><div class="tl-title">' + (idx+1) + '. ' + title + (done?' ✅':'') + '</div>'
-      + '<div class="tl-desc">' + desc + '</div></div>'
-      + '<div class="tl-badge">' + (currentLang==='tr'?'Başla →':'Start →') + '</div></div>';
-  });
+  // Sprint 36: Group by level (5 levels)
+  var levelNames = currentLang === 'tr' ? {
+    1:'Seviye 1 \u2014 Temel Elektronik',
+    2:'Seviye 2 \u2014 Yar\u0131iletkenler',
+    3:'Seviye 3 \u2014 Analog Tasar\u0131m',
+    4:'Seviye 4 \u2014 Dijital Elektronik',
+    5:'Seviye 5 \u2014 Proje'
+  } : {
+    1:'Level 1 \u2014 Basics',
+    2:'Level 2 \u2014 Semiconductors',
+    3:'Level 3 \u2014 Analog Design',
+    4:'Level 4 \u2014 Digital Electronics',
+    5:'Level 5 \u2014 Capstone Projects'
+  };
+  for (var lvl = 1; lvl <= 5; lvl++) {
+    var lessonsAtLvl = TUTORIALS.filter(function(t) { return (t.level || 1) === lvl; });
+    if (lessonsAtLvl.length === 0) continue;
+    var doneAtLvl = lessonsAtLvl.filter(function(t) { return progress[t.id] && progress[t.id].completed; }).length;
+    html += '<div style="font:600 12px var(--font-ui);color:var(--accent);margin:14px 0 8px 0;display:flex;justify-content:space-between">'
+      + '<span>' + levelNames[lvl] + '</span>'
+      + '<span style="color:var(--text-3);font-weight:400">' + doneAtLvl + '/' + lessonsAtLvl.length + '</span>'
+      + '</div>';
+    lessonsAtLvl.forEach(function(tut) {
+      var done = progress[tut.id] && progress[tut.id].completed;
+      if (done) completed++;
+      var title = tut.title[currentLang] || tut.title.tr;
+      var desc = tut.desc[currentLang] || tut.desc.tr;
+      var stars = '';
+      for (var s = 0; s < 5; s++) stars += s < (tut.level||1) ? '\u2B50' : '\u2606';
+      html += '<div class="tut-list-item" onclick="startTutorial(\'' + tut.id + '\')">'
+        + '<div><div class="tl-title">' + title + (done?' \u2705':'') + '</div>'
+        + '<div class="tl-desc">' + desc + '</div></div>'
+        + '<div class="tl-badge"><div style="font-size:9px;letter-spacing:-1px">' + stars + '</div>' + (currentLang==='tr'?'Ba\u015fla \u2192':'Start \u2192') + '</div></div>';
+    });
+  }
   var pct = Math.round(completed / TUTORIALS.length * 100);
   html += '<div style="margin-top:12px;font:11px var(--font-mono);color:var(--text-3)">' + (currentLang==='tr'?'İlerleme':'Progress') + ': ' + completed + '/' + TUTORIALS.length + '</div>';
   html += '<div class="tut-progress"><div class="tut-progress-bar" style="width:' + pct + '%"></div></div>';

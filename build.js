@@ -261,6 +261,7 @@ const JS_FILES = [
 
   // UI: interactive tutorials
   'src/ui/tutorials.js',
+  'src/ui/tutorials-extended.js',
 
   // Components: encyclopedia
   'src/components/encyclopedia.js',
