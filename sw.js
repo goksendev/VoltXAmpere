@@ -1,26 +1,29 @@
-const CACHE = 'vxa-v1';
-const ASSETS = ['./index.html', './manifest.json'];
+// Sprint 38b: SELF-DESTRUCT Service Worker
+// Eski SW kullanıcılarda yüklüydü ve cache-first stratejisi v7.1'i zorla servis ediyordu.
+// Bu yeni SW: tüm cache'leri siler, kendini unregister eder, fetch'lere dokunmaz.
+// Birkaç ziyaret sonrası tüm cihazlar temiz olur.
 
-self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)));
+self.addEventListener('install', function(e) {
   self.skipWaiting();
 });
 
-self.addEventListener('activate', e => {
-  e.waitUntil(
-    caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
-  );
-  self.clients.claim();
+self.addEventListener('activate', function(e) {
+  e.waitUntil((async function() {
+    // Tüm cache'leri sil
+    try {
+      var keys = await caches.keys();
+      await Promise.all(keys.map(function(k) { return caches.delete(k); }));
+    } catch (err) {}
+    // Kendini unregister et
+    try {
+      await self.registration.unregister();
+    } catch (err) {}
+    // Tüm açık client'ları reload et — taze indeks alsınlar
+    try {
+      var clients = await self.clients.matchAll({ type: 'window' });
+      clients.forEach(function(c) { c.navigate(c.url); });
+    } catch (err) {}
+  })());
 });
 
-self.addEventListener('fetch', e => {
-  e.respondWith(
-    caches.match(e.request).then(cached => cached || fetch(e.request).then(resp => {
-      if (resp.ok && e.request.method === 'GET') {
-        const clone = resp.clone();
-        caches.open(CACHE).then(c => c.put(e.request, clone));
-      }
-      return resp;
-    }).catch(() => cached))
-  );
-});
+// Fetch'e dokunma — network'ten gelsin

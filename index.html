@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<title>VoltXAmpere v8.0 — Free Online Circuit Simulator | Ücretsiz Devre Simülatörü</title>
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>VoltXAmpere v9.0 — Free Online Circuit Simulator | Ücretsiz Devre Simülatörü</title>
 <meta name="description" content="World's most advanced free online circuit simulator. 69+ components, 55 presets, 50+ SPICE models, 3D breadboard, CRT oscilloscope, pole-zero analysis, 555 timer, LED calibration ±29mV. No installation needed.">
 <meta name="keywords" content="circuit simulator, SPICE, devre simülatörü, elektronik, electronics, voltxampere, free, online, oscilloscope, bode plot, thermal, Newton-Raphson, MNA, Gummel-Poon">
 <meta name="author" content="VoltXAmpere">
@@ -656,7 +659,7 @@ input:focus{border-color:var(--accent)}
     <span id="sb-temp" style="color:var(--text-3)"></span>
     <span id="sb-engine" style="color:var(--text-4)"></span>
     <span id="sb-extra" style="color:var(--text-3)"></span>
-    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v8.0 — Build: 2026-04-15 01:43 — © 2026</span>
+    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v8.0 — Build: 2026-04-15 01:52 — © 2026</span>
   </div>
 </div>
 
@@ -10873,9 +10876,22 @@ function exportCSV() {
 
 
 // ═══ pwa.js ═══
-// ──────── PWA SERVICE WORKER ────────
+// ──────── PWA — Sprint 38b: Cache Kill Switch ────────
+// Eski cache-first SW v7.1'i kullanıcılarda kilitliyordu.
+// Bu sürüm: yeni self-destruct sw.js'i register eder; eski SW kendini söker.
+// İlave güvence: mevcut tüm SW'leri unregister + tüm cache'leri sil.
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js').catch(() => {});
+  // Önce: zorla temizle
+  navigator.serviceWorker.getRegistrations().then(function(regs) {
+    regs.forEach(function(r) { r.unregister().catch(function(){}); });
+  }).catch(function(){});
+  if (window.caches && caches.keys) {
+    caches.keys().then(function(keys) {
+      keys.forEach(function(k) { caches.delete(k).catch(function(){}); });
+    }).catch(function(){});
+  }
+  // Sonra: self-destruct sw.js'i register et — etkin olunca eski cache'leri siler
+  navigator.serviceWorker.register('sw.js').catch(function(){});
 }
 
 
