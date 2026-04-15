@@ -50,7 +50,7 @@ function toggleHighContrast() {
 // 10.4: CHANGELOG
 function showChangelog() {
   var html = '<div style="font:12px var(--font-ui);color:var(--text-2);line-height:1.7;max-height:400px;overflow-y:auto;padding:8px">';
-  html += '<h3 style="color:var(--accent);font-size:14px;margin:0 0 8px">v8.0 \u2014 Phase 3: Immersive</h3>';
+  html += '<h3 style="color:var(--accent);font-size:14px;margin:0 0 8px">v9.0 \u2014 .SUBCKT Era</h3>';
   html += '<p>\u2022 \u23EA Zaman Makinesi \u2014 DAW tarz\u0131 timeline, state scrubbing</p>';
   html += '<p>\u2022 Spike markers + bookmark sistemi</p>';
   html += '<p>\u2022 Circular buffer (2000 snapshot, ~5-10MB)</p>';

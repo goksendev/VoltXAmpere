@@ -178,7 +178,7 @@ function exportPNG() {
   ctx.fillStyle = '#aaa';
   ctx.font = '9px monospace';
   ctx.textAlign = 'left';
-  ctx.fillText('VoltXAmpere v8.0 \u2014 voltxampere.com', padding, fy);
+  ctx.fillText('VoltXAmpere v9.0 \u2014 voltxampere.com', padding, fy);
   ctx.textAlign = 'right';
   ctx.fillText(date, logicalW - padding, fy);
 
@@ -191,7 +191,7 @@ function exportPNG() {
 }
 
 function exportSPICE() {
-  var net = '* VoltXAmpere v8.0 — SPICE Netlist\n* Date: ' + new Date().toISOString().slice(0, 10) + '\n*\n';
+  var net = '* VoltXAmpere v9.0 — SPICE Netlist\n* Date: ' + new Date().toISOString().slice(0, 10) + '\n*\n';
   var usedModels = {};
   S.parts.forEach(function(p) {
     var def = COMP[p.type]; if (!def) return;

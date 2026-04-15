@@ -25,8 +25,10 @@
   }
 
   // Wrap simulationStep to apply speed multiplier
+  // Sprint 38c: expose original on window so audits can introspect the real source
   if (typeof simulationStep === 'function') {
     var _origSimStep = simulationStep;
+    window._origSimStep = _origSimStep; // for cross-sprint integration tests
     simulationStep = function() {
       var sp = S.simSpeed || 1;
       if (sp >= 1) {

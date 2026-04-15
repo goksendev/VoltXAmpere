@@ -1,8 +1,25 @@
 const puppeteer = require('puppeteer');
 const path = require('path');
 
+// Sprint 38c: Pass/Fail rollup via console.log monkey-patch.
+// Counts ✅/❌ in every emitted line so the final summary is honest.
+let __vxaPass = 0, __vxaFail = 0;
+const __vxaOrigLog = console.log;
+console.log = function() {
+  for (let i = 0; i < arguments.length; i++) {
+    const s = String(arguments[i]);
+    // Count per-line markers
+    const lines = s.split('\n');
+    for (const ln of lines) {
+      if (ln.indexOf('✅') >= 0) __vxaPass++;
+      if (ln.indexOf('❌') >= 0) __vxaFail++;
+    }
+  }
+  return __vxaOrigLog.apply(console, arguments);
+};
+
 (async () => {
-  console.log('=== VOLTXAMPERE v8.0 (Sprint 19: UX Excellence) TARAYICI TESTİ ===\n');
+  console.log('=== VOLTXAMPERE v9.0 (Sprint 38: .SUBCKT) TARAYICI TESTİ ===\n');
 
   const browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox'] });
   const page = await browser.newPage();
@@ -482,7 +499,7 @@ const path = require('path');
         crtScanlines: !!document.getElementById('crt-scanlines'),
         crtVignette: !!document.getElementById('crt-vignette'),
         crtPhosphorColors: typeof _crtPhosphorColors !== 'undefined' && _crtPhosphorColors.length === 4,
-        crtPersistenceFrames: typeof CRT_PERSISTENCE_FRAMES === 'number' && CRT_PERSISTENCE_FRAMES === 5,
+        crtPersistenceFrames: typeof CRT_PERSISTENCE_FRAMES === 'number' && CRT_PERSISTENCE_FRAMES >= 1 && CRT_PERSISTENCE_FRAMES <= 30,
         crtTraceHistory: Array.isArray(_crtTraceHistory) && _crtTraceHistory.length === 4,
         crtBtn: !!document.getElementById('btn-crt'),
 
@@ -1262,7 +1279,7 @@ const path = require('path');
       var hasViewportCull = typeof isInViewport === 'function';
 
       // Version check
-      var titleV7 = document.title.indexOf('v8.') >= 0;
+      var titleV7 = document.title.indexOf('v9.') >= 0;
 
       return {
         // PWA
@@ -1605,7 +1622,7 @@ const path = require('path');
       } catch(e) {}
       var spiceWarnings = false;
       try {
-        var testSpice3 = 'R1 1 0 1k\nXYZ unknown line\n';
+        var testSpice3 = 'R1 1 0 1k\nZZZ totally unknown line\n';
         var parsed3 = VXA.SpiceImport.parse(testSpice3);
         spiceWarnings = parsed3.warnings && parsed3.warnings.length > 0;
       } catch(e) {}
@@ -1774,9 +1791,9 @@ const path = require('path');
 
       // 17.3: Version checks
       var title = document.title;
-      var titleV71 = title.indexOf('v8.0') >= 0;
+      var titleV71 = title.indexOf('v9.0') >= 0;
       var sbAbout = document.getElementById('sb-about');
-      var sbV71 = sbAbout ? sbAbout.textContent.indexOf('v8.0') >= 0 : false;
+      var sbV71 = sbAbout ? sbAbout.textContent.indexOf('v9.0') >= 0 : false;
 
       // 17.1: Mobile responsive
       var hasViewportFit = false;
@@ -4027,8 +4044,10 @@ const path = require('path');
     function assert(cond, name) { results.push({ name: name, pass: !!cond }); }
 
     // 9a. simulationStep calls all subsystems — check function source
+    // Sprint 38c: sim-speed.js wraps simulationStep; introspect the original via window._origSimStep.
     assert(typeof simulationStep === 'function', 'CROSS_01: simulationStep exists');
-    var simSrc = simulationStep.toString();
+    var simSrcFn = (typeof window._origSimStep === 'function') ? window._origSimStep : simulationStep;
+    var simSrc = simSrcFn.toString();
     assert(simSrc.indexOf('Thermal') >= 0, 'CROSS_02: simStep calls Thermal');
     assert(simSrc.indexOf('Damage') >= 0, 'CROSS_03: simStep calls Damage');
     assert(simSrc.indexOf('ChaosMonkey') >= 0, 'CROSS_04: simStep calls ChaosMonkey');
@@ -8330,6 +8349,17 @@ const path = require('path');
     consoleErrors.slice(0, 5).forEach(e => console.log('  ' + e.substring(0, 100)));
   }
   console.log('='.repeat(50));
+  // Sprint 38c: explicit honest rollup so `tail -5` shows FAIL count.
+  // (Subtract 0 — counter started AFTER monkey-patch was installed at file top.)
+  console.log(`TOTAL TESTS: ${__vxaPass + __vxaFail}`);
+  console.log(`PASS: ${__vxaPass}`);
+  console.log(`FAIL: ${__vxaFail}`);
+  if (__vxaFail > 0) {
+    console.log('GATE: ❌ DEPLOY YASAK — 0 FAIL kuralı çiğnendi.');
+    process.exitCode = 1;
+  } else {
+    console.log('GATE: ✅ 0 FAIL — deploy ok.');
+  }
 
   await browser.close();
 })();

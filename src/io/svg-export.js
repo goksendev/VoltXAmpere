@@ -234,7 +234,7 @@ function exportSVG() {
   });
 
   // Footer
-  svg += '<text class="footer" x="' + padding + '" y="' + (h - 8) + '">VoltXAmpere v8.0 \u2014 voltxampere.com</text>\n';
+  svg += '<text class="footer" x="' + padding + '" y="' + (h - 8) + '">VoltXAmpere v9.0 \u2014 voltxampere.com</text>\n';
   svg += '<text class="footer" x="' + (w - padding) + '" y="' + (h - 8) + '" text-anchor="end">' + date + '</text>\n';
   svg += '</svg>\n';
 
