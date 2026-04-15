@@ -119,6 +119,9 @@ const JS_FILES = [
   'src/engine/sparse-fast.js',
   'src/engine/circuit-serializer.js',
 
+  // Engine: SpatialIndex quadtree (Sprint 45 — v9.0)
+  'src/engine/spatial-index.js',
+
   // Engine: legacy MNA sim
   'src/engine/sim-legacy.js',
 
@@ -271,6 +274,10 @@ const JS_FILES = [
 
   // UI: Model Browser modal — Sprint 42 (v9.0)
   'src/ui/model-browser.js',
+
+  // UI: Render optimization — LayerCache + LOD helper (Sprint 45 — v9.0)
+  'src/ui/layer-cache.js',
+  'src/ui/lod-render.js',
 
   // UI: breadboard 3D view
   'src/ui/breadboard.js',

@@ -674,7 +674,7 @@ input:focus{border-color:var(--accent)}
     <span id="sb-temp" style="color:var(--text-3)"></span>
     <span id="sb-engine" style="color:var(--text-4)"></span>
     <span id="sb-extra" style="color:var(--text-3)"></span>
-    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v9.0 — Build: 2026-04-15 11:20 — © 2026</span>
+    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v9.0 — Build: 2026-04-15 12:34 — © 2026</span>
   </div>
 </div>
 
@@ -8750,6 +8750,172 @@ VXA.CircuitSerializer = (function() {
   }
 
   return { serialize: serialize, serializeComp: serializeComp, PRIMITIVE_KEYS: PRIMITIVE_KEYS };
+})();
+
+
+// ═══ spatial-index.js ═══
+// ──────── SPRINT 45: SPATIAL INDEX (Quadtree) ────────
+// Viewport-culling index for S.parts. Rebuilds on demand; markDirty() after
+// add/remove/move. Render loop integration is opt-in — Sprint 45 ships the
+// data structure and hooks, future sprints wire it into drawScene().
+
+VXA.SpatialIndex = (function() {
+  'use strict';
+
+  function Quadtree(bounds, maxItems, maxDepth) {
+    this.bounds = bounds;
+    this.maxItems = maxItems || 8;
+    this.maxDepth = maxDepth || 6;
+    this.items = [];
+    this.children = null;
+    this.depth = 0;
+  }
+
+  Quadtree.prototype._contains = function(item) {
+    return item.x >= this.bounds.x && item.x < this.bounds.x + this.bounds.w &&
+           item.y >= this.bounds.y && item.y < this.bounds.y + this.bounds.h;
+  };
+
+  Quadtree.prototype._intersects = function(r) {
+    return !(r.x > this.bounds.x + this.bounds.w ||
+             r.x + r.w < this.bounds.x ||
+             r.y > this.bounds.y + this.bounds.h ||
+             r.y + r.h < this.bounds.y);
+  };
+
+  Quadtree.prototype._itemInRange = function(item, r) {
+    var hw = (item.w || 60) / 2, hh = (item.h || 60) / 2;
+    return !(item.x - hw > r.x + r.w || item.x + hw < r.x ||
+             item.y - hh > r.y + r.h || item.y + hh < r.y);
+  };
+
+  Quadtree.prototype._subdivide = function() {
+    var x = this.bounds.x, y = this.bounds.y;
+    var hw = this.bounds.w / 2, hh = this.bounds.h / 2;
+    this.children = [
+      new Quadtree({ x: x, y: y, w: hw, h: hh }, this.maxItems, this.maxDepth),
+      new Quadtree({ x: x + hw, y: y, w: hw, h: hh }, this.maxItems, this.maxDepth),
+      new Quadtree({ x: x, y: y + hh, w: hw, h: hh }, this.maxItems, this.maxDepth),
+      new Quadtree({ x: x + hw, y: y + hh, w: hw, h: hh }, this.maxItems, this.maxDepth)
+    ];
+    for (var i = 0; i < 4; i++) this.children[i].depth = this.depth + 1;
+    var keep = [];
+    for (var j = 0; j < this.items.length; j++) {
+      var it = this.items[j], placed = false;
+      for (var c = 0; c < 4; c++) {
+        if (this.children[c]._contains(it)) { this.children[c].insert(it); placed = true; break; }
+      }
+      if (!placed) keep.push(it);
+    }
+    this.items = keep;
+  };
+
+  Quadtree.prototype.insert = function(item) {
+    if (!this._contains(item)) return false;
+    if (this.children) {
+      for (var i = 0; i < 4; i++) {
+        if (this.children[i]._contains(item)) { this.children[i].insert(item); return true; }
+      }
+      this.items.push(item);
+      return true;
+    }
+    this.items.push(item);
+    if (this.items.length > this.maxItems && this.depth < this.maxDepth) this._subdivide();
+    return true;
+  };
+
+  Quadtree.prototype.query = function(range, result) {
+    result = result || [];
+    if (!this._intersects(range)) return result;
+    for (var i = 0; i < this.items.length; i++) {
+      if (this._itemInRange(this.items[i], range)) result.push(this.items[i]);
+    }
+    if (this.children) {
+      for (var c = 0; c < 4; c++) this.children[c].query(range, result);
+    }
+    return result;
+  };
+
+  Quadtree.prototype.clear = function() { this.items = []; this.children = null; };
+
+  // ── Index management ───────────────────────────
+  var _tree = null;
+  var _dirty = true;
+  var _lastPartCount = -1;
+  var _lastWireCount = -1;
+  var _rebuildCount = 0;
+
+  function rebuild() {
+    _rebuildCount++;
+    if (typeof S === 'undefined' || !S || !Array.isArray(S.parts) || S.parts.length === 0) {
+      _tree = null; _dirty = false; return;
+    }
+    var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (var i = 0; i < S.parts.length; i++) {
+      var p = S.parts[i];
+      if (p.x - 80 < minX) minX = p.x - 80;
+      if (p.y - 80 < minY) minY = p.y - 80;
+      if (p.x + 80 > maxX) maxX = p.x + 80;
+      if (p.y + 80 > maxY) maxY = p.y + 80;
+    }
+    var pad = 200;
+    _tree = new Quadtree({
+      x: minX - pad, y: minY - pad,
+      w: Math.max(1, (maxX - minX) + pad * 2),
+      h: Math.max(1, (maxY - minY) + pad * 2)
+    });
+    for (var j = 0; j < S.parts.length; j++) {
+      var pp = S.parts[j];
+      _tree.insert({ x: pp.x, y: pp.y, w: 80, h: 80, ref: pp });
+    }
+    _dirty = false;
+    _lastPartCount = S.parts.length;
+    _lastWireCount = Array.isArray(S.wires) ? S.wires.length : 0;
+  }
+
+  // Ensure tree reflects current S.parts — polled by render hooks.
+  function ensureFresh() {
+    if (typeof S === 'undefined' || !S || !S.parts) return;
+    var pc = S.parts.length;
+    var wc = Array.isArray(S.wires) ? S.wires.length : 0;
+    if (_dirty || pc !== _lastPartCount || wc !== _lastWireCount) rebuild();
+  }
+
+  function queryViewport(viewX, viewY, viewW, viewH, zoom) {
+    ensureFresh();
+    if (!_tree) return [];
+    var ox = (S && S.view && typeof S.view.ox === 'number') ? S.view.ox : 0;
+    var oy = (S && S.view && typeof S.view.oy === 'number') ? S.view.oy : 0;
+    var z = zoom || (S && S.view && S.view.zoom) || 1;
+    var cx = (viewX - ox) / z;
+    var cy = (viewY - oy) / z;
+    var cw = viewW / z;
+    var ch = viewH / z;
+    return _tree.query({ x: cx, y: cy, w: cw, h: ch }).map(function(it) { return it.ref; });
+  }
+
+  function queryRange(x, y, w, h) {
+    ensureFresh();
+    if (!_tree) return [];
+    return _tree.query({ x: x, y: y, w: w, h: h }).map(function(it) { return it.ref; });
+  }
+
+  function markDirty() { _dirty = true; }
+  function isDirty() { return _dirty; }
+  function getRebuildCount() { return _rebuildCount; }
+  function getTree() { return _tree; }
+
+  return {
+    Quadtree: Quadtree,
+    rebuild: rebuild,
+    ensureFresh: ensureFresh,
+    queryViewport: queryViewport,
+    queryRange: queryRange,
+    markDirty: markDirty,
+    isDirty: isDirty,
+    getRebuildCount: getRebuildCount,
+    getTree: getTree
+  };
 })();
 
 
@@ -18781,6 +18947,171 @@ function runTransferFunc() {
     }
   };
 })();
+
+
+// ═══ layer-cache.js ═══
+// ──────── SPRINT 45: LAYER CACHE ────────
+// Triple-buffered offscreen canvas layers:
+//   Layer 0: Grid (invalidates when zoom/pan changes)
+//   Layer 1: Components + wires (invalidates when circuit changes)
+//   Layer 2: Dynamic overlay (selection, probe, current flow — always dirty)
+// Render loop integration is opt-in; Sprint 45 ships the API + tests.
+
+VXA.LayerCache = (function() {
+  'use strict';
+
+  var layers = [null, null, null];
+  var dirty = [true, true, true];
+  var lastZoom = -1, lastOx = -Infinity, lastOy = -Infinity;
+  var lastPartCount = -1, lastWireCount = -1;
+  var inited = false;
+
+  function _createCanvas(w, h) {
+    // Honour OffscreenCanvas if available, else fall back to <canvas>.
+    if (typeof OffscreenCanvas === 'function') {
+      try { return new OffscreenCanvas(Math.max(1, w), Math.max(1, h)); } catch (e) {}
+    }
+    if (typeof document !== 'undefined' && document.createElement) {
+      var c = document.createElement('canvas');
+      c.width = Math.max(1, w); c.height = Math.max(1, h);
+      return c;
+    }
+    return null;
+  }
+
+  function init(width, height) {
+    width = width | 0; height = height | 0;
+    for (var i = 0; i < 3; i++) layers[i] = _createCanvas(width, height);
+    dirty = [true, true, true];
+    inited = true;
+    return layers.every(function(x) { return !!x; });
+  }
+
+  function resize(width, height) {
+    if (!inited) return init(width, height);
+    width = width | 0; height = height | 0;
+    for (var i = 0; i < 3; i++) {
+      if (!layers[i]) { layers[i] = _createCanvas(width, height); }
+      else {
+        layers[i].width = Math.max(1, width);
+        layers[i].height = Math.max(1, height);
+      }
+    }
+    dirty = [true, true, true];
+    return true;
+  }
+
+  function checkDirty() {
+    if (typeof S === 'undefined' || !S) { dirty[2] = true; return; }
+    if (S.view) {
+      if (S.view.zoom !== lastZoom || S.view.ox !== lastOx || S.view.oy !== lastOy) {
+        dirty[0] = true; dirty[1] = true;
+        lastZoom = S.view.zoom; lastOx = S.view.ox; lastOy = S.view.oy;
+      }
+    }
+    if (Array.isArray(S.parts)) {
+      if (S.parts.length !== lastPartCount) { dirty[1] = true; lastPartCount = S.parts.length; if (VXA.SpatialIndex) VXA.SpatialIndex.markDirty(); }
+    }
+    if (Array.isArray(S.wires)) {
+      if (S.wires.length !== lastWireCount) { dirty[1] = true; lastWireCount = S.wires.length; }
+    }
+    dirty[2] = true;
+  }
+
+  function getLayer(i) { return layers[i] || null; }
+  function isDirty(i) { return !!dirty[i]; }
+  function setDirty(i) { if (i >= 0 && i < 3) dirty[i] = true; }
+  function setClean(i) { if (i >= 0 && i < 3) dirty[i] = false; }
+
+  function composit(targetCtx) {
+    if (!targetCtx) return false;
+    try {
+      for (var i = 0; i < 3; i++) {
+        if (layers[i]) targetCtx.drawImage(layers[i], 0, 0);
+      }
+      return true;
+    } catch (e) { return false; }
+  }
+
+  return {
+    init: init, resize: resize,
+    checkDirty: checkDirty,
+    getLayer: getLayer, isDirty: isDirty, setDirty: setDirty, setClean: setClean,
+    composit: composit
+  };
+})();
+
+
+// ═══ lod-render.js ═══
+// ──────── SPRINT 45: LOD RENDER HELPER ────────
+// Pure helpers for computing Level-of-Detail tier + optional LOD-aware draw.
+// Current render-loop is not mutated — drawPartLOD is available for call sites
+// (breadboard preview, export, future batched drawScene) to opt into LOD.
+
+VXA.LOD = (function() {
+  'use strict';
+
+  // Pixel-size thresholds mapped from zoom. COMP default width ≈ 80 world-units.
+  // Returns 0..3:
+  //   0: point  (screenSize < 8)   — single pixel
+  //   1: box    (screenSize < 20)  — tinted rectangle
+  //   2: simple (screenSize < 40)  — low-detail stroke
+  //   3: full   (otherwise)        — normal def.draw()
+  function lodLevel(zoom) {
+    var s = 80 * (zoom || 1);
+    if (s < 8)  return 0;
+    if (s < 20) return 1;
+    if (s < 40) return 2;
+    return 3;
+  }
+
+  // Convenience: screen size in pixels for a given part def + zoom.
+  function screenSize(zoom) { return 80 * (zoom || 1); }
+
+  // LOD-aware draw. Caller still manages ctx.translate/rotate for LOD 2+3.
+  // For LOD 0 and 1 we draw directly in screen space to avoid transform cost.
+  function drawPartLOD(ctx, part, zoom, defOverride) {
+    if (!ctx || !part) return;
+    var def = defOverride || (typeof COMP !== 'undefined' ? COMP[part.type] : null);
+    if (!def) return;
+    var lvl = lodLevel(zoom);
+    var ox = (typeof S !== 'undefined' && S.view) ? S.view.ox : 0;
+    var oy = (typeof S !== 'undefined' && S.view) ? S.view.oy : 0;
+    var sx = part.x * zoom + ox;
+    var sy = part.y * zoom + oy;
+    var color = def.color || '#888';
+
+    if (lvl === 0) {
+      ctx.fillStyle = color;
+      ctx.fillRect(sx - 1, sy - 1, 2, 2);
+      return;
+    }
+    if (lvl === 1) {
+      var ss = 80 * zoom;
+      var prevAlpha = ctx.globalAlpha;
+      ctx.globalAlpha = 0.7;
+      ctx.fillStyle = color;
+      ctx.fillRect(sx - ss / 3, sy - ss / 4, ss / 1.5, ss / 2);
+      ctx.globalAlpha = prevAlpha;
+      return;
+    }
+    // LOD 2 + 3 — delegate to def.draw() inside a scaled transform.
+    ctx.save();
+    ctx.translate(sx, sy);
+    ctx.scale(zoom, zoom);
+    if (part.rot) ctx.rotate((part.rot || 0) * Math.PI / 2);
+    if (part.flipH) ctx.scale(-1, 1);
+    if (part.flipV) ctx.scale(1, -1);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = lvl === 2 ? 1.5 / zoom : 2 / zoom;
+    try { def.draw(ctx, zoom, part); } catch (e) { /* non-fatal */ }
+    ctx.restore();
+  }
+
+  return { lodLevel: lodLevel, screenSize: screenSize, drawPartLOD: drawPartLOD };
+})();
+// Also expose drawPartLOD globally for convenience
+if (typeof window !== 'undefined') window.drawPartLOD = VXA.LOD.drawPartLOD;
 
 
 // ═══ breadboard.js ═══
