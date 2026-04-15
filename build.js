@@ -94,6 +94,11 @@ const JS_FILES = [
   // Models: subcircuit (.SUBCKT) — Sprint 38 (v9.0)
   'src/models/subcircuit.js',
 
+  // Engine: parametric design (Sprint 39 — v9.0)
+  'src/engine/params.js',
+  'src/engine/step-analysis.js',
+  'src/engine/measure.js',
+
   // Engine: legacy MNA sim
   'src/engine/sim-legacy.js',
 
@@ -237,6 +242,9 @@ const JS_FILES = [
 
   // UI: advanced analysis (Sprint 21: P-Z, Contour, H(s))
   'src/ui/advanced-analysis.js',
+
+  // UI: Commands tab (.PARAM/.STEP/.MEAS) — Sprint 39 (v9.0)
+  'src/ui/commands-tab.js',
 
   // UI: breadboard 3D view
   'src/ui/breadboard.js',

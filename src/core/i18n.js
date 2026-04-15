@@ -104,7 +104,7 @@ var STR = {
     empty_canvas_hint:'Sol panelden bileşen sürükleyin veya Ctrl+V ile SPICE yapıştırın',
     wire_placed:'Kablo bağlandı', wire_mode_on:'Kablo Modu — bir pine tıklayın',
     breadboard:'Breadboard', breadboard_view:'Breadboard Görünümü', breadboard_back:'Şematiğe dön',
-    tabPoleZero:'Kutup-Sıfır', tabContour2D:'2D Sweep', tabTransferFunc:'H(s)',
+    tabPoleZero:'Kutup-Sıfır', tabContour2D:'2D Sweep', tabTransferFunc:'H(s)', tabCommands:'⌨ Komutlar',
     runPoleZero:'▶ Kutup-Sıfır Analizi', runContour2D:'▶ 2D Sweep Başlat', runTransferFunc:'▶ H(s) Göster',
     compSearch:'Bileşen ara...', noSearchResult:'Sonuç bulunamadı', timer555:'555 Zamanlayıcı',
     pushButton:'Buton', buzzer:'Buzzer',
@@ -211,7 +211,7 @@ var STR = {
     empty_canvas_hint:'Drag components from panel or paste SPICE with Ctrl+V',
     wire_placed:'Wire connected', wire_mode_on:'Wire Mode — click a pin',
     breadboard:'Breadboard', breadboard_view:'Breadboard View', breadboard_back:'Back to schematic',
-    tabPoleZero:'Pole-Zero', tabContour2D:'2D Sweep', tabTransferFunc:'H(s)',
+    tabPoleZero:'Pole-Zero', tabContour2D:'2D Sweep', tabTransferFunc:'H(s)', tabCommands:'⌨ Commands',
     runPoleZero:'\u25B6 Pole-Zero Analysis', runContour2D:'\u25B6 Run 2D Sweep', runTransferFunc:'\u25B6 Show H(s)',
     compSearch:'Search components...', noSearchResult:'No results found', timer555:'555 Timer',
     pushButton:'Push Button', buzzer:'Buzzer',
@@ -270,7 +270,8 @@ function updateTabLabels() {
   var map = {scope:'tabScope',bode:'tabBode',dcsweep:'tabDCSweep',paramsweep:'tabParam',
     fft:'tabFFT',montecarlo:'tabMC',tempsweep:'tabTemp',noise:'tabNoise',
     sensitivity:'tabSens',worstcase:'tabWC',
-    timing:'tabTiming',polezero:'tabPoleZero',contour2d:'tabContour2D',transferfunc:'tabTransferFunc'};
+    timing:'tabTiming',polezero:'tabPoleZero',contour2d:'tabContour2D',transferfunc:'tabTransferFunc',
+    commands:'tabCommands'};
   tabs.forEach(function(tb) {
     var dt = tb.getAttribute('data-tab');
     if (dt && map[dt]) tb.textContent = t(map[dt]);

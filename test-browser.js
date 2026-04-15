@@ -6205,7 +6205,8 @@ console.log = function() {
 
     // === Analysis Tabs ===
     var btabs = document.querySelectorAll('.btab');
-    assert(btabs.length === 14, 'PIX_18: 14 analysis tabs exist (' + btabs.length + ')');
+    // Sprint 39: Commands tab eklendi → 15
+    assert(btabs.length === 15, 'PIX_18: 15 analysis tabs exist (' + btabs.length + ')');
 
     // Tab bar has overflow handling
     var tabBar = btabs[0] ? btabs[0].parentElement : null;
@@ -8336,6 +8337,142 @@ console.log = function() {
   const scPass = scResults.filter(r => r.pass).length;
   const scFail = scResults.filter(r => !r.pass).length;
   console.log(`\n  Sprint 38: ${scPass} PASS, ${scFail} FAIL out of ${scResults.length}`);
+
+  // ═══════════════════════════════════════════════════════════════
+  // SPRINT 39: .PARAM + .STEP + .MEAS (v9.0)
+  // ═══════════════════════════════════════════════════════════════
+  console.log('\n📋 Sprint 39: .PARAM + .STEP + .MEAS (v9.0)');
+  const pmResults = await page.evaluate(() => {
+    const r = [];
+    function add(name, ok, info) { r.push({ name, pass: !!ok, info: info || '' }); }
+
+    // === .PARAM ===
+    add('TEST_PM_01: VXA.Params module exists', typeof VXA !== 'undefined' && !!VXA.Params);
+    if (!VXA || !VXA.Params) return r;
+    const P = VXA.Params;
+
+    P.clear();
+    P.define('Rval', 1000);
+    add('TEST_PM_02: define+get round-trip', P.get('RVAL') === 1000 && P.get('rval') === 1000);
+
+    P.define('Rval', 1000);
+    add('TEST_PM_03: resolve("{Rval}") = 1000', P.resolve('{Rval}') === 1000);
+
+    add('TEST_PM_04: resolve("{Rval*2}") = 2000', P.resolve('{Rval*2}') === 2000);
+
+    P.define('Cval', 100e-9);
+    const fc = P.resolve('{1/(2*PI*Rval*Cval)}');
+    add('TEST_PM_05: 1/(2π·R·C) ~= 1591Hz', Math.abs(fc - 1591.549) < 1);
+
+    add('TEST_PM_06: bare number 1000 evaluates to 1000', P.evaluate('1000') === 1000);
+
+    P.clear();
+    const cnt = P.parseParamLine('.PARAM Rval=1k Cval=100n');
+    add('TEST_PM_07: parseParamLine sets 2 params', cnt === 2 && P.get('RVAL') === 1000 && Math.abs(P.get('CVAL') - 100e-9) < 1e-15);
+
+    P.clear();
+    const all = P.getAll();
+    add('TEST_PM_08: clear() empties', Object.keys(all).length === 0);
+
+    const unsafe = P.evaluate('window.alert(1)');
+    add('TEST_PM_09: unsafe expression returns NaN', isNaN(unsafe));
+
+    // === .STEP ===
+    add('TEST_PM_10: VXA.StepAnalysis module exists', !!VXA.StepAnalysis);
+    const SA = VXA.StepAnalysis;
+
+    const step1 = SA.parseStepLine('.STEP PARAM Rval 100 10k 100');
+    add('TEST_PM_11: parseStepLine returns values', step1 && Array.isArray(step1.values) && step1.values.length > 0);
+
+    const step2 = SA.parseStepLine('.STEP PARAM Rval 100 1000 100');
+    add('TEST_PM_12: LIN 100..1000 step100 → 10 values', step2 && step2.values.length === 10);
+
+    const step3 = SA.parseStepLine('.STEP PARAM R LIST 100 1k 10k');
+    add('TEST_PM_13: LIST → 3 values [100,1000,10000]', step3 && step3.values.length === 3 && step3.values[2] === 10000);
+
+    const step4 = SA.parseStepLine('.STEP DEC PARAM R 10 10000 5');
+    add('TEST_PM_14: DEC sweep (logarithmic)', step4 && step4.type === 'DEC' && step4.values.length >= 15 && step4.values[0] === 10);
+
+    const step5 = SA.parseStepLine('.STEP PARAM R 0 10000 1');
+    add('TEST_PM_15: >1000 points truncated', step5 && step5.values.length <= 1000 && step5.truncated === true);
+
+    let cbCalls = 0;
+    const stepCb = SA.parseStepLine('.STEP PARAM Tx 1 5 1');
+    const runRes = SA.runStep(stepCb, function(v, i) { cbCalls++; return { v: v }; });
+    add('TEST_PM_16: runStep callback invoked per value', cbCalls === stepCb.values.length);
+    add('TEST_PM_17: runStep results length matches', runRes.length === stepCb.values.length);
+
+    // === .MEAS ===
+    add('TEST_PM_18: VXA.Measure module exists', !!VXA.Measure);
+    const M = VXA.Measure;
+
+    const m1 = M.parseMeasLine('.MEAS TRAN Vavg AVG V(out)');
+    add('TEST_PM_19: parseMeasLine measType=AVG', m1 && m1.measType === 'AVG' && m1.measName === 'Vavg');
+
+    const m2 = M.parseMeasLine('.MEAS TRAN Vmax MAX V(out) FROM=1m TO=10m');
+    add('TEST_PM_20: parseMeasLine FROM/TO parsed', m2 && Math.abs(m2.from - 1e-3) < 1e-9 && Math.abs(m2.to - 10e-3) < 1e-9);
+
+    const wf = { times: [0,1,2,3,4], values: [1,2,3,4,5] };
+    const avgR = M.execute({ measName:'a', measType:'AVG', from:null, to:null }, wf);
+    add('TEST_PM_21: AVG [1..5] = 3', Math.abs(avgR.value - 3) < 1e-9);
+
+    const mxR = M.execute({ measName:'mx', measType:'MAX', from:null, to:null }, { times:[0,1,2,3,4], values:[1,5,3,7,2] });
+    add('TEST_PM_22: MAX [1,5,3,7,2] = 7', mxR.value === 7);
+
+    const mnR = M.execute({ measName:'mn', measType:'MIN', from:null, to:null }, { times:[0,1,2,3,4], values:[1,5,3,7,2] });
+    add('TEST_PM_23: MIN [1,5,3,7,2] = 1', mnR.value === 1);
+
+    const ppR = M.execute({ measName:'pp', measType:'PP', from:null, to:null }, { times:[0,1,2,3,4], values:[1,5,3,7,2] });
+    add('TEST_PM_24: PP [1,5,3,7,2] = 6', ppR.value === 6);
+
+    const rmsR = M.execute({ measName:'rms', measType:'RMS', from:null, to:null }, { times:[0,1,2,3], values:[3,4,3,4] });
+    add('TEST_PM_25: RMS √((9+16+9+16)/4) ≈ 3.5355', Math.abs(rmsR.value - Math.sqrt(12.5)) < 1e-9);
+
+    const findR = M.execute({ measName:'f', measType:'FIND', from:null, to:null, at:2 }, { times:[0,1,2,3,4], values:[10,20,30,40,50] });
+    add('TEST_PM_26: FIND AT=2 → 30', findR.value === 30);
+
+    const whenR = M.execute({ measName:'w', measType:'WHEN', from:null, to:null, trigVal:2.5 }, { times:[0,1,2,3,4], values:[0,1,2,3,4] });
+    add('TEST_PM_27: WHEN crosses 2.5 (interpolated 2.5)', Math.abs(whenR.value - 2.5) < 1e-9);
+
+    const fromR = M.execute({ measName:'fr', measType:'AVG', from:2, to:4 }, { times:[0,1,2,3,4], values:[100,100,1,2,3] });
+    add('TEST_PM_28: FROM/TO restricts window (avg 1,2,3 = 2)', Math.abs(fromR.value - 2) < 1e-9);
+
+    // === UI ===
+    add('TEST_PM_29: Commands tab button present', !!document.querySelector('.btab[data-tab="commands"]'));
+    add('TEST_PM_30: cmd-input textarea exists', !!document.getElementById('cmd-input'));
+    add('TEST_PM_31: cmd-run-btn button exists', !!document.getElementById('cmd-run-btn'));
+
+    // === ENTEGRASYON ===
+    P.clear();
+    P.define('Rval', 4700);
+    const part = { paramExpr: '{Rval}' };
+    if (typeof S !== 'undefined' && S && Array.isArray(S.parts)) S.parts.push(part);
+    SA.applyParamsToCircuit();
+    add('TEST_PM_32: paramExpr resolved on part.val', part.val === 4700);
+    if (typeof S !== 'undefined' && S && Array.isArray(S.parts)) S.parts.pop();
+
+    let stepCount = 0;
+    SA.runStep({ paramName:'X', values:[1,2,3] }, function(v) { stepCount++; });
+    add('TEST_PM_33: runStep defines param per iteration', stepCount === 3 && P.get('X') === 3);
+
+    const integrR = M.execute({ measName:'i', measType:'INTEG', from:null, to:null }, { times:[0,1,2], values:[1,1,1] });
+    add('TEST_PM_34: INTEG of constant=1 over [0..2] = 2', Math.abs(integrR.value - 2) < 1e-9);
+
+    // === REGRESYON ===
+    add('TEST_PM_35: COMP component count ≥ 70', typeof COMP !== 'undefined' && Object.keys(COMP).length >= 70);
+    add('TEST_PM_36: PRESETS.length === 55', typeof PRESETS !== 'undefined' && PRESETS.length === 55);
+    add('TEST_PM_37: canvas sentinel present', !!document.querySelector('canvas'));
+    add('TEST_PM_38: build healthy (PRESETS+COMP+VXA)',
+      typeof PRESETS !== 'undefined' && typeof COMP !== 'undefined' && typeof VXA === 'object');
+    add('TEST_PM_39: Subcircuit library still has ≥5 built-ins', VXA.Subcircuit && VXA.Subcircuit.getCount() >= 5);
+    add('TEST_PM_40: simulationStep still callable', typeof simulationStep === 'function');
+
+    return r;
+  });
+  pmResults.forEach(r => console.log(`  ${r.pass ? '✅' : '❌'} ${r.name}`));
+  const pmPass = pmResults.filter(r => r.pass).length;
+  const pmFail = pmResults.filter(r => !r.pass).length;
+  console.log(`\n  Sprint 39: ${pmPass} PASS, ${pmFail} FAIL out of ${pmResults.length}`);
 
   // === FINAL ÖZET ===
   const totalPass = await page.evaluate(() => {

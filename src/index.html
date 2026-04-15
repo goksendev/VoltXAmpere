@@ -126,6 +126,7 @@
       <button class="btab" data-tab="polezero" onclick="switchTab('polezero')">&#127919; P-Z</button>
       <button class="btab" data-tab="contour2d" onclick="switchTab('contour2d')">&#128506; 2D</button>
       <button class="btab" data-tab="transferfunc" onclick="switchTab('transferfunc')">&#128208; H(s)</button>
+      <button class="btab" data-tab="commands" onclick="switchTab('commands')">&#9000; Komutlar</button>
     </div>
     <div id="tab-scope" class="tab-panel active" style="grid-template-columns:1fr 200px">
       <div id="scope-wrap">
@@ -233,6 +234,20 @@
     <div id="tab-polezero" class="tab-panel" style="position:relative"><canvas id="PZC" style="width:100%;height:100%"></canvas><div class="tab-overlay" id="ov-polezero"><p>AC devre kurun &mdash; kutup ve s&inodot;f&inodot;r analizi</p><button class="run-btn" onclick="runPoleZero()">&#9654; Pole-Zero Analizi</button></div></div>
     <div id="tab-contour2d" class="tab-panel" style="position:relative"><canvas id="CONTOUR2D" style="width:100%;height:100%"></canvas><div class="tab-overlay" id="ov-contour2d"><p>&#304;ki bile&scedil;en se&ccedil;in &mdash; 2D parametre taramas&inodot;</p><button class="run-btn" onclick="runContour2D()">&#9654; 2D Sweep Ba&scedil;lat</button></div></div>
     <div id="tab-transferfunc" class="tab-panel" style="position:relative"><canvas id="TFUNC" style="width:100%;height:100%"></canvas><div class="tab-overlay" id="ov-transferfunc"><p>&Ouml;nce Pole-Zero analizi &ccedil;al&inodot;&scedil;t&inodot;r&inodot;n</p><button class="run-btn" onclick="runTransferFunc()">&#9654; H(s) G&ouml;ster</button></div></div>
+    <div id="tab-commands" class="tab-panel" style="display:none;flex-direction:column;padding:8px;gap:6px;overflow:auto">
+      <div style="font:600 11px var(--font-mono);color:var(--text-3)">SPICE: .PARAM &middot; .STEP &middot; .MEAS</div>
+      <textarea id="cmd-input" spellcheck="false" style="flex:0 0 160px;width:100%;background:var(--surface-2);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:8px;font:12px var(--font-mono);resize:vertical">.PARAM Rval=1k
+.PARAM Cval=100n
+.STEP PARAM Rval 100 10k 1k
+.MEAS TRAN Vavg AVG V(out)
+.MEAS TRAN Vpp PP V(out)</textarea>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="run-btn" id="cmd-run-btn" onclick="runCommands()">&#9654; &Ccedil;al&inodot;&scedil;t&inodot;r</button>
+        <button class="run-btn" style="background:var(--surface-3)" onclick="document.getElementById('cmd-input').value='';document.getElementById('cmd-output').textContent=''">Temizle</button>
+        <span id="cmd-status" style="font:11px var(--font-mono);color:var(--text-3)"></span>
+      </div>
+      <pre id="cmd-output" style="flex:1;min-height:120px;background:var(--surface-2);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:8px;font:11px var(--font-mono);overflow:auto;white-space:pre-wrap"></pre>
+    </div>
   </div>
 
   <!-- TIMELINE BAR (Sprint 11: Time Machine) -->

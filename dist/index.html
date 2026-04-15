@@ -519,6 +519,7 @@ input:focus{border-color:var(--accent)}
       <button class="btab" data-tab="polezero" onclick="switchTab('polezero')">&#127919; P-Z</button>
       <button class="btab" data-tab="contour2d" onclick="switchTab('contour2d')">&#128506; 2D</button>
       <button class="btab" data-tab="transferfunc" onclick="switchTab('transferfunc')">&#128208; H(s)</button>
+      <button class="btab" data-tab="commands" onclick="switchTab('commands')">&#9000; Komutlar</button>
     </div>
     <div id="tab-scope" class="tab-panel active" style="grid-template-columns:1fr 200px">
       <div id="scope-wrap">
@@ -626,6 +627,20 @@ input:focus{border-color:var(--accent)}
     <div id="tab-polezero" class="tab-panel" style="position:relative"><canvas id="PZC" style="width:100%;height:100%"></canvas><div class="tab-overlay" id="ov-polezero"><p>AC devre kurun &mdash; kutup ve s&inodot;f&inodot;r analizi</p><button class="run-btn" onclick="runPoleZero()">&#9654; Pole-Zero Analizi</button></div></div>
     <div id="tab-contour2d" class="tab-panel" style="position:relative"><canvas id="CONTOUR2D" style="width:100%;height:100%"></canvas><div class="tab-overlay" id="ov-contour2d"><p>&#304;ki bile&scedil;en se&ccedil;in &mdash; 2D parametre taramas&inodot;</p><button class="run-btn" onclick="runContour2D()">&#9654; 2D Sweep Ba&scedil;lat</button></div></div>
     <div id="tab-transferfunc" class="tab-panel" style="position:relative"><canvas id="TFUNC" style="width:100%;height:100%"></canvas><div class="tab-overlay" id="ov-transferfunc"><p>&Ouml;nce Pole-Zero analizi &ccedil;al&inodot;&scedil;t&inodot;r&inodot;n</p><button class="run-btn" onclick="runTransferFunc()">&#9654; H(s) G&ouml;ster</button></div></div>
+    <div id="tab-commands" class="tab-panel" style="display:none;flex-direction:column;padding:8px;gap:6px;overflow:auto">
+      <div style="font:600 11px var(--font-mono);color:var(--text-3)">SPICE: .PARAM &middot; .STEP &middot; .MEAS</div>
+      <textarea id="cmd-input" spellcheck="false" style="flex:0 0 160px;width:100%;background:var(--surface-2);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:8px;font:12px var(--font-mono);resize:vertical">.PARAM Rval=1k
+.PARAM Cval=100n
+.STEP PARAM Rval 100 10k 1k
+.MEAS TRAN Vavg AVG V(out)
+.MEAS TRAN Vpp PP V(out)</textarea>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="run-btn" id="cmd-run-btn" onclick="runCommands()">&#9654; &Ccedil;al&inodot;&scedil;t&inodot;r</button>
+        <button class="run-btn" style="background:var(--surface-3)" onclick="document.getElementById('cmd-input').value='';document.getElementById('cmd-output').textContent=''">Temizle</button>
+        <span id="cmd-status" style="font:11px var(--font-mono);color:var(--text-3)"></span>
+      </div>
+      <pre id="cmd-output" style="flex:1;min-height:120px;background:var(--surface-2);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:8px;font:11px var(--font-mono);overflow:auto;white-space:pre-wrap"></pre>
+    </div>
   </div>
 
   <!-- TIMELINE BAR (Sprint 11: Time Machine) -->
@@ -659,7 +674,7 @@ input:focus{border-color:var(--accent)}
     <span id="sb-temp" style="color:var(--text-3)"></span>
     <span id="sb-engine" style="color:var(--text-4)"></span>
     <span id="sb-extra" style="color:var(--text-3)"></span>
-    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v9.0 — Build: 2026-04-15 02:05 — © 2026</span>
+    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v9.0 — Build: 2026-04-15 02:21 — © 2026</span>
   </div>
 </div>
 
@@ -1106,7 +1121,7 @@ var STR = {
     empty_canvas_hint:'Sol panelden bileşen sürükleyin veya Ctrl+V ile SPICE yapıştırın',
     wire_placed:'Kablo bağlandı', wire_mode_on:'Kablo Modu — bir pine tıklayın',
     breadboard:'Breadboard', breadboard_view:'Breadboard Görünümü', breadboard_back:'Şematiğe dön',
-    tabPoleZero:'Kutup-Sıfır', tabContour2D:'2D Sweep', tabTransferFunc:'H(s)',
+    tabPoleZero:'Kutup-Sıfır', tabContour2D:'2D Sweep', tabTransferFunc:'H(s)', tabCommands:'⌨ Komutlar',
     runPoleZero:'▶ Kutup-Sıfır Analizi', runContour2D:'▶ 2D Sweep Başlat', runTransferFunc:'▶ H(s) Göster',
     compSearch:'Bileşen ara...', noSearchResult:'Sonuç bulunamadı', timer555:'555 Zamanlayıcı',
     pushButton:'Buton', buzzer:'Buzzer',
@@ -1213,7 +1228,7 @@ var STR = {
     empty_canvas_hint:'Drag components from panel or paste SPICE with Ctrl+V',
     wire_placed:'Wire connected', wire_mode_on:'Wire Mode — click a pin',
     breadboard:'Breadboard', breadboard_view:'Breadboard View', breadboard_back:'Back to schematic',
-    tabPoleZero:'Pole-Zero', tabContour2D:'2D Sweep', tabTransferFunc:'H(s)',
+    tabPoleZero:'Pole-Zero', tabContour2D:'2D Sweep', tabTransferFunc:'H(s)', tabCommands:'⌨ Commands',
     runPoleZero:'\u25B6 Pole-Zero Analysis', runContour2D:'\u25B6 Run 2D Sweep', runTransferFunc:'\u25B6 Show H(s)',
     compSearch:'Search components...', noSearchResult:'No results found', timer555:'555 Timer',
     pushButton:'Push Button', buzzer:'Buzzer',
@@ -1272,7 +1287,8 @@ function updateTabLabels() {
   var map = {scope:'tabScope',bode:'tabBode',dcsweep:'tabDCSweep',paramsweep:'tabParam',
     fft:'tabFFT',montecarlo:'tabMC',tempsweep:'tabTemp',noise:'tabNoise',
     sensitivity:'tabSens',worstcase:'tabWC',
-    timing:'tabTiming',polezero:'tabPoleZero',contour2d:'tabContour2D',transferfunc:'tabTransferFunc'};
+    timing:'tabTiming',polezero:'tabPoleZero',contour2d:'tabContour2D',transferfunc:'tabTransferFunc',
+    commands:'tabCommands'};
   tabs.forEach(function(tb) {
     var dt = tb.getAttribute('data-tab');
     if (dt && map[dt]) tb.textContent = t(map[dt]);
@@ -7259,6 +7275,364 @@ VXA.Subcircuit = (function() {
     getCount: function() { return Object.keys(library).length; },
     BUILT_IN: BUILT_IN
   };
+})();
+
+
+// ═══ params.js ═══
+// ──────── SPRINT 39: .PARAM SYSTEM (v9.0) ────────
+// SPICE-compatible parameter store + safe expression evaluator.
+// No eval() — Function() with strict whitelist + length cap.
+
+VXA.Params = (function() {
+  'use strict';
+
+  var params = {};
+
+  function define(name, value) {
+    params[String(name).toUpperCase()] = value;
+  }
+
+  function get(name) {
+    return params[String(name).toUpperCase()];
+  }
+
+  function getAll() {
+    var out = {}; for (var k in params) out[k] = params[k]; return out;
+  }
+
+  function clear() { params = {}; }
+  function remove(name) { delete params[String(name).toUpperCase()]; }
+
+  // Safe character set: digits, dot, e/E, +-*/(), space, comma, letters (for Math + params)
+  var SAFE_RE = /^[0-9.eE+\-*/(), \tA-Z_]+$/;
+
+  function evaluateExpression(expr) {
+    if (typeof expr !== 'string') return Number(expr);
+    var src = expr.toUpperCase().trim();
+    if (src.length === 0 || src.length > 500) return NaN;
+
+    // Substitute parameters (whole-word match)
+    for (var key in params) {
+      var v = params[key];
+      // Recursive resolve if value itself is an expression
+      if (typeof v === 'string' && v.charAt(0) === '{') {
+        v = evaluateExpression(v.replace(/^\{|\}$/g, ''));
+      }
+      var re = new RegExp('\\b' + key + '\\b', 'g');
+      src = src.replace(re, '(' + Number(v) + ')');
+    }
+
+    // Constants
+    src = src.replace(/\bPI\b/g, '(' + Math.PI + ')');
+    src = src.replace(/\bE\b/g, '(' + Math.E + ')');
+
+    // Allowed math functions → __M.fn
+    var FUNCS = ['SQRT','SIN','COS','TAN','EXP','LOG','LOG10','ABS','POW',
+                 'ASIN','ACOS','ATAN','ATAN2','MIN','MAX','FLOOR','CEIL','ROUND'];
+    FUNCS.forEach(function(f) {
+      src = src.replace(new RegExp('\\b' + f + '\\b', 'g'), '__M.' + f.toLowerCase());
+    });
+
+    // Whitelist check: only digits/operators/parentheses/__M.x.y allowed
+    var stripped = src.replace(/__M\.[a-z0-9]+/g, '');
+    if (!/^[0-9.eE+\-*/(), \t]*$/.test(stripped)) {
+      return NaN;
+    }
+
+    try {
+      // eslint-disable-next-line no-new-func
+      var fn = new Function('__M', 'return (' + src + ');');
+      var r = fn(Math);
+      return (typeof r === 'number' && isFinite(r)) ? r : NaN;
+    } catch (e) {
+      return NaN;
+    }
+  }
+
+  function resolve(value) {
+    if (typeof value !== 'string') return value;
+    var m = String(value).match(/^\{(.+)\}$/);
+    if (!m) {
+      // Bare param name? (no braces) — try direct lookup
+      var key = value.toUpperCase();
+      if (params.hasOwnProperty(key)) {
+        var v = params[key];
+        return (typeof v === 'string') ? evaluateExpression(v.replace(/^\{|\}$/g, '')) : v;
+      }
+      return value;
+    }
+    return evaluateExpression(m[1]);
+  }
+
+  function parseParamLine(line) {
+    var content = String(line).replace(/^\.PARAM\s+/i, '').trim();
+    // Match: NAME = {expr}  OR  NAME = number(suffix)
+    var re = /(\w+)\s*=\s*(\{[^}]+\}|[\d.eE+\-]+\w*)/g;
+    var match, count = 0;
+    while ((match = re.exec(content)) !== null) {
+      var name = match[1];
+      var val = match[2];
+      if (val.charAt(0) === '{') {
+        define(name, val); // expression — resolved on demand
+      } else {
+        var n = (typeof VXA.SpiceParser !== 'undefined') ?
+          VXA.SpiceParser.parseSpiceNumber(val) : parseFloat(val);
+        define(name, n);
+      }
+      count++;
+    }
+    return count;
+  }
+
+  return {
+    define: define,
+    get: get,
+    getAll: getAll,
+    clear: clear,
+    remove: remove,
+    resolve: resolve,
+    evaluate: evaluateExpression,
+    parseParamLine: parseParamLine
+  };
+})();
+
+
+// ═══ step-analysis.js ═══
+// ──────── SPRINT 39: .STEP ANALYSIS (v9.0) ────────
+// SPICE-compatible parametric step (LIN/DEC/OCT/LIST).
+
+VXA.StepAnalysis = (function() {
+  'use strict';
+
+  var MAX_POINTS = 1000;
+
+  function pv(s) {
+    if (typeof VXA.SpiceParser !== 'undefined') return VXA.SpiceParser.parseSpiceNumber(String(s));
+    return parseFloat(s);
+  }
+
+  function parseStepLine(line) {
+    var tokens = String(line).replace(/^\.STEP\s+/i, '').trim().split(/\s+/);
+    var result = { type: 'LIN', paramName: '', values: [], truncated: false };
+    var i = 0;
+
+    if (i < tokens.length && /^(LIN|DEC|OCT)$/i.test(tokens[i])) {
+      result.type = tokens[i].toUpperCase(); i++;
+    }
+    if (i < tokens.length && /^PARAM$/i.test(tokens[i])) i++;
+
+    result.paramName = (tokens[i++] || '').toUpperCase();
+
+    if (i < tokens.length && /^LIST$/i.test(tokens[i])) {
+      i++;
+      while (i < tokens.length) {
+        var n = pv(tokens[i++]);
+        if (isFinite(n)) result.values.push(n);
+      }
+    } else {
+      var start = pv(tokens[i++] || '0');
+      var stop = pv(tokens[i++] || '1');
+      var stepOrPoints = pv(tokens[i++] || '1');
+
+      if (result.type === 'LIN') {
+        if (stepOrPoints <= 0) stepOrPoints = (stop - start) / 10 || 1;
+        var v = start;
+        var guard = 0;
+        while (v <= stop * 1.0000001 && guard < MAX_POINTS + 1) {
+          result.values.push(Math.round(v * 1e12) / 1e12);
+          v += stepOrPoints;
+          guard++;
+        }
+      } else if (result.type === 'DEC') {
+        if (start <= 0 || stop <= 0) return result;
+        var ppd = stepOrPoints || 10;
+        var decs = Math.log10(stop / start);
+        var npts = Math.round(decs * ppd);
+        for (var k = 0; k <= npts; k++) {
+          result.values.push(start * Math.pow(10, k / ppd));
+        }
+      } else if (result.type === 'OCT') {
+        if (start <= 0 || stop <= 0) return result;
+        var ppo = stepOrPoints || 10;
+        var octs = Math.log2(stop / start);
+        var npts2 = Math.round(octs * ppo);
+        for (var j = 0; j <= npts2; j++) {
+          result.values.push(start * Math.pow(2, j / ppo));
+        }
+      }
+    }
+
+    if (result.values.length > MAX_POINTS) {
+      result.values = result.values.slice(0, MAX_POINTS);
+      result.truncated = true;
+      console.warn('[.STEP] truncated to ' + MAX_POINTS + ' points');
+    }
+    return result;
+  }
+
+  function applyParamsToCircuit() {
+    if (typeof S === 'undefined' || !S || !S.parts) return;
+    S.parts.forEach(function(p) {
+      if (p.paramExpr) {
+        var resolved = VXA.Params.resolve(p.paramExpr);
+        if (typeof resolved === 'number' && isFinite(resolved)) p.val = resolved;
+      }
+    });
+  }
+
+  function runStep(stepConfig, simCallback) {
+    var results = [];
+    if (!stepConfig || !stepConfig.values) return results;
+    var pname = String(stepConfig.paramName).toUpperCase();
+    stepConfig.values.forEach(function(val, idx) {
+      VXA.Params.define(pname, val);
+      applyParamsToCircuit();
+      var r = (typeof simCallback === 'function') ? (simCallback(val, idx) || {}) : {};
+      r.paramValue = val;
+      r.paramName = pname;
+      r.index = idx;
+      results.push(r);
+    });
+    return results;
+  }
+
+  return {
+    parseStepLine: parseStepLine,
+    runStep: runStep,
+    applyParamsToCircuit: applyParamsToCircuit,
+    MAX_POINTS: MAX_POINTS
+  };
+})();
+
+
+// ═══ measure.js ═══
+// ──────── SPRINT 39: .MEAS MEASUREMENT (v9.0) ────────
+// SPICE-compatible waveform measurements (AVG/MAX/MIN/PP/RMS/INTEG/FIND/WHEN).
+
+VXA.Measure = (function() {
+  'use strict';
+
+  function pv(s) {
+    if (typeof VXA.SpiceParser !== 'undefined') return VXA.SpiceParser.parseSpiceNumber(String(s));
+    return parseFloat(s);
+  }
+
+  function parseMeasLine(line) {
+    var tokens = String(line).replace(/^\.MEAS(URE)?\s+/i, '').trim().split(/\s+/);
+    var result = {
+      analysisType: (tokens[0] || 'TRAN').toUpperCase(),
+      measName: tokens[1] || 'meas1',
+      measType: (tokens[2] || 'AVG').toUpperCase(),
+      expression: '',
+      from: null, to: null, at: null,
+      trigVal: null, crossNum: null, riseNum: null, fallNum: null
+    };
+
+    var rest = tokens.slice(3);
+    function readKv(name) {
+      for (var i = 0; i < rest.length; i++) {
+        var kv = rest[i].split('=');
+        if (kv.length === 2 && kv[0].toUpperCase() === name) return kv[1];
+      }
+      return null;
+    }
+
+    if (/^(AVG|MAX|MIN|PP|RMS|INTEG)$/.test(result.measType)) {
+      result.expression = rest[0] || 'V(out)';
+      var f = readKv('FROM'); if (f !== null) result.from = pv(f);
+      var to = readKv('TO'); if (to !== null) result.to = pv(to);
+    } else if (result.measType === 'FIND') {
+      result.expression = rest[0] || 'V(out)';
+      var at = readKv('AT'); if (at !== null) result.at = pv(at);
+    } else if (result.measType === 'WHEN') {
+      var whenExpr = rest[0] || 'V(out)=0';
+      var eq = whenExpr.indexOf('=');
+      if (eq >= 0) {
+        result.expression = whenExpr.substring(0, eq);
+        result.trigVal = parseFloat(whenExpr.substring(eq + 1));
+      }
+      var cr = readKv('CROSS'); if (cr !== null) result.crossNum = parseInt(cr, 10);
+      var ri = readKv('RISE');  if (ri !== null) result.riseNum = parseInt(ri, 10);
+      var fa = readKv('FALL');  if (fa !== null) result.fallNum = parseInt(fa, 10);
+    }
+    return result;
+  }
+
+  function execute(measConfig, waveformData) {
+    var times = waveformData ? waveformData.times : null;
+    var values = waveformData ? waveformData.values : null;
+    if (!times || !values || times.length === 0 || times.length !== values.length) {
+      return { name: measConfig.measName, value: NaN, error: 'No data' };
+    }
+
+    var startIdx = 0, endIdx = times.length - 1;
+    if (measConfig.from !== null) {
+      while (startIdx < times.length && times[startIdx] < measConfig.from) startIdx++;
+    }
+    if (measConfig.to !== null) {
+      while (endIdx > 0 && times[endIdx] > measConfig.to) endIdx--;
+    }
+    if (startIdx > endIdx) startIdx = endIdx;
+
+    var sV = values.slice(startIdx, endIdx + 1);
+    var sT = times.slice(startIdx, endIdx + 1);
+    var out = { name: measConfig.measName, value: NaN };
+    if (sV.length === 0) return out;
+
+    switch (measConfig.measType) {
+      case 'AVG':
+        var sum = 0; for (var a = 0; a < sV.length; a++) sum += sV[a];
+        out.value = sum / sV.length; break;
+      case 'MAX':
+        out.value = Math.max.apply(null, sV); break;
+      case 'MIN':
+        out.value = Math.min.apply(null, sV); break;
+      case 'PP':
+        out.value = Math.max.apply(null, sV) - Math.min.apply(null, sV); break;
+      case 'RMS':
+        var ss = 0; for (var b = 0; b < sV.length; b++) ss += sV[b] * sV[b];
+        out.value = Math.sqrt(ss / sV.length); break;
+      case 'INTEG':
+        var integ = 0;
+        for (var c = 1; c < sV.length; c++) integ += (sV[c] + sV[c-1]) / 2 * (sT[c] - sT[c-1]);
+        out.value = integ; break;
+      case 'FIND':
+        if (measConfig.at !== null) {
+          var closest = 0, minD = Infinity;
+          for (var d = 0; d < times.length; d++) {
+            var diff = Math.abs(times[d] - measConfig.at);
+            if (diff < minD) { minD = diff; closest = d; }
+          }
+          out.value = values[closest];
+        }
+        break;
+      case 'WHEN':
+        if (measConfig.trigVal !== null) {
+          var crossN = 0, riseN = 0, fallN = 0;
+          for (var i = 1; i < values.length; i++) {
+            var pp = values[i-1], cc = values[i];
+            var crossUp = (pp < measConfig.trigVal && cc >= measConfig.trigVal);
+            var crossDn = (pp > measConfig.trigVal && cc <= measConfig.trigVal);
+            if (crossUp || crossDn) {
+              crossN++;
+              if (crossUp) riseN++; else fallN++;
+              var okC = !measConfig.crossNum || crossN === measConfig.crossNum;
+              var okR = !measConfig.riseNum  || riseN  === measConfig.riseNum;
+              var okF = !measConfig.fallNum  || fallN  === measConfig.fallNum;
+              if (okC && okR && okF) {
+                var frac = (measConfig.trigVal - pp) / (cc - pp);
+                out.value = times[i-1] + frac * (times[i] - times[i-1]);
+                break;
+              }
+            }
+          }
+        }
+        break;
+    }
+    return out;
+  }
+
+  return { parseMeasLine: parseMeasLine, execute: execute };
 })();
 
 
@@ -16751,6 +17125,132 @@ function runTransferFunc() {
   if (ov) ov.style.display = 'none';
   switchTab('transferfunc');
 }
+
+
+// ═══ commands-tab.js ═══
+// ──────── SPRINT 39: Commands Tab UI Handler ────────
+// Parses .PARAM / .STEP / .MEAS lines from textarea and runs them.
+
+(function() {
+  function getNodeIndexByName(name) {
+    // Match "out", "node3", or "1" — fall back to S._pinToNode lookup if available.
+    if (!name) return null;
+    var n = parseInt(name, 10);
+    if (!isNaN(n)) return n;
+    if (typeof S !== 'undefined' && S && S._netNameMap && S._netNameMap[name.toUpperCase()] != null) {
+      return S._netNameMap[name.toUpperCase()];
+    }
+    return null;
+  }
+
+  function captureWaveform(nodeName) {
+    // Return latest scope buffer for the chosen node, if SimV2 / scope captured anything.
+    // Falls back to S._scopeHistory or similar arrays. Best-effort — produces { times, values }.
+    var times = [], values = [];
+    if (typeof S !== 'undefined' && S && Array.isArray(S._scopeBuf)) {
+      for (var i = 0; i < S._scopeBuf.length; i++) {
+        var p = S._scopeBuf[i];
+        if (p && typeof p.t === 'number' && typeof p.v === 'number') {
+          times.push(p.t); values.push(p.v);
+        }
+      }
+    }
+    return { times: times, values: values };
+  }
+
+  window.runCommands = function() {
+    var ta = document.getElementById('cmd-input');
+    var out = document.getElementById('cmd-output');
+    var statusEl = document.getElementById('cmd-status');
+    if (!ta || !out) return;
+    var lines = ta.value.split('\n');
+    var measLines = [];
+    var stepConfig = null;
+    var paramsApplied = 0;
+    var log = [];
+
+    try { VXA.Params.clear(); } catch (e) {}
+
+    lines.forEach(function(raw) {
+      var line = raw.trim();
+      if (!line || line.charAt(0) === '*' || line.charAt(0) === ';') return;
+      var upper = line.toUpperCase();
+      if (upper.indexOf('.PARAM') === 0) {
+        var c = VXA.Params.parseParamLine(line);
+        paramsApplied += c;
+        log.push('PARAM (' + c + '): ' + line);
+      } else if (upper.indexOf('.STEP') === 0) {
+        stepConfig = VXA.StepAnalysis.parseStepLine(line);
+        log.push('STEP ' + stepConfig.paramName + ' (' + stepConfig.values.length + ' pts)');
+      } else if (upper.indexOf('.MEAS') === 0) {
+        var m = VXA.Measure.parseMeasLine(line);
+        measLines.push(m);
+        log.push('MEAS ' + m.measName + ' = ' + m.measType + ' ' + m.expression);
+      } else {
+        log.push('SKIP: ' + line);
+      }
+    });
+
+    // Apply parameters to circuit (no-op if no paramExpr present)
+    try { VXA.StepAnalysis.applyParamsToCircuit(); } catch (e) {}
+
+    // Execute STEP if present
+    var stepResults = [];
+    if (stepConfig && stepConfig.values.length > 0) {
+      stepResults = VXA.StepAnalysis.runStep(stepConfig, function(val, idx) {
+        // Best-effort: run one simulation step if available — UI runner left to operator otherwise
+        if (typeof simulationStep === 'function') {
+          try { simulationStep(); } catch (e) {}
+        }
+        return { val: val };
+      });
+      log.push('STEP ran ' + stepResults.length + ' iterations');
+    }
+
+    // Execute MEAS lines against the most recent scope buffer
+    var measOutputs = [];
+    if (measLines.length > 0) {
+      var wf = captureWaveform();
+      measLines.forEach(function(m) {
+        var r = VXA.Measure.execute(m, wf);
+        measOutputs.push(r);
+      });
+    }
+
+    // Render output
+    var text = '── PARAM ──\n' + Object.keys(VXA.Params.getAll()).map(function(k) {
+      var v = VXA.Params.get(k);
+      return '  ' + k + ' = ' + (typeof v === 'number' ? v.toPrecision(4) : v);
+    }).join('\n');
+
+    if (stepConfig) {
+      text += '\n\n── STEP ──\n  ' + stepConfig.paramName + ' (' + stepConfig.type +
+              ', ' + stepConfig.values.length + ' pts' +
+              (stepConfig.truncated ? ' — truncated' : '') + ')\n';
+      if (stepConfig.values.length > 0) {
+        var prev = stepConfig.values.slice(0, 5).map(function(v) { return v.toPrecision(3); }).join(', ');
+        text += '  first: [' + prev + (stepConfig.values.length > 5 ? ', …' : '') + ']';
+      }
+    }
+
+    if (measOutputs.length > 0) {
+      text += '\n\n── MEAS ──\n';
+      measOutputs.forEach(function(r) {
+        text += '  ' + r.name + ' = ' +
+                (isNaN(r.value) ? '(' + (r.error || 'no data') + ')' :
+                  (typeof r.value === 'number' ? r.value.toPrecision(5) : r.value)) + '\n';
+      });
+    }
+
+    text += '\n\n── LOG ──\n  ' + log.join('\n  ');
+    out.textContent = text;
+    if (statusEl) {
+      statusEl.textContent = paramsApplied + ' param · ' +
+        (stepConfig ? stepConfig.values.length + ' step · ' : '') +
+        measLines.length + ' meas';
+    }
+  };
+})();
 
 
 // ═══ breadboard.js ═══
