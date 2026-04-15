@@ -125,6 +125,9 @@ const JS_FILES = [
   // Engine: Behavioral source + Laplace (Sprint 47 — v9.0)
   'src/engine/behavioral.js',
 
+  // Engine: Convergence Ultimate (pseudo-transient + 4-tier DC OP) — Sprint 48 (v9.0)
+  'src/engine/convergence.js',
+
   // Engine: legacy MNA sim
   'src/engine/sim-legacy.js',
 
