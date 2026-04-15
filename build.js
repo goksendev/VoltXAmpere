@@ -88,6 +88,10 @@ const JS_FILES = [
   // Engine: enhanced stamps (diode_spice, bjt_gp, nmos_spice)
   'src/engine/stamps-enhanced.js',
 
+  // Engine: BSIM3v3 MOSFET (Sprint 41 — v9.0)
+  // Loaded BEFORE spice-parser so the parser can mark BSIM3-class cards.
+  'src/engine/bsim3.js',
+
   // Models: SPICE parser
   'src/models/spice-parser.js',
 

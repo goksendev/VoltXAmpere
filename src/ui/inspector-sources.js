@@ -22,7 +22,8 @@
     var isSource = (p.type === 'vdc' || p.type === 'vac' || p.type === 'pulse' || p.type === 'pwl' ||
                     p.type === 'idc' || p.type === 'iac');
     var isCap = (p.type === 'capacitor' || p.type === 'cap');
-    if (!isSource && !isCap) return;
+    var isMOS = (p.type === 'nmos' || p.type === 'pmos');
+    if (!isSource && !isCap && !isMOS) return;
 
     var container = document.createElement('div');
     container.style.borderTop = '1px solid var(--border)';
@@ -76,6 +77,30 @@
         '<input id="cap-ic" value="' + (p.icVoltage != null ? p.icVoltage : 0) + '" ' +
         'onchange="setCapIC(this.value)" style="flex:1"> ' +
         '<span class="ip-unit">V</span></div>';
+    }
+
+    // Sprint 41: BSIM3 MOSFET readout
+    if (p.type === 'nmos' || p.type === 'pmos') {
+      var mm = (typeof VXA !== 'undefined' && VXA.Models && p.model) ? VXA.Models.getModel(p.type, p.model) : null;
+      if (mm && VXA.BSIM3 && VXA.BSIM3.isBSIM3Model(mm)) {
+        var params = VXA.BSIM3.parseModelParams(Object.assign({}, mm, { TYPE: p.type === 'nmos' ? 1 : -1 }));
+        // Evaluate at a representative bias point (Vgs=Vdd/2, Vds=Vdd/2, Vbs=0) to show region.
+        var vgs = 1.0, vds = 1.0;
+        var r;
+        try { r = VXA.BSIM3.evaluate(params, vgs, vds, 0); } catch (e) { r = null; }
+        if (r) {
+          var readoutHtml =
+            '<div id="bsim3-readout" style="font:11px var(--font-mono);padding:6px;background:var(--surface-2);border-radius:4px;margin-top:4px">' +
+            '<div style="color:var(--accent);font-weight:600;margin-bottom:2px">BSIM3 ' +
+            (p.type === 'nmos' ? 'NMOS' : 'PMOS') + ' — ' + (mm.L ? ((mm.L * 1e9).toFixed(0) + 'nm') : '—') + '</div>' +
+            '<div>Vth: ' + r.Vth.toFixed(3) + ' V</div>' +
+            '<div>Ids (Vgs=1, Vds=1): ' + (r.Ids * 1e6).toPrecision(3) + ' μA</div>' +
+            '<div>region: <span data-region>' + r.region + '</span></div>' +
+            '<div>gm: ' + (r.gm * 1e6).toPrecision(3) + ' μS</div>' +
+            '</div>';
+          container.innerHTML += readoutHtml;
+        }
+      }
     }
 
     el.appendChild(container);

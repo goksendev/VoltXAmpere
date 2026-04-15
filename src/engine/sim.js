@@ -123,11 +123,23 @@ VXA.SimV2 = (function() {
           if (!bjtModel) bjtModel = { IS: c.IS, BF: c.BF, NF: c.NF, VAF: c.VAF, BR: 1, NR: 1, IKF: 1000 };
           St.bjt_gp(matrix, rhs, c.n1, c.n2, c.n3, c.polarity, bjtModel, nodeV, dt);
         } else if (c.type === 'MOS') {
-          var mosModel = c.part && c.part.model ? VXA.Models.getModel(c.part.type, c.part.model) : null;
-          if (mosModel && (mosModel.CGS > 0 || mosModel.CBD > 0)) {
-            St.nmos_spice(matrix, rhs, c.n1, c.n2, c.n3, c.polarity, mosModel, nodeV, dt);
+          // Sprint 41: BSIM3 takes precedence when model is marked BSIM3-class.
+          if (c.isBSIM3 && c.bsim3 && VXA.BSIM3) {
+            try {
+              // BSIM3.stamp signature: (matrix, rhs, nD, nG, nS, nB, params, nodeV, Sp)
+              // Our MOS pin mapping is n1=D, n2=G, n3=S; bulk defaults to 0 (ground).
+              VXA.BSIM3.stamp(matrix, rhs, c.n1, c.n2, c.n3, 0, c.bsim3, nodeV, Sp);
+            } catch (e) {
+              // Fallback to Level 1 if BSIM3 stamp throws (safety net)
+              St.mosfet(matrix, rhs, c.n1, c.n2, c.n3, c.polarity, c.VTO || 2, c.KP || 110e-6, c.LAMBDA || 0.04, nodeV);
+            }
           } else {
-            St.mosfet(matrix, rhs, c.n1, c.n2, c.n3, c.polarity, c.VTO, c.KP, c.LAMBDA, nodeV);
+            var mosModel = c.part && c.part.model ? VXA.Models.getModel(c.part.type, c.part.model) : null;
+            if (mosModel && (mosModel.CGS > 0 || mosModel.CBD > 0)) {
+              St.nmos_spice(matrix, rhs, c.n1, c.n2, c.n3, c.polarity, mosModel, nodeV, dt);
+            } else {
+              St.mosfet(matrix, rhs, c.n1, c.n2, c.n3, c.polarity, c.VTO, c.KP, c.LAMBDA, nodeV);
+            }
           }
         } else if (c.type === 'OA') {
           var oaMdl = c.part && c.part.model ? VXA.Models.getModel('opamp', c.part.model) : null;

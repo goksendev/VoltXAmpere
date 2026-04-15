@@ -19,6 +19,23 @@ VXA.Models = (function() {
     '2N7000':{ type:'NMOS', VTO:1.7, KP:0.15, LAMBDA:0.04, RD:7.5, RS:7.5, CBD:35e-12, CGS:20e-12, CGDO:2e-12, desc:'Small signal N-ch, TO-92, 200mA 60V' },
     'BS170':{ type:'NMOS', VTO:1.5, KP:0.3, LAMBDA:0.02, RD:5, RS:5, CBD:50e-12, CGS:30e-12, desc:'Small signal N-ch, TO-92, 500mA 60V' },
     'IRF3205':{ type:'NMOS', VTO:3.0, KP:40, LAMBDA:0.005, RD:0.004, RS:0.004, CBD:3e-9, CGS:3.2e-9, desc:'Logic level N-ch, TO-220, 110A, RDS=8mΩ' },
+    // Sprint 41: BSIM3v3 foundry-style models (generic 180 nm CMOS)
+    'NMOS_180nm':{ type:'NMOS', LEVEL:49, VERSION:3.3, TYPE:1,
+      TOX:4.1e-9, VTH0:0.42, K1:0.56, K2:-0.1, K3:80,
+      U0:300, UA:-1.5e-9, UB:2.4e-18, UC:-4.6e-11,
+      VSAT:1.5e5, A0:1.0, AGS:0.2,
+      NFACTOR:1.5, CDSC:2.4e-4, VOFF:-0.08,
+      ETA0:0.04, ETAB:-0.07, DSUB:0.56,
+      PCLM:1.3, DELTA:0.01, W:10e-6, L:180e-9,
+      desc:'Generic 180nm NMOS (BSIM3v3)' },
+    'PMOS_180nm':{ type:'PMOS', LEVEL:49, VERSION:3.3, TYPE:-1,
+      TOX:4.1e-9, VTH0:0.45, K1:0.56, K2:-0.1, K3:80,
+      U0:120, UA:-1.5e-9, UB:2.4e-18, UC:-4.6e-11,
+      VSAT:1.5e5, A0:1.0, AGS:0.2,
+      NFACTOR:1.5, CDSC:2.4e-4, VOFF:-0.08,
+      ETA0:0.04, ETAB:-0.07, DSUB:0.56,
+      PCLM:1.3, DELTA:0.01, W:20e-6, L:180e-9,
+      desc:'Generic 180nm PMOS (BSIM3v3)' },
   };
   var DIODE = {
     'Generic':{ IS:1e-14, N:1, RS:0, BV:100, CJO:0, VJ:0.7, M:0.5, TT:0, desc:'Generic Si diode' },

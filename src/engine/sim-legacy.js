@@ -139,13 +139,24 @@ function buildCircuitFromCanvas() {
     }
     else if (p.type === 'nmos') {
       var mm = MOSFET_MODELS[p.model || 'Generic'] || MOSFET_MODELS['Generic'];
-      comps.push({type:'MOS', polarity:1, n1:nodes[0], n2:nodes[1], n3:nodes[2],
-        VTO:mm.VTO, KP:mm.KP, LAMBDA:mm.LAMBDA, part:p});
+      var mosN = {type:'MOS', polarity:1, n1:nodes[0], n2:nodes[1], n3:nodes[2],
+        VTO:mm.VTO, KP:mm.KP, LAMBDA:mm.LAMBDA, part:p};
+      // Sprint 41: BSIM3 dispatch flag + parameter handoff
+      if (typeof VXA !== 'undefined' && VXA.BSIM3 && VXA.BSIM3.isBSIM3Model(mm)) {
+        mosN.isBSIM3 = true;
+        mosN.bsim3 = VXA.BSIM3.parseModelParams(Object.assign({}, mm, { TYPE: 1 }));
+      }
+      comps.push(mosN);
     }
     else if (p.type === 'pmos') {
       var mm = MOSFET_MODELS[p.model || 'Generic'] || MOSFET_MODELS['Generic'];
-      comps.push({type:'MOS', polarity:-1, n1:nodes[0], n2:nodes[1], n3:nodes[2],
-        VTO:mm.VTO, KP:mm.KP, LAMBDA:mm.LAMBDA, part:p});
+      var mosP = {type:'MOS', polarity:-1, n1:nodes[0], n2:nodes[1], n3:nodes[2],
+        VTO:mm.VTO, KP:mm.KP, LAMBDA:mm.LAMBDA, part:p};
+      if (typeof VXA !== 'undefined' && VXA.BSIM3 && VXA.BSIM3.isBSIM3Model(mm)) {
+        mosP.isBSIM3 = true;
+        mosP.bsim3 = VXA.BSIM3.parseModelParams(Object.assign({}, mm, { TYPE: -1 }));
+      }
+      comps.push(mosP);
     }
     else if (p.type === 'opamp') {
       var om = OPAMP_MODELS[p.model || 'Ideal'] || OPAMP_MODELS['Ideal'];
