@@ -269,7 +269,8 @@ function updateTabLabels() {
   var tabs = document.querySelectorAll('.btab');
   var map = {scope:'tabScope',bode:'tabBode',dcsweep:'tabDCSweep',paramsweep:'tabParam',
     fft:'tabFFT',montecarlo:'tabMC',tempsweep:'tabTemp',noise:'tabNoise',
-    sensitivity:'tabSens',worstcase:'tabWC'};
+    sensitivity:'tabSens',worstcase:'tabWC',
+    timing:'tabTiming',polezero:'tabPoleZero',contour2d:'tabContour2D',transferfunc:'tabTransferFunc'};
   tabs.forEach(function(tb) {
     var dt = tb.getAttribute('data-tab');
     if (dt && map[dt]) tb.textContent = t(map[dt]);

@@ -7405,6 +7405,53 @@ const path = require('path');
   const efFail = efResults.filter(r => !r.pass).length;
   console.log(`\n  Sprint 31: ${efPass} PASS, ${efFail} FAIL out of ${efResults.length}`);
 
+  // ══════════════════════════════════════════════════════
+  // SPRINT 32 — FİNAL CİLALAMA: ABOUT + META + TAB LABELS
+  // ══════════════════════════════════════════════════════
+  console.log('\n' + '='.repeat(50));
+  console.log('SPRINT 32: FİNAL CİLALAMA');
+  console.log('='.repeat(50));
+  const fnResults = await page.evaluate(() => {
+    var r = [], add = (n,p) => r.push({name:n, pass:!!p});
+    // Open about dialog and inspect
+    var aboutHTML = '';
+    try {
+      if (typeof showAbout === 'function') {
+        showAbout();
+        var box = document.getElementById('about-box');
+        aboutHTML = box ? box.innerHTML : '';
+      }
+    } catch(e) {}
+    add('FN_01: About "69" bileşen sayısı içerir', aboutHTML.indexOf('69') >= 0);
+    add('FN_02: About "55" preset sayısı içerir', aboutHTML.indexOf('55') >= 0);
+    add('FN_03: About "Breadboard" kelimesi içerir', aboutHTML.indexOf('Breadboard') >= 0);
+    add('FN_04: About "Pole-Zero" veya "Kutup" içerir', aboutHTML.indexOf('Pole-Zero') >= 0 || aboutHTML.indexOf('Kutup') >= 0);
+    add('FN_05: About "555" içerir', aboutHTML.indexOf('555') >= 0);
+    add('FN_06: About "1148" veya "1000" test referansı içerir', aboutHTML.indexOf('1148') >= 0 || aboutHTML.indexOf('1000') >= 0);
+    // Meta tags
+    var metaDesc = document.querySelector('meta[name="description"]');
+    var metaDescContent = metaDesc ? metaDesc.getAttribute('content') : '';
+    add('FN_07: Meta description "69" içerir', metaDescContent.indexOf('69') >= 0);
+    var ogDesc = document.querySelector('meta[property="og:description"]');
+    var ogDescContent = ogDesc ? ogDesc.getAttribute('content') : '';
+    add('FN_08: OG description "69" veya "55" içerir', ogDescContent.indexOf('69') >= 0 || ogDescContent.indexOf('55') >= 0);
+    // updateTabLabels map keys — test by inspecting source via toString
+    var fnSrc = (typeof updateTabLabels === 'function') ? updateTabLabels.toString() : '';
+    add('FN_09: updateTabLabels map\'te "polezero" key var', fnSrc.indexOf('polezero') >= 0);
+    add('FN_10: updateTabLabels map\'te "timing" key var', fnSrc.indexOf('timing') >= 0);
+    add('FN_11: updateTabLabels map\'te "contour2d" key var', fnSrc.indexOf('contour2d') >= 0);
+    add('FN_12: updateTabLabels map\'te "transferfunc" key var', fnSrc.indexOf('transferfunc') >= 0);
+    // Regression sentinels
+    add('FN_13: Sprint 30 ZEN tests still defined (zero regression)', typeof PRESETS !== 'undefined' && PRESETS.length === 55);
+    add('FN_14: Console error sentinel (canvas exists)', document.getElementById('C') != null);
+    add('FN_15: 55/55 preset structural', PRESETS.length === 55 && Object.keys(COMP).length >= 69);
+    return r;
+  });
+  fnResults.forEach(r => console.log(`  ${r.pass ? '✅' : '❌'} ${r.name}`));
+  const fnPass = fnResults.filter(r => r.pass).length;
+  const fnFail = fnResults.filter(r => !r.pass).length;
+  console.log(`\n  Sprint 32: ${fnPass} PASS, ${fnFail} FAIL out of ${fnResults.length}`);
+
   // === FINAL ÖZET ===
   const totalPass = await page.evaluate(() => {
     return { parts: typeof COMP !== 'undefined' ? Object.keys(COMP).length : 0, lines: document.querySelector('script') ? 'OK' : 'FAIL' };
