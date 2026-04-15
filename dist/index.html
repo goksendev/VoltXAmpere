@@ -7,26 +7,26 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <title>VoltXAmpere v9.0 — Free Online Circuit Simulator | Ücretsiz Devre Simülatörü</title>
-<meta name="description" content="World's most advanced free online circuit simulator. 71+ components, 78+ SPICE models, BSIM3 MOSFET, behavioral source, netlist editor, 55 presets, 3D breadboard, CRT oscilloscope, 25 tutorials, LED calibration ±29mV. No installation needed.">
+<meta name="description" content="World's most advanced free online circuit simulator. 72+ components, 78+ SPICE models, BSIM3 MOSFET, S-parameter, Smith chart, transmission line, behavioral source, netlist editor, 55 presets, 3D breadboard, 25 tutorials, LED calibration ±29mV. No installation needed.">
 <meta name="keywords" content="circuit simulator, SPICE, devre simülatörü, elektronik, electronics, voltxampere, free, online, oscilloscope, bode plot, thermal, Newton-Raphson, MNA, Gummel-Poon">
 <meta name="author" content="VoltXAmpere">
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="https://voltxampere.com/">
 <meta property="og:title" content="VoltXAmpere v9.0 — Ultimate Circuit Simulator">
-<meta property="og:description" content="71+ components, 78+ SPICE models, BSIM3 MOSFET, behavioral source, netlist editor, 3D breadboard. Free and open source.">
+<meta property="og:description" content="72+ components, 78+ SPICE models, BSIM3 MOSFET, S-parameter, Smith chart, transmission line, behavioral source, netlist editor. Free and open source.">
 <meta property="og:url" content="https://voltxampere.com/">
 <meta property="og:type" content="website">
 <meta property="og:locale" content="tr_TR">
 <meta property="og:locale:alternate" content="en_US">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="VoltXAmpere v9.0 — Free Circuit Simulator">
-<meta name="twitter:description" content="71+ components, 78+ SPICE models, BSIM3 MOSFET, netlist editor. The world's most advanced free circuit simulator.">
+<meta name="twitter:description" content="72+ components, 78+ SPICE models, BSIM3 MOSFET, S-parameter, Smith chart, netlist editor. The world's most advanced free circuit simulator.">
 <meta name="theme-color" content="#00d4ff">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="VoltXAmpere">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='28' font-size='28'%3E%E2%9A%A1%3C/text%3E%3C/svg%3E">
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"VoltXAmpere v9.0","url":"https://voltxampere.com","description":"Free online circuit simulator with SPICE-accurate engine, 71+ components, 78+ SPICE models, BSIM3 MOSFET, netlist editor","applicationCategory":"EducationalApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"featureList":"Circuit simulation, 71 components, 78 SPICE models, BSIM3 MOSFET, Behavioral source, Laplace transfer, .SUBCKT, .PARAM, .STEP, .MEAS, PWL/EXP/SFFM, Netlist editor, Web Worker, 55 presets, 3D Breadboard, CRT Oscilloscope, Pole-Zero Analysis, 2D Sweep, Transfer Function, 555 Timer, Thermal simulation, LED calibration, Bode plot, Monte Carlo, Interactive tutorials, Component search"}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"VoltXAmpere v9.0","url":"https://voltxampere.com","description":"Free online circuit simulator with SPICE-accurate engine, 71+ components, 78+ SPICE models, BSIM3 MOSFET, netlist editor","applicationCategory":"EducationalApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"featureList":"Circuit simulation, 72 components, S-Parameter, Smith chart, Transmission line, Touchstone import, 78 SPICE models, BSIM3 MOSFET, Behavioral source, Laplace transfer, .SUBCKT, .PARAM, .STEP, .MEAS, PWL/EXP/SFFM, Netlist editor, Web Worker, 55 presets, 3D Breadboard, CRT Oscilloscope, Pole-Zero Analysis, 2D Sweep, Transfer Function, 555 Timer, Thermal simulation, LED calibration, Bode plot, Monte Carlo, Interactive tutorials, Component search"}</script>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
@@ -687,7 +687,7 @@ input:focus{border-color:var(--accent)}
     <span id="sb-temp" style="color:var(--text-3)"></span>
     <span id="sb-engine" style="color:var(--text-4)"></span>
     <span id="sb-extra" style="color:var(--text-3)"></span>
-    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v9.0 — Build: 2026-04-15 15:49 — © 2026</span>
+    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v9.0 — Build: 2026-04-15 17:51 — © 2026</span>
   </div>
 </div>
 
@@ -4741,7 +4741,23 @@ function toggleHighContrast() {
 // 10.4: CHANGELOG
 function showChangelog() {
   var html = '<div style="font:12px var(--font-ui);color:var(--text-2);line-height:1.7;max-height:400px;overflow-y:auto;padding:8px">';
-  html += '<h3 style="color:var(--accent);font-size:14px;margin:0 0 8px">v9.0 \u2014 .SUBCKT Era</h3>';
+  html += '<h3 style="color:var(--accent);font-size:14px;margin:0 0 8px">v9.0 \u2014 LTspice Seviyesi</h3>';
+  html += '<p>\u2022 \uD83C\uDD95 .SUBCKT tam destek \u2014 ger\u00e7ek \u00fcretici modelleri (LM741, NE5532)</p>';
+  html += '<p>\u2022 \uD83C\uDD95 BSIM3v3 MOSFET \u2014 180nm/90nm modern IC tasar\u0131m\u0131</p>';
+  html += '<p>\u2022 \uD83C\uDD95 .PARAM / .STEP / .MEAS \u2014 parametrik tasar\u0131m</p>';
+  html += '<p>\u2022 \uD83C\uDD95 .IC ba\u015flang\u0131\u00e7 ko\u015fullar\u0131 \u2014 osilat\u00f6r ba\u015flatma</p>';
+  html += '<p>\u2022 \uD83C\uDD95 PWL / EXP / SFFM \u2014 ger\u00e7ek d\u00fcnya test sinyalleri</p>';
+  html += '<p>\u2022 \uD83C\uDD95 B Element (Behavioral) + Laplace transfer fonksiyonu</p>';
+  html += '<p>\u2022 \uD83C\uDD95 \uD83D\uDCDD Netlist Edit\u00f6r\u00fc (Ctrl+L) \u2014 syntax highlight + \u00e7ift y\u00f6nl\u00fc senkron</p>';
+  html += '<p>\u2022 \uD83C\uDD95 \u26A1 Web Worker Sim\u00fclasyon \u2014 UI 60 FPS, ayr\u0131 thread NR</p>';
+  html += '<p>\u2022 \uD83C\uDD95 \uD83D\uDCE6 78+ SPICE Model + Model Browser + .LIB import</p>';
+  html += '<p>\u2022 \uD83C\uDD95 \uD83D\uDD2C 4-Kademeli Convergence \u2014 direct \u2192 GMIN \u2192 source \u2192 pseudo-transient</p>';
+  html += '<p>\u2022 \uD83C\uDD95 \uD83D\uDCCA Waveform Viewer Pro \u2014 math traces, auto-\u00f6l\u00e7\u00fcm, cursor</p>';
+  html += '<p>\u2022 \uD83C\uDD95 \uD83D\uDCE1 S-Parameter + Smith Chart + Transmission Line (RF)</p>';
+  html += '<p>\u2022 \uD83C\uDD95 \uD83C\uDFC6 10/10 LTspice Benchmark PASS (\u00b15-10% tolerans)</p>';
+  html += '<p>\u2022 \uD83C\uDD95 2418+ Test, 0 Fail, Gate mekanizmas\u0131</p>';
+  html += '<p>\u2022 v8.0 \u2192 v9.0: 15 sprint, 500+ yeni test, 0 regresyon</p>';
+  html += '<h3 style="color:var(--accent);font-size:14px;margin:16px 0 8px">v8.0 \u2014 Phase 3 Immersive</h3>';
   html += '<p>\u2022 \u23EA Zaman Makinesi \u2014 DAW tarz\u0131 timeline, state scrubbing</p>';
   html += '<p>\u2022 Spike markers + bookmark sistemi</p>';
   html += '<p>\u2022 Circular buffer (2000 snapshot, ~5-10MB)</p>';
@@ -24737,7 +24753,7 @@ function showAbout() {
   box.innerHTML = '<div style="font:800 24px var(--font-ui);margin-bottom:4px"><span style="color:var(--accent)">\u26A1 Volt</span><span style="color:var(--orange)">X</span><span style="color:var(--blue)">Ampere</span> <span style="font:500 14px var(--font-mono);color:var(--text-3)">v9.0</span></div>'
     + '<div style="font:13px var(--font-ui);color:var(--text-2);margin-bottom:16px">' + (tr?'D\u00fcnyan\u0131n En Geli\u015fmi\u015f \u00dccretsiz Devre Sim\u00fclat\u00f6r\u00fc':'World\'s Most Advanced Free Circuit Simulator') + '</div>'
     + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;text-align:left;font-size:11px;color:var(--text-2);margin-bottom:12px">'
-    + '<div>\u2705 71+ ' + (tr?'Bile\u015fen':'Components') + '</div>'
+    + '<div>\u2705 72+ ' + (tr?'Bile\u015fen':'Components') + '</div>'
     + '<div>\u2705 78+ SPICE ' + (tr?'Model':'Models') + '</div>'
     + '<div>\u2705 Gummel-Poon BJT</div>'
     + '<div>\u2705 MOSFET Level 1</div>'
@@ -24755,7 +24771,7 @@ function showAbout() {
     + '<div>\u2705 Noise (per-source)</div>'
     + '<div>\u2705 Monte Carlo + RSS</div>'
     + '<div>\u2705 Sensitivity / Worst-Case</div>'
-    + '<div>\u2705 2338+ ' + (tr?'Test (0 Fail)':'Tests (0 Fail)') + '</div>'
+    + '<div>\u2705 2418+ ' + (tr?'Test (0 Fail)':'Tests (0 Fail)') + '</div>'
     + '<div>\u2705 Net Label ' + (tr?'Sistemi':'System') + '</div>'
     + '<div>\u2705 Subcircuit / ' + (tr?'Bloklar':'Blocks') + '</div>'
     + '<div>\u2705 SPICE Import/Export</div>'
@@ -24784,7 +24800,7 @@ function showAbout() {
     + '<div>\u2705 \uD83D\uDD0D ' + (tr?'Ak\u0131ll\u0131 Bile\u015fen Arama':'Smart Component Search') + '</div>'
     + '<div>\u2705 555 Timer IC</div>'
     + '<div>\u2705 \uD83D\uDD0A ' + (tr?'Speaker + Buzzer':'Speaker + Buzzer') + '</div>'
-    + '<div>\u2705 \uD83D\uDCCA 15 ' + (tr?'Analiz Sekmesi':'Analysis Tabs') + '</div>'
+    + '<div>\u2705 \uD83D\uDCCA 16 ' + (tr?'Analiz Sekmesi':'Analysis Tabs') + '</div>'
     + '<div>\u2705 LED \u00B129mV ' + (tr?'Kalibrasyon':'Calibration') + '</div>'
     + '<div>\u2705 ' + (tr?'Zener SPICE 3 Modeli':'Zener SPICE 3 Model') + '</div>'
     + '<div>\u2705 \uD83C\uDD95 BSIM3v3 ' + (tr?'MOSFET (180/90nm)':'MOSFET (180/90nm)') + '</div>'
@@ -24797,6 +24813,10 @@ function showAbout() {
     + '<div>\u2705 \uD83C\uDD95 \uD83D\uDCE6 78+ Model + Browser</div>'
     + '<div>\u2705 \uD83C\uDD95 \uD83D\uDD2C 4-' + (tr?'Kademeli Convergence':'Tier Convergence') + '</div>'
     + '<div>\u2705 \uD83C\uDD95 \uD83D\uDCCA Waveform Viewer Pro</div>'
+    + '<div>\u2705 \uD83C\uDD95 \uD83D\uDCE1 S-Parameter + Smith Chart</div>'
+    + '<div>\u2705 \uD83C\uDD95 Transmission Line (RF)</div>'
+    + '<div>\u2705 \uD83C\uDD95 Touchstone Import (.s2p)</div>'
+    + '<div>\u2705 \uD83C\uDFC6 10/10 LTspice Benchmark PASS</div>'
     + '<div>\u2705 \uD83D\uDCF7 ' + (tr?'PNG + SVG Profesyonel Export':'PNG + SVG Professional Export') + '</div>'
     + '<div>\u2705 \uD83D\uDCE5 ' + (tr?'5 D\u0131\u015fa Aktarma Format\u0131':'5 Export Formats') + '</div>'
     + '<div>\u2705 \uD83C\uDF93 ' + (tr?'25 Ders \u00D7 24 Quiz \u00D7 5 Seviye':'25 Lessons \u00D7 24 Quiz \u00D7 5 Levels') + '</div>'

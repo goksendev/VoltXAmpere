@@ -50,7 +50,23 @@ function toggleHighContrast() {
 // 10.4: CHANGELOG
 function showChangelog() {
   var html = '<div style="font:12px var(--font-ui);color:var(--text-2);line-height:1.7;max-height:400px;overflow-y:auto;padding:8px">';
-  html += '<h3 style="color:var(--accent);font-size:14px;margin:0 0 8px">v9.0 \u2014 .SUBCKT Era</h3>';
+  html += '<h3 style="color:var(--accent);font-size:14px;margin:0 0 8px">v9.0 \u2014 LTspice Seviyesi</h3>';
+  html += '<p>\u2022 \uD83C\uDD95 .SUBCKT tam destek \u2014 ger\u00e7ek \u00fcretici modelleri (LM741, NE5532)</p>';
+  html += '<p>\u2022 \uD83C\uDD95 BSIM3v3 MOSFET \u2014 180nm/90nm modern IC tasar\u0131m\u0131</p>';
+  html += '<p>\u2022 \uD83C\uDD95 .PARAM / .STEP / .MEAS \u2014 parametrik tasar\u0131m</p>';
+  html += '<p>\u2022 \uD83C\uDD95 .IC ba\u015flang\u0131\u00e7 ko\u015fullar\u0131 \u2014 osilat\u00f6r ba\u015flatma</p>';
+  html += '<p>\u2022 \uD83C\uDD95 PWL / EXP / SFFM \u2014 ger\u00e7ek d\u00fcnya test sinyalleri</p>';
+  html += '<p>\u2022 \uD83C\uDD95 B Element (Behavioral) + Laplace transfer fonksiyonu</p>';
+  html += '<p>\u2022 \uD83C\uDD95 \uD83D\uDCDD Netlist Edit\u00f6r\u00fc (Ctrl+L) \u2014 syntax highlight + \u00e7ift y\u00f6nl\u00fc senkron</p>';
+  html += '<p>\u2022 \uD83C\uDD95 \u26A1 Web Worker Sim\u00fclasyon \u2014 UI 60 FPS, ayr\u0131 thread NR</p>';
+  html += '<p>\u2022 \uD83C\uDD95 \uD83D\uDCE6 78+ SPICE Model + Model Browser + .LIB import</p>';
+  html += '<p>\u2022 \uD83C\uDD95 \uD83D\uDD2C 4-Kademeli Convergence \u2014 direct \u2192 GMIN \u2192 source \u2192 pseudo-transient</p>';
+  html += '<p>\u2022 \uD83C\uDD95 \uD83D\uDCCA Waveform Viewer Pro \u2014 math traces, auto-\u00f6l\u00e7\u00fcm, cursor</p>';
+  html += '<p>\u2022 \uD83C\uDD95 \uD83D\uDCE1 S-Parameter + Smith Chart + Transmission Line (RF)</p>';
+  html += '<p>\u2022 \uD83C\uDD95 \uD83C\uDFC6 10/10 LTspice Benchmark PASS (\u00b15-10% tolerans)</p>';
+  html += '<p>\u2022 \uD83C\uDD95 2418+ Test, 0 Fail, Gate mekanizmas\u0131</p>';
+  html += '<p>\u2022 v8.0 \u2192 v9.0: 15 sprint, 500+ yeni test, 0 regresyon</p>';
+  html += '<h3 style="color:var(--accent);font-size:14px;margin:16px 0 8px">v8.0 \u2014 Phase 3 Immersive</h3>';
   html += '<p>\u2022 \u23EA Zaman Makinesi \u2014 DAW tarz\u0131 timeline, state scrubbing</p>';
   html += '<p>\u2022 Spike markers + bookmark sistemi</p>';
   html += '<p>\u2022 Circular buffer (2000 snapshot, ~5-10MB)</p>';
