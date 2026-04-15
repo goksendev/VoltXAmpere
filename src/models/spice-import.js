@@ -12,20 +12,33 @@ VXA.SpiceImport = (function() {
     return merged;
   }
   function parse(text) {
+    // Sprint 38: extract .SUBCKT blocks first (load into VXA.Subcircuit library)
+    var subcktCount = 0;
+    if (typeof VXA !== 'undefined' && VXA.Subcircuit && /\.subckt/i.test(text)) {
+      try {
+        var scResult = VXA.Subcircuit.parse(text);
+        subcktCount = scResult.subcircuits.length;
+      } catch (e) { /* ignore subckt parse errors, continue */ }
+    }
     var lines = preprocessLines(text);
-    var circuit = { parts: [], models: {} };
+    var circuit = { parts: [], models: {}, subcircuits: subcktCount };
     var nodeMap = {}, nextN = 1;
     function gn(name) { if (name === '0' || name.toLowerCase() === 'gnd') return 0; if (!nodeMap[name]) nodeMap[name] = nextN++; return nodeMap[name]; }
     var pv = VXA.SpiceParser.parseSpiceNumber;
     var warnings = [];
+    var inSubckt = false; // Sprint 38: skip lines inside .SUBCKT blocks (already parsed above)
     lines.forEach(function(line) {
       if (line.charAt(0) === '*' || line.charAt(0) === ';') return; // comment lines
       if (line.charAt(0) === '.') {
-        if (line.match(/^\.(end|title|lib|include|option|param|global|subckt|ends)/i)) return; // known directives — skip silently
+        if (/^\.subckt/i.test(line)) { inSubckt = true; return; }
+        if (/^\.ends/i.test(line)) { inSubckt = false; return; }
+        if (line.match(/^\.(end|title|lib|include|option|param|global)/i)) return;
+        if (inSubckt) return;
         var parsed = VXA.SpiceParser.parseModelLine(line);
         if (parsed) { circuit.models[parsed.name] = parsed; VXA.Models.addCustomModel(parsed.category, parsed.name, parsed.params); }
         return;
       }
+      if (inSubckt) return;
       var tk = line.split(/\s+/);
       if (tk.length < 3) return;
       var ch = tk[0].charAt(0).toUpperCase();
@@ -57,6 +70,12 @@ VXA.SpiceImport = (function() {
       } else if (ch === 'M') {
         var mosModel = circuit.models[tk[5]]; var mtype = (mosModel && mosModel.type === 'PMOS') ? 'pmos' : 'nmos';
         circuit.parts.push({ type: mtype, nodes: [gn(tk[2]), gn(tk[1]), gn(tk[3])], model: tk[5] }); // G,D,S → VXA order
+      } else if (ch === 'X') {
+        // Sprint 38: subcircuit instance — last token is subckt name, middle tokens are nodes
+        var subName = tk[tk.length - 1];
+        var subNodes = [];
+        for (var ti = 1; ti < tk.length - 1; ti++) subNodes.push(gn(tk[ti]));
+        circuit.parts.push({ type: 'subcircuit', nodes: subNodes, subcktName: subName });
       } else {
         warnings.push('Skipped unknown line: ' + sanitizeHTML(line.substring(0, 60)));
       }
@@ -79,6 +98,18 @@ VXA.SpiceImport = (function() {
       var p = { id: S.nextId++, type: cp.type, name: nextName(cp.type), x: snap(200 + col * spX), y: snap(100 + row * spY), rot: 0, val: cp.val || (def ? def.def : 0), flipH: false, flipV: false };
       if (cp.model) { p.model = cp.model; if (typeof applyModel === 'function') applyModel(p, cp.model); }
       if (cp.freq) p.freq = cp.freq;
+      // Sprint 38: subcircuit — assign subcktName and per-instance pin layout matching subckt definition
+      if (cp.type === 'subcircuit' && cp.subcktName) {
+        p.subcktName = cp.subcktName;
+        var sc = (typeof VXA !== 'undefined' && VXA.Subcircuit) ? VXA.Subcircuit.getSubcircuit(cp.subcktName) : null;
+        var pinCount = sc ? sc.pins.length : (cp.nodes ? cp.nodes.length : 3);
+        var step = 20;
+        var leftN = Math.ceil(pinCount / 2), rightN = pinCount - leftN;
+        var pins = [];
+        for (var li = 0; li < leftN; li++) pins.push({ dx: -40, dy: -((leftN - 1) * step / 2) + li * step });
+        for (var ri = 0; ri < rightN; ri++) pins.push({ dx: 40, dy: -((rightN - 1) * step / 2) + ri * step });
+        p.pins = pins;
+      }
       S.parts.push(p);
       idMap[idx] = p;
     });
@@ -126,7 +157,11 @@ function importSPICENetlist() {
       var circuit = VXA.SpiceImport.parse(ev.target.result);
       if (circuit.parts.length > 0) {
         VXA.SpiceImport.placeCircuit(circuit);
-        showInfoCard('SPICE Import', circuit.parts.length + ' bileşen yüklendi.', '');
+        var msg = circuit.parts.length + ' bileşen yüklendi.';
+        if (circuit.subcircuits) msg += ' ' + circuit.subcircuits + ' subcircuit kütüphaneye eklendi.';
+        showInfoCard('SPICE Import', msg, '');
+      } else if (circuit.subcircuits) {
+        showInfoCard('SPICE Import', circuit.subcircuits + ' subcircuit kütüphaneye eklendi.', '');
       } else {
         showInfoCard('SPICE Import', 'Geçerli bileşen bulunamadı.', '');
       }

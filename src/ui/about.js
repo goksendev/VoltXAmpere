@@ -2,7 +2,7 @@
 function showAbout() {
   var box = document.getElementById('about-box');
   var tr = currentLang === 'tr';
-  box.innerHTML = '<div style="font:800 24px var(--font-ui);margin-bottom:4px"><span style="color:var(--accent)">\u26A1 Volt</span><span style="color:var(--orange)">X</span><span style="color:var(--blue)">Ampere</span> <span style="font:500 14px var(--font-mono);color:var(--text-3)">v8.0</span></div>'
+  box.innerHTML = '<div style="font:800 24px var(--font-ui);margin-bottom:4px"><span style="color:var(--accent)">\u26A1 Volt</span><span style="color:var(--orange)">X</span><span style="color:var(--blue)">Ampere</span> <span style="font:500 14px var(--font-mono);color:var(--text-3)">v9.0</span></div>'
     + '<div style="font:13px var(--font-ui);color:var(--text-2);margin-bottom:16px">' + (tr?'D\u00fcnyan\u0131n En Geli\u015fmi\u015f \u00dccretsiz Devre Sim\u00fclat\u00f6r\u00fc':'World\'s Most Advanced Free Circuit Simulator') + '</div>'
     + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;text-align:left;font-size:11px;color:var(--text-2);margin-bottom:12px">'
     + '<div>\u2705 69+ ' + (tr?'Bile\u015fen':'Components') + '</div>'
@@ -62,6 +62,9 @@ function showAbout() {
     + '<div>\u2705 \uD83C\uDF93 ' + (tr?'25 Ders \u00D7 24 Quiz \u00D7 5 Seviye':'25 Lessons \u00D7 24 Quiz \u00D7 5 Levels') + '</div>'
     + '<div>\u2705 \uD83D\uDD17 ' + (tr?'URL Payla\u015f\u0131m (Model Korumal\u0131)':'URL Sharing (Model Preserved)') + '</div>'
     + '<div>\u2705 \u26A1 ' + (tr?'H\u0131z Kontrol\u00fc (0.5x-5x)':'Speed Control (0.5x-5x)') + '</div>'
+    + '<div>\u2705 \uD83C\uDD95 .SUBCKT ' + (tr?'Tam Destek':'Full Support') + '</div>'
+    + '<div>\u2705 \uD83C\uDD95 LTspice ' + (tr?'Model Uyumu':'Model Compat') + '</div>'
+    + '<div>\u2705 \uD83C\uDD95 5 ' + (tr?'Yerle\u015fik Subcircuit':'Built-in Subcircuits') + '</div>'
     + '</div>'
     + '<div style="font:11px var(--font-mono);color:var(--text-4);margin-top:8px">\u00a9 2026 \u2014 ' + (tr?'A\u00e7\u0131k Kaynak':'Open Source') + ' \u2014 voltxampere.com</div>'
     + '<div style="margin-top:12px;display:flex;gap:8px;justify-content:center">'

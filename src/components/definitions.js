@@ -500,6 +500,33 @@ var COMP = {
       c.beginPath(); c.moveTo(25, 0); c.lineTo(40, 0); c.stroke();
     }
   },
+  subcircuit: {
+    name: 'Subcircuit (.SUBCKT)', en: 'Subckt', color: '#9b59b6', unit: '', def: 0, cat: 'ICs',
+    // Default 5-pin layout; per-instance pins are written into part.pins on placement.
+    pins: [{ dx: -40, dy: -20 }, { dx: -40, dy: 0 }, { dx: -40, dy: 20 }, { dx: 40, dy: -10 }, { dx: 40, dy: 10 }],
+    draw(c, part) {
+      c.strokeStyle = this.color; c.lineWidth = 2; c.fillStyle = 'rgba(155,89,182,0.08)';
+      var pins = (part && part.pins) ? part.pins : this.pins;
+      var minX = -40, maxX = 40, minY = -25, maxY = 25;
+      pins.forEach(function(p) {
+        if (p.dx < minX) minX = p.dx; if (p.dx > maxX) maxX = p.dx;
+        if (p.dy - 5 < minY) minY = p.dy - 5; if (p.dy + 5 > maxY) maxY = p.dy + 5;
+      });
+      var bx = -25, by = minY - 4, bw = 50, bh = (maxY - minY) + 8;
+      c.fillRect(bx, by, bw, bh); c.strokeRect(bx, by, bw, bh);
+      // Pin stubs
+      pins.forEach(function(p) {
+        c.beginPath();
+        var sx = p.dx < 0 ? -25 : 25;
+        c.moveTo(sx, p.dy); c.lineTo(p.dx, p.dy); c.stroke();
+      });
+      c.font = '600 9px sans-serif'; c.fillStyle = this.color; c.textAlign = 'center';
+      var label = (part && part.subcktName) ? String(part.subcktName).substring(0, 10) : 'SUBCKT';
+      c.fillText(label, 0, -2);
+      c.font = '7px sans-serif';
+      c.fillText('X', 0, 8);
+    }
+  },
   zener: {
     name: 'Zener Diyot', en: 'Zener', color: '#ec4899', unit: 'V', def: 5.1, cat: 'Semi',
     pins: [{ dx: -30, dy: 0 }, { dx: 30, dy: 0 }],

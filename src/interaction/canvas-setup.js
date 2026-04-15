@@ -24,7 +24,9 @@ function snap(v) { return Math.round(v / GRID) * GRID; }
 function getPartPins(part) {
   const def = COMP[part.type]; if (!def) return [];
   const r = (part.rot || 0) * Math.PI / 2, cos = Math.cos(r), sin = Math.sin(r);
-  return def.pins.map(p => ({ x: part.x + p.dx * cos - p.dy * sin, y: part.y + p.dx * sin + p.dy * cos }));
+  // Sprint 38: subcircuit instances may carry per-instance pin layout in part.pins
+  const pinSrc = (part.pins && Array.isArray(part.pins) && part.pins.length > 0) ? part.pins : def.pins;
+  return pinSrc.map(p => ({ x: part.x + p.dx * cos - p.dy * sin, y: part.y + p.dx * sin + p.dy * cos }));
 }
 function findNearestPin(wx, wy) {
   let best = null, bd = PIN_SNAP;

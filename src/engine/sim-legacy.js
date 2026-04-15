@@ -66,7 +66,7 @@ function buildCircuitFromCanvas() {
     const r = uf.find(i);
     if (!canonMap.has(r)) canonMap.set(r, nextNode++);
   }
-  const N = nextNode; // number of unique nodes (including ground=0)
+  let N = nextNode; // number of unique nodes (including ground=0); may grow when subcircuits expand
   // build _pinToNode for voltage map
   S._pinToNode = {};
   for (const [key, ni] of pinMap) { S._pinToNode[key] = canonMap.get(uf.find(ni)); }
@@ -75,6 +75,16 @@ function buildCircuitFromCanvas() {
   for (let i = 0; i < S.parts.length; i++) {
     const p = S.parts[i], nodes = partPinNodes[i].map(n => canonMap.get(uf.find(n)));
     if (p.type === 'ground' || p.type === 'netLabel' || p.type === 'vccLabel' || p.type === 'gndLabel') continue;
+    // Sprint 38: subcircuit expansion (.SUBCKT instantiation) — handled before damage override
+    if (p.type === 'subcircuit' && p.subcktName && typeof VXA !== 'undefined' && VXA.Subcircuit) {
+      var instName = p.name || ('X' + p.id);
+      var allocNode = function() { return N++; };
+      var subResult = VXA.Subcircuit.instantiateForMNA(p.subcktName, nodes, instName, p.subcktParams, allocNode);
+      if (subResult && subResult.comps) {
+        subResult.comps.forEach(function(sc) { sc.part = p; comps.push(sc); });
+      }
+      continue;
+    }
     // Damaged part override — open circuit = huge R, short circuit = tiny R
     if (p.damaged) {
       if (p.damageResult === 'open') { comps.push({type:'R', n1:nodes[0], n2:nodes[1], val:1e15, part:p}); continue; }

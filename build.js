@@ -91,6 +91,9 @@ const JS_FILES = [
   // Models: SPICE parser
   'src/models/spice-parser.js',
 
+  // Models: subcircuit (.SUBCKT) — Sprint 38 (v9.0)
+  'src/models/subcircuit.js',
+
   // Engine: legacy MNA sim
   'src/engine/sim-legacy.js',
 
