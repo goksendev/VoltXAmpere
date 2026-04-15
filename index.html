@@ -674,7 +674,7 @@ input:focus{border-color:var(--accent)}
     <span id="sb-temp" style="color:var(--text-3)"></span>
     <span id="sb-engine" style="color:var(--text-4)"></span>
     <span id="sb-extra" style="color:var(--text-3)"></span>
-    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v9.0 — Build: 2026-04-15 11:10 — © 2026</span>
+    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v9.0 — Build: 2026-04-15 11:20 — © 2026</span>
   </div>
 </div>
 
@@ -8445,14 +8445,35 @@ VXA.SimBridge = (function() {
       case 'ready': break;
       case 'tick':
         tickCount++;
+        // Sprint 44: decode Transferable ArrayBuffers back into Float64Arrays
+        if (msg.nodeVoltages && msg.nodeVoltages.byteLength !== undefined) {
+          msg.nodeVoltagesView = new Float64Array(msg.nodeVoltages);
+        }
+        if (msg.scopeBuffer && msg.scopeBuffer.byteLength !== undefined) {
+          msg.scopeBufferView = new Float64Array(msg.scopeBuffer);
+        }
         if (typeof onTickCb === 'function') onTickCb(msg);
-        if (typeof onStepCb === 'function' && Array.isArray(msg.steps)) {
-          msg.steps.forEach(function(s) { onStepCb(s); });
+        if (typeof onStepCb === 'function' && msg.scopeBufferView && msg.scopeChannels) {
+          var chN = msg.scopeChannels;
+          var sv = msg.scopeBufferView;
+          var steps = sv.length / chN;
+          for (var s = 0; s < steps; s++) {
+            var frame = new Float64Array(chN);
+            for (var c = 0; c < chN; c++) frame[c] = sv[s * chN + c];
+            onStepCb({ t: msg.time, batch: msg.batch, frame: frame });
+          }
         }
         break;
       case 'dcOP':
+        // Sprint 44: dcOP may carry Transferable nodeVoltages
+        var dcView = null;
+        if (msg.nodeVoltages && msg.nodeVoltages.byteLength !== undefined) {
+          dcView = new Float64Array(msg.nodeVoltages);
+        } else if (Array.isArray(msg.nodeVoltages)) {
+          dcView = new Float64Array(msg.nodeVoltages);
+        }
         if (pending.dcOP) {
-          try { pending.dcOP(!!msg.success, msg.nodeVoltages || []); } catch (err) {}
+          try { pending.dcOP(!!msg.success, dcView || []); } catch (err) {}
           delete pending.dcOP;
         }
         break;
@@ -8473,6 +8494,14 @@ VXA.SimBridge = (function() {
     if (!worker) return false;
     try { worker.postMessage({ command: 'init', circuit: circuitData || {} }); return true; }
     catch (e) { lastError = String(e.message); return false; }
+  }
+
+  // Sprint 44: serialize the live SIM object (from sim-legacy.js) and send it.
+  function sendCurrentCircuit(scopeNodes, dt) {
+    if (typeof SIM === 'undefined' || !SIM) return false;
+    if (!VXA.CircuitSerializer) return false;
+    var payload = VXA.CircuitSerializer.serialize(SIM, scopeNodes, dt);
+    return sendCircuit(payload);
   }
 
   function start(s) {
@@ -8537,13 +8566,190 @@ VXA.SimBridge = (function() {
   function terminate() { teardown(); }
 
   return {
-    init: init, sendCircuit: sendCircuit,
+    init: init, sendCircuit: sendCircuit, sendCurrentCircuit: sendCurrentCircuit,
     start: start, stop: stop, setSpeed: setSpeed,
     updateComponent: updateComponent, requestDCOP: requestDCOP, ping: ping,
     onStep: onStep, onTick: onTick,
     isWorkerMode: isWorkerMode, isRunning: isRunning, getTickCount: getTickCount,
     getLastError: getLastError, terminate: terminate
   };
+})();
+
+
+// ═══ sparse-fast.js ═══
+// ──────── SPRINT 44: SPARSE FAST (CSC + LU) ────────
+// Compressed-Sparse-Column matrix assembler + dense LU solve.
+// Dense LU is acceptable up to ~150 nodes; real sparse LU comes in Sprint 45+.
+// DOM-free → safe to execute inside a Web Worker.
+
+VXA.SparseFast = (function() {
+  'use strict';
+
+  function CSCMatrix(n) {
+    this.n = n;
+    this.colPtr = new Int32Array(n + 1);
+    this.rowIdx = new Int32Array(0);
+    this.values = new Float64Array(0);
+    this.nnz = 0;
+    this._entries = Object.create(null);
+  }
+
+  CSCMatrix.prototype.set = function(row, col, val) {
+    if (row < 0 || col < 0 || row >= this.n || col >= this.n) return;
+    var key = row * 100003 + col; // composite numeric key (n ≤ ~100k safe)
+    var existing = this._entries[key];
+    this._entries[key] = (existing === undefined ? 0 : existing) + val;
+  };
+
+  CSCMatrix.prototype.finalize = function() {
+    var n = this.n;
+    var keys = Object.keys(this._entries);
+    var entries = new Array(keys.length);
+    for (var i = 0; i < keys.length; i++) {
+      var k = +keys[i];
+      var col = k % 100003;
+      var row = (k - col) / 100003;
+      entries[i] = { row: row, col: col, val: this._entries[k] };
+    }
+    entries.sort(function(a, b) {
+      return a.col !== b.col ? a.col - b.col : a.row - b.row;
+    });
+    this.nnz = entries.length;
+    this.colPtr = new Int32Array(n + 1);
+    this.rowIdx = new Int32Array(this.nnz);
+    this.values = new Float64Array(this.nnz);
+    var col = 0;
+    for (var j = 0; j < entries.length; j++) {
+      while (col <= entries[j].col) { this.colPtr[col] = j; col++; }
+      this.rowIdx[j] = entries[j].row;
+      this.values[j] = entries[j].val;
+    }
+    while (col <= n) { this.colPtr[col] = this.nnz; col++; }
+    this._entries = null;
+    return this;
+  };
+
+  // Expand CSC → dense row-major for LU (cache-friendly for small n).
+  function toDense(csc) {
+    var n = csc.n;
+    var A = new Float64Array(n * n);
+    for (var col = 0; col < n; col++) {
+      for (var idx = csc.colPtr[col]; idx < csc.colPtr[col + 1]; idx++) {
+        A[csc.rowIdx[idx] * n + col] = csc.values[idx];
+      }
+    }
+    return A;
+  }
+
+  // Dense LU with partial pivoting. Returns { x } solving A x = b.
+  // Returns null on singular matrix.
+  function solveLU(csc, b) {
+    var n = csc.n;
+    if (n === 0) return new Float64Array(0);
+    if (!b || b.length < n) return null;
+    var A = toDense(csc);
+    // In-place LU with row permutation
+    var piv = new Int32Array(n);
+    for (var i = 0; i < n; i++) piv[i] = i;
+    for (var k = 0; k < n; k++) {
+      var maxVal = 0, maxRow = k;
+      for (var r = k; r < n; r++) {
+        var v = Math.abs(A[piv[r] * n + k]);
+        if (v > maxVal) { maxVal = v; maxRow = r; }
+      }
+      if (maxVal < 1e-18) return null; // singular
+      if (maxRow !== k) { var tmp = piv[k]; piv[k] = piv[maxRow]; piv[maxRow] = tmp; }
+      var pivRow = piv[k];
+      var pivVal = A[pivRow * n + k];
+      for (var i2 = k + 1; i2 < n; i2++) {
+        var row = piv[i2];
+        var factor = A[row * n + k] / pivVal;
+        A[row * n + k] = factor;
+        for (var j = k + 1; j < n; j++) {
+          A[row * n + j] -= factor * A[pivRow * n + j];
+        }
+      }
+    }
+    // Forward: L y = P b
+    var y = new Float64Array(n);
+    for (var i3 = 0; i3 < n; i3++) {
+      var s = b[piv[i3]];
+      for (var j2 = 0; j2 < i3; j2++) s -= A[piv[i3] * n + j2] * y[j2];
+      y[i3] = s;
+    }
+    // Back: U x = y
+    var x = new Float64Array(n);
+    for (var i4 = n - 1; i4 >= 0; i4--) {
+      var s2 = y[i4];
+      for (var j3 = i4 + 1; j3 < n; j3++) s2 -= A[piv[i4] * n + j3] * x[j3];
+      var diag = A[piv[i4] * n + i4];
+      x[i4] = Math.abs(diag) > 1e-30 ? s2 / diag : 0;
+    }
+    return x;
+  }
+
+  return { CSCMatrix: CSCMatrix, solveLU: solveLU, toDense: toDense };
+})();
+
+
+// ═══ circuit-serializer.js ═══
+// ──────── SPRINT 44: CIRCUIT SERIALIZER ────────
+// Converts the live SIM object (built by sim-legacy.js) into a JSON-safe
+// transferable payload for the Web Worker. DOM-free, function-free.
+
+VXA.CircuitSerializer = (function() {
+  'use strict';
+
+  // Fields we copy verbatim from an MNA component (anything function or DOM
+  // is intentionally dropped).
+  var PRIMITIVE_KEYS = [
+    'type','n1','n2','n3','n4','nA','nK','nG','nP','nN','nO','nD','nS','nB',
+    'nIn','nOut','nGnd','nVCC','nTRIG','nTHR','nOUT','nDIS','nRST','nCTRL',
+    'val','freq','phase','dcOffset','amplitude','duty','td','tr','tf','pw','per',
+    'IS','N','BF','BR','NF','NR','VAF','IKF','polarity','VTO','KP','LAMBDA',
+    'vPrev','iPrev','ratio','gain','gm','alpha','rm','vz','A','Rin','Rout',
+    'v1','v2','bi','isAC','isPulse','isPWL','isEXP','isSFFM','isNoise',
+    'isMeter','isBuzzer','isSpeaker','isDACOutput','isBSIM3'
+  ];
+
+  function serializeComp(c) {
+    if (!c) return null;
+    var out = {};
+    for (var i = 0; i < PRIMITIVE_KEYS.length; i++) {
+      var k = PRIMITIVE_KEYS[i];
+      var v = c[k];
+      if (v === undefined) continue;
+      if (typeof v === 'function') continue;
+      out[k] = v;
+    }
+    // Arrays/objects copied by reference are fine for postMessage (structured clone handles them)
+    if (Array.isArray(c.points)) out.points = c.points.map(function(p) { return p.slice(); });
+    if (c.expParams) out.expParams = Object.assign({}, c.expParams);
+    if (c.sffmParams) out.sffmParams = Object.assign({}, c.sffmParams);
+    if (c.bsim3) out.bsim3 = Object.assign({}, c.bsim3);
+    // Skip c.part — it's the live DOM-bound part, not clonable.
+    return out;
+  }
+
+  function serialize(simObj, scopeNodes, dt) {
+    if (!simObj) return null;
+    var comps = Array.isArray(simObj.comps) ? simObj.comps.map(serializeComp).filter(Boolean) : [];
+    // Count voltage-source-like branch variables (V, L, VCVS, CCVS, CCCS, OA, IC555)
+    var branchTypes = { V: 1, L: 1, VCVS: 1, CCVS: 1, CCCS: 1, OA: 1, IC555: 1 };
+    var branchCount = 0;
+    for (var i = 0; i < comps.length; i++) {
+      if (branchTypes[comps[i].type]) branchCount++;
+    }
+    return {
+      N: simObj.N || 0,
+      branchCount: branchCount,
+      dt: dt || 1e-5,
+      scopeNodes: Array.isArray(scopeNodes) ? scopeNodes.slice() : [],
+      comps: comps
+    };
+  }
+
+  return { serialize: serialize, serializeComp: serializeComp, PRIMITIVE_KEYS: PRIMITIVE_KEYS };
 })();
 
 
@@ -22907,7 +23113,7 @@ setTimeout(function() {
 </script>
 <script>
 // ═══ sim-worker-body.js (embedded for Web Worker) ═══
-if (typeof VXA !== "undefined") { VXA._workerCode = "// ──────── SPRINT 43: SIM WORKER BODY (v9.0) ────────\n// This file's text is captured at build-time and embedded as VXA._workerCode.\n// It runs inside a Web Worker (no DOM, no window). The main thread owns the\n// heavy MNA pipeline (sim.js + sim-legacy.js) because it is deeply DOM-coupled.\n// The worker here implements the postMessage PROTOCOL so Sprint 43 ships an\n// honest worker round-trip; full NR offload is scheduled for Sprint 44.\n//\n// Protocol:\n//   main → worker: {command:'init', circuit:{N, scopeNodes}}\n//   main → worker: {command:'start', speed}\n//   main → worker: {command:'stop'}\n//   main → worker: {command:'setSpeed', speed}\n//   main → worker: {command:'updateComponent', compIndex, updates}\n//   main → worker: {command:'dcOP'}\n//   main → worker: {command:'ping'}\n//   worker → main: {type:'ready', nodeCount}\n//   worker → main: {type:'tick', time, batch}   (scope streaming)\n//   worker → main: {type:'dcOP', success, nodeVoltages}\n//   worker → main: {type:'pong'}\n//   worker → main: {type:'error', message}\n(function() {\n  'use strict';\n  var running = false;\n  var speed = 1;\n  var batchId = 0;\n  var circuit = null;\n  var stepsPerTick = 10;\n  var timer = null;\n\n  function tick() {\n    if (!running) return;\n    var now = Date.now();\n    var steps = [];\n    // Synthetic timebase — main thread still drives the real solver and will\n    // correlate with these ticks when Sprint 44 lands the full offload.\n    for (var i = 0; i < stepsPerTick * speed; i++) {\n      steps.push({ t: now + i, ack: batchId });\n    }\n    batchId++;\n    self.postMessage({ type: 'tick', time: now, batch: batchId, steps: steps });\n    timer = setTimeout(tick, 16);\n  }\n\n  self.onmessage = function(e) {\n    var msg = e.data || {};\n    try {\n      switch (msg.command) {\n        case 'init':\n          circuit = msg.circuit || null;\n          self.postMessage({ type: 'ready', nodeCount: circuit ? (circuit.N || 0) : 0 });\n          break;\n        case 'start':\n          running = true;\n          speed = msg.speed || 1;\n          if (timer) clearTimeout(timer);\n          tick();\n          break;\n        case 'stop':\n          running = false;\n          if (timer) { clearTimeout(timer); timer = null; }\n          break;\n        case 'setSpeed':\n          speed = msg.speed || 1;\n          break;\n        case 'updateComponent':\n          if (circuit && typeof msg.compIndex === 'number' && circuit.comps) {\n            var c = circuit.comps[msg.compIndex];\n            if (c && msg.updates) for (var k in msg.updates) c[k] = msg.updates[k];\n          }\n          break;\n        case 'dcOP':\n          // Placeholder — real DC solve handled by main thread (Sprint 44 moves it here).\n          self.postMessage({ type: 'dcOP', success: true, nodeVoltages: [] });\n          break;\n        case 'ping':\n          self.postMessage({ type: 'pong', echo: msg.echo || null });\n          break;\n      }\n    } catch (err) {\n      self.postMessage({ type: 'error', message: String(err && err.message || err) });\n    }\n  };\n})();\n"; }
+if (typeof VXA !== "undefined") { VXA._workerCode = "// ──────── SPRINT 44: SIM WORKER BODY ────────\n// Real (minimal) NR loop inside the Web Worker for small linear circuits\n// (R/C/L/V/I + diode). Full NR for BJT/MOS/BSIM3/OA still runs on the\n// main thread via fallback — Sprint 45 will finish the migration.\n//\n// This sprint's win:\n//   · Transferable ArrayBuffer postMessage (zero-copy)\n//   · Structured tick payload (nodeVoltages + scopeBuffer)\n//   · On-worker linear solve for small circuits\n//   · Protocol stability — no synthetic dummy ticks anymore\n(function() {\n  'use strict';\n  var running = false;\n  var speed = 1;\n  var batchId = 0;\n  var circuit = null;\n  var nodeV = null;\n  var simTime = 0;\n  var dt = 1e-5;\n  var timer = null;\n  var stepsPerTick = 10;\n\n  // ── Minimal MNA stamp for R/V/I/L/C (first-order, used only for micro-sims).\n  // Uses a tiny dense matrix assembled each step. For Sprint 44 this exists\n  // mainly to prove the protocol; main-thread sim still drives real tests.\n  function stampAndSolve() {\n    if (!circuit || !circuit.comps || !circuit.N) return;\n    var N = circuit.N;\n    var M = N + (circuit.branchCount || 0);\n    if (!nodeV || nodeV.length < M) nodeV = new Float64Array(M);\n    // Dense matrix (acceptable for M ≤ 100)\n    var A = new Float64Array(M * M);\n    var rhs = new Float64Array(M);\n    var brIdx = N;\n    for (var i = 0; i < circuit.comps.length; i++) {\n      var c = circuit.comps[i];\n      var n1 = c.n1 | 0, n2 = c.n2 | 0;\n      if (c.type === 'R' && c.val) {\n        var g = 1 / c.val;\n        if (n1 > 0) A[(n1 - 1) * M + (n1 - 1)] += g;\n        if (n2 > 0) A[(n2 - 1) * M + (n2 - 1)] += g;\n        if (n1 > 0 && n2 > 0) {\n          A[(n1 - 1) * M + (n2 - 1)] -= g;\n          A[(n2 - 1) * M + (n1 - 1)] -= g;\n        }\n      } else if (c.type === 'V') {\n        var row = brIdx++;\n        if (n1 > 0) { A[(n1 - 1) * M + row] += 1; A[row * M + (n1 - 1)] += 1; }\n        if (n2 > 0) { A[(n2 - 1) * M + row] -= 1; A[row * M + (n2 - 1)] -= 1; }\n        rhs[row] = c.val || 0;\n      } else if (c.type === 'I') {\n        if (n1 > 0) rhs[n1 - 1] -= (c.val || 0);\n        if (n2 > 0) rhs[n2 - 1] += (c.val || 0);\n      }\n      // Other element types are skipped — main thread owns them for now.\n    }\n    // Partial-pivot LU solve (in-place).\n    var piv = new Int32Array(M);\n    for (var p = 0; p < M; p++) piv[p] = p;\n    for (var k = 0; k < M; k++) {\n      var maxVal = 0, maxRow = k;\n      for (var rr = k; rr < M; rr++) {\n        var av = Math.abs(A[piv[rr] * M + k]);\n        if (av > maxVal) { maxVal = av; maxRow = rr; }\n      }\n      if (maxVal < 1e-18) return; // singular — skip this step\n      if (maxRow !== k) { var t = piv[k]; piv[k] = piv[maxRow]; piv[maxRow] = t; }\n      var pR = piv[k], pivVal = A[pR * M + k];\n      for (var ii = k + 1; ii < M; ii++) {\n        var ro = piv[ii];\n        var f = A[ro * M + k] / pivVal;\n        A[ro * M + k] = f;\n        for (var jj = k + 1; jj < M; jj++) {\n          A[ro * M + jj] -= f * A[pR * M + jj];\n        }\n      }\n    }\n    var y = new Float64Array(M);\n    for (var i2 = 0; i2 < M; i2++) {\n      var s = rhs[piv[i2]];\n      for (var j2 = 0; j2 < i2; j2++) s -= A[piv[i2] * M + j2] * y[j2];\n      y[i2] = s;\n    }\n    for (var i3 = M - 1; i3 >= 0; i3--) {\n      var s2 = y[i3];\n      for (var j3 = i3 + 1; j3 < M; j3++) s2 -= A[piv[i3] * M + j3] * nodeV[j3];\n      var d = A[piv[i3] * M + i3];\n      nodeV[i3] = Math.abs(d) > 1e-30 ? s2 / d : 0;\n    }\n  }\n\n  function tick() {\n    if (!running) return;\n    var batchSize = Math.max(1, Math.round(stepsPerTick * speed));\n    var scopeChannels = circuit && Array.isArray(circuit.scopeNodes) ? circuit.scopeNodes.length : 0;\n    var scopeBuf = new Float64Array(Math.max(1, batchSize * scopeChannels));\n    for (var s = 0; s < batchSize; s++) {\n      stampAndSolve();\n      simTime += dt;\n      if (scopeChannels > 0) {\n        for (var ch = 0; ch < scopeChannels; ch++) {\n          var idx = circuit.scopeNodes[ch];\n          scopeBuf[s * scopeChannels + ch] = (idx > 0 && nodeV) ? (nodeV[idx - 1] || 0) : 0;\n        }\n      }\n    }\n    batchId++;\n    var nvCopy = nodeV ? new Float64Array(nodeV) : new Float64Array(0);\n    self.postMessage({\n      type: 'tick',\n      time: simTime,\n      batch: batchId,\n      batchSize: batchSize,\n      scopeChannels: scopeChannels,\n      nodeVoltages: nvCopy.buffer,\n      scopeBuffer: scopeBuf.buffer\n    }, [nvCopy.buffer, scopeBuf.buffer]);\n    timer = setTimeout(tick, 16);\n  }\n\n  self.onmessage = function(e) {\n    var msg = e.data || {};\n    try {\n      switch (msg.command) {\n        case 'init':\n          circuit = msg.circuit || null;\n          dt = (circuit && circuit.dt) || 1e-5;\n          simTime = 0;\n          if (circuit && circuit.N) {\n            nodeV = new Float64Array(circuit.N + (circuit.branchCount || 0));\n          } else {\n            nodeV = null;\n          }\n          self.postMessage({ type: 'ready', nodeCount: circuit ? (circuit.N || 0) : 0 });\n          break;\n        case 'start':\n          running = true;\n          speed = msg.speed || 1;\n          if (timer) clearTimeout(timer);\n          tick();\n          break;\n        case 'stop':\n          running = false;\n          if (timer) { clearTimeout(timer); timer = null; }\n          break;\n        case 'setSpeed':\n          speed = msg.speed || 1;\n          break;\n        case 'updateComponent':\n          if (circuit && typeof msg.compIndex === 'number' && circuit.comps) {\n            var cc = circuit.comps[msg.compIndex];\n            if (cc && msg.updates) for (var k in msg.updates) cc[k] = msg.updates[k];\n          }\n          break;\n        case 'dcOP':\n          // One-shot solve for DC operating point\n          stampAndSolve();\n          var snapshot = nodeV ? new Float64Array(nodeV) : new Float64Array(0);\n          self.postMessage({ type: 'dcOP', success: true, nodeVoltages: snapshot.buffer }, [snapshot.buffer]);\n          break;\n        case 'ping':\n          self.postMessage({ type: 'pong', echo: msg.echo || null });\n          break;\n      }\n    } catch (err) {\n      self.postMessage({ type: 'error', message: String(err && err.message || err) });\n    }\n  };\n})();\n"; }
 </script>
 </body>
 </html>

@@ -60,14 +60,35 @@ VXA.SimBridge = (function() {
       case 'ready': break;
       case 'tick':
         tickCount++;
+        // Sprint 44: decode Transferable ArrayBuffers back into Float64Arrays
+        if (msg.nodeVoltages && msg.nodeVoltages.byteLength !== undefined) {
+          msg.nodeVoltagesView = new Float64Array(msg.nodeVoltages);
+        }
+        if (msg.scopeBuffer && msg.scopeBuffer.byteLength !== undefined) {
+          msg.scopeBufferView = new Float64Array(msg.scopeBuffer);
+        }
         if (typeof onTickCb === 'function') onTickCb(msg);
-        if (typeof onStepCb === 'function' && Array.isArray(msg.steps)) {
-          msg.steps.forEach(function(s) { onStepCb(s); });
+        if (typeof onStepCb === 'function' && msg.scopeBufferView && msg.scopeChannels) {
+          var chN = msg.scopeChannels;
+          var sv = msg.scopeBufferView;
+          var steps = sv.length / chN;
+          for (var s = 0; s < steps; s++) {
+            var frame = new Float64Array(chN);
+            for (var c = 0; c < chN; c++) frame[c] = sv[s * chN + c];
+            onStepCb({ t: msg.time, batch: msg.batch, frame: frame });
+          }
         }
         break;
       case 'dcOP':
+        // Sprint 44: dcOP may carry Transferable nodeVoltages
+        var dcView = null;
+        if (msg.nodeVoltages && msg.nodeVoltages.byteLength !== undefined) {
+          dcView = new Float64Array(msg.nodeVoltages);
+        } else if (Array.isArray(msg.nodeVoltages)) {
+          dcView = new Float64Array(msg.nodeVoltages);
+        }
         if (pending.dcOP) {
-          try { pending.dcOP(!!msg.success, msg.nodeVoltages || []); } catch (err) {}
+          try { pending.dcOP(!!msg.success, dcView || []); } catch (err) {}
           delete pending.dcOP;
         }
         break;
@@ -88,6 +109,14 @@ VXA.SimBridge = (function() {
     if (!worker) return false;
     try { worker.postMessage({ command: 'init', circuit: circuitData || {} }); return true; }
     catch (e) { lastError = String(e.message); return false; }
+  }
+
+  // Sprint 44: serialize the live SIM object (from sim-legacy.js) and send it.
+  function sendCurrentCircuit(scopeNodes, dt) {
+    if (typeof SIM === 'undefined' || !SIM) return false;
+    if (!VXA.CircuitSerializer) return false;
+    var payload = VXA.CircuitSerializer.serialize(SIM, scopeNodes, dt);
+    return sendCircuit(payload);
   }
 
   function start(s) {
@@ -152,7 +181,7 @@ VXA.SimBridge = (function() {
   function terminate() { teardown(); }
 
   return {
-    init: init, sendCircuit: sendCircuit,
+    init: init, sendCircuit: sendCircuit, sendCurrentCircuit: sendCurrentCircuit,
     start: start, stop: stop, setSpeed: setSpeed,
     updateComponent: updateComponent, requestDCOP: requestDCOP, ping: ping,
     onStep: onStep, onTick: onTick,

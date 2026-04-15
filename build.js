@@ -115,6 +115,10 @@ const JS_FILES = [
   // it is NOT concatenated into the main bundle.
   'src/engine/sim-bridge.js',
 
+  // Engine: SparseFast CSC+LU + Circuit serializer (Sprint 44 — v9.0)
+  'src/engine/sparse-fast.js',
+  'src/engine/circuit-serializer.js',
+
   // Engine: legacy MNA sim
   'src/engine/sim-legacy.js',
 

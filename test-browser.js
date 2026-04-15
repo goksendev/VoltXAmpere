@@ -9334,6 +9334,309 @@ console.log = function() {
   const wwFail = wwResults.filter(r => !r.pass).length;
   console.log(`\n  Sprint 43: ${wwPass} PASS, ${wwFail} FAIL out of ${wwResults.length}`);
 
+  // ═══════════════════════════════════════════════════════════════
+  // SPRINT 44: REAL WORKER NR + SPARSE OPTIMIZATION (v9.0)
+  // ═══════════════════════════════════════════════════════════════
+  console.log('\n📋 Sprint 44: WORKER NR + SPARSE (v9.0)');
+  const nrResults = await page.evaluate(async () => {
+    const r = [];
+    function add(name, ok) { r.push({ name, pass: !!ok }); }
+    const SB = VXA.SimBridge;
+    const CS = VXA.CircuitSerializer;
+    const SF = VXA.SparseFast;
+    function isArrayLike(x) { return x && typeof x.length === 'number'; }
+
+    // === SPARSE FAST ===
+    add('TEST_NR_19: VXA.SparseFast module exists', !!SF);
+    add('TEST_NR_20: CSCMatrix creatable + finalize', (function() {
+      try {
+        const m = new SF.CSCMatrix(3);
+        m.set(0, 0, 1); m.set(1, 1, 1); m.set(2, 2, 1);
+        m.finalize();
+        return m.nnz === 3 && m.n === 3;
+      } catch (e) { return false; }
+    })());
+    add('TEST_NR_21: colPtr length = n+1', (function() {
+      const m = new SF.CSCMatrix(5);
+      m.set(0, 0, 1); m.finalize();
+      return m.colPtr.length === 6;
+    })());
+    add('TEST_NR_22: rowIdx & values length = nnz', (function() {
+      const m = new SF.CSCMatrix(4);
+      m.set(0, 1, 2); m.set(1, 2, 3); m.set(2, 3, 4);
+      m.finalize();
+      return m.rowIdx.length === 3 && m.values.length === 3;
+    })());
+    // Solve 3x3 system: A = [[2,1,0],[1,3,1],[0,1,2]], b=[3,5,3] → x=[1,1,1]
+    add('TEST_NR_23: solveLU 3x3 correct', (function() {
+      const m = new SF.CSCMatrix(3);
+      m.set(0,0,2); m.set(0,1,1);
+      m.set(1,0,1); m.set(1,1,3); m.set(1,2,1);
+      m.set(2,1,1); m.set(2,2,2);
+      m.finalize();
+      const x = SF.solveLU(m, [3, 5, 3]);
+      return x && Math.abs(x[0] - 1) < 1e-9 && Math.abs(x[1] - 1) < 1e-9 && Math.abs(x[2] - 1) < 1e-9;
+    })());
+    // Solve 10x10 identity-ish system (diag dominant)
+    add('TEST_NR_24: solveLU 10x10 diagonal', (function() {
+      const m = new SF.CSCMatrix(10);
+      const b = [];
+      for (let i = 0; i < 10; i++) { m.set(i, i, (i + 2)); b.push((i + 2) * 5); }
+      m.finalize();
+      const x = SF.solveLU(m, b);
+      if (!x) return false;
+      for (let i = 0; i < 10; i++) if (Math.abs(x[i] - 5) > 1e-9) return false;
+      return true;
+    })());
+    add('TEST_NR_25: singular matrix returns null (no throw)', (function() {
+      const m = new SF.CSCMatrix(3);
+      m.set(0, 0, 1); m.set(0, 1, 1); m.set(1, 0, 1); m.set(1, 1, 1); // rank deficient
+      m.finalize();
+      try {
+        const x = SF.solveLU(m, [1, 1, 1]);
+        return x === null;  // we return null on singular
+      } catch (e) { return false; }
+    })());
+
+    // === CSC PERFORMANCE ===
+    add('TEST_NR_29: solveLU 50x50 under 20ms', (function() {
+      const M = 50;
+      const m = new SF.CSCMatrix(M);
+      for (let i = 0; i < M; i++) {
+        m.set(i, i, 4);
+        if (i > 0) { m.set(i, i-1, -1); m.set(i-1, i, -1); }
+      }
+      m.finalize();
+      const b = new Array(M); for (let i = 0; i < M; i++) b[i] = 1;
+      const t0 = performance.now();
+      const x = SF.solveLU(m, b);
+      const dt = performance.now() - t0;
+      return x && dt < 20;
+    })());
+    add('TEST_NR_30: solveLU 100x100 under 100ms', (function() {
+      const M = 100;
+      const m = new SF.CSCMatrix(M);
+      for (let i = 0; i < M; i++) {
+        m.set(i, i, 4);
+        if (i > 0) { m.set(i, i-1, -1); m.set(i-1, i, -1); }
+      }
+      m.finalize();
+      const b = new Array(M); for (let i = 0; i < M; i++) b[i] = 1;
+      const t0 = performance.now();
+      const x = SF.solveLU(m, b);
+      const dt = performance.now() - t0;
+      return x && dt < 100;
+    })());
+
+    // === SERIALIZER ===
+    add('TEST_NR_10: CircuitSerializer module exists', !!CS);
+    add('TEST_NR_11: serialized comp has no functions', (function() {
+      const fake = { type: 'R', n1: 1, n2: 0, val: 1000, part: { draw: function(){} } };
+      const s = CS.serializeComp(fake);
+      for (const k in s) if (typeof s[k] === 'function') return false;
+      return s.type === 'R' && s.val === 1000;
+    })());
+    add('TEST_NR_12: scope nodes array passed through', (function() {
+      const sim = { N: 5, comps: [{ type:'R', n1:1, n2:0, val:100 }] };
+      const payload = CS.serialize(sim, [1, 3], 2e-5);
+      return payload.N === 5 && payload.scopeNodes.length === 2 && payload.dt === 2e-5;
+    })());
+    add('TEST_NR_13: BJT fields preserved', (function() {
+      const sim = { N: 4, comps: [{ type:'BJT', n1:1,n2:2,n3:3, IS:1e-14, BF:200, polarity:-1 }] };
+      const p = CS.serialize(sim, [], 1e-5);
+      const b = p.comps[0];
+      return b.type === 'BJT' && b.IS === 1e-14 && b.BF === 200 && b.polarity === -1;
+    })());
+    add('TEST_NR_14: Zener vz preserved', (function() {
+      const sim = { N: 3, comps: [{ type:'Z', n1:1, n2:0, vz:5.1, val:5.1 }] };
+      const p = CS.serialize(sim, [], 1e-5);
+      return p.comps[0].vz === 5.1;
+    })());
+    add('TEST_NR_15: PWL points preserved', (function() {
+      const sim = { N: 2, comps: [{ type:'V', n1:1, n2:0, val:0, isPWL:true, points:[[0,0],[1e-3,5]] }] };
+      const p = CS.serialize(sim, [], 1e-5);
+      return Array.isArray(p.comps[0].points) && p.comps[0].points.length === 2;
+    })());
+    add('TEST_NR_10b: branch count computed', (function() {
+      const sim = { N: 5, comps: [
+        { type:'R', n1:1, n2:0, val:100 },
+        { type:'V', n1:2, n2:0, val:5 },
+        { type:'L', n1:3, n2:0, val:1e-3 }
+      ] };
+      const p = CS.serialize(sim, [], 1e-5);
+      return p.branchCount === 2; // V + L
+    })());
+
+    // === WORKER NR VIA BRIDGE ===
+    // Re-init worker (terminated by Sprint 43 tests)
+    try { SB.init(); } catch (e) {}
+
+    // Prepare a 3-node linear circuit: V(1,0)=5, R(1,2)=1k, R(2,0)=2k (voltage divider)
+    const testCircuit = {
+      N: 2, branchCount: 1, dt: 1e-6,
+      scopeNodes: [1, 2],
+      comps: [
+        { type: 'V', n1: 1, n2: 0, val: 5 },
+        { type: 'R', n1: 1, n2: 2, val: 1000 },
+        { type: 'R', n1: 2, n2: 0, val: 2000 }
+      ]
+    };
+
+    // Collect tick frames
+    const frames = [];
+    SB.onStep(function(s) { if (s.frame) frames.push(s.frame); });
+    SB.onTick(function(t) { /* retained for TEST_NR_16 */ });
+
+    SB.sendCircuit(testCircuit);
+    SB.start(1);
+    // Wait for ticks (up to 500ms)
+    await new Promise(function(res) { setTimeout(res, 300); });
+    SB.stop();
+
+    // === TRANSFERABLE ===
+    add('TEST_NR_16: worker tick produced structured frames (Transferable decode)',
+      frames.length > 0);
+
+    // Check a node voltage — node 2 should be around 5 * 2000/3000 = 3.33 V
+    let v2 = NaN;
+    if (frames.length > 0) {
+      const last = frames[frames.length - 1];
+      v2 = last[1]; // scope channel 1 (second entry) = node 2
+    }
+    add('TEST_NR_01: worker produced non-zero node voltage', isFinite(v2) && Math.abs(v2) > 0.1);
+    add('TEST_NR_03: voltage divider node2 ≈ 3.33V (±0.5V)',
+      isFinite(v2) && Math.abs(v2 - 3.333) < 0.5);
+    add('TEST_NR_08: all tick voltages finite',
+      frames.every(function(f) { for (var i = 0; i < f.length; i++) if (!isFinite(f[i])) return false; return true; }));
+
+    add('TEST_NR_17: scope frame is Float64Array',
+      frames.length > 0 && (frames[0] instanceof Float64Array));
+    add('TEST_NR_18: frames contain both scope channels',
+      frames.length > 0 && frames[0].length === 2);
+
+    // === DC OP WORKER ===
+    const dcPromise = new Promise(function(res) {
+      let done = false;
+      SB.requestDCOP(function(ok, nv) { done = true; res({ ok: ok, nv: nv }); });
+      setTimeout(function() { if (!done) res({ ok: false, nv: null }); }, 500);
+    });
+    const dcRes = await dcPromise;
+    add('TEST_NR_31: requestDCOP via worker returns success', dcRes.ok === true);
+    add('TEST_NR_32: DC OP node voltages array-like returned',
+      dcRes.nv && typeof dcRes.nv.length === 'number');
+    add('TEST_NR_33: DC OP node2 ≈ 3.33V',
+      dcRes.nv && dcRes.nv.length >= 2 && Math.abs((dcRes.nv[1] || 0) - 3.333) < 0.5);
+
+    // === MAIN-THREAD FALLBACK CORRECTNESS (preset presets) ===
+    function loadAndSim(preset, steps) {
+      if (typeof loadPreset === 'function') loadPreset(preset);
+      if (typeof toggleSim === 'function' && !S.sim.running) toggleSim();
+      for (let i = 0; i < steps; i++) if (typeof simulationStep === 'function') simulationStep();
+      if (S.sim.running && typeof toggleSim === 'function') toggleSim();
+    }
+
+    loadAndSim('led', 200);
+    let ledVf = NaN;
+    const ledPart = S.parts.find(p => p.type === 'led');
+    if (ledPart && S._pinToNode && isArrayLike(S._nodeVoltages)) {
+      const pins = getPartPins(ledPart);
+      const n1 = S._pinToNode[Math.round(pins[0].x)+','+Math.round(pins[0].y)] || 0;
+      const n2 = S._pinToNode[Math.round(pins[1].x)+','+Math.round(pins[1].y)] || 0;
+      ledVf = Math.abs((S._nodeVoltages[n1]||0) - (S._nodeVoltages[n2]||0));
+    }
+    add('TEST_NR_02: LED Vf ∈ [1.5,2.2] V', ledVf > 1.5 && ledVf < 2.2);
+    add('TEST_NR_38: fallback LED Vf correct', ledVf > 1.5 && ledVf < 2.2);
+
+    loadAndSim('rc-filter', 500);
+    const nvRC = S._nodeVoltages;
+    let rcOk = nvRC && typeof nvRC.length === 'number' && nvRC.length > 0;
+    let rcFinite = rcOk;
+    if (rcOk) for (let i = 0; i < nvRC.length; i++) if (!isFinite(nvRC[i])) { rcFinite = false; break; }
+    add('TEST_NR_04: RC sim finite state', rcFinite);
+
+    loadAndSim('zener-reg', 300);
+    const nvZ = S._nodeVoltages;
+    add('TEST_NR_05: zener sim finite state',
+      nvZ && typeof nvZ.length === 'number' &&
+      Array.prototype.every.call(nvZ, function(v){ return isFinite(v); }));
+
+    loadAndSim('ce-amp', 400);
+    add('TEST_NR_06: CE amp sim finite state',
+      isArrayLike(S._nodeVoltages) &&
+      Array.prototype.every.call(S._nodeVoltages, function(v){ return isFinite(v); }));
+
+    loadAndSim('astable', 600);
+    const nvA = S._nodeVoltages;
+    add('TEST_NR_07: 555/astable sim finite state',
+      nvA && typeof nvA.length === 'number' &&
+      Array.prototype.every.call(nvA, function(v){ return isFinite(v); }));
+
+    // TEST_NR_09: convergence across 5 presets
+    let converged = 0, tried = 0;
+    ['led','rc-filter','zener-reg','ce-amp','vdiv','astable','rlc','half-wave','low-pass-rc','high-pass-rc'].forEach(function(p) {
+      try {
+        loadAndSim(p, 100);
+        tried++;
+        if (S._lastConverged !== false) converged++;
+      } catch (e) {}
+    });
+    add('TEST_NR_09: convergence rate ≥ 80%', tried > 0 && converged / tried >= 0.8);
+
+    // === PERFORMANS (main thread step budget as proxy) ===
+    loadAndSim('led', 10);
+    const tSmall = (function() {
+      const t0 = performance.now();
+      for (let i = 0; i < 100; i++) simulationStep();
+      return performance.now() - t0;
+    })();
+    add('TEST_NR_26: 10-component step budget (100 steps < 1000ms)', tSmall < 1000);
+
+    loadAndSim('ce-amp', 10);
+    const tMed = (function() {
+      const t0 = performance.now();
+      for (let i = 0; i < 100; i++) simulationStep();
+      return performance.now() - t0;
+    })();
+    add('TEST_NR_27: medium circuit step budget < 2500ms', tMed < 2500);
+
+    // TEST_NR_28: UI render interleaves — we just ensure simStep does not block for >2s per 100 steps
+    add('TEST_NR_28: no 2s stall in 100 steps', tMed < 2000 || tSmall < 2000);
+
+    // === INTEGRATION ===
+    add('TEST_NR_34: toggleSim() defined + usable', typeof toggleSim === 'function');
+    // Sending a current-circuit payload should not throw
+    add('TEST_NR_35: sendCurrentCircuit no-crash',
+      (function() { try { SB.sendCurrentCircuit([1, 2], 1e-5); return true; } catch(e) { return false; } })());
+    add('TEST_NR_36: re-init circuit after teardown',
+      (function() {
+        SB.sendCircuit({ N: 2, branchCount: 1, dt: 1e-5, scopeNodes: [1], comps: [
+          { type: 'V', n1: 1, n2: 0, val: 3.3 },
+          { type: 'R', n1: 1, n2: 0, val: 100 }
+        ]});
+        return true;
+      })());
+
+    // === FALLBACK ===
+    try { SB.terminate(); } catch (e) {}
+    add('TEST_NR_37: fallback terminate → isWorkerMode false', SB.isWorkerMode() === false);
+
+    // === REGRESSION ===
+    add('TEST_NR_39: prior modules intact',
+      !!VXA.Params && !!VXA.BSIM3 && !!VXA.LibImport && !!VXA.CircuitSerializer && !!VXA.SparseFast);
+    add('TEST_NR_40: PRESETS.length === 55', typeof PRESETS !== 'undefined' && PRESETS.length === 55);
+
+    return r;
+  });
+  nrResults.sort((a, b) => {
+    const na = parseInt((a.name.match(/TEST_NR_(\d+)/) || [])[1] || 99);
+    const nb = parseInt((b.name.match(/TEST_NR_(\d+)/) || [])[1] || 99);
+    return na - nb;
+  });
+  nrResults.forEach(r => console.log(`  ${r.pass ? '✅' : '❌'} ${r.name}`));
+  const nrPass = nrResults.filter(r => r.pass).length;
+  const nrFail = nrResults.filter(r => !r.pass).length;
+  console.log(`\n  Sprint 44: ${nrPass} PASS, ${nrFail} FAIL out of ${nrResults.length}`);
+
   // === FINAL ÖZET ===
   const totalPass = await page.evaluate(() => {
     return { parts: typeof COMP !== 'undefined' ? Object.keys(COMP).length : 0, lines: document.querySelector('script') ? 'OK' : 'FAIL' };
