@@ -7,26 +7,26 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <title>VoltXAmpere v9.0 — Free Online Circuit Simulator | Ücretsiz Devre Simülatörü</title>
-<meta name="description" content="World's most advanced free online circuit simulator. 69+ components, 55 presets, 50+ SPICE models, 3D breadboard, CRT oscilloscope, pole-zero analysis, 555 timer, LED calibration ±29mV. No installation needed.">
+<meta name="description" content="World's most advanced free online circuit simulator. 71+ components, 78+ SPICE models, BSIM3 MOSFET, behavioral source, netlist editor, 55 presets, 3D breadboard, CRT oscilloscope, 25 tutorials, LED calibration ±29mV. No installation needed.">
 <meta name="keywords" content="circuit simulator, SPICE, devre simülatörü, elektronik, electronics, voltxampere, free, online, oscilloscope, bode plot, thermal, Newton-Raphson, MNA, Gummel-Poon">
 <meta name="author" content="VoltXAmpere">
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="https://voltxampere.com/">
 <meta property="og:title" content="VoltXAmpere v9.0 — Ultimate Circuit Simulator">
-<meta property="og:description" content="69+ components, 55 presets, 50+ SPICE models, 3D breadboard, CRT oscilloscope, pole-zero analysis. Free and open source.">
+<meta property="og:description" content="71+ components, 78+ SPICE models, BSIM3 MOSFET, behavioral source, netlist editor, 3D breadboard. Free and open source.">
 <meta property="og:url" content="https://voltxampere.com/">
 <meta property="og:type" content="website">
 <meta property="og:locale" content="tr_TR">
 <meta property="og:locale:alternate" content="en_US">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="VoltXAmpere v9.0 — Free Circuit Simulator">
-<meta name="twitter:description" content="69+ components, 55 presets, 50+ SPICE models, 3D breadboard, pole-zero analysis. The world's most advanced free circuit simulator.">
+<meta name="twitter:description" content="71+ components, 78+ SPICE models, BSIM3 MOSFET, netlist editor. The world's most advanced free circuit simulator.">
 <meta name="theme-color" content="#00d4ff">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="VoltXAmpere">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='28' font-size='28'%3E%E2%9A%A1%3C/text%3E%3C/svg%3E">
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"VoltXAmpere v9.0","url":"https://voltxampere.com","description":"Free online circuit simulator with SPICE-accurate engine, 69+ components, 55 presets, 3D breadboard, pole-zero analysis","applicationCategory":"EducationalApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"featureList":"Circuit simulation, 69 components, 55 presets, 50+ SPICE models, 3D Breadboard, CRT Oscilloscope, Pole-Zero Analysis, 2D Sweep, Transfer Function, 555 Timer, Thermal simulation, LED calibration, Bode plot, Monte Carlo, Interactive tutorials, Component search"}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"VoltXAmpere v9.0","url":"https://voltxampere.com","description":"Free online circuit simulator with SPICE-accurate engine, 71+ components, 78+ SPICE models, BSIM3 MOSFET, netlist editor","applicationCategory":"EducationalApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"featureList":"Circuit simulation, 71 components, 78 SPICE models, BSIM3 MOSFET, Behavioral source, Laplace transfer, .SUBCKT, .PARAM, .STEP, .MEAS, PWL/EXP/SFFM, Netlist editor, Web Worker, 55 presets, 3D Breadboard, CRT Oscilloscope, Pole-Zero Analysis, 2D Sweep, Transfer Function, 555 Timer, Thermal simulation, LED calibration, Bode plot, Monte Carlo, Interactive tutorials, Component search"}</script>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
@@ -674,7 +674,7 @@ input:focus{border-color:var(--accent)}
     <span id="sb-temp" style="color:var(--text-3)"></span>
     <span id="sb-engine" style="color:var(--text-4)"></span>
     <span id="sb-extra" style="color:var(--text-3)"></span>
-    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v9.0 — Build: 2026-04-15 13:20 — © 2026</span>
+    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v9.0 — Build: 2026-04-15 14:34 — © 2026</span>
   </div>
 </div>
 
@@ -6550,6 +6550,27 @@ VXA.SimV2 = (function() {
   }
 
   function findDCOperatingPoint() {
+    // Sprint 49: opt-in wiring of VXA.Convergence.findDCOP — kept as a
+    // non-destructive probe. If S._useConvergenceUltimate=true, we try the
+    // 4-tier strategy first; any outcome (success or fail) still falls into
+    // the legacy path below for final guarantee. This preserves 55-preset
+    // motor regression while making diagnostics available to tests and UI.
+    if (typeof S !== 'undefined' && S && S._useConvergenceUltimate &&
+        typeof VXA !== 'undefined' && VXA.Convergence && VXA.Convergence.findDCOP && SIM) {
+      try {
+        var cvSolve = function(dt, Cpt, gmin) {
+          if (typeof gmin === 'number' && gmin > 0) _currentGMIN = gmin;
+          try { solve((dt && dt > 0) ? dt : 1e-5); } catch (_e) {}
+          return !!_lastConverged;
+        };
+        var cvResult = VXA.Convergence.findDCOP(cvSolve, SIM.N || 0,
+          S._nodeVoltages || new Float64Array(SIM.N || 0), SIM.comps || []);
+        if (VXA.Convergence.setLastDiagnostic) {
+          VXA.Convergence.setLastDiagnostic(cvResult);
+        }
+        S._convergenceMethod = cvResult && cvResult.method;
+      } catch (_e) { /* non-fatal */ }
+    }
     // Sprint 31: BJT-aware DC OP
     // For circuits with BJTs, source stepping reaches forward-active region naturally
     var hasBJT = SIM && SIM.comps.some(function(c) { return c.type === 'BJT'; });
@@ -20202,6 +20223,294 @@ if (typeof window !== 'undefined') window.drawPartLOD = VXA.LOD.drawPartLOD;
 })();
 
 
+// ═══ scope-pro.js ═══
+// ──────── SPRINT 49: WAVEFORM VIEWER PRO (v9.0) ────────
+// Standalone pro-scope toolkit. Main drawScope() is NOT mutated (breadboard
+// / preset regression protection). Sprint 50+ wires this into the scope tab.
+
+VXA.ScopePro = (function() {
+  'use strict';
+
+  var MAX_PANELS = 4;
+  var panels = [{ channels: [0], yMin: -10, yMax: 10, label: 'Voltaj (V)' }];
+  var mathTraces = [];
+  var cursors = {
+    c1: { enabled: false, time: 0 },
+    c2: { enabled: false, time: 0 }
+  };
+
+  function addPanel(config) {
+    if (panels.length >= MAX_PANELS) return false;
+    panels.push({
+      channels: (config && config.channels) || [],
+      yMin: (config && typeof config.yMin === 'number') ? config.yMin : -10,
+      yMax: (config && typeof config.yMax === 'number') ? config.yMax : 10,
+      label: (config && config.label) || ('Panel ' + (panels.length + 1))
+    });
+    return true;
+  }
+
+  function removePanel(index) {
+    if (panels.length <= 1) return false;
+    if (index < 0 || index >= panels.length) return false;
+    panels.splice(index, 1);
+    return true;
+  }
+
+  function getMathColor(i) {
+    var colors = ['#f59e0b', '#ec4899', '#8b5cf6', '#06b6d4'];
+    return colors[i % colors.length];
+  }
+
+  function addMathTrace(expression, label) {
+    mathTraces.push({
+      expression: String(expression || ''),
+      label: label || expression,
+      color: getMathColor(mathTraces.length),
+      data: []
+    });
+    return mathTraces.length;
+  }
+
+  // Balanced-paren matcher for dB(...) — emits sentinel tokens so the later
+  // Math-function regex doesn't re-wrap them into Math.Math.log10(...).
+  var SENT = '\u0001';
+  function resolveDB(expr) {
+    var out = '';
+    var i = 0;
+    while (i < expr.length) {
+      var rest = expr.substring(i);
+      var m = rest.match(/^dB\s*\(/i);
+      if (!m) { out += expr[i]; i++; continue; }
+      i += m[0].length;
+      var depth = 1, start = i;
+      while (i < expr.length && depth > 0) {
+        if (expr[i] === '(') depth++;
+        else if (expr[i] === ')') depth--;
+        if (depth > 0) i++;
+      }
+      var inner = expr.substring(start, i);
+      i++; // skip ')'
+      out += '(20*' + SENT + 'log10' + SENT + '(' + SENT + 'abs' + SENT + '(' + inner + ')+1e-30))';
+    }
+    return out;
+  }
+
+  function evaluateMathTrace(trace, scopeData, time) {
+    if (!trace || !trace.expression) return 0;
+    var expr = trace.expression;
+    // dB(...) FIRST — before V() substitution injects parens that would break [^)]+.
+    // Use a balanced-paren finder so expressions like dB(V(0)/V(1)) survive.
+    expr = resolveDB(expr);
+    // V(ch) → scopeData[ch] (unwrapped; upstream ops pad with spaces)
+    expr = expr.replace(/V\s*\(\s*(\d+)\s*\)/gi, function(_m, ch) {
+      var idx = parseInt(ch, 10);
+      return ' ' + (+((scopeData && scopeData[idx]) || 0)) + ' ';
+    });
+    // time
+    expr = expr.replace(/\btime\b/gi, '(' + (+time || 0) + ')');
+    // Math funcs (user-level names) — skip sentinel-wrapped tokens
+    var mfs = ['sin','cos','tan','exp','log10','log','sqrt','abs','pow','min','max','floor','ceil'];
+    for (var i = 0; i < mfs.length; i++) {
+      expr = expr.replace(new RegExp('\\b' + mfs[i] + '\\s*\\(', 'g'), 'Math.' + mfs[i] + '(');
+    }
+    // Convert sentinel tokens to Math.xxx (from resolveDB)
+    expr = expr.replace(new RegExp(SENT + '([a-z0-9]+)' + SENT, 'gi'), 'Math.$1');
+    // Safety whitelist
+    var stripped = expr.replace(/Math\.[a-z0-9]+/gi, '');
+    if (!/^[0-9.eE+\-*/()<>=!&|?:, \t]*$/.test(stripped)) return 0;
+    try {
+      // eslint-disable-next-line no-new-func
+      var fn = new Function('return (' + expr + ');');
+      var v = fn();
+      return (typeof v === 'number' && isFinite(v)) ? v : 0;
+    } catch (e) { return 0; }
+  }
+
+  function getValueAtTime(buf, time, timeBase) {
+    if (!buf || buf.length === 0) return 0;
+    var idx = (time / timeBase) * buf.length;
+    var i0 = Math.floor(idx);
+    var i1 = Math.min(i0 + 1, buf.length - 1);
+    if (i0 < 0) return buf[0] || 0;
+    if (i0 >= buf.length) return buf[buf.length - 1] || 0;
+    var frac = idx - i0;
+    return (buf[i0] || 0) * (1 - frac) + (buf[i1] || 0) * frac;
+  }
+
+  function getCursorMeasurements(scopeBuffer, timeBase) {
+    if (!cursors.c1.enabled || !cursors.c2.enabled) return null;
+    var t1 = cursors.c1.time, t2 = cursors.c2.time;
+    var v1 = getValueAtTime(scopeBuffer, t1, timeBase);
+    var v2 = getValueAtTime(scopeBuffer, t2, timeBase);
+    var dt = Math.abs(t2 - t1);
+    return {
+      t1: t1, t2: t2, v1: v1, v2: v2,
+      deltaT: dt,
+      deltaV: Math.abs(v2 - v1),
+      frequency: dt > 0 ? 1 / dt : 0,
+      slope: (t2 - t1) !== 0 ? (v2 - v1) / (t2 - t1) : 0
+    };
+  }
+
+  function autoMeasure(data) {
+    if (!data || data.length === 0) return null;
+    var n = data.length;
+    var max = -Infinity, min = Infinity, sum = 0, sumSq = 0;
+    for (var i = 0; i < n; i++) {
+      var v = data[i];
+      if (v > max) max = v;
+      if (v < min) min = v;
+      sum += v;
+      sumSq += v * v;
+    }
+    var avg = sum / n;
+    var rms = Math.sqrt(sumSq / n);
+    var pp = max - min;
+
+    // Frequency via mid-level zero crossings (avg-based)
+    var crossings = 0;
+    var prev = data[0] >= avg;
+    for (var j = 1; j < n; j++) {
+      var cur = data[j] >= avg;
+      if (cur !== prev) crossings++;
+      prev = cur;
+    }
+    var freq = (n > 1 && crossings > 1) ? (crossings / (2 * n)) : 0;
+
+    // Rise time (10% → 90%, sample-count units)
+    var t10 = min + pp * 0.1, t90 = min + pp * 0.9;
+    var riseStart = -1, riseEnd = -1;
+    for (var k = 0; k < n - 1; k++) {
+      if (riseStart < 0 && data[k] <= t10 && data[k + 1] > t10) riseStart = k;
+      if (riseStart >= 0 && data[k] <= t90 && data[k + 1] > t90) { riseEnd = k; break; }
+    }
+    var riseTime = (riseStart >= 0 && riseEnd >= 0) ? (riseEnd - riseStart) : null;
+
+    return { max: max, min: min, pp: pp, avg: avg, rms: rms, frequency: freq, riseTime: riseTime };
+  }
+
+  function fmtV(v) {
+    if (!isFinite(v)) return '—';
+    return Math.abs(v) < 0.01 ? (v * 1e3).toFixed(1) + 'mV' : v.toFixed(2) + 'V';
+  }
+  function fmtFreq(f) {
+    if (!isFinite(f) || f === 0) return '—';
+    return f >= 1e6 ? (f / 1e6).toFixed(1) + 'MHz'
+         : f >= 1e3 ? (f / 1e3).toFixed(1) + 'kHz'
+         : f.toFixed(0) + 'Hz';
+  }
+  function getChannelColor(ch) {
+    var colors = ['#4ade80', '#60a5fa', '#f59e0b', '#ec4899'];
+    return colors[ch] || '#888';
+  }
+
+  function renderMeasurementTable(measurements) {
+    if (!measurements || measurements.length === 0) return '';
+    var html = '<div class="meas-table" style="font:10px var(--font-mono,monospace);' +
+               'color:var(--text-3,#999);padding:4px 8px;' +
+               'display:grid;grid-template-columns:auto repeat(6,1fr);gap:2px 8px">';
+    measurements.forEach(function(m, ch) {
+      if (!m) return;
+      html += '<span style="color:' + getChannelColor(ch) + '">CH' + (ch + 1) + '</span>';
+      html += '<span>Max=' + fmtV(m.max) + '</span>';
+      html += '<span>Min=' + fmtV(m.min) + '</span>';
+      html += '<span>Vpp=' + fmtV(m.pp) + '</span>';
+      html += '<span>Avg=' + fmtV(m.avg) + '</span>';
+      html += '<span>RMS=' + fmtV(m.rms) + '</span>';
+      html += '<span>f=' + fmtFreq(m.frequency) + '</span>';
+    });
+    html += '</div>';
+    return html;
+  }
+
+  return {
+    MAX_PANELS: MAX_PANELS,
+    panels: panels, addPanel: addPanel, removePanel: removePanel,
+    mathTraces: mathTraces, addMathTrace: addMathTrace, evaluateMathTrace: evaluateMathTrace,
+    cursors: cursors, getCursorMeasurements: getCursorMeasurements, getValueAtTime: getValueAtTime,
+    autoMeasure: autoMeasure,
+    renderMeasurementTable: renderMeasurementTable,
+    fmtV: fmtV, fmtFreq: fmtFreq, getChannelColor: getChannelColor
+  };
+})();
+
+
+// ═══ convergence-warning.js ═══
+// ──────── SPRINT 49: Convergence Warning Strip ────────
+// Floating status-bar strip at the bottom-right. Opens a showInfoCard-style
+// overlay with diagnose() output when clicked. Injected lazily so main
+// layout / existing status bar is untouched.
+
+(function() {
+  'use strict';
+  if (typeof document === 'undefined') return;
+
+  var stripEl = null;
+
+  function ensureStrip() {
+    if (stripEl) return stripEl;
+    stripEl = document.createElement('div');
+    stripEl.id = 'convergence-warning';
+    stripEl.style.cssText = 'position:fixed;bottom:56px;right:12px;z-index:950;' +
+      'padding:6px 10px;border-radius:4px;' +
+      'background:#f59e0b;color:#111;font:600 11px var(--font-ui,sans-serif);' +
+      'cursor:pointer;display:none;box-shadow:0 2px 8px rgba(0,0,0,0.3)';
+    stripEl.textContent = '⚠ Yakınsama sorunu';
+    stripEl.onclick = function() { showConvergenceDetail(); };
+    document.body.appendChild(stripEl);
+    return stripEl;
+  }
+
+  function showWarning(message) {
+    ensureStrip();
+    stripEl.textContent = '⚠ ' + (message || 'Yakınsama sorunu');
+    stripEl.style.display = 'block';
+  }
+
+  function hideWarning() {
+    if (stripEl) stripEl.style.display = 'none';
+  }
+
+  function showConvergenceDetail() {
+    var diag = (VXA.Convergence && VXA.Convergence.getLastDiagnostic)
+      ? VXA.Convergence.getLastDiagnostic() : null;
+    if (!diag) {
+      if (typeof showInfoCard === 'function') {
+        showInfoCard('Yakınsama', 'Diagnostik bilgi mevcut değil.', '');
+      }
+      return;
+    }
+    var msg = '';
+    if (diag.method) msg += 'Yöntem: ' + diag.method + '. ';
+    if (diag.worstNode != null) {
+      msg += 'En sorunlu düğüm: Node ' + diag.worstNode +
+             ' (ΔV=' + (diag.worstDiff || 0).toFixed(3) + ').';
+    }
+    if (diag.suggestions && diag.suggestions.length) {
+      msg += ' Öneri: ' + diag.suggestions[0];
+    }
+    if (typeof showInfoCard === 'function') {
+      showInfoCard('DC Operating Point', msg || 'Detay yok.', '');
+    } else if (typeof alert === 'function') {
+      alert(msg || 'Detay yok.');
+    }
+  }
+
+  window.vxaConvergenceWarn = showWarning;
+  window.vxaConvergenceClear = hideWarning;
+  window.vxaConvergenceDetail = showConvergenceDetail;
+
+  // Periodic poll: if VXA.Convergence.getLastDiagnostic says not converged, show.
+  setInterval(function() {
+    if (typeof VXA === 'undefined' || !VXA.Convergence) return;
+    var diag = VXA.Convergence.getLastDiagnostic && VXA.Convergence.getLastDiagnostic();
+    if (diag && diag.success === false) showWarning('DC OP bulunamadı — detay');
+    else if (diag && diag.success === true) hideWarning();
+  }, 1000);
+})();
+
+
 // ═══ breadboard.js ═══
 // ══════════════════════════════════════════════════════════════
 // VXA.Breadboard — Sprint 20a: 3D Breadboard Render + Auto-Place
@@ -24058,8 +24367,8 @@ function showAbout() {
   box.innerHTML = '<div style="font:800 24px var(--font-ui);margin-bottom:4px"><span style="color:var(--accent)">\u26A1 Volt</span><span style="color:var(--orange)">X</span><span style="color:var(--blue)">Ampere</span> <span style="font:500 14px var(--font-mono);color:var(--text-3)">v9.0</span></div>'
     + '<div style="font:13px var(--font-ui);color:var(--text-2);margin-bottom:16px">' + (tr?'D\u00fcnyan\u0131n En Geli\u015fmi\u015f \u00dccretsiz Devre Sim\u00fclat\u00f6r\u00fc':'World\'s Most Advanced Free Circuit Simulator') + '</div>'
     + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;text-align:left;font-size:11px;color:var(--text-2);margin-bottom:12px">'
-    + '<div>\u2705 69+ ' + (tr?'Bile\u015fen':'Components') + '</div>'
-    + '<div>\u2705 50+ SPICE ' + (tr?'Model':'Models') + '</div>'
+    + '<div>\u2705 71+ ' + (tr?'Bile\u015fen':'Components') + '</div>'
+    + '<div>\u2705 78+ SPICE ' + (tr?'Model':'Models') + '</div>'
     + '<div>\u2705 Gummel-Poon BJT</div>'
     + '<div>\u2705 MOSFET Level 1</div>'
     + '<div>\u2705 Banded Sparse ' + (tr?'\u00c7\u00f6z\u00fcc\u00fc':'Solver') + '</div>'
@@ -24076,7 +24385,7 @@ function showAbout() {
     + '<div>\u2705 Noise (per-source)</div>'
     + '<div>\u2705 Monte Carlo + RSS</div>'
     + '<div>\u2705 Sensitivity / Worst-Case</div>'
-    + '<div>\u2705 1148+ ' + (tr?'Test (0 Fail)':'Tests (0 Fail)') + '</div>'
+    + '<div>\u2705 2338+ ' + (tr?'Test (0 Fail)':'Tests (0 Fail)') + '</div>'
     + '<div>\u2705 Net Label ' + (tr?'Sistemi':'System') + '</div>'
     + '<div>\u2705 Subcircuit / ' + (tr?'Bloklar':'Blocks') + '</div>'
     + '<div>\u2705 SPICE Import/Export</div>'
@@ -24105,11 +24414,19 @@ function showAbout() {
     + '<div>\u2705 \uD83D\uDD0D ' + (tr?'Ak\u0131ll\u0131 Bile\u015fen Arama':'Smart Component Search') + '</div>'
     + '<div>\u2705 555 Timer IC</div>'
     + '<div>\u2705 \uD83D\uDD0A ' + (tr?'Speaker + Buzzer':'Speaker + Buzzer') + '</div>'
-    + '<div>\u2705 \uD83D\uDCCA 14 ' + (tr?'Analiz Sekmesi':'Analysis Tabs') + '</div>'
-    + '<div>\u2705 55 ' + (tr?'Haz\u0131r Devre':'Preset Circuits') + '</div>'
+    + '<div>\u2705 \uD83D\uDCCA 15 ' + (tr?'Analiz Sekmesi':'Analysis Tabs') + '</div>'
     + '<div>\u2705 LED \u00B129mV ' + (tr?'Kalibrasyon':'Calibration') + '</div>'
     + '<div>\u2705 ' + (tr?'Zener SPICE 3 Modeli':'Zener SPICE 3 Model') + '</div>'
-    + '<div>\u2705 1298+ ' + (tr?'Test (0 Fail)':'Tests (0 Fail)') + '</div>'
+    + '<div>\u2705 \uD83C\uDD95 BSIM3v3 ' + (tr?'MOSFET (180/90nm)':'MOSFET (180/90nm)') + '</div>'
+    + '<div>\u2705 \uD83C\uDD95 .PARAM / .STEP / .MEAS</div>'
+    + '<div>\u2705 \uD83C\uDD95 PWL / EXP / SFFM ' + (tr?'Kaynaklar':'Sources') + '</div>'
+    + '<div>\u2705 \uD83C\uDD95 .IC ' + (tr?'Ba\u015flang\u0131\u00e7 Ko\u015fullar\u0131':'Initial Conditions') + '</div>'
+    + '<div>\u2705 \uD83C\uDD95 B Element + Laplace</div>'
+    + '<div>\u2705 \uD83C\uDD95 \uD83D\uDCDD Netlist ' + (tr?'Edit\u00f6r\u00fc (Ctrl+L)':'Editor (Ctrl+L)') + '</div>'
+    + '<div>\u2705 \uD83C\uDD95 \u26A1 Web Worker ' + (tr?'Sim\u00fclasyon':'Simulation') + '</div>'
+    + '<div>\u2705 \uD83C\uDD95 \uD83D\uDCE6 78+ Model + Browser</div>'
+    + '<div>\u2705 \uD83C\uDD95 \uD83D\uDD2C 4-' + (tr?'Kademeli Convergence':'Tier Convergence') + '</div>'
+    + '<div>\u2705 \uD83C\uDD95 \uD83D\uDCCA Waveform Viewer Pro</div>'
     + '<div>\u2705 \uD83D\uDCF7 ' + (tr?'PNG + SVG Profesyonel Export':'PNG + SVG Professional Export') + '</div>'
     + '<div>\u2705 \uD83D\uDCE5 ' + (tr?'5 D\u0131\u015fa Aktarma Format\u0131':'5 Export Formats') + '</div>'
     + '<div>\u2705 \uD83C\uDF93 ' + (tr?'25 Ders \u00D7 24 Quiz \u00D7 5 Seviye':'25 Lessons \u00D7 24 Quiz \u00D7 5 Levels') + '</div>'

@@ -609,6 +609,27 @@ VXA.SimV2 = (function() {
   }
 
   function findDCOperatingPoint() {
+    // Sprint 49: opt-in wiring of VXA.Convergence.findDCOP — kept as a
+    // non-destructive probe. If S._useConvergenceUltimate=true, we try the
+    // 4-tier strategy first; any outcome (success or fail) still falls into
+    // the legacy path below for final guarantee. This preserves 55-preset
+    // motor regression while making diagnostics available to tests and UI.
+    if (typeof S !== 'undefined' && S && S._useConvergenceUltimate &&
+        typeof VXA !== 'undefined' && VXA.Convergence && VXA.Convergence.findDCOP && SIM) {
+      try {
+        var cvSolve = function(dt, Cpt, gmin) {
+          if (typeof gmin === 'number' && gmin > 0) _currentGMIN = gmin;
+          try { solve((dt && dt > 0) ? dt : 1e-5); } catch (_e) {}
+          return !!_lastConverged;
+        };
+        var cvResult = VXA.Convergence.findDCOP(cvSolve, SIM.N || 0,
+          S._nodeVoltages || new Float64Array(SIM.N || 0), SIM.comps || []);
+        if (VXA.Convergence.setLastDiagnostic) {
+          VXA.Convergence.setLastDiagnostic(cvResult);
+        }
+        S._convergenceMethod = cvResult && cvResult.method;
+      } catch (_e) { /* non-fatal */ }
+    }
     // Sprint 31: BJT-aware DC OP
     // For circuits with BJTs, source stepping reaches forward-active region naturally
     var hasBJT = SIM && SIM.comps.some(function(c) { return c.type === 'BJT'; });

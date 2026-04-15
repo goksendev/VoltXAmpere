@@ -291,6 +291,10 @@ const JS_FILES = [
   // UI: Netlist panel (drawer + shortcut) — Sprint 46 (v9.0)
   'src/ui/netlist-panel.js',
 
+  // UI: Waveform Viewer Pro + Convergence warning — Sprint 49 (v9.0)
+  'src/ui/scope-pro.js',
+  'src/ui/convergence-warning.js',
+
   // UI: breadboard 3D view
   'src/ui/breadboard.js',
 
