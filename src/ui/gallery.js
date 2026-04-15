@@ -75,33 +75,73 @@ function showGallery() {
 
 function filterGallery() { showGallery(); }
 
+// Sprint 33: Format v2 + applies model + v1 backward compat + loaded notification
 function loadFromURL() {
   if (!location.hash.startsWith('#circuit=')) return;
   try {
-    const encoded = location.hash.substring(9);
-    const data = JSON.parse(atob(encoded));
+    var encoded = location.hash.substring(9);
+    if (encoded.indexOf('&') > -1) encoded = encoded.split('&')[0];
+    var json;
+    try { json = decodeURIComponent(escape(atob(encoded))); }
+    catch(e) { json = atob(encoded); }
+    var data = JSON.parse(json);
     if (!data.p || !data.w) return;
     S.parts = []; S.wires = []; S.nextId = 1;
-    data.p.forEach(p => {
-      const [type, x, y, rot, val, freq] = p;
-      S.parts.push({ id: S.nextId++, type, name: nextName(type), x, y, rot, val, freq: freq || 0, flipH: false, flipV: false, closed: false });
+    data.p.forEach(function(p) {
+      var type = p[0], x = p[1], y = p[2], rot = p[3], val = p[4], freq = p[5] || 0;
+      var extras = (p.length > 6 && typeof p[6] === 'object') ? p[6] : {};
+      var newPart = {
+        id: S.nextId++, type: type, name: nextName(type),
+        x: x, y: y, rot: rot, val: val, freq: freq,
+        flipH: false, flipV: false, closed: false
+      };
+      // Sprint 33 extras (format v2)
+      if (extras.cl) newPart.closed = true;
+      if (extras.wp !== undefined) newPart.wiper = extras.wp;
+      if (extras.lb) newPart.label = extras.lb;
+      if (extras.lc) newPart.ledColor = extras.lc;
+      if (extras.cp) newPart.coupling = extras.cp;
+      if (extras.l1) newPart.L1 = extras.l1;
+      if (extras.l2) newPart.L2 = extras.l2;
+      if (extras.ph) newPart.phase = extras.ph;
+      if (extras.dt) newPart.duty = extras.dt;
+      if (extras.dc) newPart.dcOffset = extras.dc;
+      if (extras.z) newPart.impedance = extras.z;
+      // Model uygulaması (KRİTİK)
+      if (extras.m) {
+        newPart.model = extras.m;
+        if (typeof applyModel === 'function') applyModel(newPart, extras.m);
+      } else {
+        // Format v1 uyumluluğu: model yoksa default
+        var defModel = (typeof VXA !== 'undefined' && VXA.Models && VXA.Models.getDefault)
+                       ? VXA.Models.getDefault(type) : null;
+        if (defModel) {
+          newPart.model = defModel;
+          if (typeof applyModel === 'function') applyModel(newPart, defModel);
+        }
+      }
+      S.parts.push(newPart);
     });
-    data.w.forEach(w => {
-      const [x1, y1, x2, y2] = w;
-      S.wires.push({ x1, y1, x2, y2 });
+    data.w.forEach(function(w) {
+      S.wires.push({ x1: w[0], y1: w[1], x2: w[2], y2: w[3] });
     });
     S.sel = []; needsRender = true;
-    // Fit
     if (S.parts.length) {
-      setTimeout(() => {
-        let mnx=Infinity,mny=Infinity,mxx=-Infinity,mxy=-Infinity;
-        S.parts.forEach(p=>{mnx=Math.min(mnx,p.x-60);mny=Math.min(mny,p.y-60);mxx=Math.max(mxx,p.x+60);mxy=Math.max(mxy,p.y+60);});
-        const cw=cvs.width/DPR,ch=cvs.height/DPR;
+      setTimeout(function() {
+        var mnx=Infinity,mny=Infinity,mxx=-Infinity,mxy=-Infinity;
+        S.parts.forEach(function(p){mnx=Math.min(mnx,p.x-60);mny=Math.min(mny,p.y-60);mxx=Math.max(mxx,p.x+60);mxy=Math.max(mxy,p.y+60);});
+        var cw=cvs.width/DPR,ch=cvs.height/DPR;
         S.view.zoom=Math.min(cw/(mxx-mnx),ch/(mxy-mny),S.view.maxZoom)*0.85;
         S.view.ox=cw/2-((mnx+mxx)/2)*S.view.zoom;
         S.view.oy=ch/2-((mny+mxy)/2)*S.view.zoom;
         needsRender=true;
       }, 100);
+      setTimeout(function() {
+        var msg = (typeof currentLang !== 'undefined' && currentLang === 'tr')
+          ? '\uD83D\uDD17 Paylaşılan devre yüklendi! ' + S.parts.length + ' bileşen.'
+          : '\uD83D\uDD17 Shared circuit loaded! ' + S.parts.length + ' components.';
+        if (typeof showInfoCard === 'function') showInfoCard(msg, '', '');
+      }, 500);
     }
   } catch (e) { console.error('URL load error:', e); }
 }

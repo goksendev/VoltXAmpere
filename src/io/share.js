@@ -1,8 +1,35 @@
 // ──────── URL SHARING ────────
+// Sprint 33: Format v2 — preserves model, switch state, wiper, label, etc.
 function shareURL() {
-  var data = { v:1, p:S.parts.map(function(p){return [p.type,p.x,p.y,p.rot||0,p.val,p.freq||0];}), w:S.wires.map(function(w){return [w.x1,w.y1,w.x2,w.y2];}) };
-  var encoded = btoa(JSON.stringify(data));
+  var data = {
+    v: 2, // Format versiyonu 2 — extras objesi destekler
+    p: S.parts.map(function(p) {
+      var entry = [p.type, p.x, p.y, p.rot||0, p.val, p.freq||0];
+      var extras = {};
+      if (p.model) extras.m = p.model;                                    // SPICE model adı
+      if (p.ledColor) extras.lc = p.ledColor;                              // LED rengi
+      if (p.closed) extras.cl = 1;                                         // Switch/relay durumu
+      if (p.wiper !== undefined && p.wiper !== 0.5) extras.wp = p.wiper;  // Pot wiper (default 0.5 ise atla)
+      if (p.label) extras.lb = p.label;                                    // Net label ismi
+      if (p.coupling) extras.cp = p.coupling;                              // Trafo coupling
+      if (p.L1) extras.l1 = p.L1;                                          // Trafo L1
+      if (p.L2) extras.l2 = p.L2;                                          // Trafo L2
+      if (p.phase) extras.ph = p.phase;                                    // AC source faz
+      if (p.duty) extras.dt = p.duty;                                      // Pulse duty cycle
+      if (p.dcOffset) extras.dc = p.dcOffset;                              // AC DC offset
+      if (p.impedance && p.impedance !== 8) extras.z = p.impedance;        // Speaker impedans
+      if (Object.keys(extras).length > 0) entry.push(extras);
+      return entry;
+    }),
+    w: S.wires.map(function(w) { return [w.x1, w.y1, w.x2, w.y2]; })
+  };
+  var json = JSON.stringify(data);
+  // UTF-8 safe btoa (Türkçe karakter, μ/Ω semboller için)
+  var encoded = btoa(unescape(encodeURIComponent(json)));
   var url = location.origin + location.pathname + '#circuit=' + encoded;
+  if (url.length > 2000) {
+    console.warn('Share URL is very long (' + url.length + ' chars). Some browsers may truncate.');
+  }
   var embedUrl = url + '&embed=1';
   var embedCode = '<iframe src="'+embedUrl+'" width="100%" height="600" frameborder="0"></iframe>';
   // Update modal content

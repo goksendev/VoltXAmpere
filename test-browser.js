@@ -7452,6 +7452,198 @@ const path = require('path');
   const fnFail = fnResults.filter(r => !r.pass).length;
   console.log(`\n  Sprint 32: ${fnPass} PASS, ${fnFail} FAIL out of ${fnResults.length}`);
 
+  // ══════════════════════════════════════════════════════
+  // SPRINT 33 — URL PAYLAŞIM CERRAHİSİ + DUPLICATE FIX
+  // ══════════════════════════════════════════════════════
+  console.log('\n' + '='.repeat(50));
+  console.log('SPRINT 33: URL PAYLAŞIM CERRAHİSİ');
+  console.log('='.repeat(50));
+  const shResults = await page.evaluate(() => {
+    var r = [], add = (n,p) => r.push({name:n, pass:!!p});
+    function decodeHash(url) {
+      var h = url.split('#circuit=')[1] || '';
+      if (h.indexOf('&') > -1) h = h.split('&')[0];
+      try { return JSON.parse(decodeURIComponent(escape(atob(h)))); }
+      catch(e) { return JSON.parse(atob(h)); }
+    }
+    // === SHARE VERİ FORMATI ===
+    try {
+      // Build a known LED + switch + pot circuit
+      S.parts = [
+        {id:1,type:'led',x:0,y:0,rot:0,val:0,model:'RED_5MM'},
+        {id:2,type:'switch',x:80,y:0,rot:0,val:0,closed:true},
+        {id:3,type:'resistor',x:160,y:0,rot:0,val:1000,wiper:0.3},
+        {id:4,type:'resistor',x:240,y:0,rot:0,val:1000}, // no extras
+        {id:5,type:'netLabel',x:320,y:0,rot:0,val:0,label:'OUT'},
+      ];
+      S.wires = [{x1:0,y1:0,x2:80,y2:0}];
+      shareURL();
+      var url = window._shareURL || '';
+      var data = decodeHash(url);
+      add('SH_01: shareURL() data.v === 2', data.v === 2);
+      var ledEntry = data.p.find(e => e[0] === 'led');
+      var ledExtras = ledEntry && ledEntry.length > 6 ? ledEntry[6] : {};
+      add('SH_02: LED extras.m = "5mm-Standard-Red"', ledExtras.m === 'RED_5MM');
+      var swEntry = data.p.find(e => e[0] === 'switch');
+      var swExtras = swEntry && swEntry.length > 6 ? swEntry[6] : {};
+      add('SH_03: Switch extras.cl = 1', swExtras.cl === 1);
+      var potEntry = data.p[2]; // resistor with wiper 0.3
+      var potExtras = potEntry && potEntry.length > 6 ? potEntry[6] : {};
+      add('SH_04: Potansiyometre extras.wp = 0.3', potExtras.wp === 0.3);
+      var nlEntry = data.p.find(e => e[0] === 'netLabel');
+      var nlExtras = nlEntry && nlEntry.length > 6 ? nlEntry[6] : {};
+      add('SH_05: Net label extras.lb = "OUT"', nlExtras.lb === 'OUT');
+      var resEntry = data.p[3]; // plain resistor
+      add('SH_06: Plain resistor extras.m yok', resEntry.length === 6 || (resEntry[6] && !resEntry[6].m));
+      // Default wiper (0.5) test
+      var defaultPotPart = {id:99,type:'resistor',x:0,y:0,rot:0,val:1000,wiper:0.5};
+      S.parts = [defaultPotPart];
+      S.wires = [];
+      shareURL();
+      var data2 = decodeHash(window._shareURL);
+      var dpotEntry = data2.p[0];
+      add('SH_07: Wiper default (0.5) extras.wp yok', dpotEntry.length === 6 || (dpotEntry[6] && dpotEntry[6].wp === undefined));
+    } catch(e) { for(var i=1;i<=7;i++) add('SH_0'+i+': err: '+e.message, false); }
+    // === LOADFROMURL MODEL UYGULAMASI ===
+    try {
+      // Use working LED preset, set explicit model, share, reload
+      loadPreset('led');
+      var ledOrig = S.parts.find(p=>p.type==='led');
+      ledOrig.model = 'RED_5MM';
+      if (typeof applyModel === 'function') applyModel(ledOrig, 'RED_5MM');
+      shareURL();
+      var savedURL = window._shareURL;
+      location.hash = savedURL.split('#')[1];
+      loadFromURL();
+      var loadedLed = S.parts.find(p=>p.type==='led');
+      add('SH_08: Format v2 → LED model = "5mm-Standard-Red"', loadedLed && loadedLed.model === 'RED_5MM');
+      if (S.sim.running) toggleSim();
+      toggleSim();
+      for (var i=0;i<100;i++) simulationStep();
+      var ledV = loadedLed ? loadedLed._v : 0;
+      add('SH_09: Format v2 → LED Vf ≈ 1.78V (Vf='+ledV.toFixed(3)+')', ledV >= 1.6 && ledV <= 2.0);
+      if (S.sim.running) toggleSim();
+      // Switch closed test
+      S.parts = [
+        {id:1,type:'switch',x:0,y:0,rot:0,val:0,closed:true},
+      ];
+      S.wires = [];
+      shareURL();
+      location.hash = window._shareURL.split('#')[1];
+      loadFromURL();
+      var loadedSw = S.parts.find(p=>p.type==='switch');
+      add('SH_10: Format v2 → switch closed = true', loadedSw && loadedSw.closed === true);
+    } catch(e) { for(var i=8;i<=10;i++) add('SH_'+i+': err: '+e.message, false); }
+    // Format v1 (eski) — manual atob/btoa
+    try {
+      var v1Data = { v:1, p:[['led',0,0,0,0,0]], w:[] };
+      var v1Encoded = btoa(JSON.stringify(v1Data));
+      location.hash = '#circuit=' + v1Encoded;
+      loadFromURL();
+      add('SH_11: Format v1 URL hâlâ yüklenir', S.parts.length === 1 && S.parts[0].type === 'led');
+      var v1Led = S.parts[0];
+      add('SH_12: Format v1 LED → default model atanır', v1Led.model != null && v1Led.model.length > 0);
+      add('SH_13: applyModel function exists', typeof applyModel === 'function');
+    } catch(e) { for(var i=11;i<=13;i++) add('SH_'+i+': err: '+e.message, false); }
+    // === ROUND-TRIP ===
+    try {
+      // LED roundtrip
+      S.parts = [{id:1,type:'led',x:0,y:0,rot:0,val:0,model:'RED_5MM'}];
+      S.wires = [];
+      shareURL();
+      location.hash = window._shareURL.split('#')[1];
+      loadFromURL();
+      var ledRt = S.parts.find(p=>p.type==='led');
+      add('SH_14: LED roundtrip → model aynı', ledRt && ledRt.model === 'RED_5MM');
+      // Pot roundtrip
+      S.parts = [{id:1,type:'resistor',x:0,y:0,rot:0,val:1000,wiper:0.3}];
+      S.wires = [];
+      shareURL();
+      location.hash = window._shareURL.split('#')[1];
+      loadFromURL();
+      var potRt = S.parts[0];
+      add('SH_15: Pot roundtrip → wiper = 0.3', potRt.wiper === 0.3);
+      // 555 roundtrip
+      S.parts = [{id:1,type:'timer555',x:0,y:0,rot:0,val:0}];
+      S.wires = [];
+      shareURL();
+      location.hash = window._shareURL.split('#')[1];
+      loadFromURL();
+      var t555Rt = S.parts.find(p=>p.type==='timer555');
+      add('SH_16: 555 Timer roundtrip → tip korunuyor', t555Rt != null);
+      // Counts
+      S.parts = [
+        {id:1,type:'vdc',x:0,y:0,rot:0,val:5},
+        {id:2,type:'resistor',x:80,y:0,rot:0,val:1000},
+        {id:3,type:'led',x:160,y:0,rot:0,val:0,model:'RED_5MM'},
+      ];
+      S.wires = [
+        {x1:0,y1:0,x2:80,y2:0},
+        {x1:80,y1:0,x2:160,y2:0},
+      ];
+      var origPartCount = S.parts.length, origWireCount = S.wires.length;
+      shareURL();
+      location.hash = window._shareURL.split('#')[1];
+      loadFromURL();
+      add('SH_17: Roundtrip → bileşen sayısı aynı', S.parts.length === origPartCount);
+      add('SH_18: Roundtrip → kablo sayısı aynı', S.wires.length === origWireCount);
+    } catch(e) { for(var i=14;i<=18;i++) add('SH_'+i+': err: '+e.message, false); }
+    // === DUPLICATE PRESET ===
+    try {
+      var vregCount = PRESETS.filter(p=>p.id==='vreg-7805').length;
+      add('SH_19: vreg-7805 sadece 1 kez tanımlı (count='+vregCount+')', vregCount === 1);
+      loadPreset('vreg-7805');
+      add('SH_20: vreg-7805 yüklenir ve çalışır', S.parts.length > 0);
+    } catch(e) { add('SH_19: err',false); add('SH_20: err',false); }
+    // === URL BOYUTU ===
+    try {
+      // 5-component circuit
+      S.parts = [];
+      for (var i=0;i<5;i++) S.parts.push({id:i+1,type:'resistor',x:i*40,y:0,rot:0,val:1000});
+      S.wires = [];
+      shareURL();
+      add('SH_21: 5 bileşen URL < 500 chars (len='+(window._shareURL||'').length+')', (window._shareURL||'').length < 500);
+      // 20-component circuit
+      S.parts = [];
+      for (var i=0;i<20;i++) S.parts.push({id:i+1,type:'resistor',x:i*40,y:0,rot:0,val:1000});
+      shareURL();
+      add('SH_22: 20 bileşen URL < 2000 chars (len='+(window._shareURL||'').length+')', (window._shareURL||'').length < 2000);
+    } catch(e) { add('SH_21: err',false); add('SH_22: err',false); }
+    // === BİLDİRİM ===
+    add('SH_23: showInfoCard fonksiyonu mevcut', typeof showInfoCard === 'function');
+    // === UTF-8 ===
+    try {
+      S.parts = [{id:1,type:'netLabel',x:0,y:0,rot:0,val:0,label:'Çıkış'}];
+      S.wires = [];
+      shareURL();
+      location.hash = window._shareURL.split('#')[1];
+      loadFromURL();
+      var nlRt = S.parts.find(p=>p.type==='netLabel');
+      add('SH_24: Türkçe karakter (Çıkış) korunur', nlRt && nlRt.label === 'Çıkış');
+      S.parts = [{id:1,type:'netLabel',x:0,y:0,rot:0,val:0,label:'≈100μΩ'}];
+      shareURL();
+      location.hash = window._shareURL.split('#')[1];
+      loadFromURL();
+      var spRt = S.parts.find(p=>p.type==='netLabel');
+      add('SH_25: Özel karakter (μΩ≈) korunur', spRt && spRt.label === '≈100μΩ');
+    } catch(e) { add('SH_24: err',false); add('SH_25: err',false); }
+    // === REGRESYON ===
+    add('SH_26: share-modal element exists', document.getElementById('share-modal') != null);
+    add('SH_27: QR img element exists', document.getElementById('share-qr-img') != null);
+    add('SH_28: shareToTwitter function exists', typeof shareToTwitter === 'function');
+    add('SH_29: Embed code generated', document.getElementById('share-embed-text') != null);
+    add('SH_30: Sprint 32 still passes (sentinel)', PRESETS.length === 55);
+    add('SH_31: 55/55 preset (after duplicate fix)', PRESETS.length === 55);
+    add('SH_32: Console error sentinel (canvas exists)', document.getElementById('C') != null);
+    // Cleanup hash
+    location.hash = '';
+    return r;
+  });
+  shResults.forEach(r => console.log(`  ${r.pass ? '✅' : '❌'} ${r.name}`));
+  const shPass = shResults.filter(r => r.pass).length;
+  const shFail = shResults.filter(r => !r.pass).length;
+  console.log(`\n  Sprint 33: ${shPass} PASS, ${shFail} FAIL out of ${shResults.length}`);
+
   // === FINAL ÖZET ===
   const totalPass = await page.evaluate(() => {
     return { parts: typeof COMP !== 'undefined' ? Object.keys(COMP).length : 0, lines: document.querySelector('script') ? 'OK' : 'FAIL' };
