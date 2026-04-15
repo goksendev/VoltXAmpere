@@ -203,6 +203,9 @@ const JS_FILES = [
   // IO: SVG export
   'src/io/svg-export.js',
 
+  // IO: Netlist editor (Sprint 46 — v9.0)
+  'src/io/netlist-editor.js',
+
   // IO: CSV export
   'src/io/csv-export.js',
 
@@ -278,6 +281,9 @@ const JS_FILES = [
   // UI: Render optimization — LayerCache + LOD helper (Sprint 45 — v9.0)
   'src/ui/layer-cache.js',
   'src/ui/lod-render.js',
+
+  // UI: Netlist panel (drawer + shortcut) — Sprint 46 (v9.0)
+  'src/ui/netlist-panel.js',
 
   // UI: breadboard 3D view
   'src/ui/breadboard.js',

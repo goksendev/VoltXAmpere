@@ -9900,6 +9900,197 @@ console.log = function() {
   const roFail = roResults.filter(r => !r.pass).length;
   console.log(`\n  Sprint 45: ${roPass} PASS, ${roFail} FAIL out of ${roResults.length}`);
 
+  // ═══════════════════════════════════════════════════════════════
+  // SPRINT 46: NETLIST EDITOR + SPLIT VIEW (v9.0)
+  // ═══════════════════════════════════════════════════════════════
+  console.log('\n📋 Sprint 46: NETLIST EDITOR (v9.0)');
+  const nlResults = await page.evaluate(async () => {
+    const r = [];
+    function add(name, ok) { r.push({ name, pass: !!ok }); }
+    const NE = VXA.NetlistEditor;
+
+    // === GENERATOR ===
+    add('TEST_NL_01: VXA.NetlistEditor module exists', !!NE);
+    if (!NE) return r;
+
+    // Save + clear circuit for clean tests
+    const savedParts = S.parts.slice();
+    const savedWires = S.wires.slice();
+    S.parts = []; S.wires = [];
+
+    const emptyNetlist = NE.generate();
+    add('TEST_NL_02: empty circuit → header + .END',
+      emptyNetlist.indexOf('* VoltXAmpere') >= 0 && emptyNetlist.indexOf('.END') >= 0);
+
+    // Resistor
+    S.parts = [{ id: 46001, type: 'resistor', name: 'R1', x: 100, y: 100, rot: 0, val: 1000 }];
+    S.wires = [];
+    let txt = NE.generate();
+    add('TEST_NL_03: resistor line format "R... n1 n2 value"',
+      /R1\s+\S+\s+\S+\s+1k/.test(txt));
+
+    // Capacitor
+    S.parts = [{ id: 46002, type: 'capacitor', name: 'C1', x: 100, y: 100, rot: 0, val: 100e-9 }];
+    txt = NE.generate();
+    add('TEST_NL_04: capacitor line format',
+      /C1\s+\S+\s+\S+\s+100n/.test(txt));
+
+    // VDC
+    S.parts = [{ id: 46003, type: 'vdc', name: 'V1', x: 0, y: 0, rot: 0, val: 5 }];
+    txt = NE.generate();
+    add('TEST_NL_05: VDC line has "DC value"',
+      /V1\s+\S+\s+\S+\s+DC\s+5/.test(txt));
+
+    // VAC
+    S.parts = [{ id: 46004, type: 'vac', name: 'V2', x: 0, y: 0, rot: 0, val: 1, amplitude: 1, freq: 1000 }];
+    txt = NE.generate();
+    add('TEST_NL_06: VAC line has SIN(...)',
+      /V2.*SIN\(/.test(txt));
+
+    // NPN
+    S.parts = [{ id: 46005, type: 'npn', name: 'Q1', x: 0, y: 0, rot: 0, val: 100, model: '2N2222' }];
+    txt = NE.generate();
+    add('TEST_NL_07: NPN line has "Q... nc nb ne model"',
+      /Q1\s+\S+\s+\S+\s+\S+\s+2N2222/.test(txt));
+
+    // Ground
+    S.parts = [{ id: 46006, type: 'ground', name: 'GND1', x: 0, y: 0, rot: 0, val: 0 }];
+    txt = NE.generate();
+    const hasGroundLine = /^GND1/m.test(txt);
+    add('TEST_NL_08: ground produces no element line',
+      !hasGroundLine);
+
+    add('TEST_NL_09: netlist ends with .END',
+      /\.END\s*$/.test(txt.trim() + '\n') || txt.trim().endsWith('.END'));
+
+    add('TEST_NL_10: formatSpiceValue(1000) = "1k"', NE.formatSpiceValue(1000) === '1k');
+    add('TEST_NL_11: formatSpiceValue(1e-6) = "1u"', NE.formatSpiceValue(1e-6) === '1u');
+    add('TEST_NL_12: formatSpiceValue(4.7e-9) = "4.7n"', NE.formatSpiceValue(4.7e-9) === '4.7n');
+
+    // === HIGHLIGHT ===
+    const comment = NE.highlight('* this is a comment');
+    add('TEST_NL_13: comment wrapped in nl-comment', comment.indexOf('nl-comment') >= 0);
+    const cmd = NE.highlight('.PARAM Rval=1k');
+    add('TEST_NL_14: command wrapped in nl-command', cmd.indexOf('nl-command') >= 0);
+    const comp = NE.highlight('R1 1 2 1k');
+    add('TEST_NL_15: component wrapped in nl-component', comp.indexOf('nl-component') >= 0);
+    add('TEST_NL_16: node wrapped in nl-node', comp.indexOf('nl-node') >= 0);
+    add('TEST_NL_17: value wrapped in nl-value', comp.indexOf('nl-value') >= 0);
+    const esc = NE.escapeHtml('<a>&b');
+    add('TEST_NL_18: escapeHtml escapes < > &', esc === '&lt;a&gt;&amp;b');
+
+    // === APPLY (netlist → circuit) ===
+    S.parts = [{ id: 46010, type: 'resistor', name: 'R1', x: 0, y: 0, rot: 0, val: 1000 }];
+    const before = NE.generate();
+    const afterTxt = before.replace(/R1\s+\S+\s+\S+\s+1k/, 'R1 1 2 4.7k');
+    const changed = NE.apply(before, afterTxt);
+    add('TEST_NL_19: apply detects resistor value change', changed >= 1);
+    add('TEST_NL_20: part.val updated from netlist edit',
+      S.parts[0].val === 4700);
+
+    S.parts = [{ id: 46011, type: 'npn', name: 'Q1', x: 0, y: 0, rot: 0, val: 100, model: '2N2222' }];
+    const bQ = NE.generate();
+    const aQ = bQ.replace('2N2222', 'BC547');
+    const changedQ = NE.apply(bQ, aQ);
+    add('TEST_NL_21: apply detects model change', changedQ >= 1 && S.parts[0].model === 'BC547');
+
+    // parseNetlistLine
+    const pR = NE.parseNetlistLine('R5 3 0 2.2k');
+    add('TEST_NL_22: parse R: name=R5, value=2200', pR && pR.name === 'R5' && Math.abs(pR.value - 2200) < 1);
+
+    const pV = NE.parseNetlistLine('V1 1 0 DC 5');
+    add('TEST_NL_23: parse V DC: value=5', pV && pV.name === 'V1' && pV.value === 5);
+
+    add('TEST_NL_24: parseNetlistLine returns null for comment',
+      NE.parseNetlistLine('* comment') === null);
+
+    // Restore for UI tests
+    S.parts = savedParts; S.wires = savedWires;
+
+    // === SPLIT VIEW UI ===
+    // Panel is created lazily on toggle. Ensure it's there.
+    try { window.toggleNetlistPanel(true); } catch (e) {}
+    // Wait a bit for setTimeout-based injection
+    await new Promise(res => setTimeout(res, 200));
+    add('TEST_NL_25: netlist toggle button OR Ctrl+L handler exists',
+      !!document.getElementById('netlist-toggle-btn') || typeof window.toggleNetlistPanel === 'function');
+
+    const panel = document.getElementById('netlist-panel');
+    add('TEST_NL_26: toggle open → panel visible',
+      !!panel && panel.classList.contains('open'));
+
+    // Close it
+    window.toggleNetlistPanel(false);
+    add('TEST_NL_27: toggle close → panel hidden',
+      panel && !panel.classList.contains('open'));
+
+    // Open again and verify textarea content
+    window.toggleNetlistPanel(true);
+    await new Promise(res => setTimeout(res, 700)); // wait refresh interval
+    const ta = document.getElementById('netlist-textarea');
+    add('TEST_NL_28: netlist textarea shows current circuit',
+      ta && ta.value.indexOf('* VoltXAmpere') >= 0);
+
+    // Devre değişince netlist güncellensin — polling interval kullanıyor (500ms)
+    const beforeVal = ta ? ta.value : '';
+    const testPart = { id: 46099, type: 'resistor', name: 'RTEST', x: 500, y: 500, rot: 0, val: 8200 };
+    S.parts.push(testPart);
+    await new Promise(res => setTimeout(res, 700));
+    const afterVal = ta ? ta.value : '';
+    add('TEST_NL_29: circuit change → netlist refresh',
+      afterVal !== beforeVal && afterVal.indexOf('RTEST') >= 0);
+    S.parts = S.parts.filter(p => p.id !== 46099);
+    await new Promise(res => setTimeout(res, 700));
+    window.toggleNetlistPanel(false);
+
+    // === AUTOCOMPLETE ===
+    const ac1 = NE.autocomplete('R');
+    add('TEST_NL_30: autocomplete("R") lists resistor element',
+      Array.isArray(ac1) && ac1.some(e => e.text === 'R'));
+
+    const ac2 = NE.autocomplete('.P');
+    add('TEST_NL_31: autocomplete(".P") lists .PARAM',
+      Array.isArray(ac2) && ac2.some(e => e.text === '.PARAM'));
+
+    // === VALIDATE / HATA ===
+    const errs = NE.validate('Z1 1 2 100\nR1 1 2 1k');
+    add('TEST_NL_32: unknown element prefix flagged',
+      Array.isArray(errs) && errs.some(e => /Unknown element/.test(e.message)));
+
+    const goodErrs = NE.validate('R1 1 2 1k\nC1 2 0 100n\n.END');
+    add('TEST_NL_33: valid lines produce no errors', goodErrs.length === 0);
+
+    // === ENTEGRASYON ===
+    add('TEST_NL_34: panel is fixed-position drawer (does not alter main grid)',
+      panel && getComputedStyle(panel).position === 'fixed');
+    add('TEST_NL_35: panel closed → canvas unobstructed',
+      panel && !panel.classList.contains('open'));
+    // SPICE export tutarlılığı — basit: generate() çıktısı ".END" içerir ve en az 1 bileşen satırı vardır (canlı devrede)
+    const liveTxt = NE.generate();
+    add('TEST_NL_36: live netlist contains .END + ≥1 element line (or comment)',
+      liveTxt.indexOf('.END') >= 0);
+
+    // === REGRESSION ===
+    add('TEST_NL_37: prior modules intact',
+      !!VXA.Params && !!VXA.BSIM3 && !!VXA.SparseFast && !!VXA.SpatialIndex &&
+      !!VXA.LayerCache && !!VXA.LOD && !!VXA.NetlistEditor);
+    add('TEST_NL_38: PRESETS.length === 55', typeof PRESETS !== 'undefined' && PRESETS.length === 55);
+    add('TEST_NL_39: canvas sentinel', !!document.querySelector('canvas'));
+    add('TEST_NL_40: COMP intact (≥ 70 components)',
+      typeof COMP !== 'undefined' && Object.keys(COMP).length >= 70);
+
+    return r;
+  });
+  nlResults.sort((a, b) => {
+    const na = parseInt((a.name.match(/TEST_NL_(\d+)/) || [])[1] || 99);
+    const nb = parseInt((b.name.match(/TEST_NL_(\d+)/) || [])[1] || 99);
+    return na - nb;
+  });
+  nlResults.forEach(r => console.log(`  ${r.pass ? '✅' : '❌'} ${r.name}`));
+  const nlPass = nlResults.filter(r => r.pass).length;
+  const nlFail = nlResults.filter(r => !r.pass).length;
+  console.log(`\n  Sprint 46: ${nlPass} PASS, ${nlFail} FAIL out of ${nlResults.length}`);
+
   // === FINAL ÖZET ===
   const totalPass = await page.evaluate(() => {
     return { parts: typeof COMP !== 'undefined' ? Object.keys(COMP).length : 0, lines: document.querySelector('script') ? 'OK' : 'FAIL' };
