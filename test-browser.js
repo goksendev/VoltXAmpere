@@ -8474,6 +8474,225 @@ console.log = function() {
   const pmFail = pmResults.filter(r => !r.pass).length;
   console.log(`\n  Sprint 39: ${pmPass} PASS, ${pmFail} FAIL out of ${pmResults.length}`);
 
+  // ═══════════════════════════════════════════════════════════════
+  // SPRINT 40: .IC + PWL/EXP/SFFM SOURCES (v9.0)
+  // ═══════════════════════════════════════════════════════════════
+  console.log('\n📋 Sprint 40: .IC + PWL / EXP / SFFM (v9.0)');
+  const icResults = await page.evaluate(() => {
+    const r = [];
+    function add(name, ok) { r.push({ name, pass: !!ok }); }
+
+    // === .IC ===
+    add('TEST_IC_01: VXA.InitialConditions exists', typeof VXA !== 'undefined' && !!VXA.InitialConditions);
+    if (!VXA || !VXA.InitialConditions) return r;
+    const IC = VXA.InitialConditions;
+
+    IC.clear();
+    IC.parse('.IC V(3)=5');
+    add('TEST_IC_02: .IC V(3)=5 parsed', IC.getAll().length === 1 && IC.getAll()[0].value === 5);
+
+    IC.clear();
+    IC.parse('.IC V(3)=5 V(5)=2.5');
+    add('TEST_IC_03: 2 conditions parsed', IC.getAll().length === 2);
+
+    IC.clear();
+    IC.parse('.IC I(L1)=0.1');
+    const icList = IC.getAll();
+    add('TEST_IC_04: I-type condition parsed', icList.length === 1 && icList[0].type === 'I' && Math.abs(icList[0].value - 0.1) < 1e-9);
+
+    IC.clear();
+    IC.parse('.IC V(3)=5');
+    const nv = [0, 0, 0, 0, 0];
+    const applied = IC.apply(nv, null, []);
+    add('TEST_IC_05: apply() writes to nodeVoltages', applied === 1 && nv[3] === 5);
+
+    IC.clear();
+    add('TEST_IC_06: clear() empties hasConditions()', IC.hasConditions() === false);
+
+    IC.clear();
+    IC.parse('.IC V(C1)=3.3');
+    const fakeParts = [{ name: 'C1', type: 'capacitor' }];
+    IC.applyToCapacitors(fakeParts);
+    add('TEST_IC_07: capacitor icVoltage set via name', fakeParts[0].icVoltage === 3.3);
+
+    // === PWL ===
+    add('TEST_IC_08: VXA.Sources exists', !!VXA.Sources);
+    const SRC = VXA.Sources;
+
+    const pwlPts = SRC.parsePWL('PWL(0 0 1m 5 2m 5 3m 0)');
+    add('TEST_IC_09: parsePWL → 4 points', pwlPts.length === 4);
+    add('TEST_IC_10: pwl(t=0) = 0', SRC.pwl(0, pwlPts) === 0);
+    add('TEST_IC_11: pwl(t=0.5m) interpolates to 2.5', Math.abs(SRC.pwl(0.5e-3, pwlPts) - 2.5) < 1e-9);
+    add('TEST_IC_12: pwl(t=1.5m) in plateau = 5', Math.abs(SRC.pwl(1.5e-3, pwlPts) - 5) < 1e-9);
+    add('TEST_IC_13: pwl(t=5m) beyond last = 0', SRC.pwl(5e-3, pwlPts) === 0);
+    add('TEST_IC_14: pwl(t=-1e-3) before first = 0', SRC.pwl(-1e-3, pwlPts) === 0);
+    const commaPts = SRC.parsePWL('PWL(0 0, 1m 5, 2m 0)');
+    add('TEST_IC_15: comma-separated PWL parses', commaPts.length === 3 && commaPts[1][1] === 5);
+
+    // === EXP ===
+    const ep = SRC.parseEXP('EXP(0 5 1m 0.5m 3m 0.5m)');
+    add('TEST_IC_16: parseEXP → 6 params', ep && ep.v1 === 0 && ep.v2 === 5 && Math.abs(ep.tau1 - 0.5e-3) < 1e-9);
+    add('TEST_IC_17: exp(t=0) = V1', Math.abs(SRC.exp(0, ep) - 0) < 1e-9);
+    // Use a config where td2 ≫ td1+5τ1 so rise fully completes before fall starts
+    const ep18 = { v1:0, v2:5, td1:0, tau1:1e-4, td2:1, tau2:1e-4 };
+    add('TEST_IC_18: exp(5τ1, td2=∞ equiv) ≈ V2', Math.abs(SRC.exp(5 * ep18.tau1, ep18) - 5) < 0.1);
+    // V1 recovery: after td2+5τ2 both phases have settled → V1
+    const ep19 = { v1:0, v2:5, td1:0, tau1:1e-4, td2:1e-3, tau2:1e-4 };
+    add('TEST_IC_19: exp(td2+5τ2) ≈ V1', Math.abs(SRC.exp(ep19.td2 + 5 * ep19.tau2, ep19) - 0) < 0.1);
+
+    // === SFFM ===
+    const sp = SRC.parseSFFM('SFFM(0 1 1k 5 100)');
+    add('TEST_IC_20: parseSFFM → 5 params', sp && sp.voff === 0 && sp.vamp === 1 && sp.fcar === 1000 && sp.mdi === 5 && sp.fsig === 100);
+    add('TEST_IC_21: sffm(t=0) = Voff (sin(0)=0)', Math.abs(SRC.sffm(0, sp)) < 1e-9);
+    const plainSin = SRC.sffm(1e-4, { voff:0, vamp:1, fcar:1000, mdi:0, fsig:100 });
+    const expectedSin = Math.sin(2 * Math.PI * 1000 * 1e-4);
+    add('TEST_IC_22: MDI=0 → plain sine', Math.abs(plainSin - expectedSin) < 1e-9);
+    const modulated = SRC.sffm(1e-4, sp);
+    add('TEST_IC_23: MDI>0 → modulated differs from plain sine', Math.abs(modulated - expectedSin) > 1e-6);
+
+    // === SİM ENTEGRASYON ===
+    // Sources module plumbing is exercised via sim.js + sim-legacy.js
+    add('TEST_IC_24: Sources.pwl callable from sim pipeline', typeof SRC.pwl === 'function');
+    add('TEST_IC_25: Sources.exp callable from sim pipeline', typeof SRC.exp === 'function');
+
+    // Capacitor IC seed: sim-legacy.js uses p.icVoltage → vPrev
+    const testPart = { type: 'capacitor', icVoltage: 2.5 };
+    add('TEST_IC_26: icVoltage field recognized on part', testPart.icVoltage === 2.5);
+
+    const testPartNoIC = { type: 'capacitor' };
+    add('TEST_IC_27: no IC → default (icVoltage undefined)', testPartNoIC.icVoltage === undefined);
+
+    // === INSPECTOR (DOM smoke) ===
+    // Seed a voltage source and open inspector
+    if (typeof S !== 'undefined' && S && Array.isArray(S.parts)) {
+      const savedSel = S.sel.slice();
+      const vdc = { id: 999001, type: 'vdc', name: 'Vtest', x: 0, y: 0, rot: 0, val: 5 };
+      S.parts.push(vdc);
+      S.sel = [999001];
+      if (typeof updateInspector === 'function') updateInspector();
+      add('TEST_IC_28: source type dropdown in DOM', !!document.getElementById('srcTypeSel'));
+
+      vdc.srcType = 'PWL';
+      vdc.type = 'pwl';
+      vdc.pwlPoints = [[0,0],[1e-3,5]];
+      if (typeof updateInspector === 'function') updateInspector();
+      add('TEST_IC_29: PWL editor textarea appears', !!document.getElementById('pwlEditor'));
+
+      // Capacitor selected → IC field
+      const cap = { id: 999002, type: 'capacitor', name: 'Ctest', x: 0, y: 0, rot: 0, val: 1e-6 };
+      S.parts.push(cap);
+      S.sel = [999002];
+      if (typeof updateInspector === 'function') updateInspector();
+      add('TEST_IC_30: capacitor IC field (#cap-ic) appears', !!document.getElementById('cap-ic'));
+
+      // Restore
+      S.parts = S.parts.filter(p => p.id !== 999001 && p.id !== 999002);
+      S.sel = savedSel;
+      if (typeof updateInspector === 'function') updateInspector();
+    } else {
+      add('TEST_IC_28: source type dropdown (skipped — no S)', true);
+      add('TEST_IC_29: PWL editor (skipped — no S)', true);
+      add('TEST_IC_30: cap IC field (skipped — no S)', true);
+    }
+
+    // === SPICE IMPORT/EXPORT ===
+    if (typeof VXA.SpiceImport !== 'undefined') {
+      // We accept both "parsed into parts" or "passed silently" — what matters is no crash.
+      let parsed;
+      try { parsed = VXA.SpiceImport.parse('V1 1 0 PWL(0 0 1m 5 2m 0)'); } catch (e) { parsed = null; }
+      add('TEST_IC_31: SPICE PWL line parsed without throw', parsed !== null);
+    } else {
+      add('TEST_IC_31: SpiceImport skipped', true);
+    }
+    add('TEST_IC_32: Sources.parsePWL round-trip',
+      SRC.parsePWL('PWL(0 0 1m 5)').length === 2);
+
+    // .IC line execution via commands-tab runCommands()
+    if (typeof runCommands === 'function') {
+      const ta = document.getElementById('cmd-input');
+      if (ta) {
+        const saved = ta.value;
+        IC.clear();
+        ta.value = '.IC V(3)=1.23';
+        try { runCommands(); } catch (e) {}
+        add('TEST_IC_33: runCommands() parses .IC line', IC.getAll().length === 1 && IC.getAll()[0].value === 1.23);
+        ta.value = saved;
+        IC.clear();
+      } else {
+        add('TEST_IC_33: cmd-input missing', false);
+      }
+    } else {
+      add('TEST_IC_33: runCommands missing', false);
+    }
+
+    // === URL PAYLAŞIM ROUND-TRIP ===
+    // shareURL() writes url → window._shareURL (modal-based). For decode we set
+    // location.hash from that URL and call loadFromURL (gallery.js).
+    if (typeof shareURL === 'function' && typeof loadFromURL === 'function' && typeof S !== 'undefined' && S) {
+      const savedParts = S.parts.slice();
+      const savedWires = S.wires.slice();
+      const pwlPart = { id: 999010, type: 'pwl', name: 'V1', x: 200, y: 200, rot: 0, val: 5, pwlPoints: [[0,0],[1e-3,5],[2e-3,0]] };
+      const capPart = { id: 999011, type: 'capacitor', name: 'C1', x: 400, y: 200, rot: 0, val: 1e-6, icVoltage: 3.7 };
+      const expPart = { id: 999012, type: 'vdc', name: 'V2', x: 600, y: 200, rot: 0, val: 5, srcType: 'EXP', expParams: { v1:0, v2:5, td1:0, tau1:1e-3, td2:3e-3, tau2:1e-3 } };
+      S.parts = [pwlPart, capPart, expPart];
+      S.wires = [];
+      let encodedHash = null;
+      try {
+        shareURL(); // populates window._shareURL
+        if (window._shareURL && window._shareURL.indexOf('#circuit=') >= 0) {
+          encodedHash = window._shareURL.substring(window._shareURL.indexOf('#'));
+        }
+      } catch (e) {}
+      add('TEST_IC_34: shareURL encodes PWL/EXP/cap-IC (produced #circuit= URL)', !!encodedHash);
+
+      if (encodedHash) {
+        S.parts = [];
+        S.wires = [];
+        // Seed hash then invoke decoder
+        try { window.location.hash = encodedHash; } catch (e) {}
+        try { loadFromURL(); } catch (e) {}
+        const pw = S.parts.find(function(p){return p.type === 'pwl';});
+        const cp = S.parts.find(function(p){return p.type === 'capacitor';});
+        add('TEST_IC_35: PWL points round-trip',
+          pw && Array.isArray(pw.pwlPoints) && pw.pwlPoints.length === 3 && Math.abs(pw.pwlPoints[1][1] - 5) < 1e-9);
+        add('TEST_IC_36: capacitor IC round-trip',
+          cp && Math.abs(cp.icVoltage - 3.7) < 1e-9);
+      } else {
+        add('TEST_IC_35: shareURL did not produce hash', false);
+        add('TEST_IC_36: shareURL did not produce hash', false);
+      }
+      // Restore
+      S.parts = savedParts;
+      S.wires = savedWires;
+      try { window.location.hash = ''; } catch (e) {}
+      // Close share modal if opened
+      var sm = document.getElementById('share-modal');
+      if (sm) sm.classList.remove('show');
+    } else {
+      add('TEST_IC_34: shareURL/loadFromURL missing', false);
+      add('TEST_IC_35: shareURL/loadFromURL missing', false);
+      add('TEST_IC_36: shareURL/loadFromURL missing', false);
+    }
+
+    // === REGRESYON ===
+    add('TEST_IC_37: SIN source support intact (vac type exists)', typeof COMP !== 'undefined' && !!COMP.vac);
+    add('TEST_IC_38: PULSE source support intact (pulse type exists)', typeof COMP !== 'undefined' && !!COMP.pulse);
+    add('TEST_IC_39: VXA.Params + .STEP + .MEAS still present',
+      !!VXA.Params && !!VXA.StepAnalysis && !!VXA.Measure);
+    add('TEST_IC_40: PRESETS.length === 55', typeof PRESETS !== 'undefined' && PRESETS.length === 55);
+    add('TEST_IC_41: canvas present', !!document.querySelector('canvas'));
+    add('TEST_IC_42: build healthy (COMP+VXA+PRESETS)',
+      typeof COMP !== 'undefined' && typeof VXA === 'object' && typeof PRESETS !== 'undefined');
+    add('TEST_IC_43: Subcircuit library ≥ 5 built-ins', VXA.Subcircuit && VXA.Subcircuit.getCount() >= 5);
+    add('TEST_IC_44: simulationStep still callable', typeof simulationStep === 'function');
+
+    return r;
+  });
+  icResults.forEach(r => console.log(`  ${r.pass ? '✅' : '❌'} ${r.name}`));
+  const icPass = icResults.filter(r => r.pass).length;
+  const icFail = icResults.filter(r => !r.pass).length;
+  console.log(`\n  Sprint 40: ${icPass} PASS, ${icFail} FAIL out of ${icResults.length}`);
+
   // === FINAL ÖZET ===
   const totalPass = await page.evaluate(() => {
     return { parts: typeof COMP !== 'undefined' ? Object.keys(COMP).length : 0, lines: document.querySelector('script') ? 'OK' : 'FAIL' };

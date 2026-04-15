@@ -18,6 +18,12 @@ function shareURL() {
       if (p.duty) extras.dt = p.duty;                                      // Pulse duty cycle
       if (p.dcOffset) extras.dc = p.dcOffset;                              // AC DC offset
       if (p.impedance && p.impedance !== 8) extras.z = p.impedance;        // Speaker impedans
+      // Sprint 40: PWL / EXP / SFFM / cap IC / src type override
+      if (Array.isArray(p.pwlPoints) && p.pwlPoints.length > 0) extras.pw = p.pwlPoints;
+      if (p.expParams) extras.ep = p.expParams;
+      if (p.sffmParams) extras.sf = p.sffmParams;
+      if (typeof p.icVoltage === 'number' && p.icVoltage !== 0) extras.ic = p.icVoltage;
+      if (p.srcType) extras.st = p.srcType;
       if (Object.keys(extras).length > 0) entry.push(extras);
       return entry;
     }),

@@ -81,12 +81,24 @@ VXA.SimV2 = (function() {
             else voltage = c.v1;
           }
           if (c.isPWL) {
-            var pts = c.points, t = S.sim.t;
-            voltage = pts[0][1];
-            for (var pi = 1; pi < pts.length; pi++) {
-              if (t <= pts[pi][0]) { voltage = pts[pi - 1][1] + (pts[pi][1] - pts[pi - 1][1]) * (t - pts[pi - 1][0]) / (pts[pi][0] - pts[pi - 1][0]); break; }
-              voltage = pts[pi][1];
+            // Sprint 40: delegate to VXA.Sources.pwl if available (centralized impl)
+            if (typeof VXA !== 'undefined' && VXA.Sources && typeof VXA.Sources.pwl === 'function') {
+              voltage = VXA.Sources.pwl(S.sim.t, c.points);
+            } else {
+              var pts = c.points, t = S.sim.t;
+              voltage = pts[0][1];
+              for (var pi = 1; pi < pts.length; pi++) {
+                if (t <= pts[pi][0]) { voltage = pts[pi - 1][1] + (pts[pi][1] - pts[pi - 1][1]) * (t - pts[pi - 1][0]) / (pts[pi][0] - pts[pi - 1][0]); break; }
+                voltage = pts[pi][1];
+              }
             }
+          }
+          // Sprint 40: EXP / SFFM sources
+          if (c.isEXP && VXA.Sources) {
+            voltage = VXA.Sources.exp(S.sim.t, c.expParams || {});
+          }
+          if (c.isSFFM && VXA.Sources) {
+            voltage = VXA.Sources.sffm(S.sim.t, c.sffmParams || {});
           }
           if (c.isNoise) voltage = (Math.random() - 0.5) * 2 * c.amp;
           // MNA voltage source stamp (branch variable)

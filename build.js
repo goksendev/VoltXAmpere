@@ -99,6 +99,10 @@ const JS_FILES = [
   'src/engine/step-analysis.js',
   'src/engine/measure.js',
 
+  // Engine: .IC + PWL/EXP/SFFM sources (Sprint 40 — v9.0)
+  'src/engine/initial-conditions.js',
+  'src/engine/sources.js',
+
   // Engine: legacy MNA sim
   'src/engine/sim-legacy.js',
 
@@ -245,6 +249,9 @@ const JS_FILES = [
 
   // UI: Commands tab (.PARAM/.STEP/.MEAS) — Sprint 39 (v9.0)
   'src/ui/commands-tab.js',
+
+  // UI: Inspector source-type + IC add-ons (Sprint 40 — v9.0)
+  'src/ui/inspector-sources.js',
 
   // UI: breadboard 3D view
   'src/ui/breadboard.js',

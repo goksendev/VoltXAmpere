@@ -40,11 +40,19 @@
     var log = [];
 
     try { VXA.Params.clear(); } catch (e) {}
+    try { if (VXA.InitialConditions) VXA.InitialConditions.clear(); } catch (e) {}
 
     lines.forEach(function(raw) {
       var line = raw.trim();
       if (!line || line.charAt(0) === '*' || line.charAt(0) === ';') return;
       var upper = line.toUpperCase();
+      if (upper.indexOf('.IC') === 0 && VXA.InitialConditions) {
+        var icCount = VXA.InitialConditions.parse(line);
+        // Seed capacitors by name (e.g. .IC V(C1)=5 → C1.icVoltage)
+        if (S && Array.isArray(S.parts)) VXA.InitialConditions.applyToCapacitors(S.parts);
+        log.push('IC (' + icCount + '): ' + line);
+        return;
+      }
       if (upper.indexOf('.PARAM') === 0) {
         var c = VXA.Params.parseParamLine(line);
         paramsApplied += c;

@@ -91,7 +91,8 @@ function buildCircuitFromCanvas() {
       if (p.damageResult === 'short') { comps.push({type:'R', n1:nodes[0], n2:nodes[1], val:0.001, part:p}); continue; }
     }
     if (p.type === 'resistor') comps.push({type:'R', n1:nodes[0], n2:nodes[1], val:p.val||1000, part:p});
-    else if (p.type === 'capacitor') comps.push({type:'C', n1:nodes[0], n2:nodes[1], val:p.val||1e-6, part:p, vPrev:0});
+    // Sprint 40: capacitor initial voltage (.IC or inspector) seeds vPrev.
+    else if (p.type === 'capacitor') comps.push({type:'C', n1:nodes[0], n2:nodes[1], val:p.val||1e-6, part:p, vPrev:(typeof p.icVoltage === 'number' ? p.icVoltage : 0)});
     else if (p.type === 'inductor') comps.push({type:'L', n1:nodes[0], n2:nodes[1], val:p.val||0.01, part:p, iPrev:0});
     else if (p.type === 'vdc') comps.push({type:'V', n1:nodes[0], n2:nodes[1], val:p.val||5, part:p, isAC:false});
     else if (p.type === 'vac') comps.push({type:'V', n1:nodes[0], n2:nodes[1], val:p.val||5, part:p, isAC:true, freq:p.freq||COMP.vac.freq||50});
@@ -185,6 +186,15 @@ function buildCircuitFromCanvas() {
     else if (p.type === 'pwl') {
       comps.push({type:'V', n1:nodes[0], n2:nodes[1], val:p.val||5, part:p, isAC:false, isPWL:true,
         points:p.pwlPoints||[[0,0],[0.001,p.val||5],[0.002,0]]});
+    }
+    // Sprint 40: EXP / SFFM source dispatch (part.srcType = 'EXP'|'SFFM')
+    else if (p.srcType === 'EXP' && (p.type === 'vdc' || p.type === 'vac')) {
+      comps.push({type:'V', n1:nodes[0], n2:nodes[1], val:p.val||5, part:p, isAC:false, isEXP:true,
+        expParams: p.expParams || { v1:0, v2:5, td1:0, tau1:1e-3, td2:3e-3, tau2:1e-3 }});
+    }
+    else if (p.srcType === 'SFFM' && (p.type === 'vdc' || p.type === 'vac')) {
+      comps.push({type:'V', n1:nodes[0], n2:nodes[1], val:p.val||5, part:p, isAC:false, isSFFM:true,
+        sffmParams: p.sffmParams || { voff:0, vamp:1, fcar:1000, mdi:5, fsig:100 }});
     }
     else if (p.type === 'iac') {
       comps.push({type:'I', n1:nodes[0], n2:nodes[1], val:p.val||0.01, part:p, isAC:true, freq:p.freq||50});

@@ -674,7 +674,7 @@ input:focus{border-color:var(--accent)}
     <span id="sb-temp" style="color:var(--text-3)"></span>
     <span id="sb-engine" style="color:var(--text-4)"></span>
     <span id="sb-extra" style="color:var(--text-3)"></span>
-    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v9.0 — Build: 2026-04-15 02:21 — © 2026</span>
+    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v9.0 — Build: 2026-04-15 10:12 — © 2026</span>
   </div>
 </div>
 
@@ -6004,12 +6004,24 @@ VXA.SimV2 = (function() {
             else voltage = c.v1;
           }
           if (c.isPWL) {
-            var pts = c.points, t = S.sim.t;
-            voltage = pts[0][1];
-            for (var pi = 1; pi < pts.length; pi++) {
-              if (t <= pts[pi][0]) { voltage = pts[pi - 1][1] + (pts[pi][1] - pts[pi - 1][1]) * (t - pts[pi - 1][0]) / (pts[pi][0] - pts[pi - 1][0]); break; }
-              voltage = pts[pi][1];
+            // Sprint 40: delegate to VXA.Sources.pwl if available (centralized impl)
+            if (typeof VXA !== 'undefined' && VXA.Sources && typeof VXA.Sources.pwl === 'function') {
+              voltage = VXA.Sources.pwl(S.sim.t, c.points);
+            } else {
+              var pts = c.points, t = S.sim.t;
+              voltage = pts[0][1];
+              for (var pi = 1; pi < pts.length; pi++) {
+                if (t <= pts[pi][0]) { voltage = pts[pi - 1][1] + (pts[pi][1] - pts[pi - 1][1]) * (t - pts[pi - 1][0]) / (pts[pi][0] - pts[pi - 1][0]); break; }
+                voltage = pts[pi][1];
+              }
             }
+          }
+          // Sprint 40: EXP / SFFM sources
+          if (c.isEXP && VXA.Sources) {
+            voltage = VXA.Sources.exp(S.sim.t, c.expParams || {});
+          }
+          if (c.isSFFM && VXA.Sources) {
+            voltage = VXA.Sources.sffm(S.sim.t, c.sffmParams || {});
           }
           if (c.isNoise) voltage = (Math.random() - 0.5) * 2 * c.amp;
           // MNA voltage source stamp (branch variable)
@@ -7636,6 +7648,224 @@ VXA.Measure = (function() {
 })();
 
 
+// ═══ initial-conditions.js ═══
+// ──────── SPRINT 40: .IC INITIAL CONDITIONS (v9.0) ────────
+// SPICE-compatible initial conditions for nodes and inductor currents.
+// Also seeds capacitor initial voltages via part.icVoltage.
+
+VXA.InitialConditions = (function() {
+  'use strict';
+
+  var conditions = [];
+
+  function parseICLine(line) {
+    var content = String(line).replace(/^\.IC\s+/i, '').trim();
+    // Match: V(name)=value  or  I(name)=value
+    var re = /([VI])\s*\(\s*([^)]+)\s*\)\s*=\s*([\d.eE+\-]+\w*)/gi;
+    var m, count = 0;
+    while ((m = re.exec(content)) !== null) {
+      var type = m[1].toUpperCase();
+      var node = m[2].trim();
+      var val = (typeof VXA.SpiceParser !== 'undefined')
+        ? VXA.SpiceParser.parseSpiceNumber(m[3])
+        : parseFloat(m[3]);
+      conditions.push({ type: type, node: node, value: val });
+      count++;
+    }
+    return count;
+  }
+
+  // Apply IC values to a nodeVoltages array + component state (L.iPrev, cap.vPrev).
+  // nodeNameMap: optional { "out":3, "MID":5 } for net-label-to-index resolution.
+  function apply(nodeVoltages, nodeNameMap, components) {
+    if (!Array.isArray(conditions) || conditions.length === 0) return 0;
+    var applied = 0;
+    conditions.forEach(function(ic) {
+      if (ic.type === 'V') {
+        var idx = parseInt(ic.node, 10);
+        if (isNaN(idx) && nodeNameMap) {
+          if (nodeNameMap[ic.node] !== undefined) idx = nodeNameMap[ic.node];
+          else if (nodeNameMap[ic.node.toUpperCase()] !== undefined) idx = nodeNameMap[ic.node.toUpperCase()];
+        }
+        if (Array.isArray(components) && isNaN(idx)) {
+          // Try component-name match (e.g. V(C1) → C1's first node)
+          for (var i = 0; i < components.length; i++) {
+            var c = components[i];
+            var cn = c.part && c.part.name;
+            if (cn && String(cn).toUpperCase() === ic.node.toUpperCase()) {
+              if (typeof c.n1 === 'number') { idx = c.n1; break; }
+            }
+          }
+        }
+        if (typeof idx === 'number' && idx >= 0 && nodeVoltages && idx < nodeVoltages.length) {
+          nodeVoltages[idx] = ic.value;
+          applied++;
+        }
+      } else if (ic.type === 'I' && Array.isArray(components)) {
+        for (var j = 0; j < components.length; j++) {
+          var comp = components[j];
+          var name = comp.part && comp.part.name;
+          if (name && String(name).toUpperCase() === ic.node.toUpperCase() && comp.type === 'L') {
+            comp.iPrev = ic.value;
+            applied++;
+            break;
+          }
+        }
+      }
+    });
+    return applied;
+  }
+
+  // Apply V(<name>) entries to parts (capacitors) by writing part.icVoltage.
+  function applyToCapacitors(parts) {
+    if (!Array.isArray(parts)) return 0;
+    var applied = 0;
+    conditions.forEach(function(ic) {
+      if (ic.type !== 'V') return;
+      for (var i = 0; i < parts.length; i++) {
+        var p = parts[i];
+        if (!p || !p.name) continue;
+        if (String(p.name).toUpperCase() === ic.node.toUpperCase() &&
+            (p.type === 'capacitor' || p.type === 'cap' || p.type === 'C')) {
+          p.icVoltage = ic.value;
+          applied++;
+        }
+      }
+    });
+    return applied;
+  }
+
+  function getAll() { return conditions.slice(); }
+  function clear() { conditions = []; }
+  function hasConditions() { return conditions.length > 0; }
+
+  return {
+    parse: parseICLine,
+    parseICLine: parseICLine,
+    apply: apply,
+    applyToCapacitors: applyToCapacitors,
+    getAll: getAll,
+    clear: clear,
+    hasConditions: hasConditions
+  };
+})();
+
+
+// ═══ sources.js ═══
+// ──────── SPRINT 40: PWL / EXP / SFFM SOURCES (v9.0) ────────
+// Time-domain source evaluators + SPICE-format parsers.
+
+VXA.Sources = (function() {
+  'use strict';
+
+  var MAX_PWL_POINTS = 100;
+
+  function pv(s) {
+    if (typeof VXA.SpiceParser !== 'undefined') return VXA.SpiceParser.parseSpiceNumber(String(s));
+    return parseFloat(s);
+  }
+
+  // ── PWL: piecewise linear ─────────────────────
+  function pwl(t, points) {
+    if (!points || points.length === 0) return 0;
+    if (t <= points[0][0]) return points[0][1];
+    if (t >= points[points.length - 1][0]) return points[points.length - 1][1];
+    for (var i = 1; i < points.length; i++) {
+      if (t <= points[i][0]) {
+        var t0 = points[i-1][0], v0 = points[i-1][1];
+        var t1 = points[i][0], v1 = points[i][1];
+        if (t1 === t0) return v1;
+        var frac = (t - t0) / (t1 - t0);
+        return v0 + frac * (v1 - v0);
+      }
+    }
+    return points[points.length - 1][1];
+  }
+
+  function parsePWL(text) {
+    var content = String(text).replace(/^PWL\s*\(\s*/i, '').replace(/\s*\)\s*$/, '');
+    content = content.replace(/,/g, ' ');
+    var tokens = content.trim().split(/\s+/).filter(function(x) { return x.length > 0; });
+    var points = [];
+    for (var i = 0; i + 1 < tokens.length; i += 2) {
+      var time = pv(tokens[i]);
+      var val = pv(tokens[i + 1]);
+      if (isFinite(time) && isFinite(val)) points.push([time, val]);
+    }
+    points.sort(function(a, b) { return a[0] - b[0]; });
+    if (points.length > MAX_PWL_POINTS) {
+      console.warn('[PWL] truncated to ' + MAX_PWL_POINTS + ' points');
+      points = points.slice(0, MAX_PWL_POINTS);
+    }
+    return points;
+  }
+
+  // ── EXP: double-exponential ────────────────────
+  //  t < td1:           V1
+  //  td1 ≤ t < td2:    V1 + (V2-V1)(1 - e^(-(t-td1)/tau1))
+  //  t ≥ td2:           + (V1-V2)(1 - e^(-(t-td2)/tau2))
+  function expFn(t, params) {
+    var V1 = params.v1 || 0;
+    var V2 = (params.v2 !== undefined) ? params.v2 : 0;
+    var td1 = params.td1 || 0;
+    var tau1 = params.tau1 || 1e-6;
+    var td2 = (params.td2 !== undefined) ? params.td2 : (td1 + 5 * tau1);
+    var tau2 = params.tau2 || tau1;
+    if (t < td1) return V1;
+    var rise = (V2 - V1) * (1 - Math.exp(-(t - td1) / tau1));
+    if (t < td2) return V1 + rise;
+    var fall = (V1 - V2) * (1 - Math.exp(-(t - td2) / tau2));
+    return V1 + rise + fall;
+  }
+
+  function parseEXP(text) {
+    var content = String(text).replace(/^EXP\s*\(\s*/i, '').replace(/\s*\)\s*$/, '');
+    var tokens = content.trim().split(/[\s,]+/).filter(function(x) { return x.length > 0; });
+    return {
+      v1: pv(tokens[0] || '0'),
+      v2: pv(tokens[1] || '5'),
+      td1: pv(tokens[2] || '0'),
+      tau1: pv(tokens[3] || '1m'),
+      td2: pv(tokens[4] || '0'),
+      tau2: pv(tokens[5] || '1m')
+    };
+  }
+
+  // ── SFFM: single-frequency FM ─────────────────
+  function sffm(t, params) {
+    var Voff = params.voff || 0;
+    var Vamp = (params.vamp !== undefined) ? params.vamp : 1;
+    var Fcar = params.fcar || 1e3;
+    var MDI = (params.mdi !== undefined) ? params.mdi : 0;
+    var Fsig = params.fsig || 100;
+    var mod = MDI * Math.sin(2 * Math.PI * Fsig * t);
+    return Voff + Vamp * Math.sin(2 * Math.PI * Fcar * t + mod);
+  }
+
+  function parseSFFM(text) {
+    var content = String(text).replace(/^SFFM\s*\(\s*/i, '').replace(/\s*\)\s*$/, '');
+    var tokens = content.trim().split(/[\s,]+/).filter(function(x) { return x.length > 0; });
+    return {
+      voff: pv(tokens[0] || '0'),
+      vamp: pv(tokens[1] || '1'),
+      fcar: pv(tokens[2] || '1k'),
+      mdi: pv(tokens[3] || '0'),
+      fsig: pv(tokens[4] || '100')
+    };
+  }
+
+  return {
+    pwl: pwl,
+    exp: expFn,
+    sffm: sffm,
+    parsePWL: parsePWL,
+    parseEXP: parseEXP,
+    parseSFFM: parseSFFM,
+    MAX_PWL_POINTS: MAX_PWL_POINTS
+  };
+})();
+
+
 // ═══ sim-legacy.js ═══
 // ──────── MNA SIMULATION ENGINE ────────
 function UnionFind(n) { this.parent = Array.from({length:n}, (_,i)=>i); this.rank = new Array(n).fill(0); }
@@ -7730,7 +7960,8 @@ function buildCircuitFromCanvas() {
       if (p.damageResult === 'short') { comps.push({type:'R', n1:nodes[0], n2:nodes[1], val:0.001, part:p}); continue; }
     }
     if (p.type === 'resistor') comps.push({type:'R', n1:nodes[0], n2:nodes[1], val:p.val||1000, part:p});
-    else if (p.type === 'capacitor') comps.push({type:'C', n1:nodes[0], n2:nodes[1], val:p.val||1e-6, part:p, vPrev:0});
+    // Sprint 40: capacitor initial voltage (.IC or inspector) seeds vPrev.
+    else if (p.type === 'capacitor') comps.push({type:'C', n1:nodes[0], n2:nodes[1], val:p.val||1e-6, part:p, vPrev:(typeof p.icVoltage === 'number' ? p.icVoltage : 0)});
     else if (p.type === 'inductor') comps.push({type:'L', n1:nodes[0], n2:nodes[1], val:p.val||0.01, part:p, iPrev:0});
     else if (p.type === 'vdc') comps.push({type:'V', n1:nodes[0], n2:nodes[1], val:p.val||5, part:p, isAC:false});
     else if (p.type === 'vac') comps.push({type:'V', n1:nodes[0], n2:nodes[1], val:p.val||5, part:p, isAC:true, freq:p.freq||COMP.vac.freq||50});
@@ -7824,6 +8055,15 @@ function buildCircuitFromCanvas() {
     else if (p.type === 'pwl') {
       comps.push({type:'V', n1:nodes[0], n2:nodes[1], val:p.val||5, part:p, isAC:false, isPWL:true,
         points:p.pwlPoints||[[0,0],[0.001,p.val||5],[0.002,0]]});
+    }
+    // Sprint 40: EXP / SFFM source dispatch (part.srcType = 'EXP'|'SFFM')
+    else if (p.srcType === 'EXP' && (p.type === 'vdc' || p.type === 'vac')) {
+      comps.push({type:'V', n1:nodes[0], n2:nodes[1], val:p.val||5, part:p, isAC:false, isEXP:true,
+        expParams: p.expParams || { v1:0, v2:5, td1:0, tau1:1e-3, td2:3e-3, tau2:1e-3 }});
+    }
+    else if (p.srcType === 'SFFM' && (p.type === 'vdc' || p.type === 'vac')) {
+      comps.push({type:'V', n1:nodes[0], n2:nodes[1], val:p.val||5, part:p, isAC:false, isSFFM:true,
+        sffmParams: p.sffmParams || { voff:0, vamp:1, fcar:1000, mdi:5, fsig:100 }});
     }
     else if (p.type === 'iac') {
       comps.push({type:'I', n1:nodes[0], n2:nodes[1], val:p.val||0.01, part:p, isAC:true, freq:p.freq||50});
@@ -8589,6 +8829,12 @@ function shareURL() {
       if (p.duty) extras.dt = p.duty;                                      // Pulse duty cycle
       if (p.dcOffset) extras.dc = p.dcOffset;                              // AC DC offset
       if (p.impedance && p.impedance !== 8) extras.z = p.impedance;        // Speaker impedans
+      // Sprint 40: PWL / EXP / SFFM / cap IC / src type override
+      if (Array.isArray(p.pwlPoints) && p.pwlPoints.length > 0) extras.pw = p.pwlPoints;
+      if (p.expParams) extras.ep = p.expParams;
+      if (p.sffmParams) extras.sf = p.sffmParams;
+      if (typeof p.icVoltage === 'number' && p.icVoltage !== 0) extras.ic = p.icVoltage;
+      if (p.srcType) extras.st = p.srcType;
       if (Object.keys(extras).length > 0) entry.push(extras);
       return entry;
     }),
@@ -8783,6 +9029,12 @@ function loadFromURL() {
       if (extras.dt) newPart.duty = extras.dt;
       if (extras.dc) newPart.dcOffset = extras.dc;
       if (extras.z) newPart.impedance = extras.z;
+      // Sprint 40: PWL / EXP / SFFM / cap IC / src type
+      if (Array.isArray(extras.pw)) newPart.pwlPoints = extras.pw;
+      if (extras.ep) newPart.expParams = extras.ep;
+      if (extras.sf) newPart.sffmParams = extras.sf;
+      if (typeof extras.ic === 'number') newPart.icVoltage = extras.ic;
+      if (extras.st) newPart.srcType = extras.st;
       // Model uygulaması (KRİTİK)
       if (extras.m) {
         newPart.model = extras.m;
@@ -17170,11 +17422,19 @@ function runTransferFunc() {
     var log = [];
 
     try { VXA.Params.clear(); } catch (e) {}
+    try { if (VXA.InitialConditions) VXA.InitialConditions.clear(); } catch (e) {}
 
     lines.forEach(function(raw) {
       var line = raw.trim();
       if (!line || line.charAt(0) === '*' || line.charAt(0) === ';') return;
       var upper = line.toUpperCase();
+      if (upper.indexOf('.IC') === 0 && VXA.InitialConditions) {
+        var icCount = VXA.InitialConditions.parse(line);
+        // Seed capacitors by name (e.g. .IC V(C1)=5 → C1.icVoltage)
+        if (S && Array.isArray(S.parts)) VXA.InitialConditions.applyToCapacitors(S.parts);
+        log.push('IC (' + icCount + '): ' + line);
+        return;
+      }
       if (upper.indexOf('.PARAM') === 0) {
         var c = VXA.Params.parseParamLine(line);
         paramsApplied += c;
@@ -17249,6 +17509,164 @@ function runTransferFunc() {
         (stepConfig ? stepConfig.values.length + ' step · ' : '') +
         measLines.length + ' meas';
     }
+  };
+})();
+
+
+// ═══ inspector-sources.js ═══
+// ──────── SPRINT 40: Inspector Source/IC Add-ons ────────
+// Post-processes the inspector DOM after updateInspector() to add:
+//   - Source type dropdown (DC/SIN/PULSE/PWL/EXP/SFFM) for V/I sources
+//   - Capacitor IC (initial voltage) field
+//   - Minimal PWL point editor (textarea)
+
+(function() {
+  if (typeof updateInspector !== 'function') return;
+  var _orig = updateInspector;
+
+  window.updateInspector = function() {
+    _orig.apply(this, arguments);
+    try { injectSourceControls(); } catch (e) { /* non-fatal */ }
+  };
+
+  function injectSourceControls() {
+    var el = document.getElementById('inspector');
+    if (!el || !S || !S.sel || !S.sel.length) return;
+    var p = S.parts.find(function(pp) { return pp.id === S.sel[0]; });
+    if (!p) return;
+
+    var isSource = (p.type === 'vdc' || p.type === 'vac' || p.type === 'pulse' || p.type === 'pwl' ||
+                    p.type === 'idc' || p.type === 'iac');
+    var isCap = (p.type === 'capacitor' || p.type === 'cap');
+    if (!isSource && !isCap) return;
+
+    var container = document.createElement('div');
+    container.style.borderTop = '1px solid var(--border)';
+    container.style.marginTop = '6px';
+    container.style.paddingTop = '6px';
+
+    if (isSource) {
+      var types = ['DC', 'SIN', 'PULSE', 'PWL', 'EXP', 'SFFM'];
+      var current = deriveSrcType(p);
+      var sel = '<select id="srcTypeSel" onchange="setSrcType(this.value)" ' +
+                'style="flex:1;background:var(--surface-3);border:1px solid var(--border);' +
+                'color:var(--text);border-radius:4px;padding:3px 6px;font:11px var(--font-mono)">' +
+        types.map(function(tp) {
+          return '<option value="' + tp + '"' + (tp === current ? ' selected' : '') + '>' + tp + '</option>';
+        }).join('') + '</select>';
+      container.innerHTML = '<div class="insp-param"><label>Kaynak Tipi</label>' + sel + '</div>';
+
+      if (current === 'PWL') {
+        var pts = p.pwlPoints || [[0, 0], [1e-3, 5]];
+        var ptsText = pts.map(function(pt) { return pt[0] + ' ' + pt[1]; }).join('\n');
+        container.innerHTML +=
+          '<div class="insp-param" style="flex-direction:column;align-items:stretch">' +
+          '<label style="margin-bottom:3px">PWL noktaları (t v)</label>' +
+          '<textarea id="pwlEditor" rows="4" ' +
+          'onchange="setPwlPoints(this.value)" ' +
+          'style="width:100%;background:var(--surface-3);border:1px solid var(--border);' +
+          'color:var(--text);border-radius:4px;padding:4px;font:11px var(--font-mono);resize:vertical">' +
+          escHtml(ptsText) + '</textarea></div>';
+      } else if (current === 'EXP') {
+        var ep = p.expParams || { v1:0, v2:5, td1:0, tau1:1e-3, td2:3e-3, tau2:1e-3 };
+        container.innerHTML +=
+          '<div class="insp-param" style="flex-direction:column;align-items:stretch">' +
+          '<label style="margin-bottom:3px">EXP (V1 V2 Td1 τ1 Td2 τ2)</label>' +
+          '<input id="expEditor" value="' + [ep.v1, ep.v2, ep.td1, ep.tau1, ep.td2, ep.tau2].join(' ') +
+          '" onchange="setExpParams(this.value)" ' +
+          'style="width:100%;background:var(--surface-3);border:1px solid var(--border);' +
+          'color:var(--text);border-radius:4px;padding:3px 6px;font:11px var(--font-mono)"></div>';
+      } else if (current === 'SFFM') {
+        var sp = p.sffmParams || { voff:0, vamp:1, fcar:1000, mdi:5, fsig:100 };
+        container.innerHTML +=
+          '<div class="insp-param" style="flex-direction:column;align-items:stretch">' +
+          '<label style="margin-bottom:3px">SFFM (Voff Vamp Fcar MDI Fsig)</label>' +
+          '<input id="sffmEditor" value="' + [sp.voff, sp.vamp, sp.fcar, sp.mdi, sp.fsig].join(' ') +
+          '" onchange="setSffmParams(this.value)" ' +
+          'style="width:100%;background:var(--surface-3);border:1px solid var(--border);' +
+          'color:var(--text);border-radius:4px;padding:3px 6px;font:11px var(--font-mono)"></div>';
+      }
+    } else if (isCap) {
+      container.innerHTML =
+        '<div class="insp-param"><label>IC (V<sub>0</sub>)</label>' +
+        '<input id="cap-ic" value="' + (p.icVoltage != null ? p.icVoltage : 0) + '" ' +
+        'onchange="setCapIC(this.value)" style="flex:1"> ' +
+        '<span class="ip-unit">V</span></div>';
+    }
+
+    el.appendChild(container);
+  }
+
+  function escHtml(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  function deriveSrcType(p) {
+    if (p.srcType) return p.srcType;
+    if (p.type === 'pwl') return 'PWL';
+    if (p.type === 'pulse') return 'PULSE';
+    if (p.type === 'vac' || p.type === 'iac') return 'SIN';
+    return 'DC';
+  }
+
+  window.setSrcType = function(v) {
+    var p = S.parts.find(function(pp) { return pp.id === S.sel[0]; }); if (!p) return;
+    p.srcType = v;
+    // Switch concrete type where needed so the rest of the engine picks it up
+    if (v === 'PWL' && p.type !== 'pwl') p.type = 'pwl';
+    else if (v === 'PULSE' && p.type !== 'pulse') p.type = 'pulse';
+    else if (v === 'SIN' && p.type !== 'vac') p.type = 'vac';
+    else if (v === 'DC' && p.type !== 'vdc') p.type = 'vdc';
+    // EXP/SFFM live on vdc/vac with srcType flag (sim-legacy.js reads p.srcType)
+    if (v === 'EXP' || v === 'SFFM') { if (p.type === 'pulse' || p.type === 'pwl') p.type = 'vdc'; }
+    if (typeof needsRender !== 'undefined') needsRender = true;
+    updateInspector();
+  };
+
+  window.setPwlPoints = function(text) {
+    var p = S.parts.find(function(pp) { return pp.id === S.sel[0]; }); if (!p) return;
+    var lines = String(text).split(/\n+/);
+    var pts = [];
+    lines.forEach(function(ln) {
+      var tk = ln.trim().split(/[\s,]+/).filter(Boolean);
+      if (tk.length >= 2) {
+        var t = (VXA.SpiceParser ? VXA.SpiceParser.parseSpiceNumber(tk[0]) : parseFloat(tk[0]));
+        var v = (VXA.SpiceParser ? VXA.SpiceParser.parseSpiceNumber(tk[1]) : parseFloat(tk[1]));
+        if (isFinite(t) && isFinite(v)) pts.push([t, v]);
+      }
+    });
+    if (pts.length > 0) p.pwlPoints = pts;
+    if (typeof needsRender !== 'undefined') needsRender = true;
+  };
+
+  window.setExpParams = function(text) {
+    var p = S.parts.find(function(pp) { return pp.id === S.sel[0]; }); if (!p) return;
+    var tk = String(text).trim().split(/[\s,]+/).filter(Boolean);
+    var pv = function(s) { return (VXA.SpiceParser ? VXA.SpiceParser.parseSpiceNumber(s) : parseFloat(s)); };
+    p.expParams = {
+      v1: pv(tk[0] || '0'), v2: pv(tk[1] || '5'),
+      td1: pv(tk[2] || '0'), tau1: pv(tk[3] || '1m'),
+      td2: pv(tk[4] || '3m'), tau2: pv(tk[5] || '1m')
+    };
+    if (typeof needsRender !== 'undefined') needsRender = true;
+  };
+
+  window.setSffmParams = function(text) {
+    var p = S.parts.find(function(pp) { return pp.id === S.sel[0]; }); if (!p) return;
+    var tk = String(text).trim().split(/[\s,]+/).filter(Boolean);
+    var pv = function(s) { return (VXA.SpiceParser ? VXA.SpiceParser.parseSpiceNumber(s) : parseFloat(s)); };
+    p.sffmParams = {
+      voff: pv(tk[0] || '0'), vamp: pv(tk[1] || '1'),
+      fcar: pv(tk[2] || '1k'), mdi: pv(tk[3] || '5'), fsig: pv(tk[4] || '100')
+    };
+    if (typeof needsRender !== 'undefined') needsRender = true;
+  };
+
+  window.setCapIC = function(v) {
+    var p = S.parts.find(function(pp) { return pp.id === S.sel[0]; }); if (!p) return;
+    var n = parseFloat(v);
+    p.icVoltage = isFinite(n) ? n : 0;
+    if (typeof needsRender !== 'undefined') needsRender = true;
   };
 })();
 

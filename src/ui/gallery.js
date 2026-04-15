@@ -136,6 +136,12 @@ function loadFromURL() {
       if (extras.dt) newPart.duty = extras.dt;
       if (extras.dc) newPart.dcOffset = extras.dc;
       if (extras.z) newPart.impedance = extras.z;
+      // Sprint 40: PWL / EXP / SFFM / cap IC / src type
+      if (Array.isArray(extras.pw)) newPart.pwlPoints = extras.pw;
+      if (extras.ep) newPart.expParams = extras.ep;
+      if (extras.sf) newPart.sffmParams = extras.sf;
+      if (typeof extras.ic === 'number') newPart.icVoltage = extras.ic;
+      if (extras.st) newPart.srcType = extras.st;
       // Model uygulaması (KRİTİK)
       if (extras.m) {
         newPart.model = extras.m;
