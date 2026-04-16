@@ -697,7 +697,7 @@ input:focus{border-color:var(--accent)}
     <span id="sb-temp" style="color:var(--text-3)"></span>
     <span id="sb-engine" style="color:var(--text-4)"></span>
     <span id="sb-extra" style="color:var(--text-3)"></span>
-    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v9.0 — Build: 2026-04-16 17:28 — © 2026</span>
+    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v9.0 — Build: 2026-04-16 18:06 — © 2026</span>
   </div>
 </div>
 
@@ -9899,24 +9899,57 @@ function buildCircuitFromCanvas() {
   // 1. Collect all pin positions → assign node indices
   const pinMap = new Map(); // "x,y" → index
   let nodeCount = 0;
-  function getNode(x, y) {
-    const key = Math.round(x)+','+Math.round(y);
-    if (!pinMap.has(key)) pinMap.set(key, nodeCount++);
+  // Sprint 57: pin registry — exact positions from part pins. Wire endpoints
+  // snap to the nearest registered pin within SNAP_TOL px.
+  const SNAP_TOL = 25;
+  const _pinPositions = []; // [{x,y,idx}] — populated by registerPin only
+  function registerPin(x, y) {
+    var rx = Math.round(x), ry = Math.round(y);
+    var key = rx + ',' + ry;
+    if (!pinMap.has(key)) {
+      var idx = nodeCount++;
+      pinMap.set(key, idx);
+      _pinPositions.push({ x: rx, y: ry, idx: idx });
+    }
     return pinMap.get(key);
   }
-  // register all part pins
+  function getNode(x, y) {
+    var rx = Math.round(x), ry = Math.round(y);
+    var key = rx + ',' + ry;
+    if (pinMap.has(key)) return pinMap.get(key);
+    // Sprint 57: snap to nearest registered pin within SNAP_TOL
+    var bestDist = SNAP_TOL + 1, bestIdx = -1;
+    for (var k = 0; k < _pinPositions.length; k++) {
+      var pp = _pinPositions[k];
+      var dist = Math.max(Math.abs(pp.x - rx), Math.abs(pp.y - ry));
+      if (dist < bestDist) { bestDist = dist; bestIdx = pp.idx; }
+    }
+    if (bestIdx >= 0) return bestIdx;
+    // No nearby pin → create new node (wire endpoint in open space)
+    var idx2 = nodeCount++;
+    pinMap.set(key, idx2);
+    _pinPositions.push({ x: rx, y: ry, idx: idx2 });
+    return idx2;
+  }
+  // register all part pins FIRST (exact positions)
   const partPinNodes = [];
   for (const p of S.parts) {
     const pins = getPartPins(p);
-    partPinNodes.push(pins.map(pin => getNode(pin.x, pin.y)));
+    partPinNodes.push(pins.map(pin => registerPin(pin.x, pin.y)));
   }
   // 2. Union-Find to merge wire-connected nodes
-  const uf = new UnionFind(nodeCount);
+  // Wire endpoints now snap to nearest pin via getNode()
+  const uf = new UnionFind(nodeCount + 500); // headroom for wire-only nodes
   for (const w of S.wires) {
     const n1 = getNode(w.x1, w.y1), n2 = getNode(w.x2, w.y2);
     uf.union(n1, n2);
   }
-  // Also merge pins within 2px of each other
+  // Sprint 57: proximity merge is now handled by getNode() snap-to-nearest-pin.
+  // The O(n²) allKeys merge loop is retained with a TIGHT tolerance (2px) for
+  // exact-overlap cases only — it must NOT use SNAP_TOL (25px) because that
+  // would false-merge separate pins on closely-spaced components (e.g. op-amp
+  // +/- at 30px apart). getNode() snap is one-directional: wire endpoint →
+  // nearest registered pin. The 2px loop catches rounding dust.
   const allKeys = [...pinMap.entries()];
   for (let i = 0; i < allKeys.length; i++) {
     const [ki, ni] = allKeys[i];
