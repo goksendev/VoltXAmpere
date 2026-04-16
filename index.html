@@ -697,7 +697,7 @@ input:focus{border-color:var(--accent)}
     <span id="sb-temp" style="color:var(--text-3)"></span>
     <span id="sb-engine" style="color:var(--text-4)"></span>
     <span id="sb-extra" style="color:var(--text-3)"></span>
-    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v9.0 — Build: 2026-04-16 19:42 — © 2026</span>
+    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v9.0 — Build: 2026-04-16 21:31 — © 2026</span>
   </div>
 </div>
 
@@ -7286,10 +7286,10 @@ VXA.SpiceParser = (function() {
   }
   function parseModelLine(line) {
     // Sprint 41: accept multi-token BSIM3 cards (80+ params inside parens).
-    var m = line.match(/\.model\s+(\S+)\s+(NPN|PNP|D|NMOS|PMOS|NFET|PFET|NJF|PJF)\s*\(([\s\S]+?)\)\s*$/i);
+    var m = line.match(/\.model\s+(\S+)\s+(NPN|PNP|D|NMOS|PMOS|NFET|PFET|NJF|PJF|SW|VSWITCH)\s*\(([\s\S]+?)\)\s*$/i);
     if (!m) {
       // Fallback: parens may be unclosed on single-line cards — grab rest of line
-      m = line.match(/\.model\s+(\S+)\s+(NPN|PNP|D|NMOS|PMOS|NFET|PFET|NJF|PJF)\s*\(?([\s\S]+?)\)?$/i);
+      m = line.match(/\.model\s+(\S+)\s+(NPN|PNP|D|NMOS|PMOS|NFET|PFET|NJF|PJF|SW|VSWITCH)\s*\(?([\s\S]+?)\)?$/i);
       if (!m) return null;
     }
     var name = m[1], type = m[2].toUpperCase(), params = {};
@@ -7308,6 +7308,7 @@ VXA.SpiceParser = (function() {
     else if (type === 'D') category = 'diode';
     else if (type === 'NMOS' || type === 'PMOS' || type === 'NFET' || type === 'PFET') category = 'nmos';
     else if (type === 'NJF' || type === 'PJF') category = 'jfet';
+    else if (type === 'SW' || type === 'VSWITCH') category = 'switch';
     else return null;
     // Sprint 41: mark BSIM3-class MOSFET cards so engine can dispatch properly
     if (category === 'nmos' && typeof VXA !== 'undefined' && VXA.BSIM3 && VXA.BSIM3.isBSIM3Model(params)) {
@@ -12405,7 +12406,51 @@ VXA.SpiceImport = (function() {
         var subNodes = [];
         for (var ti = 1; ti < tk.length - 1; ti++) subNodes.push(gn(tk[ti]));
         circuit.parts.push({ type: 'subcircuit', nodes: subNodes, subcktName: subName });
-      } else {
+      }
+      // Sprint 60: 8 new SPICE elements — S/B/E/F/G/H/K/T
+      else if (ch === 'S') {
+        // Voltage-controlled switch: S1 n+ n- nc+ nc- modelname
+        circuit.parts.push({ type: 'switch', nodes: [gn(tk[1]), gn(tk[2])], model: tk[5] || '', closed: true });
+      }
+      else if (ch === 'B') {
+        // Behavioral source: B1 n+ n- V={expr} or I={expr}
+        var bRest = line.substring(tk[0].length).trim();
+        var bExprMatch = bRest.match(/(?:\S+\s+\S+\s+)?(?:V|I)\s*=\s*(.+)/i);
+        if (!bExprMatch) bExprMatch = tk.slice(3).join(' ').match(/(?:V|I)\s*=\s*(.+)/i);
+        var bExpr = bExprMatch ? bExprMatch[1].trim() : '0';
+        circuit.parts.push({ type: 'behavioral', nodes: [gn(tk[1]), gn(tk[2])], expression: bExpr });
+      }
+      else if (ch === 'E') {
+        // VCVS: E1 n+ n- nc+ nc- gain
+        circuit.parts.push({ type: 'vcvs', nodes: [gn(tk[1]), gn(tk[2]), gn(tk[3]), gn(tk[4])], val: pv(tk[5] || '1') });
+      }
+      else if (ch === 'G') {
+        // VCCS: G1 n+ n- nc+ nc- gm
+        circuit.parts.push({ type: 'vccs', nodes: [gn(tk[1]), gn(tk[2]), gn(tk[3]), gn(tk[4])], val: pv(tk[5] || '0.001') });
+      }
+      else if (ch === 'F') {
+        // CCCS: F1 n+ n- Vname gain
+        circuit.parts.push({ type: 'cccs', nodes: [gn(tk[1]), gn(tk[2]), gn(tk[1]), gn(tk[2])], val: pv(tk[4] || '1') });
+      }
+      else if (ch === 'H') {
+        // CCVS: H1 n+ n- Vname gain
+        circuit.parts.push({ type: 'ccvs', nodes: [gn(tk[1]), gn(tk[2]), gn(tk[1]), gn(tk[2])], val: pv(tk[4] || '1000') });
+      }
+      else if (ch === 'K') {
+        // Coupled inductors: K1 L1 L2 coupling
+        circuit.parts.push({ type: 'coupled_l', nodes: [], val: pv(tk[3] || '1'), ref1: tk[1], ref2: tk[2] });
+      }
+      else if (ch === 'T') {
+        // Transmission line: T1 n1+ n1- n2+ n2- Z0=50 TD=1n
+        var tlZ0 = 50, tlTD = 1e-9;
+        for (var tpi = 5; tpi < tk.length; tpi++) {
+          var tpu = tk[tpi].toUpperCase();
+          if (tpu.indexOf('Z0=') === 0) tlZ0 = pv(tpu.substring(3));
+          if (tpu.indexOf('TD=') === 0) tlTD = pv(tpu.substring(3));
+        }
+        circuit.parts.push({ type: 'tline', nodes: [gn(tk[1]), gn(tk[2]), gn(tk[3]), gn(tk[4])], val: tlZ0, td: tlTD });
+      }
+      else {
         warnings.push('Skipped unknown line: ' + sanitizeHTML(line.substring(0, 60)));
       }
       } catch(e) { warnings.push('Error parsing: ' + sanitizeHTML(line.substring(0, 40)) + ' — ' + sanitizeHTML(e.message)); }

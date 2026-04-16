@@ -12457,6 +12457,119 @@ console.log = function() {
   const plFail = plResults.filter(r => !r.pass).length;
   console.log(`\n  Sprint 59: ${plPass} PASS, ${plFail} FAIL out of ${plResults.length}`);
 
+  // ═══════════════════════════════════════
+  // SPRINT 60: SPICE Import — 8 New Elements (S/B/E/F/G/H/K/T)
+  // ═══════════════════════════════════════
+  console.log('\n── Sprint 60: SPICE Import 8 New Elements ──');
+  const sp60Results = await page.evaluate(() => {
+    var r = [];
+    function add(name, pass) { r.push({ name, pass: !!pass }); }
+
+    var parse = VXA.SpiceImport.parse;
+    var parseModel = VXA.SpiceParser.parseModelLine;
+
+    // === S ELEMENT (SWITCH) ===
+    var sNet = "V1 1 0 5\nS1 1 2 3 4 MYSW\nR1 2 0 1k";
+    var sCirc = parse(sNet);
+    var sPart = sCirc.parts.find(function(p) { return p.type === 'switch'; });
+    add('TEST_SP_01: S element parsed (not skipped)', !!sPart);
+    add('TEST_SP_02: S maps to switch type', sPart && sPart.type === 'switch');
+    add('TEST_SP_03: S has 2 main nodes', sPart && sPart.nodes && sPart.nodes.length === 2);
+    var swModel = parseModel('.model MYSW SW(Ron=0.05 Roff=10Meg Vt=2.5 Vh=0.5)');
+    add('TEST_SP_04: .model SW parsed', swModel && swModel.category === 'switch');
+
+    // === B ELEMENT (BEHAVIORAL) ===
+    var bNet1 = "B1 1 0 V=5";
+    var bCirc1 = parse(bNet1);
+    var bPart1 = bCirc1.parts.find(function(p) { return p.type === 'behavioral'; });
+    add('TEST_SP_05: B element V=5 parsed', !!bPart1);
+    add('TEST_SP_06: B maps to behavioral', bPart1 && bPart1.type === 'behavioral');
+    add('TEST_SP_07: B expression preserved', bPart1 && bPart1.expression === '5');
+    var bNet2 = "B1 1 0 V= V(2)>2.5 ? 5 : 0";
+    var bCirc2 = parse(bNet2);
+    var bPart2 = bCirc2.parts.find(function(p) { return p.type === 'behavioral'; });
+    add('TEST_SP_08: B complex expr parsed', bPart2 && bPart2.expression && bPart2.expression.indexOf('V(2)') >= 0);
+
+    // === E/F/G/H (DEPENDENT SOURCES) ===
+    var eCirc = parse("E1 1 0 3 4 10");
+    var ePart = eCirc.parts.find(function(p) { return p.type === 'vcvs'; });
+    add('TEST_SP_09: E → vcvs parsed', ePart && ePart.val === 10);
+
+    var gCirc = parse("G1 1 0 3 4 0.01");
+    var gPart = gCirc.parts.find(function(p) { return p.type === 'vccs'; });
+    add('TEST_SP_10: G → vccs parsed', gPart && Math.abs(gPart.val - 0.01) < 1e-6);
+
+    var fCirc = parse("F1 1 0 V1 5");
+    var fPart = fCirc.parts.find(function(p) { return p.type === 'cccs'; });
+    add('TEST_SP_11: F → cccs parsed', fPart && fPart.val === 5);
+
+    var hCirc = parse("H1 1 0 V1 100");
+    var hPart = hCirc.parts.find(function(p) { return p.type === 'ccvs'; });
+    add('TEST_SP_12: H → ccvs parsed', hPart && hPart.val === 100);
+
+    add('TEST_SP_13: E has 4 nodes', ePart && ePart.nodes && ePart.nodes.length === 4);
+
+    // === K ELEMENT (COUPLED) ===
+    var kCirc = parse("L1 1 2 10m\nL2 3 4 10m\nK1 L1 L2 0.99");
+    var kPart = kCirc.parts.find(function(p) { return p.type === 'coupled_l'; });
+    add('TEST_SP_14: K element parsed', !!kPart);
+    add('TEST_SP_15: K coupling value', kPart && Math.abs(kPart.val - 0.99) < 0.01);
+
+    // === T ELEMENT (TLINE) ===
+    var tCirc = parse("T1 1 0 2 0 Z0=50 TD=1n");
+    var tPart = tCirc.parts.find(function(p) { return p.type === 'tline'; });
+    add('TEST_SP_16: T element parsed', !!tPart);
+    add('TEST_SP_17: T Z0=50 TD=1n', tPart && tPart.val === 50 && Math.abs(tPart.td - 1e-9) < 1e-12);
+
+    // === INTEGRATION ===
+    var bigNet = [
+      '* Full test', 'V1 1 0 DC 10', 'R1 1 2 1k', 'R2 2 0 2k', 'C1 2 0 1u',
+      'L1 3 4 10m', 'L2 5 6 10m', 'D1 2 3 DMOD', 'Q1 4 2 0 2N2222',
+      '.model 2N2222 NPN(BF=200)', '.model DMOD D(IS=1e-14)',
+      'S1 3 4 1 0 SW1', 'S2 5 6 2 0 SW1', '.model SW1 SW(Ron=0.1 Roff=1Meg Vt=2.5)',
+      'B1 7 0 V=5', 'B2 8 0 V= V(1)>5 ? 3.3 : 0',
+      'E1 9 0 1 2 10', 'G1 10 0 3 4 0.01', 'F1 11 0 V1 2', 'H1 12 0 V1 500',
+      'K1 L1 L2 0.95', 'T1 13 0 14 0 Z0=75 TD=2n'
+    ].join('\n');
+    var bigCirc = parse(bigNet);
+    var bt = {};
+    bigCirc.parts.forEach(function(p) { bt[p.type] = (bt[p.type] || 0) + 1; });
+    add('TEST_SP_18: integration parts > 15', bigCirc.parts.length > 15);
+    add('TEST_SP_19: integration has switches', (bt['switch'] || 0) >= 2);
+    add('TEST_SP_20: integration has behavioral', (bt['behavioral'] || 0) >= 2);
+    add('TEST_SP_21: integration warnings < 3', bigCirc.warnings.length < 3);
+    add('TEST_SP_22: integration has all dep sources',
+      (bt['vcvs'] || 0) >= 1 && (bt['vccs'] || 0) >= 1 && (bt['cccs'] || 0) >= 1 && (bt['ccvs'] || 0) >= 1);
+
+    // === GENERAL SPICE COMPAT ===
+    var simpleCirc = parse("V1 1 0 5\nR1 1 0 1k");
+    add('TEST_SP_23: simple VR → 2 parts 0 warn', simpleCirc.parts.length === 2 && simpleCirc.warnings.length === 0);
+    var bjtCirc = parse(".model 2N2222 NPN(BF=200)\nQ1 3 2 1 2N2222");
+    add('TEST_SP_24: BJT → npn', !!bjtCirc.parts.find(function(p) { return p.type === 'npn'; }));
+    var mosCirc = parse(".model NMOS_M NMOS(VTO=1)\nM1 3 2 1 0 NMOS_M");
+    add('TEST_SP_25: MOSFET → nmos', !!mosCirc.parts.find(function(p) { return p.type === 'nmos'; }));
+    add('TEST_SP_26: .model D regression', !!(parseModel('.model D1 D(IS=1e-14 N=1.05)') || {}).category);
+    add('TEST_SP_27: .model NPN regression', (parseModel('.model Q2N NPN(BF=200)') || {}).category === 'npn');
+
+    // === REGRESSION ===
+    add('TEST_SP_28: SpiceImport.parse exists', typeof VXA.SpiceImport.parse === 'function');
+    add('TEST_SP_29: SpiceParser.parseModelLine exists', typeof VXA.SpiceParser.parseModelLine === 'function');
+    var tDef = parse("T1 1 0 2 0");
+    var tDefP = tDef.parts.find(function(p) { return p.type === 'tline'; });
+    add('TEST_SP_30: T default Z0=50', tDefP && tDefP.val === 50);
+
+    return r;
+  });
+  sp60Results.sort((a, b) => {
+    const na = parseInt((a.name.match(/TEST_SP_(\d+)/) || [])[1] || 99);
+    const nb = parseInt((b.name.match(/TEST_SP_(\d+)/) || [])[1] || 99);
+    return na - nb;
+  });
+  sp60Results.forEach(r => console.log(`  ${r.pass ? '✅' : '❌'} ${r.name}`));
+  const sp60Pass = sp60Results.filter(r => r.pass).length;
+  const sp60Fail = sp60Results.filter(r => !r.pass).length;
+  console.log(`\n  Sprint 60: ${sp60Pass} PASS, ${sp60Fail} FAIL out of ${sp60Results.length}`);
+
   // === FINAL ÖZET ===
   const totalPass = await page.evaluate(() => {
     return { parts: typeof COMP !== 'undefined' ? Object.keys(COMP).length : 0, lines: document.querySelector('script') ? 'OK' : 'FAIL' };
