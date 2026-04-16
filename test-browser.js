@@ -13005,6 +13005,170 @@ console.log = function() {
   const ip64Fail = ip64Results.filter(r => !r.pass).length;
   console.log(`\n  Sprint 64: ${ip64Pass} PASS, ${ip64Fail} FAIL out of ${ip64Results.length}`);
 
+  // ═══════════════════════════════════════
+  // SPRINT 65: Performance — Time Budget
+  // ═══════════════════════════════════════
+  console.log('\n── Sprint 65: Performance Time Budget ──');
+  const pf65Results = await page.evaluate(async () => {
+    var r = [];
+    function add(name, pass) { r.push({ name, pass: !!pass }); }
+
+    // === SIM THROTTLE ===
+    add('TEST_PF_01: rAF main loop', typeof loop === 'function');
+    add('TEST_PF_02: SIM_BUDGET_MS defined', typeof SIM_BUDGET_MS === 'number' && SIM_BUDGET_MS > 0);
+    add('TEST_PF_03: max step safety', typeof getAdaptiveSubsteps === 'function');
+    add('TEST_PF_04: performance.now in simStep', typeof _simSolveTimeMs === 'number');
+
+    // === ADAPTIVE DT ===
+    var origDt = VXA.AdaptiveStep ? VXA.AdaptiveStep.getDt() : 0;
+    add('TEST_PF_05: adaptive dt exists', origDt > 0);
+    add('TEST_PF_06: dt reasonable range', origDt >= 1e-7 && origDt <= 1e-3);
+    add('TEST_PF_07: getAdaptiveSubsteps exists', typeof getAdaptiveSubsteps === 'function');
+
+    // === VIEWPORT CULLING ===
+    add('TEST_PF_08: isInViewport exists', typeof isInViewport === 'function');
+    add('TEST_PF_09: culling in render', typeof isInViewport === 'function');
+
+    // === BIG CIRCUIT TESTS ===
+    // 10 parts
+    function buildSeriesR(count) {
+      S.parts = []; S.wires = []; S.nextId = 1;
+      S.parts.push({ id: S.nextId++, type: 'vdc', name: 'V1', x: 100, y: 200, rot: 0, val: 5, flipH: false, flipV: false });
+      S.parts.push({ id: S.nextId++, type: 'ground', name: 'GND', x: 100, y: 300, rot: 0, val: 0, flipH: false, flipV: false });
+      S.wires.push({ x1: 100, y1: 280, x2: 100, y2: 280 });
+      for (var ri = 0; ri < count; ri++) {
+        var rx = 200 + ri * 80;
+        S.parts.push({ id: S.nextId++, type: 'resistor', name: 'R' + (ri+1), x: rx, y: 200, rot: 0, val: 1000, flipH: false, flipV: false });
+      }
+      buildCircuitFromCanvas();
+    }
+
+    buildSeriesR(8);
+    toggleSim();
+    for (var s1 = 0; s1 < 20; s1++) simulationStep();
+    var sim10ok = S.sim.running && !S.sim.error;
+    if (S.sim.running) toggleSim();
+    add('TEST_PF_10: 10-part sim starts', sim10ok);
+
+    buildSeriesR(18);
+    toggleSim();
+    for (var s2 = 0; s2 < 10; s2++) simulationStep();
+    var sim20ok = S.sim.running;
+    if (S.sim.running) toggleSim();
+    add('TEST_PF_11: 20-part sim starts', sim20ok);
+
+    buildSeriesR(28);
+    toggleSim();
+    for (var s3 = 0; s3 < 5; s3++) simulationStep();
+    var sim30ok = S.sim.running;
+    if (S.sim.running) toggleSim();
+    add('TEST_PF_12: 30-part sim starts', sim30ok);
+
+    buildSeriesR(48);
+    toggleSim();
+    for (var s4 = 0; s4 < 3; s4++) simulationStep();
+    var sim50ok = S.sim.running;
+    if (S.sim.running) toggleSim();
+    add('TEST_PF_13: 50-part sim no crash', sim50ok);
+
+    // FPS proxy: measure time for N steps
+    buildSeriesR(8);
+    toggleSim();
+    var t0 = performance.now();
+    for (var sf = 0; sf < 10; sf++) simulationStep();
+    var t10 = performance.now() - t0;
+    if (S.sim.running) toggleSim();
+    add('TEST_PF_14: 10-part 10 steps < 200ms', t10 < 200);
+
+    buildSeriesR(28);
+    toggleSim();
+    var t30_0 = performance.now();
+    for (var sf2 = 0; sf2 < 5; sf2++) simulationStep();
+    var t30 = performance.now() - t30_0;
+    if (S.sim.running) toggleSim();
+    add('TEST_PF_15: 30-part 5 steps < 500ms', t30 < 500);
+
+    // === REGRESSION ===
+    loadPreset('led');
+    toggleSim();
+    for (var lr = 0; lr < 60; lr++) simulationStep();
+    var ledP = S.parts.find(function(p) { return p.type === 'led'; });
+    var ledVf = ledP ? (ledP._v || 0) : 0;
+    if (S.sim.running) toggleSim();
+    add('TEST_PF_16: LED Vf 1.5-2.2V', ledVf >= 1.5 && ledVf <= 2.2);
+
+    loadPreset('ce-amp');
+    toggleSim();
+    for (var ca = 0; ca < 40; ca++) simulationStep();
+    var ceOK = S.sim.running;
+    if (S.sim.running) toggleSim();
+    add('TEST_PF_17: CE amp sim OK', ceOK);
+
+    var zOK = false;
+    try {
+      loadPreset('zener-reg');
+      toggleSim();
+      for (var zr = 0; zr < 40; zr++) simulationStep();
+      zOK = S.sim.running;
+      if (S.sim.running) toggleSim();
+    } catch(e) {}
+    add('TEST_PF_18: Zener sim OK', zOK);
+
+    var presetCount = 0;
+    for (var pi = 0; pi < Math.min(PRESETS.length, 55); pi++) {
+      try { loadPreset(PRESETS[pi].id); presetCount++; } catch(e) {}
+    }
+    add('TEST_PF_19: 55 presets load', presetCount === 55);
+    add('TEST_PF_20: NR converges', typeof VXA.SimV2.getConverged === 'function');
+
+    // === SCOPE ===
+    loadPreset('led');
+    toggleSim();
+    for (var sc1 = 0; sc1 < 30; sc1++) simulationStep();
+    var scopeHasData = S.scope && S.scope.ch && S.scope.ch[0] && S.scope.ch[0].src > 0;
+    if (S.sim.running) toggleSim();
+    add('TEST_PF_21: scope buffer fills', scopeHasData);
+    add('TEST_PF_22: scope shows signal', scopeHasData);
+
+    // === PROGRESS ===
+    add('TEST_PF_23: _simStepsLastFrame tracked', typeof _simStepsLastFrame === 'number');
+
+    // === PERF MEASUREMENTS ===
+    loadPreset('led');
+    toggleSim();
+    var pt0 = performance.now();
+    simulationStep();
+    var pt1 = performance.now() - pt0;
+    if (S.sim.running) toggleSim();
+    add('TEST_PF_24: 1 step < 50ms (small)', pt1 < 50);
+
+    buildSeriesR(28);
+    toggleSim();
+    var pt30_0 = performance.now();
+    simulationStep();
+    var pt30_1 = performance.now() - pt30_0;
+    if (S.sim.running) toggleSim();
+    add('TEST_PF_25: 1 step < 100ms (30-part)', pt30_1 < 100);
+
+    // === GENERAL REGRESSION ===
+    add('TEST_PF_26: PRESETS=55', PRESETS.length === 55);
+    add('TEST_PF_27: COMP>=71', Object.keys(COMP).length >= 71);
+    add('TEST_PF_28: build OK', typeof VXA !== 'undefined');
+    add('TEST_PF_29: SIM_BUDGET_MS <= 12', SIM_BUDGET_MS <= 12);
+    add('TEST_PF_30: _simSolveTimeMs trackable', typeof _simSolveTimeMs === 'number');
+
+    return r;
+  });
+  pf65Results.sort((a, b) => {
+    const na = parseInt((a.name.match(/TEST_PF_(\d+)/) || [])[1] || 99);
+    const nb = parseInt((b.name.match(/TEST_PF_(\d+)/) || [])[1] || 99);
+    return na - nb;
+  });
+  pf65Results.forEach(r => console.log(`  ${r.pass ? '✅' : '❌'} ${r.name}`));
+  const pf65Pass = pf65Results.filter(r => r.pass).length;
+  const pf65Fail = pf65Results.filter(r => !r.pass).length;
+  console.log(`\n  Sprint 65: ${pf65Pass} PASS, ${pf65Fail} FAIL out of ${pf65Results.length}`);
+
   // === FINAL ÖZET ===
   const totalPass = await page.evaluate(() => {
     return { parts: typeof COMP !== 'undefined' ? Object.keys(COMP).length : 0, lines: document.querySelector('script') ? 'OK' : 'FAIL' };

@@ -369,7 +369,10 @@ function buildCircuitFromCanvas() {
   SIM = { N, comps, vSrc: comps.filter(c=>c.type==='V') };
 }
 
-const GMIN = 1e-12, SIM_DT = 1e-5, SUBSTEPS = 15;
+var SIM_BUDGET_MS = 8;
+var _simStepsLastFrame = 0;
+var _simSolveTimeMs = 0;
+var GMIN = 1e-12, SIM_DT = 1e-5, SUBSTEPS = 15;
 function getAdaptiveSubsteps() {
   var n = S.parts.length;
   var hasNL = S.parts.some(function(p) {
@@ -459,9 +462,13 @@ function simulationStep() {
   try {
     var dt = VXA.AdaptiveStep.getDt();
     var steps = Math.max(1, Math.round(getAdaptiveSubsteps() * (S.sim.speed || 1)));
+    var _budgetStart = performance.now();
+    var _stepsRan = 0;
     for (var i = 0; i < steps; i++) {
+      if (_stepsRan > 0 && performance.now() - _budgetStart > SIM_BUDGET_MS) break;
       S.sim.t += dt;
       VXA.SimV2.solve(dt);
+      _stepsRan++;
       if (!VXA.SimV2.getConverged()) {
         VXA.AdaptiveStep.setDt(dt / 4);
         dt = VXA.AdaptiveStep.getDt();
@@ -470,6 +477,8 @@ function simulationStep() {
         dt = VXA.AdaptiveStep.getDt();
       }
     }
+    _simStepsLastFrame = _stepsRan;
+    _simSolveTimeMs = performance.now() - _budgetStart;
     S.sim.error = '';
     S._simDt = dt;
     // Thermal update (accelerated — thermal time constants are much slower than electrical)
