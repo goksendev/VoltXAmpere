@@ -337,9 +337,14 @@ VXA.SimV2 = (function() {
       }
       if (matrix._bandwidth) _lastBandwidth = matrix._bandwidth;
 
-      // Extract voltages
+      // Extract voltages — NaN guard
       var newV = new Float64Array(N);
-      for (var i = 1; i < N; i++) newV[i] = x[i - 1];
+      var _solveHasNaN = false;
+      for (var i = 1; i < N; i++) {
+        newV[i] = x[i - 1];
+        if (!isFinite(newV[i])) { newV[i] = nodeV[i] || 0; _solveHasNaN = true; }
+      }
+      if (_solveHasNaN) { converged = false; break; }
 
       // Voltage limiting (SPICE-correct)
       if (iter > 0) {

@@ -55,6 +55,13 @@ VXA.SpiceImport = (function() {
       if (line.charAt(0) === '.') {
         if (/^\.subckt/i.test(line)) { inSubckt = true; return; }
         if (/^\.ends/i.test(line)) { inSubckt = false; return; }
+        if (/^\.tran\s/i.test(line)) {
+          var tranTk = line.replace(/\.tran\s+/i, '').split(/\s+/);
+          circuit.tran = { dt: pv(tranTk[0]) || 1e-5, tstop: pv(tranTk[1]) || 0.01 };
+          if (tranTk[2]) circuit.tran.tstart = pv(tranTk[2]);
+          if (tranTk[3]) circuit.tran.dtmax = pv(tranTk[3]);
+          return;
+        }
         if (line.match(/^\.(end|title|lib|include|option|param|global)/i)) return;
         if (inSubckt) return;
         var parsed = VXA.SpiceParser.parseModelLine(line);

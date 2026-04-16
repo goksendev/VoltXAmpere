@@ -378,6 +378,23 @@ var _sparseFailCount = 0;
 var _useSparse = false;
 var _lastBandwidth = 0;
 function resetSparseVerification() { _sparseVerified = false; _sparseVerifyCount = 0; _sparseFailCount = 0; _useSparse = false; }
+var _nanRecoveryCount = 0;
+function autoDetectDt() {
+  if (!SIM || !SIM.comps) return;
+  var minEdge = Infinity;
+  for (var i = 0; i < SIM.comps.length; i++) {
+    var c = SIM.comps[i];
+    if (c.isPulse || c.type === 'VPULSE') {
+      if (c.tr > 0) minEdge = Math.min(minEdge, c.tr);
+      if (c.tf > 0) minEdge = Math.min(minEdge, c.tf);
+    }
+    if (c.isAC && c.freq > 0) minEdge = Math.min(minEdge, 1 / (c.freq * 50));
+  }
+  if (minEdge < Infinity && minEdge > 0) {
+    var newDt = Math.max(minEdge / 10, 1e-9);
+    if (newDt < VXA.AdaptiveStep.getDt()) VXA.AdaptiveStep.setDt(newDt);
+  }
+}
 var GMIN = 1e-12, SIM_DT = 1e-5, SUBSTEPS = 15;
 function getAdaptiveSubsteps() {
   var n = S.parts.length;
@@ -475,6 +492,22 @@ function simulationStep() {
       S.sim.t += dt;
       VXA.SimV2.solve(dt);
       _stepsRan++;
+      // NaN guard: if solver produced NaN, roll back and shrink dt
+      var _hasNaN = false;
+      if (S._nodeVoltages) {
+        for (var ni = 0; ni < S._nodeVoltages.length; ni++) {
+          if (!isFinite(S._nodeVoltages[ni])) { _hasNaN = true; break; }
+        }
+      }
+      if (_hasNaN) {
+        _nanRecoveryCount++;
+        for (var ni2 = 0; ni2 < (S._nodeVoltages || []).length; ni2++) {
+          if (!isFinite(S._nodeVoltages[ni2])) S._nodeVoltages[ni2] = 0;
+        }
+        VXA.AdaptiveStep.setDt(Math.max(dt * 0.1, 1e-9));
+        dt = VXA.AdaptiveStep.getDt();
+        continue;
+      }
       if (!VXA.SimV2.getConverged()) {
         VXA.AdaptiveStep.setDt(dt / 4);
         dt = VXA.AdaptiveStep.getDt();
