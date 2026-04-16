@@ -314,6 +314,9 @@ const JS_FILES = [
   // UI: Tesla polish — A/K labels, scope auto-assign, wire tooltip (Sprint 58)
   'src/ui/tesla-polish.js',
 
+  // UI: Connection render hook + wire tooltip click (Sprint 59)
+  'src/ui/connection-render-hook.js',
+
   // UI: breadboard 3D view
   'src/ui/breadboard.js',
 

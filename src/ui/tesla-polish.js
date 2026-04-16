@@ -44,21 +44,35 @@
     // check after sim is running assigns scope if channels are empty.
     setInterval(function() {
       if (typeof S === 'undefined' || !S || !S.sim || !S.sim.running) return;
-      if (!S.scope) return;
-      // Only auto-assign if no channel is set (all 0)
+      if (!S.scope || !Array.isArray(S.scope.ch)) return;
+      // Only auto-assign if NO channel has a src set
       var anySet = false;
-      for (var ch = 0; ch < 4; ch++) {
-        if (S.scope['ch' + ch] && S.scope['ch' + ch] > 0) anySet = true;
+      for (var ci = 0; ci < S.scope.ch.length; ci++) {
+        if (S.scope.ch[ci] && S.scope.ch[ci].src && S.scope.ch[ci].src > 0 && S.scope.ch[ci].on) anySet = true;
       }
       if (anySet) return;
       // Find highest-V node
       if (typeof SIM === 'undefined' || !SIM || !S._nodeVoltages) return;
       var maxV = 0, maxN = 1;
-      for (var i = 1; i < SIM.N; i++) {
-        var v = Math.abs(S._nodeVoltages[i] || 0);
-        if (v > maxV) { maxV = v; maxN = i; }
+      for (var ni = 1; ni < SIM.N; ni++) {
+        var nv = Math.abs(S._nodeVoltages[ni] || 0);
+        if (nv > maxV) { maxV = nv; maxN = ni; }
       }
-      if (maxV > 0.1 && S.scope.ch0 !== undefined) S.scope.ch0 = maxN;
+      if (maxV > 0.1 && S.scope.ch[0]) {
+        S.scope.ch[0].src = maxN;
+        S.scope.ch[0].on = true;
+        // Second channel: next distinct node
+        var sec = 0, secN = 1;
+        for (var si = 1; si < SIM.N; si++) {
+          if (si === maxN) continue;
+          var sv = Math.abs(S._nodeVoltages[si] || 0);
+          if (sv > sec) { sec = sv; secN = si; }
+        }
+        if (sec > 0.05 && S.scope.ch[1]) {
+          S.scope.ch[1].src = secN;
+          S.scope.ch[1].on = true;
+        }
+      }
     }, 500);
   }
 

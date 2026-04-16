@@ -18,7 +18,7 @@ function hideExportMenu() {
 }
 
 function exportJSON() {
-  const data = { version: 'VoltXAmpere-8.0', parts: S.parts, wires: S.wires, nextId: S.nextId, settings: { bgStyle: S.bgStyle, wireStyle: S.wireStyle, symbolStd: S.symbolStd } };
+  const data = { version: 'VoltXAmpere-9.0', parts: S.parts, wires: S.wires, nextId: S.nextId, settings: { bgStyle: S.bgStyle, wireStyle: S.wireStyle, symbolStd: S.symbolStd } };
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);

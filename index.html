@@ -697,7 +697,7 @@ input:focus{border-color:var(--accent)}
     <span id="sb-temp" style="color:var(--text-3)"></span>
     <span id="sb-engine" style="color:var(--text-4)"></span>
     <span id="sb-extra" style="color:var(--text-3)"></span>
-    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v9.0 — Build: 2026-04-16 19:28 — © 2026</span>
+    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v9.0 — Build: 2026-04-16 19:42 — © 2026</span>
   </div>
 </div>
 
@@ -10668,7 +10668,7 @@ function hideExportMenu() {
 }
 
 function exportJSON() {
-  const data = { version: 'VoltXAmpere-8.0', parts: S.parts, wires: S.wires, nextId: S.nextId, settings: { bgStyle: S.bgStyle, wireStyle: S.wireStyle, symbolStd: S.symbolStd } };
+  const data = { version: 'VoltXAmpere-9.0', parts: S.parts, wires: S.wires, nextId: S.nextId, settings: { bgStyle: S.bgStyle, wireStyle: S.wireStyle, symbolStd: S.symbolStd } };
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
@@ -21434,21 +21434,35 @@ VXA.SmithChart = (function() {
     // check after sim is running assigns scope if channels are empty.
     setInterval(function() {
       if (typeof S === 'undefined' || !S || !S.sim || !S.sim.running) return;
-      if (!S.scope) return;
-      // Only auto-assign if no channel is set (all 0)
+      if (!S.scope || !Array.isArray(S.scope.ch)) return;
+      // Only auto-assign if NO channel has a src set
       var anySet = false;
-      for (var ch = 0; ch < 4; ch++) {
-        if (S.scope['ch' + ch] && S.scope['ch' + ch] > 0) anySet = true;
+      for (var ci = 0; ci < S.scope.ch.length; ci++) {
+        if (S.scope.ch[ci] && S.scope.ch[ci].src && S.scope.ch[ci].src > 0 && S.scope.ch[ci].on) anySet = true;
       }
       if (anySet) return;
       // Find highest-V node
       if (typeof SIM === 'undefined' || !SIM || !S._nodeVoltages) return;
       var maxV = 0, maxN = 1;
-      for (var i = 1; i < SIM.N; i++) {
-        var v = Math.abs(S._nodeVoltages[i] || 0);
-        if (v > maxV) { maxV = v; maxN = i; }
+      for (var ni = 1; ni < SIM.N; ni++) {
+        var nv = Math.abs(S._nodeVoltages[ni] || 0);
+        if (nv > maxV) { maxV = nv; maxN = ni; }
       }
-      if (maxV > 0.1 && S.scope.ch0 !== undefined) S.scope.ch0 = maxN;
+      if (maxV > 0.1 && S.scope.ch[0]) {
+        S.scope.ch[0].src = maxN;
+        S.scope.ch[0].on = true;
+        // Second channel: next distinct node
+        var sec = 0, secN = 1;
+        for (var si = 1; si < SIM.N; si++) {
+          if (si === maxN) continue;
+          var sv = Math.abs(S._nodeVoltages[si] || 0);
+          if (sv > sec) { sec = sv; secN = si; }
+        }
+        if (sec > 0.05 && S.scope.ch[1]) {
+          S.scope.ch[1].src = secN;
+          S.scope.ch[1].on = true;
+        }
+      }
     }, 500);
   }
 
@@ -21475,6 +21489,91 @@ VXA.SmithChart = (function() {
     }
     return null;
   };
+})();
+
+
+// ═══ connection-render-hook.js ═══
+// ──────── SPRINT 59: Connection render hook + toggleSim check ────────
+// Non-invasive: monkey-patches render() + toggleSim() to integrate
+// ConnectionCheck.drawFloatingPins and auto-check on sim start.
+(function() {
+  'use strict';
+  if (typeof window === 'undefined') return;
+
+  // ── drawFloatingPins into render loop ──
+  var _origRender = (typeof render === 'function') ? render : null;
+  if (_origRender) {
+    window.render = function() {
+      _origRender.apply(this, arguments);
+      try {
+        if (VXA.ConnectionCheck && typeof VXA.ConnectionCheck.drawFloatingPins === 'function') {
+          var cvs = document.getElementById('C');
+          if (cvs && S && S.view) {
+            var ctx = cvs.getContext('2d');
+            VXA.ConnectionCheck.drawFloatingPins(ctx, S.view.zoom || 1);
+          }
+        }
+      } catch (e) {}
+    };
+  }
+
+  // ── Connection check on sim start ──
+  // IMPORTANT: sim-speed.js already wraps toggleSim and stores original as
+  // _origToggleSim. We must preserve that chain. Instead of monkey-patching
+  // toggleSim again (which breaks CROSS_10-13 tests), we hook via a side
+  // effect: listen for sim.running state transitions in the render interval.
+  var _prevSimRunning = false;
+  setInterval(function() {
+    if (typeof S === 'undefined' || !S || !S.sim) return;
+    var isRunning = !!S.sim.running;
+    if (isRunning && !_prevSimRunning) {
+      // Sim just started — run connection check
+      try {
+        if (VXA.ConnectionCheck) {
+          VXA.ConnectionCheck.clearWarnings();
+          var w = VXA.ConnectionCheck.check();
+          if (w.length > 0) VXA.ConnectionCheck.showWarnings(w);
+        }
+      } catch (e) {}
+    }
+    _prevSimRunning = isRunning;
+  }, 300);
+
+  // ── Wire tooltip on canvas click (sim running, no part selected) ──
+  var cvs = document.getElementById('C') || document.querySelector('canvas');
+  if (cvs) {
+    cvs.addEventListener('click', function(e) {
+      if (!S || !S.sim || !S.sim.running) return;
+      if (S.sel && S.sel.length > 0) return; // part selected — skip
+      if (S.mode && S.mode !== 'select') return;
+      if (typeof window._vxaWireTooltipHandler !== 'function') return;
+      // Screen → world
+      var rect = cvs.getBoundingClientRect();
+      var sx = e.clientX - rect.left, sy = e.clientY - rect.top;
+      var zoom = (S.view && S.view.zoom) || 1;
+      var ox = (S.view && S.view.ox) || 0, oy = (S.view && S.view.oy) || 0;
+      var wx = (sx - ox) / zoom, wy = (sy - oy) / zoom;
+      var result = window._vxaWireTooltipHandler(wx, wy);
+      if (!result) {
+        var tip = document.getElementById('wire-tooltip');
+        if (tip) tip.style.display = 'none';
+        return;
+      }
+      var tip = document.getElementById('wire-tooltip');
+      if (!tip) {
+        tip = document.createElement('div');
+        tip.id = 'wire-tooltip';
+        tip.style.cssText = 'position:fixed;background:var(--surface-2,#1a1a1a);border:1px solid var(--accent,#00e09e);border-radius:8px;padding:8px 12px;font:11px var(--font-mono,monospace);color:var(--text,#eee);z-index:200;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,.5)';
+        document.body.appendChild(tip);
+      }
+      tip.innerHTML = 'V\u2081=' + result.v1.toFixed(2) + 'V<br>V\u2082=' + result.v2.toFixed(2) + 'V<br>\u0394V=' + result.deltaV.toFixed(2) + 'V';
+      tip.style.left = (e.clientX + 12) + 'px';
+      tip.style.top = (e.clientY - 40) + 'px';
+      tip.style.display = 'block';
+      clearTimeout(tip._ht);
+      tip._ht = setTimeout(function() { tip.style.display = 'none'; }, 3000);
+    });
+  }
 })();
 
 
