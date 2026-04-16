@@ -315,7 +315,26 @@ VXA.SimV2 = (function() {
 
       // Compile and solve
       Sp.compile(matrix);
-      var x = Sp.solveLU(matrix, rhs);
+      var x;
+      if (typeof _sparseVerified !== 'undefined' && !_sparseVerified && typeof _sparseVerifyCount !== 'undefined' && _sparseVerifyCount < 100 && matrix.n > 30) {
+        var xDense = Sp.solveLU_dense(matrix, rhs);
+        var xBanded = Sp.solveLU_banded(matrix, rhs);
+        var maxDiff = 0;
+        for (var vi = 0; vi < matrix.n; vi++) {
+          var diff = Math.abs(xDense[vi] - xBanded[vi]);
+          var scale = Math.max(Math.abs(xDense[vi]), 1e-10);
+          if (diff / scale > maxDiff) maxDiff = diff / scale;
+        }
+        _sparseVerifyCount++;
+        if (maxDiff > 0.001) _sparseFailCount++;
+        if (_sparseVerifyCount >= 100) {
+          _sparseVerified = true;
+          _useSparse = _sparseFailCount < 3;
+        }
+        x = xDense;
+      } else {
+        x = Sp.solveLU(matrix, rhs);
+      }
       if (matrix._bandwidth) _lastBandwidth = matrix._bandwidth;
 
       // Extract voltages

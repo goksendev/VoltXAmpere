@@ -42,6 +42,7 @@ function toggleSim() {
   if (S.sim.running) {
     S.sim.error = '';
     VXA.AdaptiveStep.reset();
+    if (typeof resetSparseVerification === 'function') resetSparseVerification();
     buildCircuitFromCanvas();
     VXA.SimV2.findDCOperatingPoint();
     // TimeMachine: enable and reset for new simulation run

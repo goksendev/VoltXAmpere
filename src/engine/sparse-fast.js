@@ -109,5 +109,16 @@ VXA.SparseFast = (function() {
     return x;
   }
 
-  return { CSCMatrix: CSCMatrix, solveLU: solveLU, toDense: toDense };
+  function createTripletCollector(n) {
+    var trips = [];
+    return {
+      triplets: trips,
+      stamp: function(row, col, val) {
+        if (row >= 0 && col >= 0 && row < n && col < n && val !== 0 && isFinite(val))
+          trips.push({ row: row, col: col, val: val });
+      }
+    };
+  }
+
+  return { CSCMatrix: CSCMatrix, solveLU: solveLU, toDense: toDense, createTripletCollector: createTripletCollector };
 })();

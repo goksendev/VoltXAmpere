@@ -372,6 +372,12 @@ function buildCircuitFromCanvas() {
 var SIM_BUDGET_MS = 8;
 var _simStepsLastFrame = 0;
 var _simSolveTimeMs = 0;
+var _sparseVerified = false;
+var _sparseVerifyCount = 0;
+var _sparseFailCount = 0;
+var _useSparse = false;
+var _lastBandwidth = 0;
+function resetSparseVerification() { _sparseVerified = false; _sparseVerifyCount = 0; _sparseFailCount = 0; _useSparse = false; }
 var GMIN = 1e-12, SIM_DT = 1e-5, SUBSTEPS = 15;
 function getAdaptiveSubsteps() {
   var n = S.parts.length;

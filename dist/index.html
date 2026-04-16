@@ -717,7 +717,7 @@ input:focus{border-color:var(--accent)}
     <span id="sb-temp" style="color:var(--text-3)"></span>
     <span id="sb-engine" style="color:var(--text-4)"></span>
     <span id="sb-extra" style="color:var(--text-3)"></span>
-    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v9.0 — Build: 2026-04-16 22:27 — © 2026</span>
+    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v9.0 — Build: 2026-04-16 22:37 — © 2026</span>
   </div>
 </div>
 
@@ -3171,6 +3171,7 @@ function toggleSim() {
   if (S.sim.running) {
     S.sim.error = '';
     VXA.AdaptiveStep.reset();
+    if (typeof resetSparseVerification === 'function') resetSparseVerification();
     buildCircuitFromCanvas();
     VXA.SimV2.findDCOperatingPoint();
     // TimeMachine: enable and reset for new simulation run
@@ -6315,7 +6316,26 @@ VXA.SimV2 = (function() {
 
       // Compile and solve
       Sp.compile(matrix);
-      var x = Sp.solveLU(matrix, rhs);
+      var x;
+      if (typeof _sparseVerified !== 'undefined' && !_sparseVerified && typeof _sparseVerifyCount !== 'undefined' && _sparseVerifyCount < 100 && matrix.n > 30) {
+        var xDense = Sp.solveLU_dense(matrix, rhs);
+        var xBanded = Sp.solveLU_banded(matrix, rhs);
+        var maxDiff = 0;
+        for (var vi = 0; vi < matrix.n; vi++) {
+          var diff = Math.abs(xDense[vi] - xBanded[vi]);
+          var scale = Math.max(Math.abs(xDense[vi]), 1e-10);
+          if (diff / scale > maxDiff) maxDiff = diff / scale;
+        }
+        _sparseVerifyCount++;
+        if (maxDiff > 0.001) _sparseFailCount++;
+        if (_sparseVerifyCount >= 100) {
+          _sparseVerified = true;
+          _useSparse = _sparseFailCount < 3;
+        }
+        x = xDense;
+      } else {
+        x = Sp.solveLU(matrix, rhs);
+      }
       if (matrix._bandwidth) _lastBandwidth = matrix._bandwidth;
 
       // Extract voltages
@@ -8798,7 +8818,18 @@ VXA.SparseFast = (function() {
     return x;
   }
 
-  return { CSCMatrix: CSCMatrix, solveLU: solveLU, toDense: toDense };
+  function createTripletCollector(n) {
+    var trips = [];
+    return {
+      triplets: trips,
+      stamp: function(row, col, val) {
+        if (row >= 0 && col >= 0 && row < n && col < n && val !== 0 && isFinite(val))
+          trips.push({ row: row, col: col, val: val });
+      }
+    };
+  }
+
+  return { CSCMatrix: CSCMatrix, solveLU: solveLU, toDense: toDense, createTripletCollector: createTripletCollector };
 })();
 
 
@@ -10294,6 +10325,12 @@ function buildCircuitFromCanvas() {
 var SIM_BUDGET_MS = 8;
 var _simStepsLastFrame = 0;
 var _simSolveTimeMs = 0;
+var _sparseVerified = false;
+var _sparseVerifyCount = 0;
+var _sparseFailCount = 0;
+var _useSparse = false;
+var _lastBandwidth = 0;
+function resetSparseVerification() { _sparseVerified = false; _sparseVerifyCount = 0; _sparseFailCount = 0; _useSparse = false; }
 var GMIN = 1e-12, SIM_DT = 1e-5, SUBSTEPS = 15;
 function getAdaptiveSubsteps() {
   var n = S.parts.length;
