@@ -131,6 +131,9 @@ const JS_FILES = [
   // Engine: Transmission line + S-Parameter (Sprint 50 — v9.0)
   'src/engine/transmission-line.js',
 
+  // Engine: Connection check (Sprint 56 — v9.0)
+  'src/engine/connection-check.js',
+
   // Engine: legacy MNA sim
   'src/engine/sim-legacy.js',
 
@@ -151,6 +154,9 @@ const JS_FILES = [
 
   // Touch support
   'src/interaction/touch.js',
+
+  // Pin snap helper (Sprint 56 — v9.0)
+  'src/interaction/pin-snap.js',
 
   // UI: tab switching
   'src/ui/tabs.js',
@@ -214,6 +220,9 @@ const JS_FILES = [
 
   // IO: Netlist editor (Sprint 46 — v9.0)
   'src/io/netlist-editor.js',
+
+  // IO: Import auto-wire enhancer (Sprint 56 — v9.0)
+  'src/io/import-auto-wire.js',
 
   // IO: CSV export
   'src/io/csv-export.js',

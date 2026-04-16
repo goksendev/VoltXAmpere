@@ -697,7 +697,7 @@ input:focus{border-color:var(--accent)}
     <span id="sb-temp" style="color:var(--text-3)"></span>
     <span id="sb-engine" style="color:var(--text-4)"></span>
     <span id="sb-extra" style="color:var(--text-3)"></span>
-    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v9.0 — Build: 2026-04-16 16:16 — © 2026</span>
+    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v9.0 — Build: 2026-04-16 17:28 — © 2026</span>
   </div>
 </div>
 
@@ -9751,6 +9751,142 @@ VXA.TransmissionLine = (function() {
 })();
 
 
+// ═══ connection-check.js ═══
+// ──────── SPRINT 56: CONNECTION CHECK (v9.0) ────────
+// Detects floating (unconnected) pins. Opt-in — does NOT block simulation.
+// Used by SPICE import post-check + toggleSim info overlay.
+
+VXA.ConnectionCheck = (function() {
+  'use strict';
+
+  var TOLERANCE = 5; // px
+
+  function pinWorldXY(part, pinDef) {
+    var dx = pinDef.dx || 0, dy = pinDef.dy || 0;
+    if (part.rot) {
+      var rad = (part.rot || 0) * Math.PI / 2;
+      var c = Math.cos(rad), s = Math.sin(rad);
+      return { x: part.x + dx * c - dy * s, y: part.y + dx * s + dy * c };
+    }
+    return { x: part.x + dx, y: part.y + dy };
+  }
+
+  function check() {
+    if (typeof S === 'undefined' || !S || !Array.isArray(S.parts)) return [];
+    var warnings = [];
+    var skipTypes = { ground:1, netLabel:1, netlabel:1, vccLabel:1, gndLabel:1 };
+
+    for (var i = 0; i < S.parts.length; i++) {
+      var part = S.parts[i];
+      if (!part || skipTypes[part.type]) continue;
+      var def = (typeof COMP !== 'undefined') ? COMP[part.type] : null;
+      if (!def || !def.pins) continue;
+      var pinSrc = (Array.isArray(part.pins) && part.pins.length > 0) ? part.pins : def.pins;
+
+      for (var pi = 0; pi < pinSrc.length; pi++) {
+        var pw = pinWorldXY(part, pinSrc[pi]);
+        var connected = false;
+
+        // Check wires
+        if (Array.isArray(S.wires)) {
+          for (var w = 0; w < S.wires.length; w++) {
+            var wr = S.wires[w];
+            if (Math.hypot(wr.x1 - pw.x, wr.y1 - pw.y) < TOLERANCE ||
+                Math.hypot(wr.x2 - pw.x, wr.y2 - pw.y) < TOLERANCE) {
+              connected = true; break;
+            }
+          }
+        }
+
+        // Check other part pins (direct overlap)
+        if (!connected) {
+          for (var j = 0; j < S.parts.length; j++) {
+            if (j === i) continue;
+            var other = S.parts[j];
+            var oDef = (typeof COMP !== 'undefined') ? COMP[other.type] : null;
+            if (!oDef || !oDef.pins) continue;
+            var oPinSrc = (Array.isArray(other.pins) && other.pins.length > 0) ? other.pins : oDef.pins;
+            for (var op = 0; op < oPinSrc.length; op++) {
+              var ow = pinWorldXY(other, oPinSrc[op]);
+              if (Math.hypot(ow.x - pw.x, ow.y - pw.y) < TOLERANCE) {
+                connected = true; break;
+              }
+            }
+            if (connected) break;
+          }
+        }
+
+        if (!connected) {
+          warnings.push({
+            part: part,
+            partName: part.name || part.type,
+            pinIndex: pi,
+            pinX: pw.x, pinY: pw.y,
+            message: (part.name || part.type) + ' pin ' + (pi + 1) + ' unconnected'
+          });
+        }
+      }
+    }
+    return warnings;
+  }
+
+  function showWarnings(warnings) {
+    if (!Array.isArray(warnings) || warnings.length === 0) return;
+    // Tag parts for visual overlay
+    for (var i = 0; i < warnings.length; i++) {
+      var w = warnings[i];
+      if (w.part) {
+        if (!w.part._floatingPins) w.part._floatingPins = [];
+        if (w.part._floatingPins.indexOf(w.pinIndex) < 0) w.part._floatingPins.push(w.pinIndex);
+      }
+    }
+    var msg = warnings.length + ' unconnected pin(s):\n';
+    for (var j = 0; j < Math.min(warnings.length, 5); j++) msg += '\u2022 ' + warnings[j].message + '\n';
+    if (warnings.length > 5) msg += '...+' + (warnings.length - 5) + ' more';
+    if (typeof showInfoCard === 'function') showInfoCard('\u26A0 Connection Warning', msg, '');
+    if (typeof needsRender !== 'undefined') needsRender = true;
+  }
+
+  function clearWarnings() {
+    if (typeof S === 'undefined' || !Array.isArray(S.parts)) return;
+    for (var i = 0; i < S.parts.length; i++) delete S.parts[i]._floatingPins;
+  }
+
+  function drawFloatingPins(ctx, zoom) {
+    if (!ctx || typeof S === 'undefined' || !Array.isArray(S.parts)) return;
+    var ox = (S.view && S.view.ox) || 0;
+    var oy = (S.view && S.view.oy) || 0;
+    for (var i = 0; i < S.parts.length; i++) {
+      var part = S.parts[i];
+      if (!part || !Array.isArray(part._floatingPins) || part._floatingPins.length === 0) continue;
+      var def = (typeof COMP !== 'undefined') ? COMP[part.type] : null;
+      if (!def || !def.pins) continue;
+      var pinSrc = (Array.isArray(part.pins) && part.pins.length > 0) ? part.pins : def.pins;
+      for (var j = 0; j < part._floatingPins.length; j++) {
+        var pi = part._floatingPins[j];
+        if (pi >= pinSrc.length) continue;
+        var pw = pinWorldXY(part, pinSrc[pi]);
+        var sx = pw.x * zoom + ox, sy = pw.y * zoom + oy;
+        ctx.beginPath();
+        ctx.arc(sx, sy, 5 * zoom, 0, 2 * Math.PI);
+        ctx.fillStyle = 'rgba(255,60,60,0.5)';
+        ctx.fill();
+        ctx.strokeStyle = '#ff3c3c';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      }
+    }
+  }
+
+  return {
+    check: check,
+    showWarnings: showWarnings,
+    clearWarnings: clearWarnings,
+    drawFloatingPins: drawFloatingPins
+  };
+})();
+
+
 // ═══ sim-legacy.js ═══
 // ──────── MNA SIMULATION ENGINE ────────
 function UnionFind(n) { this.parent = Array.from({length:n}, (_,i)=>i); this.rank = new Array(n).fill(0); }
@@ -11084,6 +11220,52 @@ function endTutorial() {
     lastTouches = null;
     lastDist = 0;
   }, { passive: false });
+})();
+
+
+// ═══ pin-snap.js ═══
+// ──────── SPRINT 56: ENHANCED PIN SNAP ────────
+// Standalone snap-to-nearest-pin utility. Called from mouse handlers.
+// Does NOT modify any existing mouse.js code — opt-in via snapWireEndToPin().
+
+(function() {
+  'use strict';
+
+  var SNAP_RADIUS = 25; // px in world coordinates (up from ~18 effective)
+
+  function pinWorldXY(part, pinDef) {
+    var dx = pinDef.dx || 0, dy = pinDef.dy || 0;
+    if (part.rot) {
+      var rad = (part.rot || 0) * Math.PI / 2;
+      var c = Math.cos(rad), s = Math.sin(rad);
+      return { x: part.x + dx * c - dy * s, y: part.y + dx * s + dy * c };
+    }
+    return { x: part.x + dx, y: part.y + dy };
+  }
+
+  window.snapWireEndToPin = function(wx, wy, excludePartId) {
+    if (typeof S === 'undefined' || !Array.isArray(S.parts)) return null;
+    var bestDist = SNAP_RADIUS;
+    var bestPin = null;
+    for (var i = 0; i < S.parts.length; i++) {
+      var part = S.parts[i];
+      if (excludePartId && part.id === excludePartId) continue;
+      var def = (typeof COMP !== 'undefined') ? COMP[part.type] : null;
+      if (!def || !def.pins) continue;
+      var pinSrc = (Array.isArray(part.pins) && part.pins.length > 0) ? part.pins : def.pins;
+      for (var j = 0; j < pinSrc.length; j++) {
+        var pw = pinWorldXY(part, pinSrc[j]);
+        var dist = Math.hypot(pw.x - wx, pw.y - wy);
+        if (dist < bestDist) {
+          bestDist = dist;
+          bestPin = { x: pw.x, y: pw.y, partId: part.id, pinIndex: j };
+        }
+      }
+    }
+    return bestPin;
+  };
+
+  window.SNAP_RADIUS = SNAP_RADIUS;
 })();
 
 
@@ -13860,6 +14042,65 @@ VXA.NetlistEditor = (function() {
     validate: validate,
     COMMANDS: COMMANDS,
     ELEMENTS: ELEMENTS
+  };
+})();
+
+
+// ═══ import-auto-wire.js ═══
+// ──────── SPRINT 56: SPICE IMPORT AUTO-WIRING ENHANCER ────────
+// Wraps VXA.SpiceImport.placeCircuit to apply model after placement,
+// run a connection check, and log warnings. Does NOT replace the
+// underlying placement algorithm (which already does star-wire topology).
+
+(function() {
+  'use strict';
+  if (typeof VXA === 'undefined' || !VXA.SpiceImport) return;
+
+  var _origPlace = VXA.SpiceImport.placeCircuit;
+
+  VXA.SpiceImport.placeCircuit = function(circuit) {
+    // Run original placement (star wiring, ground node, fitToScreen)
+    _origPlace.call(VXA.SpiceImport, circuit);
+
+    // Post-placement: apply models to all newly placed parts
+    if (typeof VXA.AutoSave !== 'undefined' && VXA.AutoSave.applyModelsToParts) {
+      VXA.AutoSave.applyModelsToParts(S.parts);
+    } else {
+      // Fallback: iterate manually
+      S.parts.forEach(function(p) {
+        if (!p.model && typeof VXA.Models !== 'undefined' && VXA.Models.getDefault) {
+          var def = VXA.Models.getDefault(p.type);
+          if (def) {
+            p.model = def;
+            if (typeof applyModel === 'function') applyModel(p, def);
+          }
+        } else if (p.model && typeof applyModel === 'function') {
+          applyModel(p, p.model);
+        }
+      });
+    }
+
+    // Post-placement: connection check + warnings
+    if (typeof VXA.ConnectionCheck !== 'undefined' && VXA.ConnectionCheck.check) {
+      var warnings = VXA.ConnectionCheck.check();
+      if (warnings.length > 0) {
+        VXA.ConnectionCheck.showWarnings(warnings);
+      }
+    }
+  };
+
+  // Expose a global for direct invocation from test / UI
+  window.importSPICEWithAutoWiring = function(text) {
+    if (!text) return { parts: 0, wires: 0 };
+    var circuit = VXA.SpiceImport.parse(text);
+    if (!circuit || !circuit.parts || circuit.parts.length === 0) return { parts: 0, wires: 0 };
+    var prevParts = S.parts.length;
+    var prevWires = S.wires.length;
+    VXA.SpiceImport.placeCircuit(circuit);
+    return {
+      parts: S.parts.length - prevParts,
+      wires: S.wires.length - prevWires
+    };
   };
 })();
 
