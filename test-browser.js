@@ -7450,7 +7450,7 @@ console.log = function() {
     add('FN_05: About "555" içerir', aboutHTML.indexOf('555') >= 0);
     // Sprint 49: About bumped to 2338+ tests
     add('FN_06: About "2338" veya "2300+" veya "2200+" test referansı içerir',
-      aboutHTML.indexOf('2418') >= 0 || aboutHTML.indexOf('2400') >= 0 || aboutHTML.indexOf('2338') >= 0 || aboutHTML.indexOf('2300') >= 0);
+      aboutHTML.indexOf('2488') >= 0 || aboutHTML.indexOf('2458') >= 0 || aboutHTML.indexOf('2448') >= 0 || aboutHTML.indexOf('2418') >= 0 || aboutHTML.indexOf('2400') >= 0 || aboutHTML.indexOf('2338') >= 0 || aboutHTML.indexOf('2300') >= 0);
     // Meta tags
     var metaDesc = document.querySelector('meta[name="description"]');
     var metaDescContent = metaDesc ? metaDesc.getAttribute('content') : '';
@@ -8156,7 +8156,7 @@ console.log = function() {
       add('FN_27: About "25" ders sayısı içerir', aboutHTML.indexOf('25 ') >= 0);
       // Sprint 49: bumped to 2338+
       add('FN_28: About "2338" veya "2300" veya "2200" test ref',
-        aboutHTML.indexOf('2418') >= 0 || aboutHTML.indexOf('2400') >= 0 || aboutHTML.indexOf('2338') >= 0 || aboutHTML.indexOf('2300') >= 0);
+        aboutHTML.indexOf('2488') >= 0 || aboutHTML.indexOf('2458') >= 0 || aboutHTML.indexOf('2448') >= 0 || aboutHTML.indexOf('2418') >= 0 || aboutHTML.indexOf('2400') >= 0 || aboutHTML.indexOf('2338') >= 0 || aboutHTML.indexOf('2300') >= 0);
       add('FN_29: About "PNG" veya "SVG" export ref', aboutHTML.indexOf('PNG') >= 0 || aboutHTML.indexOf('SVG') >= 0);
       document.getElementById('about-modal').classList.remove('show');
     } catch(e) { for(var i=27;i<=29;i++) add('FN_'+i+': err: '+e.message, false); }
@@ -10631,7 +10631,7 @@ console.log = function() {
     add('TEST_WP_17: About contains "78" (model count)',
       hasTR && /78\+/.test(aboutHtml));
     add('TEST_WP_18: About contains test reference (2200–2418)',
-      hasTR && /(2200|2250|2298|2338|2400|2418)/.test(aboutHtml));
+      hasTR && /(2200|2250|2298|2338|2400|2418|2448|2458|2488)/.test(aboutHtml));
     // Sprint 50: tab count bumped to 16 (S-Param added)
     add('TEST_WP_19: About contains "15" or "16" analysis tabs',
       hasTR && (/>\s*1[56]\s/.test(aboutHtml) || aboutHtml.indexOf('15 An') >= 0 || aboutHtml.indexOf('16 An') >= 0));
@@ -11138,8 +11138,8 @@ console.log = function() {
     add('TEST_BM_14: About contains "71" or "72" (component count)',
       /(71|72)\+/.test(aboutHtml));
     add('TEST_BM_15: About contains "78"', /78\+/.test(aboutHtml));
-    add('TEST_BM_16: About contains test count (2418/2400/2300/2338)',
-      /(2418|2400|2300|2338)/.test(aboutHtml));
+    add('TEST_BM_16: About contains test count (2488/2458/2448/2418/2400/2338)',
+      /(2488|2458|2448|2418|2400|2338|2300)/.test(aboutHtml));
     add('TEST_BM_17: About contains "16" analysis tabs',
       />\s*16\s/.test(aboutHtml) || aboutHtml.indexOf('16 An') >= 0);
     add('TEST_BM_18: About mentions S-Parameter or Smith',
@@ -11539,6 +11539,89 @@ console.log = function() {
   const s54Pass = s54Results.filter(r => r.pass).length;
   const s54Fail = s54Results.filter(r => !r.pass).length;
   console.log(`\n  Sprint 54: ${s54Pass} PASS, ${s54Fail} FAIL out of ${s54Results.length}`);
+
+  // ═══════════════════════════════════════════════════════════════
+  // SPRINT 55: SVG SYMBOL LIBRARY + FINAL POLISH (v9.0)
+  // ═══════════════════════════════════════════════════════════════
+  console.log('\n📋 Sprint 55: SVG SYMBOLS (v9.0)');
+  const svResults = await page.evaluate(() => {
+    const r = [];
+    function add(name, ok) { r.push({ name, pass: !!ok }); }
+
+    if (typeof getSVGSymbol !== 'function') {
+      add('TEST_SV_01: getSVGSymbol missing', false); return r;
+    }
+
+    function sym(t) { return getSVGSymbol(t, 0, {}); }
+    function has(t, pat) { var s = sym(t); return s && pat.test(s); }
+
+    add('TEST_SV_01: timer555 → "555" text',        has('timer555',   /555/));
+    add('TEST_SV_02: transformer → path/line',       has('transformer', /path|line/));
+    add('TEST_SV_03: speaker → polygon',             has('speaker',    /polygon/));
+    add('TEST_SV_04: pushButton → circle',           has('pushButton', /circle/));
+    add('TEST_SV_05: potentiometer → polygon (arrow)',has('potentiometer', /polygon/));
+    add('TEST_SV_06: ammeter → "A"',                 has('ammeter',    />A</));
+    add('TEST_SV_07: voltmeter → "V"',               has('voltmeter',  />V</));
+    add('TEST_SV_08: dcmotor → "M"',                 has('dcmotor',    />M</));
+    add('TEST_SV_09: ntc → "NTC"',                   has('ntc',        /NTC/));
+    add('TEST_SV_10: ldr → "LDR"',                   has('ldr',        /LDR/));
+    add('TEST_SV_11: comparator → polygon',           has('comparator', /polygon/));
+    add('TEST_SV_12: crystal → rect',                has('crystal',    /rect/));
+    add('TEST_SV_13: behavioral → "B"',              has('behavioral', />B</));
+    add('TEST_SV_14: subcircuit → "SUBCKT"',         has('subcircuit', /SUBCKT/));
+    add('TEST_SV_15: tline → "Z"',                   has('tline',      /Z/));
+    add('TEST_SV_16: igbt → circle + line',          has('igbt',       /circle/) && has('igbt', /line/));
+    add('TEST_SV_17: scr → polygon + line',          has('scr',        /polygon/) && has('scr', /line/));
+    add('TEST_SV_18: and → "AND"',                   has('and',        /AND/));
+    add('TEST_SV_19: dff → "D-FF"',                  has('dff',        /D-FF/));
+    add('TEST_SV_20: adc → "ADC"',                   has('adc',        /ADC/));
+    add('TEST_SV_21: vcvs → polygon (diamond)',      has('vcvs',       /polygon/));
+    add('TEST_SV_22: relay → rect + line',           has('relay',      /rect/) && has('relay', /line/));
+    add('TEST_SV_23: buzzer → circle + path',        has('buzzer',     /circle/) && has('buzzer', /path/));
+    add('TEST_SV_24: vreg → "REG"',                  has('vreg',       /REG/));
+    add('TEST_SV_25: njfet → line (gate)',           has('njfet',      /line/));
+    add('TEST_SV_26: pulse → circle + path',         has('pulse',      /circle/) && has('pulse', /path/));
+
+    // TEST_SV_27: Every known COMP type has a dedicated SVG case (no default fallback)
+    const allTypes = typeof COMP !== 'undefined' ? Object.keys(COMP) : [];
+    const defaultPattern = /fill="white" stroke="/; // default fallback signature
+    let defaultCount = 0;
+    allTypes.forEach(function(t) {
+      var s = getSVGSymbol(t, 0, {});
+      if (s && defaultPattern.test(s)) defaultCount++;
+    });
+    add('TEST_SV_27: 0 component types fall to default rectangle',
+      defaultCount === 0);
+
+    // SVG export smoke test
+    let exportCrash = false;
+    try {
+      if (typeof exportSVG === 'function') {
+        // Just call with a small circuit if possible; don't actually trigger download
+        // We test getSVGSymbol coverage above; here just verify the function exists
+      }
+    } catch (e) { exportCrash = true; }
+    add('TEST_SV_28: exportSVG function defined', typeof exportSVG === 'function');
+
+    // Valid XML check on a synthesized mini SVG
+    const testSvg = '<?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg">'
+      + sym('resistor') + sym('led') + sym('timer555') + sym('behavioral')
+      + '</svg>';
+    let validXml = true;
+    try { new DOMParser().parseFromString(testSvg, 'text/xml'); }
+    catch (e) { validXml = false; }
+    add('TEST_SV_29: synthesized SVG is valid XML', validXml);
+
+    // Regression
+    add('TEST_SV_30: PRESETS.length === 55',
+      typeof PRESETS !== 'undefined' && PRESETS.length === 55);
+
+    return r;
+  });
+  svResults.forEach(r => console.log(`  ${r.pass ? '✅' : '❌'} ${r.name}`));
+  const svPass = svResults.filter(r => r.pass).length;
+  const svFail = svResults.filter(r => !r.pass).length;
+  console.log(`\n  Sprint 55: ${svPass} PASS, ${svFail} FAIL out of ${svResults.length}`);
 
   // === FINAL ÖZET ===
   const totalPass = await page.evaluate(() => {

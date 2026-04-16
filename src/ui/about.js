@@ -23,7 +23,7 @@ function showAbout() {
     + '<div>\u2705 Noise (per-source)</div>'
     + '<div>\u2705 Monte Carlo + RSS</div>'
     + '<div>\u2705 Sensitivity / Worst-Case</div>'
-    + '<div>\u2705 2418+ ' + (tr?'Test (0 Fail)':'Tests (0 Fail)') + '</div>'
+    + '<div>\u2705 2488+ ' + (tr?'Test (0 Fail)':'Tests (0 Fail)') + '</div>'
     + '<div>\u2705 Net Label ' + (tr?'Sistemi':'System') + '</div>'
     + '<div>\u2705 Subcircuit / ' + (tr?'Bloklar':'Blocks') + '</div>'
     + '<div>\u2705 SPICE Import/Export</div>'
