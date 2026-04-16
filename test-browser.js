@@ -12570,6 +12570,239 @@ console.log = function() {
   const sp60Fail = sp60Results.filter(r => !r.pass).length;
   console.log(`\n  Sprint 60: ${sp60Pass} PASS, ${sp60Fail} FAIL out of ${sp60Results.length}`);
 
+  // ═══════════════════════════════════════
+  // SPRINT 61: BOMBPROOF SPICE Import
+  // ═══════════════════════════════════════
+  console.log('\n── Sprint 61: Bombproof SPICE Import ──');
+  const bp61Results = await page.evaluate(() => {
+    var r = [];
+    function add(name, pass) { r.push({ name, pass: !!pass }); }
+    var parse = VXA.SpiceImport.parse;
+    var pv = VXA.SpiceParser.parseSpiceNumber;
+
+    // === B-SOURCE ALL FORMATS ===
+    var b1 = parse("B1 1 0 V=5");
+    var b1p = b1.parts.find(function(p) { return p.type === 'behavioral'; });
+    add('TEST_BP_01: B V=5 expr=5', b1p && b1p.expression === '5');
+
+    var b2 = parse("B1 1 0 V= V(2)>2.5 ? 5 : 0");
+    var b2p = b2.parts.find(function(p) { return p.type === 'behavioral'; });
+    add('TEST_BP_02: B V= space expr', b2p && b2p.expression.indexOf('V(2)') >= 0);
+
+    var b3 = parse("B1 1 0 V={sin(V(1))}");
+    var b3p = b3.parts.find(function(p) { return p.type === 'behavioral'; });
+    add('TEST_BP_03: B V={} curly removed', b3p && b3p.expression.indexOf('{') < 0);
+
+    var b4 = parse("B1 1 0 I=0.001");
+    var b4p = b4.parts.find(function(p) { return p.type === 'behavioral'; });
+    add('TEST_BP_04: B I= srcType I', b4p && b4p.srcType === 'I');
+
+    var b5 = parse("B1 1 0 V = {(V(1)-V(2))/0.001}");
+    var b5p = b5.parts.find(function(p) { return p.type === 'behavioral'; });
+    add('TEST_BP_05: B V = {} spaced', b5p && b5p.expression.indexOf('V(1)') >= 0);
+
+    var b6 = parse("B_CMP 3 0 V= abs(V(1)-V(2)) < 0.15 ? 0 : 5");
+    var b6p = b6.parts.find(function(p) { return p.type === 'behavioral'; });
+    add('TEST_BP_06: B complex comparator', b6p && b6p.expression.indexOf('abs') >= 0);
+
+    // === INLINE COMMENT ===
+    var ic1 = parse("R1 1 2 100 ; this is a comment");
+    var ic1p = ic1.parts.find(function(p) { return p.type === 'resistor'; });
+    add('TEST_BP_07: R with ; comment val=100', ic1p && ic1p.val === 100);
+
+    var ic2 = parse("R1 1 2 100 $ dollar comment");
+    var ic2p = ic2.parts.find(function(p) { return p.type === 'resistor'; });
+    add('TEST_BP_08: R with $ comment val=100', ic2p && ic2p.val === 100);
+
+    var ic3 = parse("; full line comment\nR1 1 0 1k");
+    add('TEST_BP_09: ; full line comment skipped', ic3.parts.length === 1);
+
+    var ic4 = parse("* star comment\nR1 1 0 1k");
+    add('TEST_BP_10: * full line comment skipped', ic4.parts.length === 1);
+
+    // === IC= PARAMETER ===
+    var cap1 = parse("C1 1 0 10u IC=0");
+    var cap1p = cap1.parts.find(function(p) { return p.type === 'capacitor'; });
+    add('TEST_BP_11: C IC=0 val=10u', cap1p && Math.abs(cap1p.val - 10e-6) < 1e-9 && cap1p.ic === 0);
+
+    var cap2 = parse("C1 1 0 10u IC=5");
+    var cap2p = cap2.parts.find(function(p) { return p.type === 'capacitor'; });
+    add('TEST_BP_12: C IC=5', cap2p && cap2p.ic === 5);
+
+    var cap3 = parse("C1 1 0 10u");
+    var cap3p = cap3.parts.find(function(p) { return p.type === 'capacitor'; });
+    add('TEST_BP_13: C no IC', cap3p && cap3p.ic == null);
+
+    // === UNKNOWN ELEMENT HANDLING (Sprint 62: no fake parts) ===
+    var uf1 = parse("W1 1 2 V1 MYSW");
+    add('TEST_BP_14: W unknown no fake part', uf1.parts.length === 0);
+
+    var uf2 = parse("O1 1 0 2 0");
+    add('TEST_BP_15: O unknown no fake part', uf2.parts.length === 0);
+
+    var uf3 = parse("W1 1 2 V1 MYSW\nR1 1 0 1k");
+    add('TEST_BP_16: known parts still added', uf3.parts.length === 1 && uf3.parts[0].type === 'resistor');
+
+    add('TEST_BP_17: unknown warning msg', uf1.warnings.length > 0 && uf1.warnings[0].indexOf('Unsupported') >= 0);
+
+    // === VALUE PARSE (parseSpiceNumber) ===
+    add('TEST_BP_18: 10Meg=10e6', pv('10Meg') === 10e6);
+    add('TEST_BP_19: 4.7k=4700', pv('4.7k') === 4700);
+    add('TEST_BP_20: 100n=100e-9', Math.abs(pv('100n') - 100e-9) < 1e-15);
+    add('TEST_BP_21: 22p=22e-12', Math.abs(pv('22p') - 22e-12) < 1e-18);
+    add('TEST_BP_22: 1.5m=0.0015', Math.abs(pv('1.5m') - 0.0015) < 1e-9);
+
+    // === NODE NAME CASE-INSENSITIVE ===
+    var cn1 = parse("V1 Vcc 0 5\nR1 VCC 0 1k");
+    add('TEST_BP_23: Vcc/VCC same node', cn1.nodeCount <= 3);
+
+    var cn2 = parse("V1 1 GND 5\nR1 1 0 1k");
+    add('TEST_BP_24: GND and 0 same', cn2.parts.length === 2);
+
+    var cn3 = parse("R1 ANOT 0 1k");
+    add('TEST_BP_25: named node ANOT', cn3.nodeCount >= 2);
+
+    // === INTEGRATION: big netlist ===
+    var bigNet = [
+      '* Complex circuit',
+      '.model 2N2222 NPN(BF=200)',
+      '.model DMOD D(IS=1e-14)',
+      '.model SW1 SW(Ron=0.1 Roff=1Meg Vt=2.5)',
+      'V1 VCC 0 DC 12',
+      'R1 VCC OUT 1k ; bias resistor',
+      'R2 OUT 0 2.2k $ load',
+      'C1 OUT 0 10u IC=0',
+      'L1 VCC IND 100m IC=0.5',
+      'D1 OUT DOUT DMOD',
+      'Q1 COL BASE EMT 2N2222',
+      'S1 VCC SOUT VCC 0 SW1',
+      'B1 BOUT 0 V={V(VCC)/2}',
+      'E1 EOUT 0 VCC OUT 5',
+      'G1 GOUT 0 VCC OUT 0.01',
+      'F1 FOUT 0 V1 2',
+      'H1 HOUT 0 V1 100',
+      'K1 L1 L1 0.95',
+      'T1 TIN 0 TOUT 0 Z0=50 TD=1n',
+      'W1 WA WB WMOD ; unknown element',
+      'J1 JD JG JS JMOD'
+    ].join('\n');
+    var bigCirc = parse(bigNet);
+    add('TEST_BP_26: big netlist parts >= 16', bigCirc.parts.length >= 16);
+    add('TEST_BP_27: big netlist warnings <= 2', bigCirc.warnings.length <= 2);
+
+    var bigHasBeh = bigCirc.parts.some(function(p) { return p.type === 'behavioral'; });
+    var bigHasSw = bigCirc.parts.some(function(p) { return p.type === 'switch'; });
+    add('TEST_BP_28: big has behavioral+switch', bigHasBeh && bigHasSw);
+
+    var bigHasIC = bigCirc.parts.some(function(p) { return p.ic != null; });
+    add('TEST_BP_29: big has IC param', bigHasIC);
+
+    // === .PARAM / .INCLUDE ===
+    var paramNet = ".param Vcc=5\nR1 1 0 1k";
+    var paramCirc = parse(paramNet);
+    add('TEST_BP_30: .param no error', paramCirc.parts.length === 1);
+
+    var inclNet = ".include model.lib\nR1 1 0 1k";
+    var inclCirc = parse(inclNet);
+    add('TEST_BP_31: .include no error', inclCirc.parts.length === 1);
+
+    // === STRESS TESTS ===
+    var stressLines = [];
+    for (var si = 0; si < 100; si++) stressLines.push('R' + si + ' ' + si + ' ' + (si+1) + ' 1k');
+    var stressCirc = parse(stressLines.join('\n'));
+    add('TEST_BP_32: 100-line netlist no crash', stressCirc.parts.length === 100);
+
+    var emptyCirc = parse('');
+    add('TEST_BP_33: empty netlist 0 parts', emptyCirc.parts.length === 0);
+
+    var commentOnly = parse("* comment 1\n* comment 2\n; comment 3");
+    add('TEST_BP_34: comment-only 0 parts', commentOnly.parts.length === 0);
+
+    // === J (JFET) ===
+    var jNet = ".model JMOD NJF(VTO=-2)\nJ1 3 2 1 JMOD";
+    var jCirc = parse(jNet);
+    var jPart = jCirc.parts.find(function(p) { return p.type === 'njfet'; });
+    add('TEST_BP_35: J -> njfet', !!jPart);
+
+    // === REGRESSION ===
+    add('TEST_BP_36: SpiceImport intact', typeof VXA.SpiceImport.parse === 'function');
+    add('TEST_BP_37: PRESETS=55', typeof PRESETS !== 'undefined' && PRESETS.length === 55);
+
+    // LED preset sim quick check
+    try {
+      loadPreset('led');
+      toggleSim();
+      for (var li = 0; li < 50; li++) simulationStep();
+      var ledP = S.parts.find(function(p) { return p.type === 'led'; });
+      var ledVf = ledP ? (ledP._v || 0) : 0;
+      if (S.sim.running) toggleSim();
+      add('TEST_BP_38: LED Vf 1.5-2.2V', ledVf >= 1.5 && ledVf <= 2.2);
+    } catch(e) { add('TEST_BP_38: LED Vf 1.5-2.2V', false); }
+
+    add('TEST_BP_39: COMP >= 71', typeof COMP !== 'undefined' && Object.keys(COMP).length >= 71);
+    add('TEST_BP_40: build OK (VXA exists)', typeof VXA !== 'undefined' && !!VXA.SpiceImport);
+
+    return r;
+  });
+  bp61Results.sort((a, b) => {
+    const na = parseInt((a.name.match(/TEST_BP_(\d+)/) || [])[1] || 99);
+    const nb = parseInt((b.name.match(/TEST_BP_(\d+)/) || [])[1] || 99);
+    return na - nb;
+  });
+  bp61Results.forEach(r => console.log(`  ${r.pass ? '✅' : '❌'} ${r.name}`));
+  const bp61Pass = bp61Results.filter(r => r.pass).length;
+  const bp61Fail = bp61Results.filter(r => !r.pass).length;
+  console.log(`\n  Sprint 61: ${bp61Pass} PASS, ${bp61Fail} FAIL out of ${bp61Results.length}`);
+
+  // ═══════════════════════════════════════
+  // SPRINT 62: Cleanup — No Fake Fallback
+  // ═══════════════════════════════════════
+  console.log('\n── Sprint 62: No Fake Fallback Cleanup ──');
+  const cl62Results = await page.evaluate(() => {
+    var r = [];
+    function add(name, pass) { r.push({ name, pass: !!pass }); }
+    var parse = VXA.SpiceImport.parse;
+
+    // Unknown element does NOT add 1G resistor
+    var u1 = parse("W1 1 2 3 4 WMOD");
+    var hasUnknown = u1.parts.some(function(p) { return p._isUnknown; });
+    add('TEST_CL_01: no 1G fake resistor', !hasUnknown && u1.parts.length === 0);
+
+    add('TEST_CL_02: warning message shown', u1.warnings.length > 0);
+
+    var u2 = parse("Z1 1 0\nR1 1 0 1k");
+    add('TEST_CL_03: no fake part for unknown', u2.parts.length === 1);
+
+    // All supported elements still work
+    var allNet = [
+      'R1 1 0 1k', 'C1 1 0 1u', 'L1 1 0 1m',
+      'V1 1 0 5', 'I1 1 0 1m', 'D1 1 0',
+      '.model Q1M NPN(BF=200)', 'Q1 1 2 0 Q1M',
+      '.model M1M NMOS(VTO=1)', 'M1 1 2 0 0 M1M',
+      'X1 1 0 SUB1',
+      'S1 1 0 2 0 SW', 'B1 1 0 V=5',
+      'E1 1 0 2 0 1', 'F1 1 0 V1 1',
+      'G1 1 0 2 0 0.01', 'H1 1 0 V1 100',
+      'K1 L1 L1 0.9', 'T1 1 0 2 0 Z0=50',
+      '.model JM NJF(VTO=-2)', 'J1 1 2 0 JM'
+    ].join('\n');
+    var allCirc = parse(allNet);
+    add('TEST_CL_04: all 18 types parse', allCirc.parts.length >= 18);
+
+    add('TEST_CL_05: PRESETS=55', typeof PRESETS !== 'undefined' && PRESETS.length === 55);
+
+    return r;
+  });
+  cl62Results.sort((a, b) => {
+    const na = parseInt((a.name.match(/TEST_CL_(\d+)/) || [])[1] || 99);
+    const nb = parseInt((b.name.match(/TEST_CL_(\d+)/) || [])[1] || 99);
+    return na - nb;
+  });
+  cl62Results.forEach(r => console.log(`  ${r.pass ? '✅' : '❌'} ${r.name}`));
+  const cl62Pass = cl62Results.filter(r => r.pass).length;
+  const cl62Fail = cl62Results.filter(r => !r.pass).length;
+  console.log(`\n  Sprint 62: ${cl62Pass} PASS, ${cl62Fail} FAIL out of ${cl62Results.length}`);
+
   // === FINAL ÖZET ===
   const totalPass = await page.evaluate(() => {
     return { parts: typeof COMP !== 'undefined' ? Object.keys(COMP).length : 0, lines: document.querySelector('script') ? 'OK' : 'FAIL' };

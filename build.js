@@ -413,8 +413,8 @@ function build() {
     '</script>\n';
 
   // 4. Inline CSS, JS, and build timestamp
-  html = html.replace('/* __CSS_PLACEHOLDER__ */', css);
-  html = html.replace('/* __JS_PLACEHOLDER__ */', jsBundle);
+  html = html.replace('/* __CSS_PLACEHOLDER__ */', function() { return css; });
+  html = html.replace('/* __JS_PLACEHOLDER__ */', function() { return jsBundle; });
   html = html.replace('__BUILD_TIME__', new Date().toISOString().slice(0, 16).replace('T', ' '));
   // Inject worker-code block before the final </body>. Use lastIndexOf to avoid
   // matching a literal '</body>' string inside JS (e.g. startup.js report template).
