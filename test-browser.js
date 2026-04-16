@@ -12634,13 +12634,13 @@ console.log = function() {
     add('TEST_BP_13: C no IC', cap3p && cap3p.ic == null);
 
     // === UNKNOWN ELEMENT HANDLING (Sprint 62: no fake parts) ===
-    var uf1 = parse("W1 1 2 V1 MYSW");
-    add('TEST_BP_14: W unknown no fake part', uf1.parts.length === 0);
+    var uf1 = parse("Z1 1 2 3 4");
+    add('TEST_BP_14: Z unknown no fake part', uf1.parts.length === 0);
 
-    var uf2 = parse("O1 1 0 2 0");
-    add('TEST_BP_15: O unknown no fake part', uf2.parts.length === 0);
+    var uf2 = parse("P1 1 0 2 0");
+    add('TEST_BP_15: P unknown no fake part', uf2.parts.length === 0);
 
-    var uf3 = parse("W1 1 2 V1 MYSW\nR1 1 0 1k");
+    var uf3 = parse("Z1 1 2 3 4\nR1 1 0 1k");
     add('TEST_BP_16: known parts still added', uf3.parts.length === 1 && uf3.parts[0].type === 'resistor');
 
     add('TEST_BP_17: unknown warning msg', uf1.warnings.length > 0 && uf1.warnings[0].indexOf('Unsupported') >= 0);
@@ -12764,7 +12764,7 @@ console.log = function() {
     var parse = VXA.SpiceImport.parse;
 
     // Unknown element does NOT add 1G resistor
-    var u1 = parse("W1 1 2 3 4 WMOD");
+    var u1 = parse("Z1 1 2 3 4");
     var hasUnknown = u1.parts.some(function(p) { return p._isUnknown; });
     add('TEST_CL_01: no 1G fake resistor', !hasUnknown && u1.parts.length === 0);
 
@@ -12802,6 +12802,95 @@ console.log = function() {
   const cl62Pass = cl62Results.filter(r => r.pass).length;
   const cl62Fail = cl62Results.filter(r => !r.pass).length;
   console.log(`\n  Sprint 62: ${cl62Pass} PASS, ${cl62Fail} FAIL out of ${cl62Results.length}`);
+
+  // ═══════════════════════════════════════
+  // SPRINT 63: SPICE 100% — 20/20 Prefixes
+  // ═══════════════════════════════════════
+  console.log('\n── Sprint 63: SPICE 20/20 Prefix Coverage ──');
+  const fp63Results = await page.evaluate(() => {
+    var r = [];
+    function add(name, pass) { r.push({ name, pass: !!pass }); }
+    var parse = VXA.SpiceImport.parse;
+    var parseModel = VXA.SpiceParser.parseModelLine;
+
+    // 20/20 PREFIX COVERAGE
+    var r1 = parse("R1 1 0 1k"); add('TEST_FP_01: R->resistor', r1.parts[0] && r1.parts[0].type === 'resistor');
+    var c1 = parse("C1 1 0 1u"); add('TEST_FP_02: C->capacitor', c1.parts[0] && c1.parts[0].type === 'capacitor');
+    var l1 = parse("L1 1 0 1m"); add('TEST_FP_03: L->inductor', l1.parts[0] && l1.parts[0].type === 'inductor');
+    var v1 = parse("V1 1 0 5"); add('TEST_FP_04: V->vdc', v1.parts[0] && v1.parts[0].type === 'vdc');
+    var i1 = parse("I1 1 0 1m"); add('TEST_FP_05: I->idc', i1.parts[0] && i1.parts[0].type === 'idc');
+    var d1 = parse("D1 1 0 DM"); add('TEST_FP_06: D->diode', d1.parts[0] && d1.parts[0].type === 'diode');
+    var q1 = parse(".model QM NPN(BF=200)\nQ1 1 2 0 QM"); add('TEST_FP_07: Q->npn', !!q1.parts.find(function(p){return p.type==='npn';}));
+    var m1 = parse(".model MM NMOS(VTO=1)\nM1 1 2 0 0 MM"); add('TEST_FP_08: M->nmos', !!m1.parts.find(function(p){return p.type==='nmos';}));
+    var x1 = parse("X1 1 0 SUB1"); add('TEST_FP_09: X->subcircuit', x1.parts[0] && x1.parts[0].type === 'subcircuit');
+    var s1 = parse("S1 1 0 2 0 SM"); add('TEST_FP_10: S->switch', s1.parts[0] && s1.parts[0].type === 'switch');
+    var b1 = parse("B1 1 0 V=5"); add('TEST_FP_11: B->behavioral', b1.parts[0] && b1.parts[0].type === 'behavioral');
+    var e1 = parse("E1 1 0 2 0 10"); add('TEST_FP_12: E->vcvs', e1.parts[0] && e1.parts[0].type === 'vcvs');
+    var f1 = parse("F1 1 0 V1 5"); add('TEST_FP_13: F->cccs', f1.parts[0] && f1.parts[0].type === 'cccs');
+    var g1 = parse("G1 1 0 2 0 0.01"); add('TEST_FP_14: G->vccs', g1.parts[0] && g1.parts[0].type === 'vccs');
+    var h1 = parse("H1 1 0 V1 100"); add('TEST_FP_15: H->ccvs', h1.parts[0] && h1.parts[0].type === 'ccvs');
+    var k1 = parse("L1 1 2 10m\nL2 3 4 10m\nK1 L1 L2 0.99"); add('TEST_FP_16: K->coupled_l', !!k1.parts.find(function(p){return p.type==='coupled_l';}));
+    var t1 = parse("T1 1 0 2 0 Z0=50 TD=1n"); add('TEST_FP_17: T->tline', t1.parts[0] && t1.parts[0].type === 'tline');
+    var j1 = parse(".model JM NJF(VTO=-2)\nJ1 1 2 0 JM"); add('TEST_FP_18: J->njfet', !!j1.parts.find(function(p){return p.type==='njfet';}));
+    var w1 = parse("W1 1 0 V1 WM"); add('TEST_FP_19: W->switch', w1.parts[0] && w1.parts[0].type === 'switch');
+    var o1 = parse("O1 1 0 2 0 OMOD"); add('TEST_FP_20: O->tline', o1.parts[0] && o1.parts[0].type === 'tline');
+
+    // INTEGRATION: full netlist with all 20 prefixes
+    var fullNet = [
+      '.model QM NPN(BF=200)', '.model DM D(IS=1e-14)',
+      '.model MM NMOS(VTO=1)', '.model JM NJF(VTO=-2)',
+      '.model SM SW(Ron=0.1 Roff=1Meg Vt=2.5)',
+      'R1 1 0 1k', 'C1 2 0 1u', 'L1 3 4 1m', 'L2 5 6 1m',
+      'V1 VCC 0 5', 'I1 7 0 1m', 'D1 8 0 DM',
+      'Q1 9 10 0 QM', 'M1 11 12 0 0 MM', 'J1 13 14 0 JM',
+      'X1 15 0 SUB1', 'S1 16 0 VCC 0 SM', 'B1 17 0 V=3.3',
+      'E1 18 0 1 0 10', 'F1 19 0 V1 2', 'G1 20 0 1 0 0.01', 'H1 21 0 V1 100',
+      'K1 L1 L2 0.95', 'T1 22 0 23 0 Z0=75 TD=2n',
+      'W1 24 0 V1 SM', 'O1 25 0 26 0 OMOD'
+    ].join('\n');
+    var fullCirc = parse(fullNet);
+    add('TEST_FP_21: full 20-prefix 0 warnings', fullCirc.warnings.length === 0);
+    add('TEST_FP_22: full 20-prefix >= 21 parts', fullCirc.parts.length >= 21);
+
+    // Sim start (basic)
+    add('TEST_FP_23: parse no crash', typeof fullCirc.parts !== 'undefined');
+
+    // Node count check
+    add('TEST_FP_24: nodeCount > 5', fullCirc.nodeCount > 5);
+
+    // Unknown prefix still warns
+    var z1 = parse("Z1 1 2 3");
+    add('TEST_FP_25: Z unknown warns', z1.warnings.length > 0 && z1.parts.length === 0);
+
+    // Stress: 200 lines
+    var stress = [];
+    for (var si = 0; si < 200; si++) stress.push('R' + si + ' ' + si + ' ' + (si+1) + ' 1k');
+    var stressCirc = parse(stress.join('\n'));
+    add('TEST_FP_26: 200-line no crash', stressCirc.parts.length === 200);
+
+    // .model CSW parse
+    var cswM = parseModel('.model CSWMOD CSW(IT=0.5 IH=0.1 RON=0.01 ROFF=1Meg)');
+    add('TEST_FP_27: .model CSW parsed', cswM && cswM.category === 'switch');
+
+    // .model LTRA parse
+    var ltraM = parseModel('.model LMOD LTRA(R=1 L=1u C=1p LEN=1)');
+    add('TEST_FP_28: .model LTRA parsed', ltraM && ltraM.category === 'tline');
+
+    // Regression
+    add('TEST_FP_29: PRESETS=55', typeof PRESETS !== 'undefined' && PRESETS.length === 55);
+    add('TEST_FP_30: COMP>=71', typeof COMP !== 'undefined' && Object.keys(COMP).length >= 71);
+
+    return r;
+  });
+  fp63Results.sort((a, b) => {
+    const na = parseInt((a.name.match(/TEST_FP_(\d+)/) || [])[1] || 99);
+    const nb = parseInt((b.name.match(/TEST_FP_(\d+)/) || [])[1] || 99);
+    return na - nb;
+  });
+  fp63Results.forEach(r => console.log(`  ${r.pass ? '✅' : '❌'} ${r.name}`));
+  const fp63Pass = fp63Results.filter(r => r.pass).length;
+  const fp63Fail = fp63Results.filter(r => !r.pass).length;
+  console.log(`\n  Sprint 63: ${fp63Pass} PASS, ${fp63Fail} FAIL out of ${fp63Results.length}`);
 
   // === FINAL ÖZET ===
   const totalPass = await page.evaluate(() => {

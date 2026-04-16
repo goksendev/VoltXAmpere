@@ -10,10 +10,9 @@ VXA.SpiceParser = (function() {
   }
   function parseModelLine(line) {
     // Sprint 41: accept multi-token BSIM3 cards (80+ params inside parens).
-    var m = line.match(/\.model\s+(\S+)\s+(NPN|PNP|D|NMOS|PMOS|NFET|PFET|NJF|PJF|SW|VSWITCH)\s*\(([\s\S]+?)\)\s*$/i);
+    var m = line.match(/\.model\s+(\S+)\s+(NPN|PNP|D|NMOS|PMOS|NFET|PFET|NJF|PJF|SW|VSWITCH|CSWS?|LTRA)\s*\(([\s\S]+?)\)\s*$/i);
     if (!m) {
-      // Fallback: parens may be unclosed on single-line cards — grab rest of line
-      m = line.match(/\.model\s+(\S+)\s+(NPN|PNP|D|NMOS|PMOS|NFET|PFET|NJF|PJF|SW|VSWITCH)\s*\(?([\s\S]+?)\)?$/i);
+      m = line.match(/\.model\s+(\S+)\s+(NPN|PNP|D|NMOS|PMOS|NFET|PFET|NJF|PJF|SW|VSWITCH|CSWS?|LTRA)\s*\(?([\s\S]+?)\)?$/i);
       if (!m) return null;
     }
     var name = m[1], type = m[2].toUpperCase(), params = {};
@@ -32,7 +31,8 @@ VXA.SpiceParser = (function() {
     else if (type === 'D') category = 'diode';
     else if (type === 'NMOS' || type === 'PMOS' || type === 'NFET' || type === 'PFET') category = 'nmos';
     else if (type === 'NJF' || type === 'PJF') category = 'jfet';
-    else if (type === 'SW' || type === 'VSWITCH') category = 'switch';
+    else if (type === 'SW' || type === 'VSWITCH' || type === 'CSW' || type === 'CSWS') category = 'switch';
+    else if (type === 'LTRA') category = 'tline';
     else return null;
     // Sprint 41: mark BSIM3-class MOSFET cards so engine can dispatch properly
     if (category === 'nmos' && typeof VXA !== 'undefined' && VXA.BSIM3 && VXA.BSIM3.isBSIM3Model(params)) {

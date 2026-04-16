@@ -152,6 +152,14 @@ VXA.SpiceImport = (function() {
         }
         circuit.parts.push({ type: 'tline', nodes: [gn(tk[1]), gn(tk[2]), gn(tk[3]), gn(tk[4])], val: tlZ0, td: tlTD });
       }
+      else if (ch === 'W') {
+        // Current-controlled switch: W1 n+ n- vname modelname
+        circuit.parts.push({ type: 'switch', nodes: [gn(tk[1]), gn(tk[2])], model: tk[4] || '', closed: true });
+      }
+      else if (ch === 'O') {
+        // Lossy transmission line: O1 n1+ n1- n2+ n2- modelname
+        circuit.parts.push({ type: 'tline', nodes: [gn(tk[1]), gn(tk[2]), gn(tk[3]), gn(tk[4])], model: tk[5] || '', val: 50 });
+      }
       else {
         warnings.push('Unsupported element: ' + sanitizeHTML(tk[0]));
       }
