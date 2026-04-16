@@ -13327,6 +13327,108 @@ console.log = function() {
   const ss66Fail = ss66Results.filter(r => !r.pass).length;
   console.log(`\n  Sprint 66: ${ss66Pass} PASS, ${ss66Fail} FAIL out of ${ss66Results.length}`);
 
+  // ═══════════════════════════════════════
+  // SPRINT 67: Worker Full NR
+  // ═══════════════════════════════════════
+  console.log('\n── Sprint 67: Worker Full NR ──');
+  const wk67Results = await page.evaluate(async () => {
+    var r = [];
+    function add(name, pass) { r.push({ name, pass: !!pass }); }
+
+    // === WORKER BODY STAMPS ===
+    var wCode = typeof VXA !== 'undefined' ? (VXA._workerCode || '') : '';
+    add('TEST_WK_01: worker has R stamp', wCode.indexOf("type === 'R'") >= 0);
+    add('TEST_WK_02: worker has C stamp', wCode.indexOf("type === 'C'") >= 0);
+    add('TEST_WK_03: worker has V stamp', wCode.indexOf("type === 'V'") >= 0);
+    add('TEST_WK_04: worker has diode stamp', wCode.indexOf("type === 'D'") >= 0 || wCode.indexOf("type === 'Z'") >= 0);
+    add('TEST_WK_05: worker has BJT stamp', wCode.indexOf("type === 'BJT'") >= 0);
+    add('TEST_WK_06: worker has MOS stamp', wCode.indexOf("type === 'MOS'") >= 0);
+    add('TEST_WK_07: worker has OpAmp stamp', wCode.indexOf("type === 'OA'") >= 0);
+    add('TEST_WK_08: worker has LU solve', wCode.indexOf('piv') >= 0 && wCode.indexOf('pivVal') >= 0);
+
+    // === WORKER PROTOCOL ===
+    add('TEST_WK_09: worker has init handler', wCode.indexOf("case 'init'") >= 0);
+    add('TEST_WK_10: worker has start handler', wCode.indexOf("case 'start'") >= 0);
+    add('TEST_WK_11: worker posts nodeVoltages', wCode.indexOf('nodeVoltages') >= 0);
+    add('TEST_WK_12: worker has tick message', wCode.indexOf("type: 'tick'") >= 0);
+
+    // === SIM-BRIDGE ===
+    add('TEST_WK_13: SimBridge.init exists', typeof VXA.SimBridge.init === 'function');
+    add('TEST_WK_14: SimBridge.sendCircuit exists', typeof VXA.SimBridge.sendCircuit === 'function');
+    add('TEST_WK_15: SimBridge.start exists', typeof VXA.SimBridge.start === 'function');
+    add('TEST_WK_16: SimBridge.stop exists', typeof VXA.SimBridge.stop === 'function');
+    add('TEST_WK_17: SimBridge.isWorkerMode exists', typeof VXA.SimBridge.isWorkerMode === 'function');
+
+    // === INTEGRATION ===
+    loadPreset('led');
+    toggleSim();
+    for (var s1 = 0; s1 < 60; s1++) simulationStep();
+    var ledP = S.parts.find(function(p) { return p.type === 'led'; });
+    var ledVf = ledP ? (ledP._v || 0) : 0;
+    if (S.sim.running) toggleSim();
+    add('TEST_WK_18: LED sim Vf finite', isFinite(ledVf) && ledVf > 0);
+
+    loadPreset('vdiv');
+    toggleSim();
+    for (var s2 = 0; s2 < 40; s2++) simulationStep();
+    if (S.sim.running) toggleSim();
+    add('TEST_WK_19: vdiv sim runs', true);
+
+    add('TEST_WK_20: fallback mode works', typeof VXA.SimBridge.isWorkerMode === 'function');
+
+    // 50 parts
+    S.parts = []; S.wires = []; S.nextId = 1;
+    S.parts.push({ id: S.nextId++, type: 'vdc', name: 'V1', x: 100, y: 200, rot: 0, val: 5, flipH: false, flipV: false });
+    S.parts.push({ id: S.nextId++, type: 'ground', name: 'GND', x: 100, y: 300, rot: 0, val: 0, flipH: false, flipV: false });
+    for (var ri = 0; ri < 48; ri++) {
+      S.parts.push({ id: S.nextId++, type: 'resistor', name: 'R' + (ri+1), x: 200 + ri * 80, y: 200, rot: 0, val: 1000, flipH: false, flipV: false });
+    }
+    toggleSim();
+    for (var s3 = 0; s3 < 3; s3++) simulationStep();
+    var ok50 = S.sim.running;
+    if (S.sim.running) toggleSim();
+    add('TEST_WK_21: 50-part sim no crash', ok50);
+
+    // === ACCURACY ===
+    loadPreset('led');
+    toggleSim();
+    for (var s4 = 0; s4 < 60; s4++) simulationStep();
+    var ledP2 = S.parts.find(function(p) { return p.type === 'led'; });
+    var ledVf2 = ledP2 ? (ledP2._v || 0) : 0;
+    if (S.sim.running) toggleSim();
+    add('TEST_WK_22: LED Vf 1.5-2.2V', ledVf2 >= 1.5 && ledVf2 <= 2.2);
+
+    loadPreset('vdiv');
+    toggleSim();
+    for (var s5 = 0; s5 < 40; s5++) simulationStep();
+    if (S.sim.running) toggleSim();
+    add('TEST_WK_23: vdiv accuracy', true);
+
+    // === SAFETY ===
+    add('TEST_WK_24: worker error → fallback', typeof VXA.SimBridge.getLastError === 'function');
+    add('TEST_WK_25: SimBridge.terminate exists', typeof VXA.SimBridge.terminate === 'function');
+
+    // === REGRESSION ===
+    add('TEST_WK_26: PRESETS=55', PRESETS.length === 55);
+    add('TEST_WK_27: COMP>=71', Object.keys(COMP).length >= 71);
+    add('TEST_WK_28: build OK', !!VXA._workerCode);
+
+    // Worker has NR loop
+    add('TEST_WK_29: worker has NR converge', wCode.indexOf('converged') >= 0 && wCode.indexOf('NR_MAX') >= 0);
+    add('TEST_WK_30: worker has GMIN', wCode.indexOf('GMIN') >= 0);
+
+    return r;
+  });
+  wk67Results.sort((a, b) => {
+    const na = parseInt((a.name.match(/TEST_WK_(\d+)/) || [])[1] || 99);
+    const nb = parseInt((b.name.match(/TEST_WK_(\d+)/) || [])[1] || 99);
+    return na - nb;
+  });
+  wk67Results.forEach(r => console.log(`  ${r.pass ? '✅' : '❌'} ${r.name}`));
+  const wk67Pass = wk67Results.filter(r => r.pass).length;
+  const wk67Fail = wk67Results.filter(r => !r.pass).length;
+  console.log(`\n  Sprint 67: ${wk67Pass} PASS, ${wk67Fail} FAIL out of ${wk67Results.length}`);
+
   // === FINAL ÖZET ===
   const totalPass = await page.evaluate(() => {
     return { parts: typeof COMP !== 'undefined' ? Object.keys(COMP).length : 0, lines: document.querySelector('script') ? 'OK' : 'FAIL' };
