@@ -440,7 +440,18 @@ VXA.SimV2 = (function() {
         c.vPrev = vd;
         c.part._v = Math.abs(vd); c.part._i = Math.abs(cur); c.part._p = Math.abs(vd * cur);
       } else if (c.type === 'V') {
-        c.part._v = Math.abs(vd); c.part._i = 0; c.part._p = 0;
+        // Sprint 58: VDC/VAC current via KCL — sum currents through adjacent Rs
+        var _vI = 0;
+        for (var _vk = 0; _vk < SIM.comps.length; _vk++) {
+          var _vc = SIM.comps[_vk];
+          if (_vc === c || _vc.type === 'V') continue;
+          if (_vc.type === 'R' && (_vc.n1 === c.n1 || _vc.n2 === c.n1 || _vc.n1 === c.n2 || _vc.n2 === c.n2)) {
+            var _vr = (nodeV[_vc.n1] || 0) - (nodeV[_vc.n2] || 0);
+            _vI = Math.abs(_vr / _vc.val);
+            break;
+          }
+        }
+        c.part._v = Math.abs(vd); c.part._i = _vI; c.part._p = Math.abs(vd * _vI);
       } else if (c.type === 'D') {
         // Sprint 24: Diode/LED current from adjacent node KCL (more accurate than Shockley readout)
         var cur = 0;

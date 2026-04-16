@@ -311,6 +311,9 @@ const JS_FILES = [
   'src/ui/smith-chart.js',
   'src/ui/sparam-analysis.js',
 
+  // UI: Tesla polish — A/K labels, scope auto-assign, wire tooltip (Sprint 58)
+  'src/ui/tesla-polish.js',
+
   // UI: breadboard 3D view
   'src/ui/breadboard.js',
 
