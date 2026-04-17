@@ -6,15 +6,20 @@
 VXA.SpiceLayout = (function() {
   'use strict';
 
-  // Grid constants — 20px snap alignment, 160px column pitch, 120px row pitch.
-  // 160 = part body (~80) + 80 routing channel; 120 = body + vertical margin.
-  var COL_W = 160, ROW_H = 120;
+  // Sprint 70a-fix-2: tighter grid. 20px snap, 120px column pitch, 80px row pitch.
+  // 120 = part body (~80) + 40 routing channel. 80 = min safe pitch so a 3-pin
+  // NPN/MOS collector pin (dy=-40) cannot fall inside the body of the part
+  // above it (body radius 28 + pin lead 40 = 68 required separation).
+  var COL_W = 120, ROW_H = 80;
 
   var SOURCE_TYPES = { vdc: 1, vac: 1, pulse: 1, pwl: 1, idc: 1, iac: 1, noise: 1 };
   var CONTROLLED_TYPES = { vcvs: 1, vccs: 1, ccvs: 1, cccs: 1 };
   var ACTIVE_3PIN = { npn: 1, pnp: 1, nmos: 1, pmos: 1, njfet: 1, pjfet: 1 };
   // Parts that default to VERTICAL pin layout (pins on top/bottom)
   var VERTICAL_DEFAULT = { vdc: 1, vac: 1, pulse: 1, pwl: 1, idc: 1, iac: 1, noise: 1, ground: 1 };
+  // Sprint 70a-fix-2: 2-pin passives industry standard — horizontal (rot=0).
+  // Matches LTspice, KiCad, Multisim, Falstad default orientation.
+  var TWO_PIN_PASSIVE = { resistor: 1, capacitor: 1, inductor: 1, diode: 1, led: 1, zener: 1, fuse: 1, switch: 1 };
 
   function isSource(type) { return SOURCE_TYPES[type] === 1; }
   function isVerticalDefault(type) { return VERTICAL_DEFAULT[type] === 1; }
@@ -95,41 +100,40 @@ VXA.SpiceLayout = (function() {
       if (isSource(p.type)) {
         col = 0; // sources always left
       } else if (ACTIVE_3PIN[p.type] || CONTROLLED_TYPES[p.type] || p.type === 'opamp' || p.type === 'subcircuit') {
-        // Active device → place at center of its node-column range
+        // Active device → place at center of its node-column range.
+        // Sprint 70a-fix-2: use explicit undefined check — nodeDepth[n]=0
+        // (source rail) is falsy in JS `|| 1` short-circuits, which was
+        // pushing every rail-connected part one column too far right.
         if (nonGnd.length === 0) col = 1;
         else {
-          var depths = nonGnd.map(function(n) { return nodeDepth[n] || 1; });
+          var depths = nonGnd.map(function(n) {
+            return (nodeDepth[n] !== undefined) ? nodeDepth[n] : 1;
+          });
           col = Math.round((Math.min.apply(null, depths) + Math.max.apply(null, depths)) / 2) + 1;
         }
       } else {
-        // Passive 2-pin or generic
+        // Passive 2-pin or generic — same fix as above
         if (nonGnd.length === 0) {
           col = maxDepth + 1; // floating GND-only → rightmost
         } else if (nonGnd.length === 1) {
-          col = (nodeDepth[nonGnd[0]] || 1) + 1;
+          var dSingle = (nodeDepth[nonGnd[0]] !== undefined) ? nodeDepth[nonGnd[0]] : 1;
+          col = dSingle + 1;
         } else {
-          var d1 = nodeDepth[nonGnd[0]] || 1;
-          var d2 = nodeDepth[nonGnd[1]] || 1;
+          var d1 = (nodeDepth[nonGnd[0]] !== undefined) ? nodeDepth[nonGnd[0]] : 1;
+          var d2 = (nodeDepth[nonGnd[1]] !== undefined) ? nodeDepth[nonGnd[1]] : 1;
           col = (d1 === d2) ? d1 + 1 : Math.min(d1, d2) + 1;
         }
       }
       if (col < 0) col = 0;
 
-      // Rotation
-      if (isVerticalDefault(p.type)) {
-        rot = 0; // vertical parts keep default (pins top/bottom)
-      } else if (ns.length >= 2) {
-        var hasGnd = ns.indexOf(0) >= 0;
-        if (nonGnd.length === 1 && hasGnd) {
-          rot = 1; // drop-to-ground → vertical
-        } else if (nonGnd.length >= 2) {
-          var da = nodeDepth[nonGnd[0]] || 1;
-          var db = nodeDepth[nonGnd[1]] || 1;
-          rot = (da === db) ? 1 : 0; // same col = vertical stack; different cols = horizontal
-        } else if (hasGnd) {
-          rot = 1;
-        }
-      }
+      // Rotation — Sprint 70a-fix-2
+      // Sources: rot=0 (natural vertical pin orientation).
+      // 2-pin passives: ALWAYS rot=0 (industry standard — horizontal).
+      //   Even when connecting to GND or stacking in parallel, router handles
+      //   the vertical bus via clean channels; keeping parts horizontal yields
+      //   far more compact and readable layouts.
+      // Active 3-pin / controlled sources: rot=0 (base/gate on left, C/E on right).
+      rot = 0;
 
       if (!colParts[col]) colParts[col] = [];
       var row = colParts[col].length;
@@ -137,7 +141,7 @@ VXA.SpiceLayout = (function() {
       placements.push({ partIdx: pi, col: col, row: row, rot: rot, _type: p.type });
     });
 
-    // 6. Convert col/row → x/y (20-snapped)
+    // 6. Convert col/row → x/y (20-snapped).
     placements.forEach(function(pl) {
       var countInCol = colParts[pl.col].length;
       var xRaw = pl.col * COL_W;

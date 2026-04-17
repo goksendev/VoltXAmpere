@@ -717,7 +717,7 @@ input:focus{border-color:var(--accent)}
     <span id="sb-temp" style="color:var(--text-3)"></span>
     <span id="sb-engine" style="color:var(--text-4)"></span>
     <span id="sb-extra" style="color:var(--text-3)"></span>
-    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v9.0 — Build: 2026-04-17 03:03 — © 2026</span>
+    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v9.0 — Build: 2026-04-17 03:56 — © 2026</span>
   </div>
 </div>
 
@@ -12622,15 +12622,20 @@ function saveAsBlock() {
 VXA.SpiceLayout = (function() {
   'use strict';
 
-  // Grid constants — 20px snap alignment, 160px column pitch, 120px row pitch.
-  // 160 = part body (~80) + 80 routing channel; 120 = body + vertical margin.
-  var COL_W = 160, ROW_H = 120;
+  // Sprint 70a-fix-2: tighter grid. 20px snap, 120px column pitch, 80px row pitch.
+  // 120 = part body (~80) + 40 routing channel. 80 = min safe pitch so a 3-pin
+  // NPN/MOS collector pin (dy=-40) cannot fall inside the body of the part
+  // above it (body radius 28 + pin lead 40 = 68 required separation).
+  var COL_W = 120, ROW_H = 80;
 
   var SOURCE_TYPES = { vdc: 1, vac: 1, pulse: 1, pwl: 1, idc: 1, iac: 1, noise: 1 };
   var CONTROLLED_TYPES = { vcvs: 1, vccs: 1, ccvs: 1, cccs: 1 };
   var ACTIVE_3PIN = { npn: 1, pnp: 1, nmos: 1, pmos: 1, njfet: 1, pjfet: 1 };
   // Parts that default to VERTICAL pin layout (pins on top/bottom)
   var VERTICAL_DEFAULT = { vdc: 1, vac: 1, pulse: 1, pwl: 1, idc: 1, iac: 1, noise: 1, ground: 1 };
+  // Sprint 70a-fix-2: 2-pin passives industry standard — horizontal (rot=0).
+  // Matches LTspice, KiCad, Multisim, Falstad default orientation.
+  var TWO_PIN_PASSIVE = { resistor: 1, capacitor: 1, inductor: 1, diode: 1, led: 1, zener: 1, fuse: 1, switch: 1 };
 
   function isSource(type) { return SOURCE_TYPES[type] === 1; }
   function isVerticalDefault(type) { return VERTICAL_DEFAULT[type] === 1; }
@@ -12711,41 +12716,40 @@ VXA.SpiceLayout = (function() {
       if (isSource(p.type)) {
         col = 0; // sources always left
       } else if (ACTIVE_3PIN[p.type] || CONTROLLED_TYPES[p.type] || p.type === 'opamp' || p.type === 'subcircuit') {
-        // Active device → place at center of its node-column range
+        // Active device → place at center of its node-column range.
+        // Sprint 70a-fix-2: use explicit undefined check — nodeDepth[n]=0
+        // (source rail) is falsy in JS `|| 1` short-circuits, which was
+        // pushing every rail-connected part one column too far right.
         if (nonGnd.length === 0) col = 1;
         else {
-          var depths = nonGnd.map(function(n) { return nodeDepth[n] || 1; });
+          var depths = nonGnd.map(function(n) {
+            return (nodeDepth[n] !== undefined) ? nodeDepth[n] : 1;
+          });
           col = Math.round((Math.min.apply(null, depths) + Math.max.apply(null, depths)) / 2) + 1;
         }
       } else {
-        // Passive 2-pin or generic
+        // Passive 2-pin or generic — same fix as above
         if (nonGnd.length === 0) {
           col = maxDepth + 1; // floating GND-only → rightmost
         } else if (nonGnd.length === 1) {
-          col = (nodeDepth[nonGnd[0]] || 1) + 1;
+          var dSingle = (nodeDepth[nonGnd[0]] !== undefined) ? nodeDepth[nonGnd[0]] : 1;
+          col = dSingle + 1;
         } else {
-          var d1 = nodeDepth[nonGnd[0]] || 1;
-          var d2 = nodeDepth[nonGnd[1]] || 1;
+          var d1 = (nodeDepth[nonGnd[0]] !== undefined) ? nodeDepth[nonGnd[0]] : 1;
+          var d2 = (nodeDepth[nonGnd[1]] !== undefined) ? nodeDepth[nonGnd[1]] : 1;
           col = (d1 === d2) ? d1 + 1 : Math.min(d1, d2) + 1;
         }
       }
       if (col < 0) col = 0;
 
-      // Rotation
-      if (isVerticalDefault(p.type)) {
-        rot = 0; // vertical parts keep default (pins top/bottom)
-      } else if (ns.length >= 2) {
-        var hasGnd = ns.indexOf(0) >= 0;
-        if (nonGnd.length === 1 && hasGnd) {
-          rot = 1; // drop-to-ground → vertical
-        } else if (nonGnd.length >= 2) {
-          var da = nodeDepth[nonGnd[0]] || 1;
-          var db = nodeDepth[nonGnd[1]] || 1;
-          rot = (da === db) ? 1 : 0; // same col = vertical stack; different cols = horizontal
-        } else if (hasGnd) {
-          rot = 1;
-        }
-      }
+      // Rotation — Sprint 70a-fix-2
+      // Sources: rot=0 (natural vertical pin orientation).
+      // 2-pin passives: ALWAYS rot=0 (industry standard — horizontal).
+      //   Even when connecting to GND or stacking in parallel, router handles
+      //   the vertical bus via clean channels; keeping parts horizontal yields
+      //   far more compact and readable layouts.
+      // Active 3-pin / controlled sources: rot=0 (base/gate on left, C/E on right).
+      rot = 0;
 
       if (!colParts[col]) colParts[col] = [];
       var row = colParts[col].length;
@@ -12753,7 +12757,7 @@ VXA.SpiceLayout = (function() {
       placements.push({ partIdx: pi, col: col, row: row, rot: rot, _type: p.type });
     });
 
-    // 6. Convert col/row → x/y (20-snapped)
+    // 6. Convert col/row → x/y (20-snapped).
     placements.forEach(function(pl) {
       var countInCol = colParts[pl.col].length;
       var xRaw = pl.col * COL_W;
@@ -12880,41 +12884,119 @@ VXA.SpiceRouter = (function() {
     return pref;
   }
 
-  function horizontalTrunk(pins, trunkY, boxes) {
-    if (pins.length < 2) return [];
+  // Build horizontal-trunk wires for a given trunk Y. Each pin's stub is
+  // routed via lShape (same-X case) so a blocked direct drop detours through
+  // a clean X channel.
+  function buildHTrunk(pins, ty, boxes) {
     var xs = pins.map(function(p) { return p.x; });
-    var ys = pins.map(function(p) { return p.y; });
     var minX = Math.min.apply(null, xs), maxX = Math.max.apply(null, xs);
-    var prefer = trunkY != null ? trunkY : snap20(ys.reduce(function(s,v){return s+v;},0)/ys.length);
-    var ty = cleanTrunkY(prefer, minX, maxX, boxes);
     var wires = [];
     pins.forEach(function(p) {
-      if (p.y !== ty) wires.push({ x1: p.x, y1: p.y, x2: p.x, y2: ty });
+      if (p.y === ty) return;
+      var segs = lShape(p, { x: p.x, y: ty }, boxes);
+      segs.forEach(function(s) { wires.push(s); });
     });
     if (maxX > minX) wires.push({ x1: minX, y1: ty, x2: maxX, y2: ty });
     return wires;
   }
 
-  function verticalTrunk(pins, trunkX, boxes) {
-    if (pins.length < 2) return [];
-    var xs = pins.map(function(p) { return p.x; });
+  function buildVTrunk(pins, tx, boxes) {
     var ys = pins.map(function(p) { return p.y; });
     var minY = Math.min.apply(null, ys), maxY = Math.max.apply(null, ys);
-    var prefer = trunkX != null ? trunkX : snap20(xs.reduce(function(s,v){return s+v;},0)/xs.length);
-    var tx = cleanTrunkX(prefer, minY, maxY, boxes);
     var wires = [];
     pins.forEach(function(p) {
-      if (p.x !== tx) wires.push({ x1: p.x, y1: p.y, x2: tx, y2: p.y });
+      if (p.x === tx) return;
+      var segs = lShape(p, { x: tx, y: p.y }, boxes);
+      segs.forEach(function(s) { wires.push(s); });
     });
     if (maxY > minY) wires.push({ x1: tx, y1: minY, x2: tx, y2: maxY });
     return wires;
   }
 
-  // Two-pin Manhattan connection, tries both L-variants then U-detour.
+  function horizontalTrunk(pins, trunkY, boxes) {
+    if (pins.length < 2) return [];
+    var ys = pins.map(function(p) { return p.y; });
+    var prefer = trunkY != null ? trunkY : snap20(ys.reduce(function(s,v){return s+v;},0)/ys.length);
+    // Scan until every stub + the trunk itself is clean.
+    var ty = scanCleanValue(prefer, function(y) {
+      return !segmentsHitAny(buildHTrunk(pins, y, boxes), boxes);
+    });
+    return buildHTrunk(pins, ty, boxes);
+  }
+
+  function verticalTrunk(pins, trunkX, boxes) {
+    if (pins.length < 2) return [];
+    var xs = pins.map(function(p) { return p.x; });
+    var prefer = trunkX != null ? trunkX : snap20(xs.reduce(function(s,v){return s+v;},0)/xs.length);
+    var tx = scanCleanValue(prefer, function(x) {
+      return !segmentsHitAny(buildVTrunk(pins, x, boxes), boxes);
+    });
+    return buildVTrunk(pins, tx, boxes);
+  }
+
+  // Iterate 20-snapped candidates around prefer in expanding +/- pairs.
+  // Returns first value for which predicate(v) === true, or prefer otherwise.
+  function scanCleanValue(prefer, predicate, maxDist) {
+    var p = snap20(prefer);
+    if (predicate(p)) return p;
+    maxDist = maxDist || 600;
+    for (var d = 20; d <= maxDist; d += 20) {
+      if (predicate(p + d)) return p + d;
+      if (predicate(p - d)) return p - d;
+    }
+    return p;
+  }
+
+  // Two-pin Manhattan connection — tries direct, L-variants, then
+  // full-segment-validated U-detours. Sprint 70a-fix-2: the detour scans
+  // trunk Y (or X) candidates so that ALL THREE segments (in-stub, trunk,
+  // out-stub) clear every body. Earlier version only validated the trunk
+  // segment, causing the final vertical drop into the destination pin's
+  // own body when that pin sat inside an active device's X range.
   function lShape(pinA, pinB, boxes) {
     if (pinA.x === pinB.x && pinA.y === pinB.y) return [];
-    if (pinA.x === pinB.x) return [{ x1:pinA.x, y1:pinA.y, x2:pinB.x, y2:pinB.y }];
-    if (pinA.y === pinB.y) return [{ x1:pinA.x, y1:pinA.y, x2:pinB.x, y2:pinB.y }];
+
+    // Helper: 3-segment U-detour with horizontal trunk at tY.
+    function uDetourY(tY) {
+      return [
+        { x1:pinA.x, y1:pinA.y, x2:pinA.x, y2:tY },
+        { x1:pinA.x, y1:tY, x2:pinB.x, y2:tY },
+        { x1:pinB.x, y1:tY, x2:pinB.x, y2:pinB.y }
+      ];
+    }
+    // Helper: 3-segment detour with vertical trunk at tX.
+    function uDetourX(tX) {
+      return [
+        { x1:pinA.x, y1:pinA.y, x2:tX, y2:pinA.y },
+        { x1:tX, y1:pinA.y, x2:tX, y2:pinB.y },
+        { x1:tX, y1:pinB.y, x2:pinB.x, y2:pinB.y }
+      ];
+    }
+
+    // Collinear pins (same X) — direct is a single vertical wire.
+    if (pinA.x === pinB.x) {
+      var direct = [{ x1:pinA.x, y1:pinA.y, x2:pinB.x, y2:pinB.y }];
+      if (!segmentsHitAny(direct, boxes)) return direct;
+      // Detour: route out to a clean X channel, down, back in.
+      var cx = scanCleanValue(pinA.x, function(x) {
+        return !segmentsHitAny(uDetourX(x), boxes);
+      });
+      if (cx !== pinA.x) return uDetourX(cx);
+      return direct;
+    }
+
+    // Collinear pins (same Y)
+    if (pinA.y === pinB.y) {
+      var directH = [{ x1:pinA.x, y1:pinA.y, x2:pinB.x, y2:pinB.y }];
+      if (!segmentsHitAny(directH, boxes)) return directH;
+      var cy = scanCleanValue(pinA.y, function(y) {
+        return !segmentsHitAny(uDetourY(y), boxes);
+      });
+      if (cy !== pinA.y) return uDetourY(cy);
+      return directH;
+    }
+
+    // Different X and Y — try both 2-segment L variants first
     var variantA = [
       { x1:pinA.x, y1:pinA.y, x2:pinB.x, y2:pinA.y },
       { x1:pinB.x, y1:pinA.y, x2:pinB.x, y2:pinB.y }
@@ -12925,15 +13007,22 @@ VXA.SpiceRouter = (function() {
     ];
     if (!segmentsHitAny(variantA, boxes)) return variantA;
     if (!segmentsHitAny(variantB, boxes)) return variantB;
-    // Both L's hit a body — do a U-detour via a clean horizontal channel.
-    var minX = Math.min(pinA.x, pinB.x), maxX = Math.max(pinA.x, pinB.x);
-    var prefer = snap20((pinA.y + pinB.y) / 2);
-    var cleanY = cleanTrunkY(prefer, minX, maxX, boxes);
-    return [
-      { x1:pinA.x, y1:pinA.y, x2:pinA.x, y2:cleanY },
-      { x1:pinA.x, y1:cleanY, x2:pinB.x, y2:cleanY },
-      { x1:pinB.x, y1:cleanY, x2:pinB.x, y2:pinB.y }
-    ];
+    // U-detour Y first, then X — both check ALL three segments.
+    var preferY = snap20((pinA.y + pinB.y) / 2);
+    var ty = scanCleanValue(preferY, function(y) {
+      return !segmentsHitAny(uDetourY(y), boxes);
+    });
+    if (!segmentsHitAny(uDetourY(ty), boxes)) return uDetourY(ty);
+    var preferX = snap20((pinA.x + pinB.x) / 2);
+    var tx = scanCleanValue(preferX, function(x) {
+      return !segmentsHitAny(uDetourX(x), boxes);
+    });
+    if (!segmentsHitAny(uDetourX(tx), boxes)) return uDetourX(tx);
+    // Nothing clean — return the variant with fewer hits as fallback.
+    var scoreA = 0, scoreB = 0;
+    variantA.forEach(function(s) { boxes.forEach(function(b) { if (segmentHitsBox(s, b)) scoreA++; }); });
+    variantB.forEach(function(s) { boxes.forEach(function(b) { if (segmentHitsBox(s, b)) scoreB++; }); });
+    return scoreA <= scoreB ? variantA : variantB;
   }
 
   function countHits(segs, boxes) {
@@ -13258,6 +13347,21 @@ VXA.SpiceImport = (function() {
   // Manhattan routing, single consolidated ground bus. Replaces naive sqrt grid.
   function placeCircuit(circuit) {
     saveUndo();
+
+    // Sprint 70a-fix-2: reset scope traces and sim clock on fresh import.
+    // Scope buffers persist across imports; without zeroing, a ghost trace
+    // from a previous circuit paints the new canvas before simulation starts.
+    if (S.scope && S.scope.ch) {
+      S.scope.ch.forEach(function(ch) { if (ch.buf) ch.buf.fill(0); });
+      S.scope.ptr = 0;
+    }
+    if (S.sim) S.sim.t = 0;
+    // Clear residual thermal / damage state on any carryover parts.
+    S.parts.forEach(function(pp) {
+      if (pp._thermal) pp._thermal = null;
+      if (pp._damage) pp._damage = null;
+    });
+
     var layout = (VXA.SpiceLayout && VXA.SpiceLayout.computeLayout)
       ? VXA.SpiceLayout.computeLayout(circuit)
       : null;
@@ -13356,11 +13460,12 @@ VXA.SpiceImport = (function() {
       }
     });
 
-    // Ground bus consolidation — single horizontal rail + one ground symbol
+    // Ground bus consolidation — single horizontal rail + one ground symbol.
+    // Sprint 70a-fix-2: tighter bus offset (+60 was +80).
     if (nodePins[0] && nodePins[0].length > 0) {
       var maxY = -Infinity;
       S.parts.forEach(function(pp) { if (pp.y > maxY) maxY = pp.y; });
-      var busY = snap(maxY + 80);
+      var busY = snap(maxY + 60);
       if (router && router.groundBus) {
         var gb = router.groundBus(nodePins[0], busY, boxes);
         gb.wires.forEach(function(w) { S.wires.push(w); });

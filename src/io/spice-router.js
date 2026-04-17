@@ -91,41 +91,119 @@ VXA.SpiceRouter = (function() {
     return pref;
   }
 
-  function horizontalTrunk(pins, trunkY, boxes) {
-    if (pins.length < 2) return [];
+  // Build horizontal-trunk wires for a given trunk Y. Each pin's stub is
+  // routed via lShape (same-X case) so a blocked direct drop detours through
+  // a clean X channel.
+  function buildHTrunk(pins, ty, boxes) {
     var xs = pins.map(function(p) { return p.x; });
-    var ys = pins.map(function(p) { return p.y; });
     var minX = Math.min.apply(null, xs), maxX = Math.max.apply(null, xs);
-    var prefer = trunkY != null ? trunkY : snap20(ys.reduce(function(s,v){return s+v;},0)/ys.length);
-    var ty = cleanTrunkY(prefer, minX, maxX, boxes);
     var wires = [];
     pins.forEach(function(p) {
-      if (p.y !== ty) wires.push({ x1: p.x, y1: p.y, x2: p.x, y2: ty });
+      if (p.y === ty) return;
+      var segs = lShape(p, { x: p.x, y: ty }, boxes);
+      segs.forEach(function(s) { wires.push(s); });
     });
     if (maxX > minX) wires.push({ x1: minX, y1: ty, x2: maxX, y2: ty });
     return wires;
   }
 
-  function verticalTrunk(pins, trunkX, boxes) {
-    if (pins.length < 2) return [];
-    var xs = pins.map(function(p) { return p.x; });
+  function buildVTrunk(pins, tx, boxes) {
     var ys = pins.map(function(p) { return p.y; });
     var minY = Math.min.apply(null, ys), maxY = Math.max.apply(null, ys);
-    var prefer = trunkX != null ? trunkX : snap20(xs.reduce(function(s,v){return s+v;},0)/xs.length);
-    var tx = cleanTrunkX(prefer, minY, maxY, boxes);
     var wires = [];
     pins.forEach(function(p) {
-      if (p.x !== tx) wires.push({ x1: p.x, y1: p.y, x2: tx, y2: p.y });
+      if (p.x === tx) return;
+      var segs = lShape(p, { x: tx, y: p.y }, boxes);
+      segs.forEach(function(s) { wires.push(s); });
     });
     if (maxY > minY) wires.push({ x1: tx, y1: minY, x2: tx, y2: maxY });
     return wires;
   }
 
-  // Two-pin Manhattan connection, tries both L-variants then U-detour.
+  function horizontalTrunk(pins, trunkY, boxes) {
+    if (pins.length < 2) return [];
+    var ys = pins.map(function(p) { return p.y; });
+    var prefer = trunkY != null ? trunkY : snap20(ys.reduce(function(s,v){return s+v;},0)/ys.length);
+    // Scan until every stub + the trunk itself is clean.
+    var ty = scanCleanValue(prefer, function(y) {
+      return !segmentsHitAny(buildHTrunk(pins, y, boxes), boxes);
+    });
+    return buildHTrunk(pins, ty, boxes);
+  }
+
+  function verticalTrunk(pins, trunkX, boxes) {
+    if (pins.length < 2) return [];
+    var xs = pins.map(function(p) { return p.x; });
+    var prefer = trunkX != null ? trunkX : snap20(xs.reduce(function(s,v){return s+v;},0)/xs.length);
+    var tx = scanCleanValue(prefer, function(x) {
+      return !segmentsHitAny(buildVTrunk(pins, x, boxes), boxes);
+    });
+    return buildVTrunk(pins, tx, boxes);
+  }
+
+  // Iterate 20-snapped candidates around prefer in expanding +/- pairs.
+  // Returns first value for which predicate(v) === true, or prefer otherwise.
+  function scanCleanValue(prefer, predicate, maxDist) {
+    var p = snap20(prefer);
+    if (predicate(p)) return p;
+    maxDist = maxDist || 600;
+    for (var d = 20; d <= maxDist; d += 20) {
+      if (predicate(p + d)) return p + d;
+      if (predicate(p - d)) return p - d;
+    }
+    return p;
+  }
+
+  // Two-pin Manhattan connection — tries direct, L-variants, then
+  // full-segment-validated U-detours. Sprint 70a-fix-2: the detour scans
+  // trunk Y (or X) candidates so that ALL THREE segments (in-stub, trunk,
+  // out-stub) clear every body. Earlier version only validated the trunk
+  // segment, causing the final vertical drop into the destination pin's
+  // own body when that pin sat inside an active device's X range.
   function lShape(pinA, pinB, boxes) {
     if (pinA.x === pinB.x && pinA.y === pinB.y) return [];
-    if (pinA.x === pinB.x) return [{ x1:pinA.x, y1:pinA.y, x2:pinB.x, y2:pinB.y }];
-    if (pinA.y === pinB.y) return [{ x1:pinA.x, y1:pinA.y, x2:pinB.x, y2:pinB.y }];
+
+    // Helper: 3-segment U-detour with horizontal trunk at tY.
+    function uDetourY(tY) {
+      return [
+        { x1:pinA.x, y1:pinA.y, x2:pinA.x, y2:tY },
+        { x1:pinA.x, y1:tY, x2:pinB.x, y2:tY },
+        { x1:pinB.x, y1:tY, x2:pinB.x, y2:pinB.y }
+      ];
+    }
+    // Helper: 3-segment detour with vertical trunk at tX.
+    function uDetourX(tX) {
+      return [
+        { x1:pinA.x, y1:pinA.y, x2:tX, y2:pinA.y },
+        { x1:tX, y1:pinA.y, x2:tX, y2:pinB.y },
+        { x1:tX, y1:pinB.y, x2:pinB.x, y2:pinB.y }
+      ];
+    }
+
+    // Collinear pins (same X) — direct is a single vertical wire.
+    if (pinA.x === pinB.x) {
+      var direct = [{ x1:pinA.x, y1:pinA.y, x2:pinB.x, y2:pinB.y }];
+      if (!segmentsHitAny(direct, boxes)) return direct;
+      // Detour: route out to a clean X channel, down, back in.
+      var cx = scanCleanValue(pinA.x, function(x) {
+        return !segmentsHitAny(uDetourX(x), boxes);
+      });
+      if (cx !== pinA.x) return uDetourX(cx);
+      return direct;
+    }
+
+    // Collinear pins (same Y)
+    if (pinA.y === pinB.y) {
+      var directH = [{ x1:pinA.x, y1:pinA.y, x2:pinB.x, y2:pinB.y }];
+      if (!segmentsHitAny(directH, boxes)) return directH;
+      var cy = scanCleanValue(pinA.y, function(y) {
+        return !segmentsHitAny(uDetourY(y), boxes);
+      });
+      if (cy !== pinA.y) return uDetourY(cy);
+      return directH;
+    }
+
+    // Different X and Y — try both 2-segment L variants first
     var variantA = [
       { x1:pinA.x, y1:pinA.y, x2:pinB.x, y2:pinA.y },
       { x1:pinB.x, y1:pinA.y, x2:pinB.x, y2:pinB.y }
@@ -136,15 +214,22 @@ VXA.SpiceRouter = (function() {
     ];
     if (!segmentsHitAny(variantA, boxes)) return variantA;
     if (!segmentsHitAny(variantB, boxes)) return variantB;
-    // Both L's hit a body — do a U-detour via a clean horizontal channel.
-    var minX = Math.min(pinA.x, pinB.x), maxX = Math.max(pinA.x, pinB.x);
-    var prefer = snap20((pinA.y + pinB.y) / 2);
-    var cleanY = cleanTrunkY(prefer, minX, maxX, boxes);
-    return [
-      { x1:pinA.x, y1:pinA.y, x2:pinA.x, y2:cleanY },
-      { x1:pinA.x, y1:cleanY, x2:pinB.x, y2:cleanY },
-      { x1:pinB.x, y1:cleanY, x2:pinB.x, y2:pinB.y }
-    ];
+    // U-detour Y first, then X — both check ALL three segments.
+    var preferY = snap20((pinA.y + pinB.y) / 2);
+    var ty = scanCleanValue(preferY, function(y) {
+      return !segmentsHitAny(uDetourY(y), boxes);
+    });
+    if (!segmentsHitAny(uDetourY(ty), boxes)) return uDetourY(ty);
+    var preferX = snap20((pinA.x + pinB.x) / 2);
+    var tx = scanCleanValue(preferX, function(x) {
+      return !segmentsHitAny(uDetourX(x), boxes);
+    });
+    if (!segmentsHitAny(uDetourX(tx), boxes)) return uDetourX(tx);
+    // Nothing clean — return the variant with fewer hits as fallback.
+    var scoreA = 0, scoreB = 0;
+    variantA.forEach(function(s) { boxes.forEach(function(b) { if (segmentHitsBox(s, b)) scoreA++; }); });
+    variantB.forEach(function(s) { boxes.forEach(function(b) { if (segmentHitsBox(s, b)) scoreB++; }); });
+    return scoreA <= scoreB ? variantA : variantB;
   }
 
   function countHits(segs, boxes) {

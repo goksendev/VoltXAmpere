@@ -131,6 +131,33 @@ const CIRCUITS = [
         });
       });
 
+      // Sprint 70a-fix-2 rules ────────────────────────────────
+      // A. Rotation check — 2-pin passives should be rot=0 (horizontal).
+      const TWO_PIN = ['resistor','capacitor','inductor','diode','led','zener','fuse'];
+      const nonHorizontalPassives = S.parts.filter(p =>
+        TWO_PIN.indexOf(p.type) >= 0 && p.rot !== 0
+      ).map(p => ({ type:p.type, name:p.name, rot:p.rot }));
+
+      // B. Compactness score — totalBoxArea / (partCount * minPartArea).
+      // minPartArea = 60 × 60 = 3600 (a generous per-part body+margin budget).
+      let compactness = 0;
+      if (S.parts.length > 0) {
+        let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+        S.parts.forEach(p => {
+          if (p.x < minX) minX = p.x; if (p.x > maxX) maxX = p.x;
+          if (p.y < minY) minY = p.y; if (p.y > maxY) maxY = p.y;
+        });
+        const w = Math.max(60, maxX - minX);
+        const h = Math.max(60, maxY - minY);
+        compactness = (w * h) / (S.parts.length * 3600);
+      }
+
+      // C. Scope buffer — first sample of channel 0 must be exactly 0 after import.
+      let scopeFirstSample = null;
+      if (S.scope && S.scope.ch && S.scope.ch[0] && S.scope.ch[0].buf) {
+        scopeFirstSample = S.scope.ch[0].buf[0];
+      }
+
       return {
         parseErr, placeErr,
         partCount: S.parts.length,
@@ -142,11 +169,12 @@ const CIRCUITS = [
         circuitNodeCount: circuit ? circuit.nodeCount : 0,
         circuitPartCount: circuit ? (circuit.parts || []).length : 0,
         diagonalWires: S.wires.filter(w => w.x1 !== w.x2 && w.y1 !== w.y2).length,
+        nonHorizontalPassives, compactness, scopeFirstSample
       };
     }, text);
 
-    // Screenshot the canvas
-    const shotPath = path.join(OUT_DIR, cirFile.replace('.cir', '.png'));
+    // Screenshot the canvas (v2 suffix — Sprint 70a-fix-2)
+    const shotPath = path.join(OUT_DIR, cirFile.replace('.cir', '-v2.png'));
     try {
       const canvasEl = await page.$('#C');
       if (canvasEl) await canvasEl.screenshot({ path: shotPath });
@@ -165,6 +193,14 @@ const CIRCUITS = [
       { rule: 'ground symbol present', ok: !groundExpected || snapshot.groundCount >= 1, detail: 'ground symbols=' + snapshot.groundCount + (groundExpected?' (GND referenced)':' (no GND in netlist)') },
       { rule: 'no diagonal wires', ok: snapshot.diagonalWires === 0, detail: snapshot.diagonalWires + ' diagonal' },
       { rule: 'no wires through parts', ok: snapshot.wiresInParts.length === 0, detail: snapshot.wiresInParts.length + ' violations' },
+      // Sprint 70a-fix-2 rules
+      { rule: 'default rotation (2-pin passives rot=0)', ok: snapshot.nonHorizontalPassives.length === 0,
+        detail: snapshot.nonHorizontalPassives.length === 0 ? 'all horizontal'
+                : snapshot.nonHorizontalPassives.map(p => p.name+'.rot='+p.rot).join(', ') },
+      { rule: 'compactness score < 3.5', ok: snapshot.compactness < 3.5,
+        detail: 'compactness=' + snapshot.compactness.toFixed(2) },
+      { rule: 'scope buffer zero after import', ok: snapshot.scopeFirstSample === 0,
+        detail: 'ch0.buf[0]=' + snapshot.scopeFirstSample },
     ];
     const pass = checks.every(c => c.ok);
     if (!pass) anyFail = true;

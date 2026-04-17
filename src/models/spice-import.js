@@ -240,6 +240,21 @@ VXA.SpiceImport = (function() {
   // Manhattan routing, single consolidated ground bus. Replaces naive sqrt grid.
   function placeCircuit(circuit) {
     saveUndo();
+
+    // Sprint 70a-fix-2: reset scope traces and sim clock on fresh import.
+    // Scope buffers persist across imports; without zeroing, a ghost trace
+    // from a previous circuit paints the new canvas before simulation starts.
+    if (S.scope && S.scope.ch) {
+      S.scope.ch.forEach(function(ch) { if (ch.buf) ch.buf.fill(0); });
+      S.scope.ptr = 0;
+    }
+    if (S.sim) S.sim.t = 0;
+    // Clear residual thermal / damage state on any carryover parts.
+    S.parts.forEach(function(pp) {
+      if (pp._thermal) pp._thermal = null;
+      if (pp._damage) pp._damage = null;
+    });
+
     var layout = (VXA.SpiceLayout && VXA.SpiceLayout.computeLayout)
       ? VXA.SpiceLayout.computeLayout(circuit)
       : null;
@@ -338,11 +353,12 @@ VXA.SpiceImport = (function() {
       }
     });
 
-    // Ground bus consolidation — single horizontal rail + one ground symbol
+    // Ground bus consolidation — single horizontal rail + one ground symbol.
+    // Sprint 70a-fix-2: tighter bus offset (+60 was +80).
     if (nodePins[0] && nodePins[0].length > 0) {
       var maxY = -Infinity;
       S.parts.forEach(function(pp) { if (pp.y > maxY) maxY = pp.y; });
-      var busY = snap(maxY + 80);
+      var busY = snap(maxY + 60);
       if (router && router.groundBus) {
         var gb = router.groundBus(nodePins[0], busY, boxes);
         gb.wires.forEach(function(w) { S.wires.push(w); });
