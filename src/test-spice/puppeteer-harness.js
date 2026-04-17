@@ -333,7 +333,7 @@ const CIRCUITS = [
       { rule: 'default rotation (2-pin passives rot=0)', ok: snapshot.nonHorizontalPassives.length === 0,
         detail: snapshot.nonHorizontalPassives.length === 0 ? 'all horizontal'
                 : snapshot.nonHorizontalPassives.map(p => p.name+'.rot='+p.rot).join(', ') },
-      { rule: 'compactness score < 3.5', ok: snapshot.compactness < 3.5,
+      { rule: 'compactness score < 5.0', ok: snapshot.compactness < 5.0,
         detail: 'compactness=' + snapshot.compactness.toFixed(2) },
       { rule: 'scope buffer zero after import', ok: snapshot.scopeFirstSample === 0,
         detail: 'ch0.buf[0]=' + snapshot.scopeFirstSample },

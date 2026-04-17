@@ -361,7 +361,18 @@ VXA.SpiceImport = (function() {
     var router = VXA.SpiceRouter;
     var reservedY = new Set();
     var reservedX = new Set();
-    var reservedEndpoints = new Set(); // exact coordinates of every prior wire endpoint
+    // Array of {x,y} coordinates — the simulator treats each prior wire
+    // endpoint as a snap target, so a new endpoint within 25 Chebyshev
+    // of any prior endpoint gets merged. Store coordinates, not strings,
+    // so the router can run proximity checks without parsing.
+    var reservedEndpointArr = [];
+    var reservedEndpointSet = new Set();
+    function reserveEndpoint(x, y) {
+      var k = x + ',' + y;
+      if (reservedEndpointSet.has(k)) return;
+      reservedEndpointSet.add(k);
+      reservedEndpointArr.push({ x: x, y: y });
+    }
     Object.keys(nodePins).forEach(function(nodeIdx) {
       if (+nodeIdx === 0) return;
       var pins = nodePins[nodeIdx];
@@ -374,15 +385,13 @@ VXA.SpiceImport = (function() {
         var segs = router.connectNode(pins, {
           boxes: boxes, nodePinSet: nodeKeys, foreignPinArr: foreignArr,
           reservedY: reservedY, reservedX: reservedX,
-          reservedEndpoints: reservedEndpoints
+          reservedEndpointArr: reservedEndpointArr
         });
         segs.forEach(function(w) {
           S.wires.push(w);
-          // Reserve every endpoint so subsequent nodes cannot land there.
-          reservedEndpoints.add(w.x1 + ',' + w.y1);
-          reservedEndpoints.add(w.x2 + ',' + w.y2);
+          reserveEndpoint(w.x1, w.y1);
+          reserveEndpoint(w.x2, w.y2);
         });
-        // Reserve axis values used by this node's long trunk runs.
         segs.forEach(function(w) {
           var len = Math.max(Math.abs(w.x2 - w.x1), Math.abs(w.y2 - w.y1));
           if (len < 40) return;
@@ -397,19 +406,28 @@ VXA.SpiceImport = (function() {
     });
 
     // Ground bus consolidation — single horizontal rail + one ground symbol.
-    // Sprint 70a-fix-3: busY is 40px below the LOWEST PIN (not part center)
-    // so bus-drop endpoints clear the simulator's 25px snap radius around
-    // every active-device pin lead. Earlier +60-from-part-centre placement
-    // left emitter/source pins within 20-25px of the bus drop, and the
-    // simulator merged GND into the active node.
+    // Sprint 70a-fix-4: busY must also clear reservedY (trunks already
+    // routed by prior nodes) otherwise the bus wire endpoints coincide
+    // with a non-GND node's trunk endpoints and the two nets merge in
+    // the simulator. Bump busY downwards until it is not reserved.
     if (nodePins[0] && nodePins[0].length > 0) {
       var maxPinY = -Infinity;
       S.parts.forEach(function(pp) {
         getPartPins(pp).forEach(function(pin) { if (pin.y > maxPinY) maxPinY = pin.y; });
       });
       var busY = snap(maxPinY + 40);
+      // Keep busY at least SIM_SNAP_TOL+1 (=26) away from every reserved
+      // trunk Y, so wire endpoints on the bus cannot snap into a prior
+      // node's trunk endpoints.
+      function tooCloseToReserved(y) {
+        var arr = Array.from(reservedY);
+        for (var i = 0; i < arr.length; i++) if (Math.abs(y - arr[i]) <= 25) return true;
+        return false;
+      }
+      var guard = 0;
+      while (tooCloseToReserved(busY) && guard++ < 50) busY = snap(busY + 20);
       if (router && router.groundBus) {
-        var gb = router.groundBus(nodePins[0], busY, boxes, allPinArr);
+        var gb = router.groundBus(nodePins[0], busY, boxes, allPinArr, reservedEndpointArr);
         gb.wires.forEach(function(w) { S.wires.push(w); });
         S.parts.push({
           id: S.nextId++, type: 'ground', name: 'GND',

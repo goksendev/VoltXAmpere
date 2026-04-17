@@ -141,11 +141,34 @@ VXA.SpiceLayout = (function() {
       placements.push({ partIdx: pi, col: col, row: row, rot: rot, _type: p.type });
     });
 
-    // 6. Convert col/row → x/y (20-snapped).
+    // 6. Convert col/row → x/y (20-snapped). Sprint 70a-fix-4:
+    // Per-column ROW_H adapts to content. When a column contains ≥2 parts
+    // AND any of them have pins on the vertical axis (V/I sources, 3-pin
+    // actives, controlled sources), stacking at ROW_H=80 places adjacent
+    // pin leads within the simulator's 25px Chebyshev snap radius of
+    // each other — in the worst case EXACTLY coincident (e.g. two V
+    // sources 80 apart: bottom pin of upper = top pin of lower). Use
+    // ROW_H_WIDE=140 for these columns: it guarantees ≥60 px between
+    // the nearest pins of vertically adjacent parts even when both
+    // parts have ±40 pin leads.
+    var ROW_H_WIDE = 140;
+    var VERTICAL_PINNED = {
+      vdc:1, vac:1, pulse:1, pwl:1, idc:1, iac:1, noise:1,
+      npn:1, pnp:1, nmos:1, pmos:1, njfet:1, pjfet:1,
+      vcvs:1, vccs:1, ccvs:1, cccs:1
+    };
+    var colRowH = {};
+    Object.keys(colParts).forEach(function(c) {
+      var needsWide = colParts[c].length >= 2 && colParts[c].some(function(pi) {
+        return !!VERTICAL_PINNED[parts[pi].type];
+      });
+      colRowH[c] = needsWide ? ROW_H_WIDE : ROW_H;
+    });
     placements.forEach(function(pl) {
       var countInCol = colParts[pl.col].length;
+      var rh = colRowH[pl.col] || ROW_H;
       var xRaw = pl.col * COL_W;
-      var yRaw = (pl.row - (countInCol - 1) / 2) * ROW_H;
+      var yRaw = (pl.row - (countInCol - 1) / 2) * rh;
       pl.x = Math.round(xRaw / 20) * 20;
       pl.y = Math.round(yRaw / 20) * 20;
     });
