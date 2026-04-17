@@ -177,13 +177,39 @@ VXA.SimV2 = (function() {
           var _Isat = (c.part && isFinite(c.part.Isat) && c.part.Isat > 0)
                         ? c.part.Isat : 0;
           if (_Isat > 0) {
+            // Sprint 88: Curie-derating. Real ferrite loses Isat as T
+            // approaches the Curie point:
+            //   Isat(T) = Isat0 · (1 − (T / T_curie)^β)   with β ≈ 2.
+            // Temperature comes from Sprint 70f's part._thermal.T (°C).
+            // Floor at 5 % of nominal so the saturation model stays
+            // well-defined past T_curie (a collapsed-core device is
+            // still a device, not a divide-by-zero). At 25 °C and the
+            // default T_curie = 220 °C the derate factor is 0.987 —
+            // Sprint 82 ambient behaviour is preserved within 1 %.
+            var _Tc_part = 25;
+            if (c.part && c.part._thermal && isFinite(c.part._thermal.T)) {
+              _Tc_part = c.part._thermal.T;
+            }
+            var _TCurie = (c.part && isFinite(c.part.T_curie) && c.part.T_curie > 50)
+                            ? c.part.T_curie : 220;
+            var _curieB = (c.part && isFinite(c.part.curie_exp) && c.part.curie_exp >= 1)
+                            ? c.part.curie_exp : 2;
+            var _Trat = Math.max(0, _Tc_part) / _TCurie;
+            var _derate = 1 - Math.pow(_Trat, _curieB);
+            if (_derate < 0.05) _derate = 0.05;
+            if (_derate > 1.0) _derate = 1.0;
+            var _IsatT = _Isat * _derate;
+
             var _satN = (c.part && isFinite(c.part.satExp) && c.part.satExp >= 2)
                           ? c.part.satExp : 4;
-            var _ratio = Math.abs(c.iPrev || 0) / _Isat;
+            var _ratio = Math.abs(c.iPrev || 0) / _IsatT;
             _L_eff = c.val / (1 + Math.pow(_ratio, _satN));
             var _Lmin = c.val * 1e-3;
             if (_L_eff < _Lmin) _L_eff = _Lmin;
-            if (c.part) c.part._saturated = _ratio > 0.7;
+            if (c.part) {
+              c.part._saturated = _ratio > 0.7;
+              c.part._IsatEff = _IsatT;
+            }
           } else if (c.part) {
             c.part._saturated = false;
           }
@@ -736,9 +762,24 @@ VXA.SimV2 = (function() {
         var _Isat_u = (c.part && isFinite(c.part.Isat) && c.part.Isat > 0)
                         ? c.part.Isat : 0;
         if (_Isat_u > 0) {
+          // Sprint 88: same Curie derating as the stamp-time branch so
+          // the post-solve integrator sees the same L_eff the matrix
+          // was built against (otherwise iPrev drifts on hot cores).
+          var _Tcu = 25;
+          if (c.part && c.part._thermal && isFinite(c.part._thermal.T)) {
+            _Tcu = c.part._thermal.T;
+          }
+          var _TCu = (c.part && isFinite(c.part.T_curie) && c.part.T_curie > 50)
+                       ? c.part.T_curie : 220;
+          var _cEu = (c.part && isFinite(c.part.curie_exp) && c.part.curie_exp >= 1)
+                       ? c.part.curie_exp : 2;
+          var _der_u = 1 - Math.pow(Math.max(0, _Tcu) / _TCu, _cEu);
+          if (_der_u < 0.05) _der_u = 0.05;
+          if (_der_u > 1.0)  _der_u = 1.0;
+          var _IsatU_T = _Isat_u * _der_u;
           var _nU = (c.part && isFinite(c.part.satExp) && c.part.satExp >= 2)
                       ? c.part.satExp : 4;
-          var _rU = Math.abs(c.iPrev || 0) / _Isat_u;
+          var _rU = Math.abs(c.iPrev || 0) / _IsatU_T;
           _L_update = c.val / (1 + Math.pow(_rU, _nU));
           var _LminU = c.val * 1e-3;
           if (_L_update < _LminU) _L_update = _LminU;

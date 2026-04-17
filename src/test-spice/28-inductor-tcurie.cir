@@ -1,0 +1,9 @@
+* Sprint 88 — Curie-derated saturating inductor. Same RL step as
+* 19-inductor-saturation (V=10, R=1, L=1m, Isat=2) but with a
+* Curie-point tagged so the probe can sweep ambient temperature.
+* Cold (25 °C) Isat_eff ≈ 1.97 A; hot (100 °C) Isat_eff ≈ 1.59 A.
+* β = 2 default; T_curie = 220 °C matches MnZn ferrite.
+V1 1 0 DC 10
+R1 1 2 1
+L1 2 0 1m Isat=2 Tcurie=220
+.END

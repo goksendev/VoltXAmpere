@@ -129,6 +129,13 @@ VXA.SpiceImport = (function() {
           } else if (_ltk.indexOf('hc=') === 0) {
             var _hv = pv(_ltk.slice(3));
             if (isFinite(_hv) && _hv > 0) lPart.Hc = _hv;
+          } else if (_ltk.indexOf('tcurie=') === 0) {
+            // Sprint 88: Curie temperature in °C (derates Isat).
+            var _tc = pv(_ltk.slice(7));
+            if (isFinite(_tc) && _tc > 50) lPart.T_curie = _tc;
+          } else if (_ltk.indexOf('curieexp=') === 0) {
+            var _ce = parseFloat(_ltk.slice(9));
+            if (isFinite(_ce) && _ce >= 1) lPart.curie_exp = _ce;
           }
         }
         circuit.parts.push(lPart);
@@ -312,6 +319,9 @@ VXA.SpiceImport = (function() {
         if (cp.satExp != null) p.satExp = cp.satExp;
         // Sprint 87: hysteresis / core-loss coercive current.
         if (cp.Hc != null)     p.Hc     = cp.Hc;
+        // Sprint 88: Curie-point Isat derating.
+        if (cp.T_curie != null)   p.T_curie   = cp.T_curie;
+        if (cp.curie_exp != null) p.curie_exp = cp.curie_exp;
         if (cp.type === 'subcircuit' && cp.subcktName) {
           p.subcktName = cp.subcktName;
           var sc = (typeof VXA !== 'undefined' && VXA.Subcircuit) ? VXA.Subcircuit.getSubcircuit(cp.subcktName) : null;
@@ -340,6 +350,8 @@ VXA.SpiceImport = (function() {
         if (cp.Isat != null)   p.Isat   = cp.Isat;
         if (cp.satExp != null) p.satExp = cp.satExp;
         if (cp.Hc != null)     p.Hc     = cp.Hc;
+        if (cp.T_curie != null)   p.T_curie   = cp.T_curie;
+        if (cp.curie_exp != null) p.curie_exp = cp.curie_exp;
         S.parts.push(p);
         idMap[idx] = p;
       });
