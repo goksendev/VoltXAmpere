@@ -295,14 +295,23 @@ function drawPart(part) {
   // brand colour. Only when the simulator is running AND the source
   // is actually sourcing current.
   if (S.sim && S.sim.running && _SOURCE_TYPES[part.type]) {
-    var srcCur = Math.abs(part._i || 0);
+    var srcCurRaw = part._i || 0;
+    var srcVRaw = part._v || 0;
+    var srcCur = Math.abs(srcCurRaw);
     if (srcCur >= _CUR_IDLE) {
       var now = (typeof performance !== 'undefined' ? performance.now() : Date.now()) / 1000;
-      var alpha = 0.18 + 0.12 * Math.sin(now * 2 * Math.PI * 1.5);
+      // Sprint 70d: the warning ring fires when POWER is flowing back
+      // into the source (V·I < 0). Sign of current alone isn't enough —
+      // a reverse-polarity battery has negative V and negative I, but
+      // still delivers (positive P). The P<0 test is polarity-agnostic.
+      var ringSinking = (srcVRaw * srcCurRaw) < -1e-9;
+      var alpha = ringSinking
+        ? 0.30 + 0.15 * Math.sin(now * 2 * Math.PI * 2.5)
+        : 0.18 + 0.12 * Math.sin(now * 2 * Math.PI * 1.5);
       ctx.save();
       ctx.globalAlpha = alpha;
-      ctx.strokeStyle = _origDefColor;
-      ctx.lineWidth = 3;
+      ctx.strokeStyle = ringSinking ? '#ff3333' : _origDefColor;
+      ctx.lineWidth = ringSinking ? 4 : 3;
       ctx.beginPath();
       ctx.arc(0, 0, 24, 0, Math.PI * 2);
       ctx.stroke();

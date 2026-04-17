@@ -491,13 +491,16 @@ VXA.SimV2 = (function() {
         // Sprint 69 FIX: Proper KCL — sum ALL branch currents leaving node n1
         // (through every adjacent branch: R, C, L, D, BJT coll/emit, MOSFET drain/source).
         // Then V source current = net current OUT of its positive node.
+        // Sprint 70d: keep the sign. Convention: V+ pin is c.n1, so
+        // _vI > 0 ⇒ current leaves V+ into the external circuit =
+        // source is DELIVERING. _vI < 0 ⇒ current is forced INTO V+ =
+        // source is SINKING (anomalous for an ideal DC source;
+        // meaningful for batteries in charge mode or regen loads).
         var _vnode = c.n1;
         var _vI = 0;
         for (var _vk = 0; _vk < SIM.comps.length; _vk++) {
           var _vc = SIM.comps[_vk];
           if (_vc === c || _vc.type === 'V') continue;
-          // Determine which pin(s) touch _vnode and the branch current flowing
-          // out of _vnode toward the rest of the branch.
           if (_vc.type === 'R') {
             if (_vc.n1 === _vnode) _vI += ((nodeV[_vc.n1] || 0) - (nodeV[_vc.n2] || 0)) / _vc.val;
             else if (_vc.n2 === _vnode) _vI += ((nodeV[_vc.n2] || 0) - (nodeV[_vc.n1] || 0)) / _vc.val;
@@ -505,7 +508,6 @@ VXA.SimV2 = (function() {
             if (_vc.n1 === _vnode) _vI += _vc.iPrev || 0;
             else if (_vc.n2 === _vnode) _vI -= _vc.iPrev || 0;
           } else if (_vc.type === 'C') {
-            // Instantaneous cap current from companion: G*dv/dt from last frame
             var _cCur = _vc.iPrev || 0;
             if (_vc.n1 === _vnode) _vI += _cCur;
             else if (_vc.n2 === _vnode) _vI -= _cCur;
@@ -513,14 +515,21 @@ VXA.SimV2 = (function() {
             if (_vc.n1 === _vnode) _vI += _vc.val;
             else if (_vc.n2 === _vnode) _vI -= _vc.val;
           } else if (_vc.type === 'D' || _vc.type === 'Z') {
-            // Use part._i (computed elsewhere) if available
             var _diI = _vc.part && _vc.part._i ? _vc.part._i : 0;
-            // Direction: anode = n1 (current flows n1 → n2)
             if (_vc.n1 === _vnode) _vI += _diI;
             else if (_vc.n2 === _vnode) _vI -= _diI;
+          } else if (_vc.type === 'BJT' || _vc.type === 'MOS') {
+            // Approximate: when V+ sits on the collector/drain we add the
+            // device's magnitude current; on the emitter/source we subtract
+            // (current leaves the device back through the emitter/source).
+            var _actI = Math.abs(_vc.part && _vc.part._i ? _vc.part._i : 0);
+            if (_vc.n2 === _vnode) _vI += _actI;
+            else if (_vc.n3 === _vnode) _vI -= _actI;
           }
         }
-        c.part._v = Math.abs(vd); c.part._i = Math.abs(_vI); c.part._p = Math.abs(vd * _vI);
+        c.part._v = vd;          // SIGNED: V(V+) - V(V-)
+        c.part._i = _vI;         // SIGNED: +ve = delivering, -ve = sinking
+        c.part._p = vd * _vI;    // SIGNED: +ve = sourcing power into circuit
       } else if (c.type === 'D') {
         // Sprint 69 FIX: Primary readout via Shockley equation (physically correct),
         // then compare with KCL from anode — if KCL gives finite non-zero, prefer it

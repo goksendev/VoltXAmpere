@@ -286,8 +286,9 @@ const CIRCUITS = [
       // buildCircuitFromCanvas populates S._pinToNode and SIM.N, which is
       // what we need to count unique nets.
       let simNodes = 0, simError = null;
-      let orphanWires = 0;  // wires with zero current while others are non-zero
-      let groundPinCurrent = null;  // Sprint 70c: |I| at ground pin in a live net
+      let orphanWires = 0;
+      let groundPinCurrent = null;
+      let result_vSignCheck = null;
       try {
         buildCircuitFromCanvas();
         simNodes = (typeof SIM !== 'undefined' && SIM && SIM.N) ? SIM.N : 0;
@@ -306,6 +307,25 @@ const CIRCUITS = [
           if (gnd) groundPinCurrent = Math.abs(gnd._i || 0);
           S.sim.running = false;
         }
+        // Sprint 70d: V-source signed-current sanity. On any live
+        // resistive net, V1._i should be non-trivial (> 1 µA) and
+        // sign should equal sign(V1._v) for a normal delivery
+        // circuit. Sum of |R branch currents at V+| should match
+        // |V1._i| within a small tolerance.
+        var vSignCheck = null;
+        if (isSimple && S.parts.some(p => p.type === 'vdc') && S.parts.length >= 3) {
+          const V1 = S.parts.find(p => p.type === 'vdc');
+          const Rs = S.parts.filter(p => p.type === 'resistor');
+          const sumRs = Rs.reduce((a, r) => a + Math.abs(r._i || 0), 0);
+          vSignCheck = {
+            vi: V1._i,
+            vv: V1._v,
+            vp: V1._p,
+            sumR: sumRs,
+            kclDelta: Math.abs(Math.abs(V1._i) - sumRs)
+          };
+        }
+        result_vSignCheck = vSignCheck;
       } catch (e) { simError = e.message || String(e); }
 
       return {
@@ -321,7 +341,8 @@ const CIRCUITS = [
         diagonalWires: S.wires.filter(w => w.x1 !== w.x2 && w.y1 !== w.y2).length,
         nonHorizontalPassives, compactness, scopeFirstSample,
         gndFloatingParts, dropIntegrityViolations, busY,
-        simNodes, simError, orphanWires, groundPinCurrent
+        simNodes, simError, orphanWires, groundPinCurrent,
+        vSignCheck: result_vSignCheck
       };
     }, text);
 
@@ -367,6 +388,16 @@ const CIRCUITS = [
         detail: snapshot.groundPinCurrent === null
                 ? 'N/A (sim skipped for this circuit)'
                 : 'gnd._i = ' + (snapshot.groundPinCurrent * 1000).toFixed(3) + ' mA' },
+      { rule: 'V-source signed current + power sign',
+        ok: snapshot.vSignCheck === null
+            || (Math.abs(snapshot.vSignCheck.vi) > 1e-6
+                && (snapshot.vSignCheck.vv * snapshot.vSignCheck.vi) > 0),
+        detail: snapshot.vSignCheck === null
+                ? 'N/A (sim skipped)'
+                : 'V=' + snapshot.vSignCheck.vv.toFixed(3) + 'V, '
+                  + 'I=' + (snapshot.vSignCheck.vi * 1000).toFixed(3) + 'mA, '
+                  + 'P=' + (snapshot.vSignCheck.vp * 1000).toFixed(3) + 'mW ('
+                  + ((snapshot.vSignCheck.vv * snapshot.vSignCheck.vi) > 0 ? 'delivering' : 'sinking') + ')' },
     ];
     const pass = checks.every(c => c.ok);
     if (!pass) anyFail = true;

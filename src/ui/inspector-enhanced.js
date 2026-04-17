@@ -83,10 +83,36 @@ function updateInspector() {
     html += ' <span style="font:10px var(--font-mono);color:var(--text-4)">' + fmtVal(p.val, 'Ω') + '</span></div>';
   }
 
-  // 3. Live measurements (2x2 grid). Sprint 70c: ground is a reference
-  // node, not a dissipative component — relabel V as "Referans", I as
-  // "Pin akımı" (KCL sum through the pin), mark P and T° as N/A.
-  if (p.type === 'ground') {
+  // 3. Live measurements (2x2 grid). Sprint 70c+70d: ground is a
+  // reference node (relabelled below); V/I sources report signed
+  // current so "Çıkış" (delivering) vs "Emme" (sinking) reflects
+  // whether the source is actually sourcing or absorbing power.
+  var _SOURCE_KIND = { vdc:1, vac:1, pulse:1, pwl:1, idc:1, iac:1, noise:1 };
+  if (_SOURCE_KIND[p.type]) {
+    var _srcI = p._i || 0;
+    var _srcV = p._v || 0;
+    // Sprint 70d: sinking = V·I < 0, i.e. power flowing BACK INTO the
+    // source. Sign of I alone is polarity-dependent; P keeps the
+    // physical meaning regardless of whether the battery is wired
+    // "backward" (V<0, I<0 still delivers: P = (-V)(-I) > 0).
+    var _srcSink = (_srcV * _srcI) < -1e-9;
+    var _srcLabel = _srcSink ? 'I (Emme &#9888;)' : 'I (&#199;&#305;k&#305;&#351;)';
+    var _srcColor = _srcSink ? 'var(--orange)' : 'var(--blue)';
+    html += '<div class="insp-meas-grid">'
+      + '<div class="insp-meas" id="im-v"><div class="im-label">V</div><div class="im-val" style="color:var(--accent)" id="imv-val">&mdash;</div></div>'
+      + '<div class="insp-meas" id="im-i"><div class="im-label">' + _srcLabel + '</div><div class="im-val" style="color:' + _srcColor + '" id="imi-val">&mdash;</div></div>'
+      + '<div class="insp-meas" id="im-p"><div class="im-label">P</div><div class="im-val" style="color:var(--orange)" id="imp-val">&mdash;</div></div>'
+      + '<div class="insp-meas" id="im-t"><div class="im-label">T&deg;</div><div class="im-val" style="color:var(--text-3)" id="imt-val">&mdash;</div></div>'
+      + '</div>';
+    if (_srcSink && S.sim && S.sim.running) {
+      html += '<div style="margin-top:6px;padding:5px 8px;background:rgba(245,158,11,0.08);'
+        + 'border-left:2px solid var(--orange);border-radius:3px;font-size:11px;'
+        + 'color:var(--orange);line-height:1.4">'
+        + '&#9888; Ak&#305;m kayna&#287;a geri d&ouml;n&uuml;yor (emme modu). '
+        + '&#304;deal DC kayna&#287;&#305; i&ccedil;in anormal; ger&ccedil;ek pillerde &#351;arj olay&#305;.'
+        + '</div>';
+    }
+  } else if (p.type === 'ground') {
     html += '<div class="insp-meas-grid">'
       + '<div class="insp-meas" id="im-v"><div class="im-label">V (Referans)</div><div class="im-val" style="color:var(--text-3)" id="imv-val">0.00 V</div></div>'
       + '<div class="insp-meas" id="im-i"><div class="im-label">I (Pin akımı)</div><div class="im-val" style="color:var(--blue)" id="imi-val">—</div></div>'
@@ -160,6 +186,25 @@ function updateInspector() {
     // the pin-entering current; leave V, P and T as-rendered.
     if (pp.type === 'ground') {
       if (iEl) iEl.textContent = fmtVal(pp._i || 0, 'A');
+      return;
+    }
+    // Sprint 70d: V/I sources display |I| next to a directional label
+    // ("Çıkış" vs "Emme"). The label is driven by sign — re-render it
+    // each tick so polarity reversals (e.g. during AC cycles) update
+    // without reopening the Inspector.
+    var _SRC_T = { vdc:1, vac:1, pulse:1, pwl:1, idc:1, iac:1, noise:1 };
+    if (_SRC_T[pp.type]) {
+      var _sI = pp._i || 0;
+      var _sV = pp._v || 0;
+      var _sSink = (_sV * _sI) < -1e-9;
+      var _lblEl = document.querySelector('#im-i .im-label');
+      if (_lblEl) _lblEl.innerHTML = _sSink ? 'I (Emme &#9888;)' : 'I (&#199;&#305;k&#305;&#351;)';
+      if (iEl) {
+        iEl.textContent = fmtVal(Math.abs(_sI), 'A');
+        iEl.style.color = _sSink ? 'var(--orange)' : 'var(--blue)';
+      }
+      if (vEl) vEl.textContent = fmtVal(_sV, 'V');
+      if (pEl) pEl.textContent = fmtVal(pp._p || 0, 'W');
       return;
     }
     if (vEl) vEl.textContent = fmtVal(pp._v || 0, 'V');
