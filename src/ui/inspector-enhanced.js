@@ -83,13 +83,32 @@ function updateInspector() {
     html += ' <span style="font:10px var(--font-mono);color:var(--text-4)">' + fmtVal(p.val, 'Ω') + '</span></div>';
   }
 
-  // 3. Live measurements (2x2 grid)
-  html += '<div class="insp-meas-grid">'
-    + '<div class="insp-meas" id="im-v"><div class="im-label">V</div><div class="im-val" style="color:var(--accent)" id="imv-val">—</div></div>'
-    + '<div class="insp-meas" id="im-i"><div class="im-label">I</div><div class="im-val" style="color:var(--blue)" id="imi-val">—</div></div>'
-    + '<div class="insp-meas" id="im-p"><div class="im-label">P</div><div class="im-val" style="color:var(--orange)" id="imp-val">—</div></div>'
-    + '<div class="insp-meas" id="im-t"><div class="im-label">T°</div><div class="im-val" style="color:var(--text-3)" id="imt-val">—</div></div>'
-    + '</div>';
+  // 3. Live measurements (2x2 grid). Sprint 70c: ground is a reference
+  // node, not a dissipative component — relabel V as "Referans", I as
+  // "Pin akımı" (KCL sum through the pin), mark P and T° as N/A.
+  if (p.type === 'ground') {
+    html += '<div class="insp-meas-grid">'
+      + '<div class="insp-meas" id="im-v"><div class="im-label">V (Referans)</div><div class="im-val" style="color:var(--text-3)" id="imv-val">0.00 V</div></div>'
+      + '<div class="insp-meas" id="im-i"><div class="im-label">I (Pin akımı)</div><div class="im-val" style="color:var(--blue)" id="imi-val">—</div></div>'
+      + '<div class="insp-meas" id="im-p"><div class="im-label">P</div><div class="im-val" style="color:var(--text-4);font-size:10px" id="imp-val">— ideal iletken</div></div>'
+      + '<div class="insp-meas" id="im-t"><div class="im-label">T°</div><div class="im-val" style="color:var(--text-4);font-size:10px" id="imt-val">— disipasyon yok</div></div>'
+      + '</div>';
+    html += '<div style="margin-top:8px;padding:6px 8px;background:rgba(0,224,158,0.05);'
+      + 'border-left:2px solid #00e09e;border-radius:3px;font-size:11px;'
+      + 'color:#8899aa;line-height:1.45">'
+      + '<span style="color:#00e09e">&#8505; GND referans noktasıdır</span> — '
+      + 'tüm gerilimler buna göre ölçülür (tanım gereği V = 0). İdeal iletken '
+      + 'olduğu için üzerinde güç disipe olmaz ve ısınmaz; ancak pin\'den geçen '
+      + 'akım (KCL) okunur.'
+      + '</div>';
+  } else {
+    html += '<div class="insp-meas-grid">'
+      + '<div class="insp-meas" id="im-v"><div class="im-label">V</div><div class="im-val" style="color:var(--accent)" id="imv-val">—</div></div>'
+      + '<div class="insp-meas" id="im-i"><div class="im-label">I</div><div class="im-val" style="color:var(--blue)" id="imi-val">—</div></div>'
+      + '<div class="insp-meas" id="im-p"><div class="im-label">P</div><div class="im-val" style="color:var(--orange)" id="imp-val">—</div></div>'
+      + '<div class="insp-meas" id="im-t"><div class="im-label">T°</div><div class="im-val" style="color:var(--text-3)" id="imt-val">—</div></div>'
+      + '</div>';
+  }
 
   // Status chip
   var th = p._thermal;
@@ -137,6 +156,12 @@ function updateInspector() {
     var iEl = document.getElementById('imi-val');
     var pEl = document.getElementById('imp-val');
     var tEl = document.getElementById('imt-val');
+    // Sprint 70c: ground cards are static by definition — only refresh
+    // the pin-entering current; leave V, P and T as-rendered.
+    if (pp.type === 'ground') {
+      if (iEl) iEl.textContent = fmtVal(pp._i || 0, 'A');
+      return;
+    }
     if (vEl) vEl.textContent = fmtVal(pp._v || 0, 'V');
     if (iEl) iEl.textContent = fmtVal(pp._i || 0, 'A');
     if (pEl) pEl.textContent = fmtVal(pp._p || 0, 'W');

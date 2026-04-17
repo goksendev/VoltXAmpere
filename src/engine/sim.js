@@ -741,6 +741,33 @@ VXA.SimV2 = (function() {
       if (!_changed) break;
     }
 
+    // Sprint 70c: Ground pin-current readout. The solver doesn't model
+    // ground as a dissipative component — it is a node-0 reference — so
+    // part._i stays 0 for ground symbols even when real current is
+    // returning through them. Populate it here by summing |current|
+    // over wires touching the ground pin, so the Inspector can display
+    // the physically-meaningful KCL current. V and P remain 0 by
+    // definition (reference potential, ideal conductor).
+    for (var _gi = 0; _gi < S.parts.length; _gi++) {
+      var _gp = S.parts[_gi];
+      if (_gp.type !== 'ground') continue;
+      var _gr = (_gp.rot || 0) * Math.PI / 2;
+      var _gco = Math.cos(_gr), _gsi = Math.sin(_gr);
+      var _pX = _gp.x + 0 * _gco - (-20) * _gsi;
+      var _pY = _gp.y + 0 * _gsi + (-20) * _gco;
+      var _gMaxCur = 0;
+      for (var _gwi = 0; _gwi < S.wires.length; _gwi++) {
+        var _gww = S.wires[_gwi];
+        if (_segTouchesPoint(_gww, _pX, _pY)) {
+          var _gc = Math.abs(_gww._current || 0);
+          if (_gc > _gMaxCur) _gMaxCur = _gc;
+        }
+      }
+      _gp._i = _gMaxCur;
+      _gp._v = 0;
+      _gp._p = 0;
+    }
+
     // Scope
     var scopeNodes = [];
     for (var ni = 1; ni < nodeV.length; ni++) { if (nodeV[ni] !== undefined) scopeNodes.push(ni); }

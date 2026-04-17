@@ -287,12 +287,11 @@ const CIRCUITS = [
       // what we need to count unique nets.
       let simNodes = 0, simError = null;
       let orphanWires = 0;  // wires with zero current while others are non-zero
+      let groundPinCurrent = null;  // Sprint 70c: |I| at ground pin in a live net
       try {
         buildCircuitFromCanvas();
         simNodes = (typeof SIM !== 'undefined' && SIM && SIM.N) ? SIM.N : 0;
         simError = S.sim && S.sim.error ? S.sim.error : null;
-        // Wire current propagation check — only for simple resistive nets
-        // (skip active circuits where the DC solver may fail to converge).
         const simpleTypes = ['resistor','capacitor','inductor','vdc','ground'];
         const isSimple = S.parts.every(p => simpleTypes.includes(p.type));
         if (isSimple && S.parts.some(p => p.type === 'vdc') && S.parts.length >= 3) {
@@ -303,6 +302,8 @@ const CIRCUITS = [
           if (anyCur) {
             orphanWires = S.wires.filter(w => Math.abs(w._current || 0) < 1e-9).length;
           }
+          const gnd = S.parts.find(pp => pp.type === 'ground');
+          if (gnd) groundPinCurrent = Math.abs(gnd._i || 0);
           S.sim.running = false;
         }
       } catch (e) { simError = e.message || String(e); }
@@ -320,7 +321,7 @@ const CIRCUITS = [
         diagonalWires: S.wires.filter(w => w.x1 !== w.x2 && w.y1 !== w.y2).length,
         nonHorizontalPassives, compactness, scopeFirstSample,
         gndFloatingParts, dropIntegrityViolations, busY,
-        simNodes, simError, orphanWires
+        simNodes, simError, orphanWires, groundPinCurrent
       };
     }, text);
 
@@ -361,6 +362,11 @@ const CIRCUITS = [
       { rule: 'no orphan wires when sim is live', ok: snapshot.orphanWires === 0,
         detail: snapshot.orphanWires === 0 ? 'all wires animate'
                 : snapshot.orphanWires + ' wires stuck at _current=0' },
+      { rule: 'ground pin current readout when sim live',
+        ok: snapshot.groundPinCurrent === null || snapshot.groundPinCurrent > 1e-6,
+        detail: snapshot.groundPinCurrent === null
+                ? 'N/A (sim skipped for this circuit)'
+                : 'gnd._i = ' + (snapshot.groundPinCurrent * 1000).toFixed(3) + ' mA' },
     ];
     const pass = checks.every(c => c.ok);
     if (!pass) anyFail = true;
