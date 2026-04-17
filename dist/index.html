@@ -717,7 +717,7 @@ input:focus{border-color:var(--accent)}
     <span id="sb-temp" style="color:var(--text-3)"></span>
     <span id="sb-engine" style="color:var(--text-4)"></span>
     <span id="sb-extra" style="color:var(--text-3)"></span>
-    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v9.0 — Build: 2026-04-17 03:56 — © 2026</span>
+    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v9.0 — Build: 2026-04-17 04:30 — © 2026</span>
   </div>
 </div>
 
@@ -12884,19 +12884,39 @@ VXA.SpiceRouter = (function() {
     return pref;
   }
 
-  // Build horizontal-trunk wires for a given trunk Y. Each pin's stub is
-  // routed via lShape (same-X case) so a blocked direct drop detours through
-  // a clean X channel.
+  // Build horizontal-trunk wires for a given trunk Y. Pin stubs use lShape
+  // which is obstacle + foreign-pin aware when nodePinSet / foreignPinArr
+  // are threaded through opts (see connectNode).
+  var _curNodePinSet = null, _curForeignPinArr = null, _curReservedEndpoints = null;
+  function _setRouteContext(nodePinSet, foreignPinArr, reservedEndpoints) {
+    _curNodePinSet = nodePinSet || null;
+    _curForeignPinArr = foreignPinArr || null;
+    _curReservedEndpoints = reservedEndpoints || null;
+  }
+  // (legacy comment retained):
+  // the trunk is emitted as multiple short segments split at every pin's
+  // contact X, so each contact point is a shared wire endpoint. The
+  // simulator's pin-merge logic unions wire endpoints only — a pin-stub
+  // landing on the interior of a long trunk would leave that pin
+  // electrically floating.
   function buildHTrunk(pins, ty, boxes) {
     var xs = pins.map(function(p) { return p.x; });
     var minX = Math.min.apply(null, xs), maxX = Math.max.apply(null, xs);
     var wires = [];
     pins.forEach(function(p) {
       if (p.y === ty) return;
-      var segs = lShape(p, { x: p.x, y: ty }, boxes);
+      var segs = lShape(p, { x: p.x, y: ty }, boxes, _curNodePinSet, _curForeignPinArr, _curReservedEndpoints);
       segs.forEach(function(s) { wires.push(s); });
     });
-    if (maxX > minX) wires.push({ x1: minX, y1: ty, x2: maxX, y2: ty });
+    if (maxX > minX) {
+      var stops = {};
+      pins.forEach(function(p) { stops[p.x] = true; });
+      stops[minX] = true; stops[maxX] = true;
+      var sortedStops = Object.keys(stops).map(Number).sort(function(a, b) { return a - b; });
+      for (var i = 0; i < sortedStops.length - 1; i++) {
+        wires.push({ x1: sortedStops[i], y1: ty, x2: sortedStops[i+1], y2: ty });
+      }
+    }
     return wires;
   }
 
@@ -12906,30 +12926,91 @@ VXA.SpiceRouter = (function() {
     var wires = [];
     pins.forEach(function(p) {
       if (p.x === tx) return;
-      var segs = lShape(p, { x: tx, y: p.y }, boxes);
+      var segs = lShape(p, { x: tx, y: p.y }, boxes, _curNodePinSet, _curForeignPinArr, _curReservedEndpoints);
       segs.forEach(function(s) { wires.push(s); });
     });
-    if (maxY > minY) wires.push({ x1: tx, y1: minY, x2: tx, y2: maxY });
+    if (maxY > minY) {
+      var stops = {};
+      pins.forEach(function(p) { stops[p.y] = true; });
+      stops[minY] = true; stops[maxY] = true;
+      var sortedStops = Object.keys(stops).map(Number).sort(function(a, b) { return a - b; });
+      for (var i = 0; i < sortedStops.length - 1; i++) {
+        wires.push({ x1: tx, y1: sortedStops[i], x2: tx, y2: sortedStops[i+1] });
+      }
+    }
     return wires;
   }
 
-  function horizontalTrunk(pins, trunkY, boxes) {
+  // Sprint 70a-fix-3: the simulator's snap-to-nearest-pin radius is 25
+  // Chebyshev px (SNAP_TOL in sim-legacy.js), so any wire endpoint whose
+  // Chebyshev distance to a foreign pin is <=24 will be wrongly merged
+  // into that pin's net. Reject such endpoints. foreignPinArr is an
+  // array of {x,y} — for small circuits the O(wires*foreignPins) cost
+  // is negligible.
+  var SIM_SNAP_TOL = 25;
+  function endpointsTouchForeignPin(wires, nodePinSet, foreignPinArr, reservedEndpoints) {
+    for (var i = 0; i < wires.length; i++) {
+      var w = wires[i];
+      var ends = [[w.x1, w.y1], [w.x2, w.y2]];
+      for (var e = 0; e < 2; e++) {
+        var ex = ends[e][0], ey = ends[e][1];
+        var ekey = ex + ',' + ey;
+        if (nodePinSet && nodePinSet.has(ekey)) continue;
+        // Reserved endpoints from previously-routed nodes — an exact match
+        // shorts two otherwise-separate nets when the simulator unions
+        // wire endpoints by key.
+        if (reservedEndpoints && reservedEndpoints.has && reservedEndpoints.has(ekey)) return true;
+        if (foreignPinArr && foreignPinArr.length > 0) {
+          for (var j = 0; j < foreignPinArr.length; j++) {
+            var fp = foreignPinArr[j];
+            var d = Math.max(Math.abs(fp.x - ex), Math.abs(fp.y - ey));
+            if (d < SIM_SNAP_TOL) return true;
+          }
+        }
+      }
+    }
+    return false;
+  }
+
+  // A trunk on axis A at value V cannot share that axis-value with any
+  // foreign pin — even when the foreign pin is well outside the trunk's
+  // extent, some OTHER node's routing later may extend a wire along that
+  // line and collide at a shared endpoint. This is the only way to prevent
+  // cross-node shorts without a global re-routing pass.
+  function trunkAxisConflicts(axisVal, axisKey, foreignPinArr) {
+    if (!foreignPinArr || foreignPinArr.length === 0) return false;
+    for (var i = 0; i < foreignPinArr.length; i++) {
+      if (foreignPinArr[i][axisKey] === axisVal) return true;
+    }
+    return false;
+  }
+
+  function horizontalTrunk(pins, trunkY, boxes, nodePinSet, foreignPinArr, reservedY, reservedEndpoints) {
     if (pins.length < 2) return [];
     var ys = pins.map(function(p) { return p.y; });
     var prefer = trunkY != null ? trunkY : snap20(ys.reduce(function(s,v){return s+v;},0)/ys.length);
-    // Scan until every stub + the trunk itself is clean.
     var ty = scanCleanValue(prefer, function(y) {
-      return !segmentsHitAny(buildHTrunk(pins, y, boxes), boxes);
+      if (reservedY && reservedY.has && reservedY.has(y)) return false;
+      if (trunkAxisConflicts(y, 'y', foreignPinArr)) return false;
+      var w = buildHTrunk(pins, y, boxes);
+      if (segmentsHitAny(w, boxes)) return false;
+      if (endpointsTouchForeignPin(w, nodePinSet, foreignPinArr, reservedEndpoints)) return false;
+      return true;
     });
     return buildHTrunk(pins, ty, boxes);
   }
 
-  function verticalTrunk(pins, trunkX, boxes) {
+  function verticalTrunk(pins, trunkX, boxes, nodePinSet, foreignPinArr, reservedX, reservedEndpoints) {
     if (pins.length < 2) return [];
     var xs = pins.map(function(p) { return p.x; });
     var prefer = trunkX != null ? trunkX : snap20(xs.reduce(function(s,v){return s+v;},0)/xs.length);
     var tx = scanCleanValue(prefer, function(x) {
-      return !segmentsHitAny(buildVTrunk(pins, x, boxes), boxes);
+      if (reservedX && reservedX.has && reservedX.has(x)) return false;
+      if (trunkAxisConflicts(x, 'x', foreignPinArr)) return false;
+      var w = buildVTrunk(pins, x, boxes);
+      if (segmentsHitAny(w, boxes)) return false;
+      if (endpointsTouchForeignPin(w, nodePinSet, foreignPinArr, reservedEndpoints)) return false;
+      return true;
     });
     return buildVTrunk(pins, tx, boxes);
   }
@@ -12953,8 +13034,14 @@ VXA.SpiceRouter = (function() {
   // out-stub) clear every body. Earlier version only validated the trunk
   // segment, causing the final vertical drop into the destination pin's
   // own body when that pin sat inside an active device's X range.
-  function lShape(pinA, pinB, boxes) {
+  function lShape(pinA, pinB, boxes, nodePinSet, foreignPinArr, reservedEndpoints) {
     if (pinA.x === pinB.x && pinA.y === pinB.y) return [];
+
+    function wiresValid(wires) {
+      if (segmentsHitAny(wires, boxes)) return false;
+      if (endpointsTouchForeignPin(wires, nodePinSet || new Set(), foreignPinArr || [], reservedEndpoints)) return false;
+      return true;
+    }
 
     // Helper: 3-segment U-detour with horizontal trunk at tY.
     function uDetourY(tY) {
@@ -12976,27 +13063,20 @@ VXA.SpiceRouter = (function() {
     // Collinear pins (same X) — direct is a single vertical wire.
     if (pinA.x === pinB.x) {
       var direct = [{ x1:pinA.x, y1:pinA.y, x2:pinB.x, y2:pinB.y }];
-      if (!segmentsHitAny(direct, boxes)) return direct;
-      // Detour: route out to a clean X channel, down, back in.
-      var cx = scanCleanValue(pinA.x, function(x) {
-        return !segmentsHitAny(uDetourX(x), boxes);
-      });
-      if (cx !== pinA.x) return uDetourX(cx);
+      if (wiresValid(direct)) return direct;
+      var cx = scanCleanValue(pinA.x, function(x) { return wiresValid(uDetourX(x)); });
+      if (wiresValid(uDetourX(cx))) return uDetourX(cx);
       return direct;
     }
 
-    // Collinear pins (same Y)
     if (pinA.y === pinB.y) {
       var directH = [{ x1:pinA.x, y1:pinA.y, x2:pinB.x, y2:pinB.y }];
-      if (!segmentsHitAny(directH, boxes)) return directH;
-      var cy = scanCleanValue(pinA.y, function(y) {
-        return !segmentsHitAny(uDetourY(y), boxes);
-      });
-      if (cy !== pinA.y) return uDetourY(cy);
+      if (wiresValid(directH)) return directH;
+      var cy = scanCleanValue(pinA.y, function(y) { return wiresValid(uDetourY(y)); });
+      if (wiresValid(uDetourY(cy))) return uDetourY(cy);
       return directH;
     }
 
-    // Different X and Y — try both 2-segment L variants first
     var variantA = [
       { x1:pinA.x, y1:pinA.y, x2:pinB.x, y2:pinA.y },
       { x1:pinB.x, y1:pinA.y, x2:pinB.x, y2:pinB.y }
@@ -13005,20 +13085,16 @@ VXA.SpiceRouter = (function() {
       { x1:pinA.x, y1:pinA.y, x2:pinA.x, y2:pinB.y },
       { x1:pinA.x, y1:pinB.y, x2:pinB.x, y2:pinB.y }
     ];
-    if (!segmentsHitAny(variantA, boxes)) return variantA;
-    if (!segmentsHitAny(variantB, boxes)) return variantB;
-    // U-detour Y first, then X — both check ALL three segments.
+    if (wiresValid(variantA)) return variantA;
+    if (wiresValid(variantB)) return variantB;
     var preferY = snap20((pinA.y + pinB.y) / 2);
-    var ty = scanCleanValue(preferY, function(y) {
-      return !segmentsHitAny(uDetourY(y), boxes);
-    });
-    if (!segmentsHitAny(uDetourY(ty), boxes)) return uDetourY(ty);
+    var ty = scanCleanValue(preferY, function(y) { return wiresValid(uDetourY(y)); });
+    if (wiresValid(uDetourY(ty))) return uDetourY(ty);
     var preferX = snap20((pinA.x + pinB.x) / 2);
-    var tx = scanCleanValue(preferX, function(x) {
-      return !segmentsHitAny(uDetourX(x), boxes);
-    });
-    if (!segmentsHitAny(uDetourX(tx), boxes)) return uDetourX(tx);
-    // Nothing clean — return the variant with fewer hits as fallback.
+    var tx = scanCleanValue(preferX, function(x) { return wiresValid(uDetourX(x)); });
+    if (wiresValid(uDetourX(tx))) return uDetourX(tx);
+    // Fallback: choose variant with fewer body hits (connectivity may fail
+    // gracefully but the circuit still renders).
     var scoreA = 0, scoreB = 0;
     variantA.forEach(function(s) { boxes.forEach(function(b) { if (segmentHitsBox(s, b)) scoreA++; }); });
     variantB.forEach(function(s) { boxes.forEach(function(b) { if (segmentHitsBox(s, b)) scoreB++; }); });
@@ -13033,13 +13109,10 @@ VXA.SpiceRouter = (function() {
     return c;
   }
 
-  // Star-L: connect every pin[i≥1] to pin[0] with obstacle-aware L-shape.
-  // Used when trunk routing inevitably collides with parts (e.g. 4-pin
-  // controlled sources where pins flank a wide body).
-  function starL(pins, boxes) {
+  function starL(pins, boxes, nodePinSet, foreignPinArr, reservedEndpoints) {
     var wires = [];
     for (var i = 1; i < pins.length; i++) {
-      var segs = lShape(pins[0], pins[i], boxes);
+      var segs = lShape(pins[0], pins[i], boxes, nodePinSet, foreignPinArr, reservedEndpoints);
       segs.forEach(function(s) { wires.push(s); });
     }
     return wires;
@@ -13049,47 +13122,103 @@ VXA.SpiceRouter = (function() {
     if (!pins || pins.length < 2) return [];
     opts = opts || {};
     var boxes = opts.boxes || [];
-    if (pins.length === 2) return dedupWires(lShape(pins[0], pins[1], boxes));
+    var nodePinSet = opts.nodePinSet || new Set(pins.map(function(p) { return p.x+','+p.y; }));
+    var foreignPinArr = opts.foreignPinArr || new Set();
+    var reservedEndpoints = opts.reservedEndpoints || null;
+    if (pins.length === 2) return dedupWires(lShape(pins[0], pins[1], boxes, nodePinSet, foreignPinArr, reservedEndpoints));
 
-    // Try 3 strategies; pick minimum collisions (tiebreaker: fewer wires).
+    _setRouteContext(nodePinSet, foreignPinArr, reservedEndpoints);
     var candidates = [
-      { name:'h-trunk', wires: horizontalTrunk(pins, opts.trunkY, boxes) },
-      { name:'v-trunk', wires: verticalTrunk(pins, opts.trunkX, boxes) },
-      { name:'star-l',  wires: starL(pins, boxes) }
+      { name:'h-trunk', wires: horizontalTrunk(pins, opts.trunkY, boxes, nodePinSet, foreignPinArr, opts.reservedY, reservedEndpoints) },
+      { name:'v-trunk', wires: verticalTrunk(pins, opts.trunkX, boxes, nodePinSet, foreignPinArr, opts.reservedX, reservedEndpoints) },
+      { name:'star-l',  wires: starL(pins, boxes, nodePinSet, foreignPinArr, reservedEndpoints) }
     ];
+    _setRouteContext(null, null, null);
+    // Penalise candidates whose wire endpoints land on foreign pins — this
+    // would cause the simulator to merge unrelated nets.
+    function score(wires) {
+      var hits = countHits(wires, boxes);
+      var foreign = endpointsTouchForeignPin(wires, nodePinSet, foreignPinArr) ? 1 : 0;
+      return foreign * 10000 + hits * 1000 + wires.length;
+    }
     var best = candidates[0];
-    var bestScore = countHits(best.wires, boxes) * 1000 + best.wires.length;
+    var bestScore = score(best.wires);
     for (var i = 1; i < candidates.length; i++) {
       var c = candidates[i];
-      var s = countHits(c.wires, boxes) * 1000 + c.wires.length;
+      var s = score(c.wires);
       if (s < bestScore) { best = c; bestScore = s; }
     }
     return dedupWires(best.wires);
   }
 
-  // Consolidate grounds onto a horizontal rail at busY. When a pin's direct
-  // drop collides with a part, it exits horizontally to the nearest clean
-  // channel X first, then drops.
-  function groundBus(gndPins, busY, boxes) {
+  // Consolidate grounds onto a horizontal rail at busY. Sprint 70a-fix-3:
+  // The rail is emitted as multiple short segments so EVERY drop's bus
+  // contact X and the ground-symbol X are shared wire endpoints. The
+  // upstream simulator (src/engine/sim-legacy.js buildCircuitFromCanvas)
+  // only unions wire endpoints — a pin lying on a wire's interior stays
+  // electrically isolated. Before this fix the ground symbol sat on the
+  // middle of a single long bus wire and never joined the ground net,
+  // so every node-0 part was marked floating by the DC solver.
+  //
+  // foreignPinArr (optional) — forbids drop endpoints from landing within
+  // SIM_SNAP_TOL-1 of a non-ground pin, which would otherwise be merged
+  // by the simulator's snap-to-nearest-pin routine.
+  function groundBus(gndPins, busY, boxes, foreignPinArr) {
     if (!gndPins || gndPins.length === 0) return { wires: [], groundX: 0, groundY: busY };
     var wires = [];
-    var xs = gndPins.map(function(p) { return p.x; });
-    var minX = Math.min.apply(null, xs), maxX = Math.max.apply(null, xs);
+    var stops = []; // X positions that must appear as segment endpoints on the bus
 
+    // Foreign-pin proximity predicate: drop endpoints at busY must not fall
+    // within SIM_SNAP_TOL-1 of any non-GND pin.
+    function busEndpointSafe(x) {
+      if (!foreignPinArr || foreignPinArr.length === 0) return true;
+      for (var i = 0; i < foreignPinArr.length; i++) {
+        var fp = foreignPinArr[i];
+        if (Math.max(Math.abs(fp.x - x), Math.abs(fp.y - busY)) < SIM_SNAP_TOL) return false;
+      }
+      return true;
+    }
     gndPins.forEach(function(p) {
       var drop = { x1: p.x, y1: p.y, x2: p.x, y2: busY };
-      if (segmentsHitAny([drop], boxes)) {
-        var cleanX = cleanTrunkX(p.x, Math.min(p.y, busY), Math.max(p.y, busY), boxes);
+      var directSafe = !segmentsHitAny([drop], boxes) && busEndpointSafe(p.x);
+      if (!directSafe) {
+        // Scan for a clean detour X that both clears bodies AND keeps the
+        // bus-endpoint clear of foreign pins.
+        var cleanX = scanCleanValue(p.x, function(x) {
+          var w1 = { x1: p.x, y1: p.y, x2: x, y2: p.y };
+          var w2 = { x1: x, y1: p.y, x2: x, y2: busY };
+          if (segmentsHitAny([w1, w2], boxes)) return false;
+          return busEndpointSafe(x);
+        });
         wires.push({ x1: p.x, y1: p.y, x2: cleanX, y2: p.y });
         wires.push({ x1: cleanX, y1: p.y, x2: cleanX, y2: busY });
-        if (cleanX < minX) minX = cleanX;
-        if (cleanX > maxX) maxX = cleanX;
+        stops.push(cleanX);
       } else if (p.y !== busY) {
         wires.push(drop);
+        stops.push(p.x);
+      } else {
+        stops.push(p.x);
       }
     });
-    if (maxX > minX) wires.push({ x1: minX, y1: busY, x2: maxX, y2: busY });
-    return { wires: dedupWires(wires), groundX: snap20((minX+maxX)/2), groundY: busY };
+
+    // Ground symbol X — centered over the bus stops, 20-snapped, and
+    // inserted as an additional stop so it becomes an endpoint too.
+    var minX = Math.min.apply(null, stops);
+    var maxX = Math.max.apply(null, stops);
+    var gx = snap20((minX + maxX) / 2);
+    stops.push(gx);
+
+    // Dedup stops and sort ascending.
+    var uniq = {};
+    stops.forEach(function(x) { uniq[x] = true; });
+    var sortedStops = Object.keys(uniq).map(Number).sort(function(a, b) { return a - b; });
+
+    // Emit the bus as consecutive segments so every stop is a shared endpoint.
+    for (var i = 0; i < sortedStops.length - 1; i++) {
+      wires.push({ x1: sortedStops[i], y1: busY, x2: sortedStops[i+1], y2: busY });
+    }
+
+    return { wires: dedupWires(wires), groundX: gx, groundY: busY };
   }
 
   return {
@@ -13444,15 +13573,58 @@ VXA.SpiceImport = (function() {
                type: pp.type, x: pp.x, y: pp.y };
     });
 
-    // Manhattan routing for non-GND nodes (obstacle-aware)
+    // Build a map of all part pin coordinates so the router can avoid
+    // ending a wire endpoint within the simulator's 25px snap radius of
+    // a foreign pin (which would merge two otherwise-separate nodes).
+    var allPinKeys = new Set();
+    var allPinArr = [];
+    circuit.parts.forEach(function(cp, idx) {
+      var part = idMap[idx]; if (!part) return;
+      getPartPins(part).forEach(function(pt) {
+        var x = Math.round(pt.x), y = Math.round(pt.y);
+        var k = x + ',' + y;
+        if (!allPinKeys.has(k)) { allPinKeys.add(k); allPinArr.push({x:x, y:y}); }
+      });
+    });
+
+    // Manhattan routing for non-GND nodes (obstacle-aware).
+    // Sprint 70a-fix-3: reserve each node's trunk axis-values so the next
+    // node's router avoids overlapping the same Y/X line — otherwise two
+    // nodes' trunks collide at the crossing coordinate and the simulator
+    // unions them into a single net. Longer trunks (spanning 3+ pins) are
+    // the ones that materially compete for grid lines, so we reserve Y/X
+    // only for trunk segments ≥ 60px.
     var router = VXA.SpiceRouter;
+    var reservedY = new Set();
+    var reservedX = new Set();
+    var reservedEndpoints = new Set(); // exact coordinates of every prior wire endpoint
     Object.keys(nodePins).forEach(function(nodeIdx) {
-      if (+nodeIdx === 0) return; // GND handled separately
+      if (+nodeIdx === 0) return;
       var pins = nodePins[nodeIdx];
       if (!pins || pins.length < 2) return;
       if (router && router.connectNode) {
-        var segs = router.connectNode(pins, { boxes: boxes });
-        segs.forEach(function(w) { S.wires.push(w); });
+        var nodeKeys = new Set(pins.map(function(p) { return p.x+','+p.y; }));
+        var foreignArr = allPinArr.filter(function(pp) {
+          return !nodeKeys.has(pp.x + ',' + pp.y);
+        });
+        var segs = router.connectNode(pins, {
+          boxes: boxes, nodePinSet: nodeKeys, foreignPinArr: foreignArr,
+          reservedY: reservedY, reservedX: reservedX,
+          reservedEndpoints: reservedEndpoints
+        });
+        segs.forEach(function(w) {
+          S.wires.push(w);
+          // Reserve every endpoint so subsequent nodes cannot land there.
+          reservedEndpoints.add(w.x1 + ',' + w.y1);
+          reservedEndpoints.add(w.x2 + ',' + w.y2);
+        });
+        // Reserve axis values used by this node's long trunk runs.
+        segs.forEach(function(w) {
+          var len = Math.max(Math.abs(w.x2 - w.x1), Math.abs(w.y2 - w.y1));
+          if (len < 40) return;
+          if (w.y1 === w.y2) reservedY.add(w.y1);
+          else if (w.x1 === w.x2) reservedX.add(w.x1);
+        });
       } else {
         for (var i = 0; i < pins.length - 1; i++) {
           S.wires.push({ x1: pins[i].x, y1: pins[i].y, x2: pins[i+1].x, y2: pins[i+1].y });
@@ -13461,13 +13633,19 @@ VXA.SpiceImport = (function() {
     });
 
     // Ground bus consolidation — single horizontal rail + one ground symbol.
-    // Sprint 70a-fix-2: tighter bus offset (+60 was +80).
+    // Sprint 70a-fix-3: busY is 40px below the LOWEST PIN (not part center)
+    // so bus-drop endpoints clear the simulator's 25px snap radius around
+    // every active-device pin lead. Earlier +60-from-part-centre placement
+    // left emitter/source pins within 20-25px of the bus drop, and the
+    // simulator merged GND into the active node.
     if (nodePins[0] && nodePins[0].length > 0) {
-      var maxY = -Infinity;
-      S.parts.forEach(function(pp) { if (pp.y > maxY) maxY = pp.y; });
-      var busY = snap(maxY + 60);
+      var maxPinY = -Infinity;
+      S.parts.forEach(function(pp) {
+        getPartPins(pp).forEach(function(pin) { if (pin.y > maxPinY) maxPinY = pin.y; });
+      });
+      var busY = snap(maxPinY + 40);
       if (router && router.groundBus) {
-        var gb = router.groundBus(nodePins[0], busY, boxes);
+        var gb = router.groundBus(nodePins[0], busY, boxes, allPinArr);
         gb.wires.forEach(function(w) { S.wires.push(w); });
         S.parts.push({
           id: S.nextId++, type: 'ground', name: 'GND',

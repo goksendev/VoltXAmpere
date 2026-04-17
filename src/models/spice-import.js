@@ -337,15 +337,58 @@ VXA.SpiceImport = (function() {
                type: pp.type, x: pp.x, y: pp.y };
     });
 
-    // Manhattan routing for non-GND nodes (obstacle-aware)
+    // Build a map of all part pin coordinates so the router can avoid
+    // ending a wire endpoint within the simulator's 25px snap radius of
+    // a foreign pin (which would merge two otherwise-separate nodes).
+    var allPinKeys = new Set();
+    var allPinArr = [];
+    circuit.parts.forEach(function(cp, idx) {
+      var part = idMap[idx]; if (!part) return;
+      getPartPins(part).forEach(function(pt) {
+        var x = Math.round(pt.x), y = Math.round(pt.y);
+        var k = x + ',' + y;
+        if (!allPinKeys.has(k)) { allPinKeys.add(k); allPinArr.push({x:x, y:y}); }
+      });
+    });
+
+    // Manhattan routing for non-GND nodes (obstacle-aware).
+    // Sprint 70a-fix-3: reserve each node's trunk axis-values so the next
+    // node's router avoids overlapping the same Y/X line — otherwise two
+    // nodes' trunks collide at the crossing coordinate and the simulator
+    // unions them into a single net. Longer trunks (spanning 3+ pins) are
+    // the ones that materially compete for grid lines, so we reserve Y/X
+    // only for trunk segments ≥ 60px.
     var router = VXA.SpiceRouter;
+    var reservedY = new Set();
+    var reservedX = new Set();
+    var reservedEndpoints = new Set(); // exact coordinates of every prior wire endpoint
     Object.keys(nodePins).forEach(function(nodeIdx) {
-      if (+nodeIdx === 0) return; // GND handled separately
+      if (+nodeIdx === 0) return;
       var pins = nodePins[nodeIdx];
       if (!pins || pins.length < 2) return;
       if (router && router.connectNode) {
-        var segs = router.connectNode(pins, { boxes: boxes });
-        segs.forEach(function(w) { S.wires.push(w); });
+        var nodeKeys = new Set(pins.map(function(p) { return p.x+','+p.y; }));
+        var foreignArr = allPinArr.filter(function(pp) {
+          return !nodeKeys.has(pp.x + ',' + pp.y);
+        });
+        var segs = router.connectNode(pins, {
+          boxes: boxes, nodePinSet: nodeKeys, foreignPinArr: foreignArr,
+          reservedY: reservedY, reservedX: reservedX,
+          reservedEndpoints: reservedEndpoints
+        });
+        segs.forEach(function(w) {
+          S.wires.push(w);
+          // Reserve every endpoint so subsequent nodes cannot land there.
+          reservedEndpoints.add(w.x1 + ',' + w.y1);
+          reservedEndpoints.add(w.x2 + ',' + w.y2);
+        });
+        // Reserve axis values used by this node's long trunk runs.
+        segs.forEach(function(w) {
+          var len = Math.max(Math.abs(w.x2 - w.x1), Math.abs(w.y2 - w.y1));
+          if (len < 40) return;
+          if (w.y1 === w.y2) reservedY.add(w.y1);
+          else if (w.x1 === w.x2) reservedX.add(w.x1);
+        });
       } else {
         for (var i = 0; i < pins.length - 1; i++) {
           S.wires.push({ x1: pins[i].x, y1: pins[i].y, x2: pins[i+1].x, y2: pins[i+1].y });
@@ -354,13 +397,19 @@ VXA.SpiceImport = (function() {
     });
 
     // Ground bus consolidation — single horizontal rail + one ground symbol.
-    // Sprint 70a-fix-2: tighter bus offset (+60 was +80).
+    // Sprint 70a-fix-3: busY is 40px below the LOWEST PIN (not part center)
+    // so bus-drop endpoints clear the simulator's 25px snap radius around
+    // every active-device pin lead. Earlier +60-from-part-centre placement
+    // left emitter/source pins within 20-25px of the bus drop, and the
+    // simulator merged GND into the active node.
     if (nodePins[0] && nodePins[0].length > 0) {
-      var maxY = -Infinity;
-      S.parts.forEach(function(pp) { if (pp.y > maxY) maxY = pp.y; });
-      var busY = snap(maxY + 60);
+      var maxPinY = -Infinity;
+      S.parts.forEach(function(pp) {
+        getPartPins(pp).forEach(function(pin) { if (pin.y > maxPinY) maxPinY = pin.y; });
+      });
+      var busY = snap(maxPinY + 40);
       if (router && router.groundBus) {
-        var gb = router.groundBus(nodePins[0], busY, boxes);
+        var gb = router.groundBus(nodePins[0], busY, boxes, allPinArr);
         gb.wires.forEach(function(w) { S.wires.push(w); });
         S.parts.push({
           id: S.nextId++, type: 'ground', name: 'GND',

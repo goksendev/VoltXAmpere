@@ -158,6 +158,140 @@ const CIRCUITS = [
         scopeFirstSample = S.scope.ch[0].buf[0];
       }
 
+      // D. GND connectivity — every SPICE part referencing node 0 must have at
+      // least one of its pins transitively wire-connected to the ground symbol.
+      // E. Ground-drop integrity — every wire endpoint that sits at busY must
+      // have its OTHER end exactly on a part pin coordinate.
+      function partPinPositions(p) {
+        const def = COMP[p.type]; if (!def) return [];
+        const src = (p.pins && p.pins.length > 0) ? p.pins : def.pins;
+        const a = (p.rot || 0) * Math.PI / 2;
+        const c = Math.cos(a), s = Math.sin(a);
+        return src.map(pin => ({
+          x: Math.round(p.x + pin.dx * c - pin.dy * s),
+          y: Math.round(p.y + pin.dx * s + pin.dy * c)
+        }));
+      }
+
+      const allPinList = []; // [{x,y,partIdx,pinIdx}]
+      S.parts.forEach((p, pi) => {
+        partPinPositions(p).forEach((pt, idx) => {
+          allPinList.push({ x: pt.x, y: pt.y, partIdx: pi, pinIdx: idx });
+        });
+      });
+
+      // Union-find on wire endpoints + pins with 1px tolerance (all on 20-grid
+      // so 1px is ample to absorb any float rounding).
+      const keyOf = (x, y) => x + ',' + y;
+      const parent = {};
+      function find(k) { while (parent[k] !== k) { parent[k] = parent[parent[k]]; k = parent[k]; } return k; }
+      function ensure(k) { if (!(k in parent)) parent[k] = k; }
+      function union(a, b) { const ra = find(a), rb = find(b); if (ra !== rb) parent[ra] = rb; }
+
+      S.wires.forEach(w => {
+        const ka = keyOf(w.x1, w.y1), kb = keyOf(w.x2, w.y2);
+        ensure(ka); ensure(kb); union(ka, kb);
+      });
+      allPinList.forEach(pin => {
+        const k = keyOf(pin.x, pin.y); ensure(k);
+      });
+      // T-junction union — a pin lying on the interior of a wire must be
+      // merged into that wire's net (schematic convention). Also unions
+      // wire midpoints where another wire's endpoint lands.
+      S.wires.forEach(w => {
+        const ka = keyOf(w.x1, w.y1);
+        const minX = Math.min(w.x1, w.x2), maxX = Math.max(w.x1, w.x2);
+        const minY = Math.min(w.y1, w.y2), maxY = Math.max(w.y1, w.y2);
+        allPinList.forEach(pin => {
+          let onWire = false;
+          if (w.x1 === w.x2) {
+            onWire = (pin.x === w.x1 && pin.y >= minY && pin.y <= maxY);
+          } else if (w.y1 === w.y2) {
+            onWire = (pin.y === w.y1 && pin.x >= minX && pin.x <= maxX);
+          }
+          if (onWire) {
+            const pk = keyOf(pin.x, pin.y);
+            ensure(pk); union(pk, ka);
+          }
+        });
+        // wire-on-wire T-junctions: endpoint of any other wire on this wire
+        S.wires.forEach(w2 => {
+          if (w2 === w) return;
+          [[w2.x1, w2.y1], [w2.x2, w2.y2]].forEach(pt => {
+            let onW = false;
+            if (w.x1 === w.x2) onW = (pt[0] === w.x1 && pt[1] >= minY && pt[1] <= maxY);
+            else if (w.y1 === w.y2) onW = (pt[1] === w.y1 && pt[0] >= minX && pt[0] <= maxX);
+            if (onW) {
+              const k = keyOf(pt[0], pt[1]);
+              ensure(k); union(k, ka);
+            }
+          });
+        });
+      });
+
+      // Find the ground symbol's pin and its connected-component root.
+      const gndSym = S.parts.find(p => p.type === 'ground');
+      let gndNode = null;
+      if (gndSym) {
+        const gp = partPinPositions(gndSym)[0];
+        if (gp) { const gk = keyOf(gp.x, gp.y); ensure(gk); gndNode = find(gk); }
+      }
+
+      const gndFloatingParts = [];
+      if (gndNode != null) {
+        circuit.parts.forEach((cp, idx) => {
+          if (!(cp.nodes || []).includes(0)) return;
+          const sp = S.parts[idx];
+          if (!sp || sp.type === 'ground') return;
+          const pins = partPinPositions(sp);
+          // For each SPICE pin that maps to node 0, verify that actual pin
+          // coordinate shares a union-find root with the ground symbol.
+          const connected = cp.nodes.some((n, pi) => {
+            if (n !== 0) return false;
+            if (pi >= pins.length) return false;
+            const k = keyOf(pins[pi].x, pins[pi].y);
+            ensure(k);
+            return find(k) === gndNode;
+          });
+          if (!connected) gndFloatingParts.push({ type: sp.type, name: sp.name, x: sp.x, y: sp.y });
+        });
+      }
+
+      // Ground-drop integrity: find the bus Y (the horizontal wire with the
+      // largest y that passes through the ground symbol X, or just the
+      // largest horizontal-wire Y).
+      let busY = null;
+      const horizWires = S.wires.filter(w => w.y1 === w.y2);
+      if (horizWires.length) {
+        busY = Math.max(...horizWires.map(w => w.y1));
+      }
+      const dropIntegrityViolations = [];
+      if (busY != null) {
+        S.wires.forEach((w, wi) => {
+          if (w.x1 !== w.x2) return; // only vertical
+          const maxY = Math.max(w.y1, w.y2);
+          if (maxY !== busY) return; // not a bus drop
+          const topEnd = (w.y1 < w.y2) ? { x: w.x1, y: w.y1 } : { x: w.x2, y: w.y2 };
+          const matches = allPinList.some(pin =>
+            pin.x === topEnd.x && pin.y === topEnd.y
+          );
+          if (!matches) {
+            dropIntegrityViolations.push({ wireIdx: wi, topEnd });
+          }
+        });
+      }
+
+      // F. Simulator node-count check — build the netlist only (skip the
+      // full DC NR solve which can loop on unconverged active circuits).
+      // buildCircuitFromCanvas populates S._pinToNode and SIM.N, which is
+      // what we need to count unique nets.
+      let simNodes = 0, simError = null;
+      try {
+        buildCircuitFromCanvas();
+        simNodes = (typeof SIM !== 'undefined' && SIM && SIM.N) ? SIM.N : 0;
+        simError = S.sim && S.sim.error ? S.sim.error : null;
+      } catch (e) { simError = e.message || String(e); }
+
       return {
         parseErr, placeErr,
         partCount: S.parts.length,
@@ -169,7 +303,9 @@ const CIRCUITS = [
         circuitNodeCount: circuit ? circuit.nodeCount : 0,
         circuitPartCount: circuit ? (circuit.parts || []).length : 0,
         diagonalWires: S.wires.filter(w => w.x1 !== w.x2 && w.y1 !== w.y2).length,
-        nonHorizontalPassives, compactness, scopeFirstSample
+        nonHorizontalPassives, compactness, scopeFirstSample,
+        gndFloatingParts, dropIntegrityViolations, busY,
+        simNodes, simError
       };
     }, text);
 
@@ -201,6 +337,12 @@ const CIRCUITS = [
         detail: 'compactness=' + snapshot.compactness.toFixed(2) },
       { rule: 'scope buffer zero after import', ok: snapshot.scopeFirstSample === 0,
         detail: 'ch0.buf[0]=' + snapshot.scopeFirstSample },
+      // Sprint 70a-fix-3 rules
+      { rule: 'every node-0 part connects to ground', ok: snapshot.gndFloatingParts.length === 0,
+        detail: snapshot.gndFloatingParts.length === 0 ? 'all connected'
+                : snapshot.gndFloatingParts.map(x => x.name).join(', ') + ' floating' },
+      { rule: 'simulator preserves all SPICE nets', ok: snapshot.simNodes >= snapshot.circuitNodeCount,
+        detail: 'sim nets=' + snapshot.simNodes + ' / SPICE nets=' + snapshot.circuitNodeCount + (snapshot.simError ? ' [' + snapshot.simError + ']' : '') },
     ];
     const pass = checks.every(c => c.ok);
     if (!pass) anyFail = true;
