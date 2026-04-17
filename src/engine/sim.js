@@ -697,6 +697,50 @@ VXA.SimV2 = (function() {
       w._current = bestCur;
     }
 
+    // Sprint 70a-fix-5: propagate wire currents through T-junctions.
+    // After Sprint 70a the router emits GND buses and trunks as MULTIPLE
+    // short segments whose interior endpoints touch only other wires
+    // (not component pins). The electrical solver already unions these
+    // correctly (src/engine/sim-legacy.js getNode does 25-px snap), but
+    // the rendering layer's w._current assignment above only fires when
+    // an endpoint is within 8 px of a component pin — so those interior
+    // segments render idle while the rest of the net animates. A fixed-
+    // point propagation over 8 passes fills them in via shared endpoints
+    // and colinear T-junctions. O(passes × wires²) but wires are small.
+    function _segTouchesPoint(w, px, py) {
+      if (Math.abs(w.x1 - px) <= 1 && Math.abs(w.y1 - py) <= 1) return true;
+      if (Math.abs(w.x2 - px) <= 1 && Math.abs(w.y2 - py) <= 1) return true;
+      if (w.x1 === w.x2 && px === w.x1) {
+        var miY = Math.min(w.y1, w.y2), maY = Math.max(w.y1, w.y2);
+        if (py > miY + 1 && py < maY - 1) return true;
+      } else if (w.y1 === w.y2 && py === w.y1) {
+        var miX = Math.min(w.x1, w.x2), maX = Math.max(w.x1, w.x2);
+        if (px > miX + 1 && px < maX - 1) return true;
+      }
+      return false;
+    }
+    for (var _pass = 0; _pass < 8; _pass++) {
+      var _changed = false;
+      for (var _wi = 0; _wi < S.wires.length; _wi++) {
+        var _w = S.wires[_wi];
+        if (Math.abs(_w._current || 0) > 1e-9) continue;
+        for (var _wj = 0; _wj < S.wires.length; _wj++) {
+          if (_wi === _wj) continue;
+          var _w2 = S.wires[_wj];
+          if (Math.abs(_w2._current || 0) < 1e-9) continue;
+          if (_segTouchesPoint(_w2, _w.x1, _w.y1)
+           || _segTouchesPoint(_w2, _w.x2, _w.y2)
+           || _segTouchesPoint(_w, _w2.x1, _w2.y1)
+           || _segTouchesPoint(_w, _w2.x2, _w2.y2)) {
+            _w._current = _w2._current;
+            _changed = true;
+            break;
+          }
+        }
+      }
+      if (!_changed) break;
+    }
+
     // Scope
     var scopeNodes = [];
     for (var ni = 1; ni < nodeV.length; ni++) { if (nodeV[ni] !== undefined) scopeNodes.push(ni); }

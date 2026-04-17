@@ -286,10 +286,25 @@ const CIRCUITS = [
       // buildCircuitFromCanvas populates S._pinToNode and SIM.N, which is
       // what we need to count unique nets.
       let simNodes = 0, simError = null;
+      let orphanWires = 0;  // wires with zero current while others are non-zero
       try {
         buildCircuitFromCanvas();
         simNodes = (typeof SIM !== 'undefined' && SIM && SIM.N) ? SIM.N : 0;
         simError = S.sim && S.sim.error ? S.sim.error : null;
+        // Wire current propagation check — only for simple resistive nets
+        // (skip active circuits where the DC solver may fail to converge).
+        const simpleTypes = ['resistor','capacitor','inductor','vdc','ground'];
+        const isSimple = S.parts.every(p => simpleTypes.includes(p.type));
+        if (isSimple && S.parts.some(p => p.type === 'vdc') && S.parts.length >= 3) {
+          S.sim.running = true;
+          if (VXA.SimV2 && VXA.SimV2.findDCOperatingPoint) VXA.SimV2.findDCOperatingPoint();
+          if (VXA.SimV2 && VXA.SimV2.solve) VXA.SimV2.solve(1e-5);
+          const anyCur = S.wires.some(w => Math.abs(w._current || 0) > 1e-9);
+          if (anyCur) {
+            orphanWires = S.wires.filter(w => Math.abs(w._current || 0) < 1e-9).length;
+          }
+          S.sim.running = false;
+        }
       } catch (e) { simError = e.message || String(e); }
 
       return {
@@ -305,7 +320,7 @@ const CIRCUITS = [
         diagonalWires: S.wires.filter(w => w.x1 !== w.x2 && w.y1 !== w.y2).length,
         nonHorizontalPassives, compactness, scopeFirstSample,
         gndFloatingParts, dropIntegrityViolations, busY,
-        simNodes, simError
+        simNodes, simError, orphanWires
       };
     }, text);
 
@@ -343,6 +358,9 @@ const CIRCUITS = [
                 : snapshot.gndFloatingParts.map(x => x.name).join(', ') + ' floating' },
       { rule: 'simulator preserves all SPICE nets', ok: snapshot.simNodes >= snapshot.circuitNodeCount,
         detail: 'sim nets=' + snapshot.simNodes + ' / SPICE nets=' + snapshot.circuitNodeCount + (snapshot.simError ? ' [' + snapshot.simError + ']' : '') },
+      { rule: 'no orphan wires when sim is live', ok: snapshot.orphanWires === 0,
+        detail: snapshot.orphanWires === 0 ? 'all wires animate'
+                : snapshot.orphanWires + ' wires stuck at _current=0' },
     ];
     const pass = checks.every(c => c.ok);
     if (!pass) anyFail = true;
