@@ -14,7 +14,7 @@ function showWelcome() {
           : "World's Most Advanced Free Circuit Simulator") + '</div>'
     + '<div style="font:11px var(--font-mono);color:var(--text-3);margin-bottom:20px">'
     + '71 ' + (tr?'bile\u015fen':'components') + ' \u00B7 55 '
-    + (tr?'haz\u0131r devre':'presets') + ' \u00B7 14 '
+    + (tr?'haz\u0131r devre':'presets') + ' \u00B7 16 '
     + (tr?'analiz arac\u0131':'analysis tools') + '</div>'
     + '<div style="display:flex;flex-direction:column;gap:8px;align-items:center">'
     // Live Demo (primary)

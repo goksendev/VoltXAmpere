@@ -186,7 +186,7 @@ var PRESETS = [
   { id:'fft-square', name:'FFT — Kare Dalga', color:'#ec4899',
     desc:'Kare dalga harmonik analizi', formula:'THD ve harmonik bileşenler',
     parts:[{type:'pulse',x:-80,y:0,rot:0,val:5,freq:1000},{type:'resistor',x:40,y:0,rot:1,val:1000},{type:'ground',x:-80,y:60,rot:0,val:0},{type:'ground',x:40,y:60,rot:0,val:0}],
-    wires:[{x1:-80,y1:-40,x2:40,y2:-40},{x1:-80,y1:40,x2:-80,y2:40},{x1:40,y1:40,x2:40,y2:40}]},
+    wires:[{x1:-80,y1:-40,x2:40,y2:-40},{x1:-80,y1:40,x2:-80,y2:60},{x1:40,y1:40,x2:40,y2:60}]},
   { id:'dff-toggle', name:'D Flip-Flop Toggle', color:'#06b6d4',
     desc:'CLK ile D toggling', formula:'Rising edge \u2192 Q = D',
     parts:[{type:'pulse',x:-80,y:0,rot:0,val:5,freq:100},{type:'dff',x:40,y:0,rot:0,val:0},{type:'resistor',x:120,y:0,rot:1,val:1000},{type:'ground',x:-80,y:60,rot:0,val:0},{type:'ground',x:120,y:60,rot:0,val:0}],

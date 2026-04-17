@@ -49,6 +49,31 @@ VXA.SpiceImport = (function() {
     pv = VXA.SpiceParser.parseSpiceNumber;
     var warnings = [];
     var inSubckt = false;
+    // Sprint 69 FIX: First pass — collect V source name → {n1, n2} for F/H references.
+    // SPICE Fxxx/Hxxx format: "Fname out+ out- vname gain"
+    // vname refers to an already-defined V source; control current = current
+    // through that V source (direction: n1 → n2).
+    var vNameMap = {};
+    {
+      var inSubPre = false;
+      var linesPre = lines;
+      for (var _li = 0; _li < linesPre.length; _li++) {
+        var _pLine = stripInlineComment(linesPre[_li]);
+        if (!_pLine || _pLine.charAt(0) === '*' || _pLine.charAt(0) === ';') continue;
+        if (_pLine.charAt(0) === '.') {
+          if (/^\.subckt/i.test(_pLine)) inSubPre = true;
+          else if (/^\.ends/i.test(_pLine)) inSubPre = false;
+          continue;
+        }
+        if (inSubPre) continue;
+        var _pTk = _pLine.split(/\s+/);
+        if (_pTk.length < 3) continue;
+        var _pCh = _pTk[0].charAt(0).toUpperCase();
+        if (_pCh === 'V') {
+          vNameMap[_pTk[0].toUpperCase()] = { n1: _pTk[1], n2: _pTk[2] };
+        }
+      }
+    }
     lines.forEach(function(rawLine) {
       var line = stripInlineComment(rawLine);
       if (!line || line.charAt(0) === '*' || line.charAt(0) === ';') return;
@@ -136,16 +161,41 @@ VXA.SpiceImport = (function() {
         circuit.parts.push({ type: 'behavioral', nodes: [gn(tk[1]), gn(tk[2])], expression: bRest, srcType: bIsV ? 'V' : 'I' });
       }
       else if (ch === 'E') {
-        circuit.parts.push({ type: 'vcvs', nodes: [gn(tk[1]), gn(tk[2]), gn(tk[3]), gn(tk[4])], val: pv(tk[5] || '1') });
+        // SPICE format: Ename out+ out- ctrl+ ctrl- gain
+        // Sprint 69 FIX: sim-legacy VCVS expects [ncP, ncN, noP, noN] — control first.
+        circuit.parts.push({ type: 'vcvs', nodes: [gn(tk[3]), gn(tk[4]), gn(tk[1]), gn(tk[2])], val: pv(tk[5] || '1') });
       }
       else if (ch === 'G') {
-        circuit.parts.push({ type: 'vccs', nodes: [gn(tk[1]), gn(tk[2]), gn(tk[3]), gn(tk[4])], val: pv(tk[5] || '0.001') });
+        // SPICE format: Gname out+ out- ctrl+ ctrl- gm
+        // Sprint 69 FIX: sim-legacy VCCS expects [ncP, ncN, noP, noN] — control first.
+        circuit.parts.push({ type: 'vccs', nodes: [gn(tk[3]), gn(tk[4]), gn(tk[1]), gn(tk[2])], val: pv(tk[5] || '0.001') });
       }
       else if (ch === 'F') {
-        circuit.parts.push({ type: 'cccs', nodes: [gn(tk[1]), gn(tk[2]), gn(tk[1]), gn(tk[2])], val: pv(tk[4] || '1') });
+        // Fname out+ out- vname gain — current-controlled current source
+        // Control current flows through V source "vname" (n1→n2 direction)
+        // Sprint 69 FIX v2: Sim-legacy builds CCCS as
+        //   {ncP:nodes[0], ncN:nodes[1], noP:nodes[2], noN:nodes[3]}
+        // i.e. control pins FIRST, output pins SECOND. Order nodes accordingly.
+        var _fVn = (tk[3] || '').toUpperCase();
+        var _fVnode = vNameMap[_fVn];
+        var _fGain = pv(tk[4] || '1');
+        if (_fVnode) {
+          circuit.parts.push({ type: 'cccs', nodes: [gn(_fVnode.n1), gn(_fVnode.n2), gn(tk[1]), gn(tk[2])], val: _fGain });
+        } else {
+          warnings.push('F' + sanitizeHTML(tk[0].substring(1)) + ': V source "' + sanitizeHTML(tk[3] || '') + '" not found');
+        }
       }
       else if (ch === 'H') {
-        circuit.parts.push({ type: 'ccvs', nodes: [gn(tk[1]), gn(tk[2]), gn(tk[1]), gn(tk[2])], val: pv(tk[4] || '1000') });
+        // Hname out+ out- vname transresistance — current-controlled voltage source
+        // Sprint 69 FIX v2: same node ordering as F — control first, output second.
+        var _hVn = (tk[3] || '').toUpperCase();
+        var _hVnode = vNameMap[_hVn];
+        var _hRm = pv(tk[4] || '1000');
+        if (_hVnode) {
+          circuit.parts.push({ type: 'ccvs', nodes: [gn(_hVnode.n1), gn(_hVnode.n2), gn(tk[1]), gn(tk[2])], val: _hRm });
+        } else {
+          warnings.push('H' + sanitizeHTML(tk[0].substring(1)) + ': V source "' + sanitizeHTML(tk[3] || '') + '" not found');
+        }
       }
       else if (ch === 'K') {
         circuit.parts.push({ type: 'coupled_l', nodes: [], val: pv(tk[3] || '1'), ref1: tk[1], ref2: tk[2] });
@@ -160,12 +210,22 @@ VXA.SpiceImport = (function() {
         circuit.parts.push({ type: 'tline', nodes: [gn(tk[1]), gn(tk[2]), gn(tk[3]), gn(tk[4])], val: tlZ0, td: tlTD });
       }
       else if (ch === 'W') {
-        // Current-controlled switch: W1 n+ n- vname modelname
-        circuit.parts.push({ type: 'switch', nodes: [gn(tk[1]), gn(tk[2])], model: tk[4] || '', closed: true });
+        // Current-controlled switch: W<name> n+ n- vname modelname
+        // Control current flows through V source "vname". Store vname as metadata;
+        // runtime switch is open/closed based on whether control current > threshold.
+        var _wVname = (tk[3] || '').toUpperCase();
+        var _wVnode = vNameMap[_wVname];
+        var _wPart = { type: 'switch', nodes: [gn(tk[1]), gn(tk[2])], model: tk[4] || '', closed: true };
+        if (_wVnode) { _wPart.vctrl = _wVname; _wPart.vctrlN1 = gn(_wVnode.n1); _wPart.vctrlN2 = gn(_wVnode.n2); }
+        else warnings.push('W' + sanitizeHTML(tk[0].substring(1)) + ': V source "' + sanitizeHTML(tk[3] || '') + '" not found — treated as simple switch');
+        circuit.parts.push(_wPart);
       }
       else if (ch === 'O') {
-        // Lossy transmission line: O1 n1+ n1- n2+ n2- modelname
-        circuit.parts.push({ type: 'tline', nodes: [gn(tk[1]), gn(tk[2]), gn(tk[3]), gn(tk[4])], model: tk[5] || '', val: 50 });
+        // Lossy transmission line: O<name> n1+ n1- n2+ n2- modelname
+        // Kept as a warning because full lossy TL requires the RLGC model parsed
+        // from .model, which is currently not implemented — treat as lossless.
+        circuit.parts.push({ type: 'tline', nodes: [gn(tk[1]), gn(tk[2]), gn(tk[3]), gn(tk[4])], model: tk[5] || '', val: 50, td: 1e-9 });
+        warnings.push('O' + sanitizeHTML(tk[0].substring(1)) + ': lossy transmission line treated as lossless (Z0=50\u03a9, TD=1ns)');
       }
       else {
         warnings.push('Unsupported element: ' + sanitizeHTML(tk[0]));

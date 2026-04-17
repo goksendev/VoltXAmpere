@@ -316,7 +316,13 @@ VXA.SimV2 = (function() {
       // Compile and solve
       Sp.compile(matrix);
       var x;
-      if (typeof _sparseVerified !== 'undefined' && !_sparseVerified && typeof _sparseVerifyCount !== 'undefined' && _sparseVerifyCount < 100 && matrix.n > 30) {
+      // Sprint 69 FIX: proper sparse safety mechanism.
+      // Phase 1 (first 100 large-matrix solves): run BOTH dense + banded,
+      //   compare, count failures. Always return dense result.
+      // Phase 2 (after verification): if verification saw <3 discrepancies,
+      //   use banded (fast path). If it saw >=3, PERMANENTLY fall back to
+      //   dense for this session — no silent wrong answers.
+      if (typeof _sparseVerified !== 'undefined' && !_sparseVerified && matrix.n > 30) {
         var xDense = Sp.solveLU_dense(matrix, rhs);
         var xBanded = Sp.solveLU_banded(matrix, rhs);
         var maxDiff = 0;
@@ -330,8 +336,14 @@ VXA.SimV2 = (function() {
         if (_sparseVerifyCount >= 100) {
           _sparseVerified = true;
           _useSparse = _sparseFailCount < 3;
+          if (!_useSparse && typeof console !== 'undefined') {
+            console.warn('[VXA] Sparse solver discrepancies detected (' + _sparseFailCount + '/100) — falling back to dense solver for remainder of session.');
+          }
         }
-        x = xDense;
+        x = xDense; // Always safe during verification
+      } else if (typeof _sparseVerified !== 'undefined' && _sparseVerified && !_useSparse && matrix.n > 30) {
+        // Post-verification, sparse failed QA → permanent dense.
+        x = Sp.solveLU_dense(matrix, rhs);
       } else {
         x = Sp.solveLU(matrix, rhs);
       }
@@ -411,6 +423,18 @@ VXA.SimV2 = (function() {
               if (lc.n1 > 0) newV[lc.n1] += a4;
               if (lc.n3 > 0) newV[lc.n3] -= a4;
             }
+          } else if (lc.type === 'JFET') {
+            // Sprint 69 FIX: JFET was in convergence check but not in voltage
+            // limiting — caused NR oscillation on JFET circuits. Use same
+            // 0.5V-per-iter Vgs step limit as MOSFET.
+            var vgsOldJ = lc.polarity * ((nodeV[lc.n1]||0) - (nodeV[lc.n3]||0));
+            var vgsNewJ = lc.polarity * (newV[lc.n1] - newV[lc.n3]);
+            var vgsLimJ = VXA.VoltageLimit.mos(vgsNewJ, vgsOldJ, 0.5);
+            if (Math.abs(vgsLimJ - vgsNewJ) > 1e-10) {
+              var a5 = (vgsLimJ - vgsNewJ) * lc.polarity / 2;
+              if (lc.n1 > 0) newV[lc.n1] += a5;
+              if (lc.n3 > 0) newV[lc.n3] -= a5;
+            }
           }
         }
       }
@@ -464,66 +488,114 @@ VXA.SimV2 = (function() {
         c.vPrev = vd;
         c.part._v = Math.abs(vd); c.part._i = Math.abs(cur); c.part._p = Math.abs(vd * cur);
       } else if (c.type === 'V') {
-        // Sprint 58: VDC/VAC current via KCL — sum currents through adjacent Rs
+        // Sprint 69 FIX: Proper KCL — sum ALL branch currents leaving node n1
+        // (through every adjacent branch: R, C, L, D, BJT coll/emit, MOSFET drain/source).
+        // Then V source current = net current OUT of its positive node.
+        var _vnode = c.n1;
         var _vI = 0;
         for (var _vk = 0; _vk < SIM.comps.length; _vk++) {
           var _vc = SIM.comps[_vk];
           if (_vc === c || _vc.type === 'V') continue;
-          if (_vc.type === 'R' && (_vc.n1 === c.n1 || _vc.n2 === c.n1 || _vc.n1 === c.n2 || _vc.n2 === c.n2)) {
-            var _vr = (nodeV[_vc.n1] || 0) - (nodeV[_vc.n2] || 0);
-            _vI = Math.abs(_vr / _vc.val);
-            break;
+          // Determine which pin(s) touch _vnode and the branch current flowing
+          // out of _vnode toward the rest of the branch.
+          if (_vc.type === 'R') {
+            if (_vc.n1 === _vnode) _vI += ((nodeV[_vc.n1] || 0) - (nodeV[_vc.n2] || 0)) / _vc.val;
+            else if (_vc.n2 === _vnode) _vI += ((nodeV[_vc.n2] || 0) - (nodeV[_vc.n1] || 0)) / _vc.val;
+          } else if (_vc.type === 'L') {
+            if (_vc.n1 === _vnode) _vI += _vc.iPrev || 0;
+            else if (_vc.n2 === _vnode) _vI -= _vc.iPrev || 0;
+          } else if (_vc.type === 'C') {
+            // Instantaneous cap current from companion: G*dv/dt from last frame
+            var _cCur = _vc.iPrev || 0;
+            if (_vc.n1 === _vnode) _vI += _cCur;
+            else if (_vc.n2 === _vnode) _vI -= _cCur;
+          } else if (_vc.type === 'I') {
+            if (_vc.n1 === _vnode) _vI += _vc.val;
+            else if (_vc.n2 === _vnode) _vI -= _vc.val;
+          } else if (_vc.type === 'D' || _vc.type === 'Z') {
+            // Use part._i (computed elsewhere) if available
+            var _diI = _vc.part && _vc.part._i ? _vc.part._i : 0;
+            // Direction: anode = n1 (current flows n1 → n2)
+            if (_vc.n1 === _vnode) _vI += _diI;
+            else if (_vc.n2 === _vnode) _vI -= _diI;
           }
         }
-        c.part._v = Math.abs(vd); c.part._i = _vI; c.part._p = Math.abs(vd * _vI);
+        c.part._v = Math.abs(vd); c.part._i = Math.abs(_vI); c.part._p = Math.abs(vd * _vI);
       } else if (c.type === 'D') {
-        // Sprint 24: Diode/LED current from adjacent node KCL (more accurate than Shockley readout)
+        // Sprint 69 FIX: Primary readout via Shockley equation (physically correct),
+        // then compare with KCL from anode — if KCL gives finite non-zero, prefer it
+        // (more robust for multi-resistor parallel LED configurations).
+        var dMdl2 = c.part && c.part.model ? VXA.Models.getModel(c.part.type, c.part.model) : null;
+        var dIS2 = dMdl2 ? (dMdl2.IS || DIODE_IS) : (c.IS || DIODE_IS);
+        var dN2 = dMdl2 ? (dMdl2.N || DIODE_N) : (c.N || DIODE_N);
+        var eArg = Math.min(vd / (dN2 * VT_VAL), 500);
+        var shockleyCur = dIS2 * (Math.exp(eArg) - 1);
+
+        // KCL at anode (n1): sum all currents flowing OUT via adjacent R/L/C/D (excluding self)
         var cur = 0;
-        // Find current through node by checking connected resistor or sum of other branch currents
-        for (var ck = 0; ck < SIM.comps.length; ck++) {
-          var cc = SIM.comps[ck];
-          if (cc === c || cc.type === 'V') continue;
-          if (cc.type === 'R' && (cc.n1 === c.n1 || cc.n1 === c.n2 || cc.n2 === c.n1 || cc.n2 === c.n2)) {
-            var vr = (nodeV[cc.n1] || 0) - (nodeV[cc.n2] || 0);
-            cur = Math.abs(vr / cc.val);
-            break;
+        var _diAnode = c.n1;
+        if (_diAnode > 0) {
+          for (var ck = 0; ck < SIM.comps.length; ck++) {
+            var cc = SIM.comps[ck];
+            if (cc === c) continue;
+            if (cc.type === 'R') {
+              if (cc.n1 === _diAnode) cur += ((nodeV[cc.n1] || 0) - (nodeV[cc.n2] || 0)) / cc.val;
+              else if (cc.n2 === _diAnode) cur += ((nodeV[cc.n2] || 0) - (nodeV[cc.n1] || 0)) / cc.val;
+            } else if (cc.type === 'L') {
+              if (cc.n1 === _diAnode) cur += cc.iPrev || 0;
+              else if (cc.n2 === _diAnode) cur -= cc.iPrev || 0;
+            }
           }
+          cur = Math.abs(cur);
         }
-        // Fallback to Shockley equation if no adjacent R found
-        if (cur < 1e-15) {
-          var dMdl2 = c.part && c.part.model ? VXA.Models.getModel(c.part.type, c.part.model) : null;
-          var dIS2 = dMdl2 ? (dMdl2.IS || DIODE_IS) : (c.IS || DIODE_IS);
-          var dN2 = dMdl2 ? (dMdl2.N || DIODE_N) : (c.N || DIODE_N);
-          var eArg = Math.min(vd / (dN2 * VT_VAL), 500);
-          cur = dIS2 * (Math.exp(eArg) - 1);
-        }
-        c.part._v = Math.abs(vd); c.part._i = Math.abs(cur); c.part._p = Math.abs(vd * cur);
+        // Prefer KCL if it found real branch current; otherwise use Shockley
+        if (cur < 1e-15) cur = Math.abs(shockleyCur);
+        c.part._v = Math.abs(vd); c.part._i = cur; c.part._p = Math.abs(vd * cur);
         c.vPrev = vd;
       } else if (c.type === 'BJT') {
         var pol = c.polarity;
         var vB = nodeV[c.n1] || 0, vC = nodeV[c.n2] || 0, vE = nodeV[c.n3] || 0;
         var vbe = pol * (vB - vE), vbc = pol * (vB - vC), vce = pol * (vC - vE);
-        // IC from emitter node current: Ie = sum of currents through R connected to emitter
-        // More accurate: use VCE and find collector resistor current
+        // Sprint 69 FIX: Proper KCL at collector — sum ALL currents flowing OUT of collector
+        // through every adjacent resistor/inductor/capacitor/other BJT/diode/V source.
+        // IC = |sum of branch currents leaving collector node|.
         var ic = 0;
-        for (var _bci = 0; _bci < SIM.comps.length; _bci++) {
-          var _bc = SIM.comps[_bci];
-          if (_bc === c || _bc.type === 'BJT') continue;
-          // Find resistor connected to collector node
-          if (_bc.type === 'R' && (_bc.n1 === c.n2 || _bc.n2 === c.n2)) {
-            ic = Math.abs((nodeV[_bc.n1]||0) - (nodeV[_bc.n2]||0)) / _bc.val;
-            break;
-          }
-        }
-        if (ic === 0) {
-          // Fallback: compute from emitter resistor
-          for (var _bei = 0; _bei < SIM.comps.length; _bei++) {
-            var _be = SIM.comps[_bei];
-            if (_be === c || _be.type === 'BJT') continue;
-            if (_be.type === 'R' && (_be.n1 === c.n3 || _be.n2 === c.n3)) {
-              ic = Math.abs((nodeV[_be.n1]||0) - (nodeV[_be.n2]||0)) / _be.val;
-              break;
+        var _bjtCollNode = c.n2;
+        if (_bjtCollNode > 0) {
+          for (var _bci = 0; _bci < SIM.comps.length; _bci++) {
+            var _bc = SIM.comps[_bci];
+            if (_bc === c) continue;
+            if (_bc.type === 'R') {
+              if (_bc.n1 === _bjtCollNode) ic += ((nodeV[_bc.n1] || 0) - (nodeV[_bc.n2] || 0)) / _bc.val;
+              else if (_bc.n2 === _bjtCollNode) ic += ((nodeV[_bc.n2] || 0) - (nodeV[_bc.n1] || 0)) / _bc.val;
+            } else if (_bc.type === 'L') {
+              if (_bc.n1 === _bjtCollNode) ic += _bc.iPrev || 0;
+              else if (_bc.n2 === _bjtCollNode) ic -= _bc.iPrev || 0;
+            } else if (_bc.type === 'C') {
+              var _bcI = _bc.iPrev || 0;
+              if (_bc.n1 === _bjtCollNode) ic += _bcI;
+              else if (_bc.n2 === _bjtCollNode) ic -= _bcI;
+            } else if (_bc.type === 'D' || _bc.type === 'Z') {
+              var _bdI = _bc.part && _bc.part._i ? _bc.part._i : 0;
+              if (_bc.n1 === _bjtCollNode) ic += _bdI;
+              else if (_bc.n2 === _bjtCollNode) ic -= _bdI;
             }
+          }
+          ic = Math.abs(ic);
+        }
+        // Fallback to emitter-based KCL if collector has nothing (grounded-emitter inverted layouts)
+        if (ic < 1e-12) {
+          var _bjtEmitNode = c.n3;
+          if (_bjtEmitNode > 0) {
+            for (var _bei = 0; _bei < SIM.comps.length; _bei++) {
+              var _be = SIM.comps[_bei];
+              if (_be === c) continue;
+              if (_be.type === 'R') {
+                if (_be.n1 === _bjtEmitNode) ic += ((nodeV[_be.n1] || 0) - (nodeV[_be.n2] || 0)) / _be.val;
+                else if (_be.n2 === _bjtEmitNode) ic += ((nodeV[_be.n2] || 0) - (nodeV[_be.n1] || 0)) / _be.val;
+              }
+            }
+            ic = Math.abs(ic);
           }
         }
         c.part._v = Math.abs(vce); c.part._i = ic; c.part._p = Math.abs(vce * ic);

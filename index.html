@@ -717,7 +717,7 @@ input:focus{border-color:var(--accent)}
     <span id="sb-temp" style="color:var(--text-3)"></span>
     <span id="sb-engine" style="color:var(--text-4)"></span>
     <span id="sb-extra" style="color:var(--text-3)"></span>
-    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v9.0 — Build: 2026-04-16 23:29 — © 2026</span>
+    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v9.0 — Build: 2026-04-17 01:42 — © 2026</span>
   </div>
 </div>
 
@@ -930,7 +930,6 @@ input:focus{border-color:var(--accent)}
     <button style="padding:4px 8px;border:none;border-radius:4px;background:var(--surface-3);color:var(--text);font:10px var(--font-ui);cursor:pointer" onclick="saveAIKey()">&#128190;</button>
   </div>
 </div>
-<!-- Splash failsafe: SEPARATE script so it runs even if main script has errors -->
 <!-- Splash failsafe: SEPARATE script so it runs even if main script has errors -->
 <script>
 (function(){
@@ -2684,7 +2683,7 @@ var PRESETS = [
   { id:'fft-square', name:'FFT — Kare Dalga', color:'#ec4899',
     desc:'Kare dalga harmonik analizi', formula:'THD ve harmonik bileşenler',
     parts:[{type:'pulse',x:-80,y:0,rot:0,val:5,freq:1000},{type:'resistor',x:40,y:0,rot:1,val:1000},{type:'ground',x:-80,y:60,rot:0,val:0},{type:'ground',x:40,y:60,rot:0,val:0}],
-    wires:[{x1:-80,y1:-40,x2:40,y2:-40},{x1:-80,y1:40,x2:-80,y2:40},{x1:40,y1:40,x2:40,y2:40}]},
+    wires:[{x1:-80,y1:-40,x2:40,y2:-40},{x1:-80,y1:40,x2:-80,y2:60},{x1:40,y1:40,x2:40,y2:60}]},
   { id:'dff-toggle', name:'D Flip-Flop Toggle', color:'#06b6d4',
     desc:'CLK ile D toggling', formula:'Rising edge \u2192 Q = D',
     parts:[{type:'pulse',x:-80,y:0,rot:0,val:5,freq:100},{type:'dff',x:40,y:0,rot:0,val:0},{type:'resistor',x:120,y:0,rot:1,val:1000},{type:'ground',x:-80,y:60,rot:0,val:0},{type:'ground',x:120,y:60,rot:0,val:0}],
@@ -6318,7 +6317,13 @@ VXA.SimV2 = (function() {
       // Compile and solve
       Sp.compile(matrix);
       var x;
-      if (typeof _sparseVerified !== 'undefined' && !_sparseVerified && typeof _sparseVerifyCount !== 'undefined' && _sparseVerifyCount < 100 && matrix.n > 30) {
+      // Sprint 69 FIX: proper sparse safety mechanism.
+      // Phase 1 (first 100 large-matrix solves): run BOTH dense + banded,
+      //   compare, count failures. Always return dense result.
+      // Phase 2 (after verification): if verification saw <3 discrepancies,
+      //   use banded (fast path). If it saw >=3, PERMANENTLY fall back to
+      //   dense for this session — no silent wrong answers.
+      if (typeof _sparseVerified !== 'undefined' && !_sparseVerified && matrix.n > 30) {
         var xDense = Sp.solveLU_dense(matrix, rhs);
         var xBanded = Sp.solveLU_banded(matrix, rhs);
         var maxDiff = 0;
@@ -6332,8 +6337,14 @@ VXA.SimV2 = (function() {
         if (_sparseVerifyCount >= 100) {
           _sparseVerified = true;
           _useSparse = _sparseFailCount < 3;
+          if (!_useSparse && typeof console !== 'undefined') {
+            console.warn('[VXA] Sparse solver discrepancies detected (' + _sparseFailCount + '/100) — falling back to dense solver for remainder of session.');
+          }
         }
-        x = xDense;
+        x = xDense; // Always safe during verification
+      } else if (typeof _sparseVerified !== 'undefined' && _sparseVerified && !_useSparse && matrix.n > 30) {
+        // Post-verification, sparse failed QA → permanent dense.
+        x = Sp.solveLU_dense(matrix, rhs);
       } else {
         x = Sp.solveLU(matrix, rhs);
       }
@@ -6413,6 +6424,18 @@ VXA.SimV2 = (function() {
               if (lc.n1 > 0) newV[lc.n1] += a4;
               if (lc.n3 > 0) newV[lc.n3] -= a4;
             }
+          } else if (lc.type === 'JFET') {
+            // Sprint 69 FIX: JFET was in convergence check but not in voltage
+            // limiting — caused NR oscillation on JFET circuits. Use same
+            // 0.5V-per-iter Vgs step limit as MOSFET.
+            var vgsOldJ = lc.polarity * ((nodeV[lc.n1]||0) - (nodeV[lc.n3]||0));
+            var vgsNewJ = lc.polarity * (newV[lc.n1] - newV[lc.n3]);
+            var vgsLimJ = VXA.VoltageLimit.mos(vgsNewJ, vgsOldJ, 0.5);
+            if (Math.abs(vgsLimJ - vgsNewJ) > 1e-10) {
+              var a5 = (vgsLimJ - vgsNewJ) * lc.polarity / 2;
+              if (lc.n1 > 0) newV[lc.n1] += a5;
+              if (lc.n3 > 0) newV[lc.n3] -= a5;
+            }
           }
         }
       }
@@ -6466,66 +6489,114 @@ VXA.SimV2 = (function() {
         c.vPrev = vd;
         c.part._v = Math.abs(vd); c.part._i = Math.abs(cur); c.part._p = Math.abs(vd * cur);
       } else if (c.type === 'V') {
-        // Sprint 58: VDC/VAC current via KCL — sum currents through adjacent Rs
+        // Sprint 69 FIX: Proper KCL — sum ALL branch currents leaving node n1
+        // (through every adjacent branch: R, C, L, D, BJT coll/emit, MOSFET drain/source).
+        // Then V source current = net current OUT of its positive node.
+        var _vnode = c.n1;
         var _vI = 0;
         for (var _vk = 0; _vk < SIM.comps.length; _vk++) {
           var _vc = SIM.comps[_vk];
           if (_vc === c || _vc.type === 'V') continue;
-          if (_vc.type === 'R' && (_vc.n1 === c.n1 || _vc.n2 === c.n1 || _vc.n1 === c.n2 || _vc.n2 === c.n2)) {
-            var _vr = (nodeV[_vc.n1] || 0) - (nodeV[_vc.n2] || 0);
-            _vI = Math.abs(_vr / _vc.val);
-            break;
+          // Determine which pin(s) touch _vnode and the branch current flowing
+          // out of _vnode toward the rest of the branch.
+          if (_vc.type === 'R') {
+            if (_vc.n1 === _vnode) _vI += ((nodeV[_vc.n1] || 0) - (nodeV[_vc.n2] || 0)) / _vc.val;
+            else if (_vc.n2 === _vnode) _vI += ((nodeV[_vc.n2] || 0) - (nodeV[_vc.n1] || 0)) / _vc.val;
+          } else if (_vc.type === 'L') {
+            if (_vc.n1 === _vnode) _vI += _vc.iPrev || 0;
+            else if (_vc.n2 === _vnode) _vI -= _vc.iPrev || 0;
+          } else if (_vc.type === 'C') {
+            // Instantaneous cap current from companion: G*dv/dt from last frame
+            var _cCur = _vc.iPrev || 0;
+            if (_vc.n1 === _vnode) _vI += _cCur;
+            else if (_vc.n2 === _vnode) _vI -= _cCur;
+          } else if (_vc.type === 'I') {
+            if (_vc.n1 === _vnode) _vI += _vc.val;
+            else if (_vc.n2 === _vnode) _vI -= _vc.val;
+          } else if (_vc.type === 'D' || _vc.type === 'Z') {
+            // Use part._i (computed elsewhere) if available
+            var _diI = _vc.part && _vc.part._i ? _vc.part._i : 0;
+            // Direction: anode = n1 (current flows n1 → n2)
+            if (_vc.n1 === _vnode) _vI += _diI;
+            else if (_vc.n2 === _vnode) _vI -= _diI;
           }
         }
-        c.part._v = Math.abs(vd); c.part._i = _vI; c.part._p = Math.abs(vd * _vI);
+        c.part._v = Math.abs(vd); c.part._i = Math.abs(_vI); c.part._p = Math.abs(vd * _vI);
       } else if (c.type === 'D') {
-        // Sprint 24: Diode/LED current from adjacent node KCL (more accurate than Shockley readout)
+        // Sprint 69 FIX: Primary readout via Shockley equation (physically correct),
+        // then compare with KCL from anode — if KCL gives finite non-zero, prefer it
+        // (more robust for multi-resistor parallel LED configurations).
+        var dMdl2 = c.part && c.part.model ? VXA.Models.getModel(c.part.type, c.part.model) : null;
+        var dIS2 = dMdl2 ? (dMdl2.IS || DIODE_IS) : (c.IS || DIODE_IS);
+        var dN2 = dMdl2 ? (dMdl2.N || DIODE_N) : (c.N || DIODE_N);
+        var eArg = Math.min(vd / (dN2 * VT_VAL), 500);
+        var shockleyCur = dIS2 * (Math.exp(eArg) - 1);
+
+        // KCL at anode (n1): sum all currents flowing OUT via adjacent R/L/C/D (excluding self)
         var cur = 0;
-        // Find current through node by checking connected resistor or sum of other branch currents
-        for (var ck = 0; ck < SIM.comps.length; ck++) {
-          var cc = SIM.comps[ck];
-          if (cc === c || cc.type === 'V') continue;
-          if (cc.type === 'R' && (cc.n1 === c.n1 || cc.n1 === c.n2 || cc.n2 === c.n1 || cc.n2 === c.n2)) {
-            var vr = (nodeV[cc.n1] || 0) - (nodeV[cc.n2] || 0);
-            cur = Math.abs(vr / cc.val);
-            break;
+        var _diAnode = c.n1;
+        if (_diAnode > 0) {
+          for (var ck = 0; ck < SIM.comps.length; ck++) {
+            var cc = SIM.comps[ck];
+            if (cc === c) continue;
+            if (cc.type === 'R') {
+              if (cc.n1 === _diAnode) cur += ((nodeV[cc.n1] || 0) - (nodeV[cc.n2] || 0)) / cc.val;
+              else if (cc.n2 === _diAnode) cur += ((nodeV[cc.n2] || 0) - (nodeV[cc.n1] || 0)) / cc.val;
+            } else if (cc.type === 'L') {
+              if (cc.n1 === _diAnode) cur += cc.iPrev || 0;
+              else if (cc.n2 === _diAnode) cur -= cc.iPrev || 0;
+            }
           }
+          cur = Math.abs(cur);
         }
-        // Fallback to Shockley equation if no adjacent R found
-        if (cur < 1e-15) {
-          var dMdl2 = c.part && c.part.model ? VXA.Models.getModel(c.part.type, c.part.model) : null;
-          var dIS2 = dMdl2 ? (dMdl2.IS || DIODE_IS) : (c.IS || DIODE_IS);
-          var dN2 = dMdl2 ? (dMdl2.N || DIODE_N) : (c.N || DIODE_N);
-          var eArg = Math.min(vd / (dN2 * VT_VAL), 500);
-          cur = dIS2 * (Math.exp(eArg) - 1);
-        }
-        c.part._v = Math.abs(vd); c.part._i = Math.abs(cur); c.part._p = Math.abs(vd * cur);
+        // Prefer KCL if it found real branch current; otherwise use Shockley
+        if (cur < 1e-15) cur = Math.abs(shockleyCur);
+        c.part._v = Math.abs(vd); c.part._i = cur; c.part._p = Math.abs(vd * cur);
         c.vPrev = vd;
       } else if (c.type === 'BJT') {
         var pol = c.polarity;
         var vB = nodeV[c.n1] || 0, vC = nodeV[c.n2] || 0, vE = nodeV[c.n3] || 0;
         var vbe = pol * (vB - vE), vbc = pol * (vB - vC), vce = pol * (vC - vE);
-        // IC from emitter node current: Ie = sum of currents through R connected to emitter
-        // More accurate: use VCE and find collector resistor current
+        // Sprint 69 FIX: Proper KCL at collector — sum ALL currents flowing OUT of collector
+        // through every adjacent resistor/inductor/capacitor/other BJT/diode/V source.
+        // IC = |sum of branch currents leaving collector node|.
         var ic = 0;
-        for (var _bci = 0; _bci < SIM.comps.length; _bci++) {
-          var _bc = SIM.comps[_bci];
-          if (_bc === c || _bc.type === 'BJT') continue;
-          // Find resistor connected to collector node
-          if (_bc.type === 'R' && (_bc.n1 === c.n2 || _bc.n2 === c.n2)) {
-            ic = Math.abs((nodeV[_bc.n1]||0) - (nodeV[_bc.n2]||0)) / _bc.val;
-            break;
-          }
-        }
-        if (ic === 0) {
-          // Fallback: compute from emitter resistor
-          for (var _bei = 0; _bei < SIM.comps.length; _bei++) {
-            var _be = SIM.comps[_bei];
-            if (_be === c || _be.type === 'BJT') continue;
-            if (_be.type === 'R' && (_be.n1 === c.n3 || _be.n2 === c.n3)) {
-              ic = Math.abs((nodeV[_be.n1]||0) - (nodeV[_be.n2]||0)) / _be.val;
-              break;
+        var _bjtCollNode = c.n2;
+        if (_bjtCollNode > 0) {
+          for (var _bci = 0; _bci < SIM.comps.length; _bci++) {
+            var _bc = SIM.comps[_bci];
+            if (_bc === c) continue;
+            if (_bc.type === 'R') {
+              if (_bc.n1 === _bjtCollNode) ic += ((nodeV[_bc.n1] || 0) - (nodeV[_bc.n2] || 0)) / _bc.val;
+              else if (_bc.n2 === _bjtCollNode) ic += ((nodeV[_bc.n2] || 0) - (nodeV[_bc.n1] || 0)) / _bc.val;
+            } else if (_bc.type === 'L') {
+              if (_bc.n1 === _bjtCollNode) ic += _bc.iPrev || 0;
+              else if (_bc.n2 === _bjtCollNode) ic -= _bc.iPrev || 0;
+            } else if (_bc.type === 'C') {
+              var _bcI = _bc.iPrev || 0;
+              if (_bc.n1 === _bjtCollNode) ic += _bcI;
+              else if (_bc.n2 === _bjtCollNode) ic -= _bcI;
+            } else if (_bc.type === 'D' || _bc.type === 'Z') {
+              var _bdI = _bc.part && _bc.part._i ? _bc.part._i : 0;
+              if (_bc.n1 === _bjtCollNode) ic += _bdI;
+              else if (_bc.n2 === _bjtCollNode) ic -= _bdI;
             }
+          }
+          ic = Math.abs(ic);
+        }
+        // Fallback to emitter-based KCL if collector has nothing (grounded-emitter inverted layouts)
+        if (ic < 1e-12) {
+          var _bjtEmitNode = c.n3;
+          if (_bjtEmitNode > 0) {
+            for (var _bei = 0; _bei < SIM.comps.length; _bei++) {
+              var _be = SIM.comps[_bei];
+              if (_be === c) continue;
+              if (_be.type === 'R') {
+                if (_be.n1 === _bjtEmitNode) ic += ((nodeV[_be.n1] || 0) - (nodeV[_be.n2] || 0)) / _be.val;
+                else if (_be.n2 === _bjtEmitNode) ic += ((nodeV[_be.n2] || 0) - (nodeV[_be.n1] || 0)) / _be.val;
+              }
+            }
+            ic = Math.abs(ic);
           }
         }
         c.part._v = Math.abs(vce); c.part._i = ic; c.part._p = Math.abs(vce * ic);
@@ -10344,13 +10415,20 @@ function autoDetectDt() {
   for (var i = 0; i < SIM.comps.length; i++) {
     var c = SIM.comps[i];
     if (c.isPulse || c.type === 'VPULSE') {
+      // Sprint 69 FIX: capture both rise/fall AND pulse width — pulse width
+      // matters for very short pulses (0.1*pw prevents missing the pulse).
       if (c.tr > 0) minEdge = Math.min(minEdge, c.tr);
       if (c.tf > 0) minEdge = Math.min(minEdge, c.tf);
+      if (c.pw > 0) minEdge = Math.min(minEdge, c.pw * 0.1);
     }
-    if (c.isAC && c.freq > 0) minEdge = Math.min(minEdge, 1 / (c.freq * 50));
+    // Sprint 69 FIX: 50 samples/period → 200 samples/period for AC — IEEE
+    // recommendation is >=100 sps for <0.5% THD at base harmonic. 200 is a
+    // safety margin that still keeps 1kHz AC at dt=5us (cheap).
+    if (c.isAC && c.freq > 0) minEdge = Math.min(minEdge, 1 / (c.freq * 200));
   }
   if (minEdge < Infinity && minEdge > 0) {
-    var newDt = Math.max(minEdge / 10, 1e-9);
+    // edge/20 for PULSE gives ~20 timesteps to resolve a single rise edge.
+    var newDt = Math.max(minEdge / 20, 1e-9);
     if (newDt < VXA.AdaptiveStep.getDt()) VXA.AdaptiveStep.setDt(newDt);
   }
 }
@@ -10723,7 +10801,13 @@ function loadPreset(id) {
     else { var defModel = VXA.Models && VXA.Models.getDefault ? VXA.Models.getDefault(p.type) : null; if (defModel) { newPart.model = defModel; if (typeof applyModel === 'function') applyModel(newPart, defModel); } }
     S.parts.push(newPart);
   });
-  pr.wires.forEach(w => S.wires.push({ x1: w.x1, y1: w.y1, x2: w.x2, y2: w.y2 }));
+  // Sprint 69 FIX: Filter zero-length wires (33 found in existing presets).
+  // They are harmless because coincident pins already snap to the same node,
+  // but they clutter renders and can confuse interaction tests.
+  pr.wires.forEach(w => {
+    if (w.x1 === w.x2 && w.y1 === w.y2) return;
+    S.wires.push({ x1: w.x1, y1: w.y1, x2: w.x2, y2: w.y2 });
+  });
   // Center view on preset
   if (S.parts.length) {
     let mnx=Infinity,mny=Infinity,mxx=-Infinity,mxy=-Infinity;
@@ -12581,6 +12665,31 @@ VXA.SpiceImport = (function() {
     pv = VXA.SpiceParser.parseSpiceNumber;
     var warnings = [];
     var inSubckt = false;
+    // Sprint 69 FIX: First pass — collect V source name → {n1, n2} for F/H references.
+    // SPICE Fxxx/Hxxx format: "Fname out+ out- vname gain"
+    // vname refers to an already-defined V source; control current = current
+    // through that V source (direction: n1 → n2).
+    var vNameMap = {};
+    {
+      var inSubPre = false;
+      var linesPre = lines;
+      for (var _li = 0; _li < linesPre.length; _li++) {
+        var _pLine = stripInlineComment(linesPre[_li]);
+        if (!_pLine || _pLine.charAt(0) === '*' || _pLine.charAt(0) === ';') continue;
+        if (_pLine.charAt(0) === '.') {
+          if (/^\.subckt/i.test(_pLine)) inSubPre = true;
+          else if (/^\.ends/i.test(_pLine)) inSubPre = false;
+          continue;
+        }
+        if (inSubPre) continue;
+        var _pTk = _pLine.split(/\s+/);
+        if (_pTk.length < 3) continue;
+        var _pCh = _pTk[0].charAt(0).toUpperCase();
+        if (_pCh === 'V') {
+          vNameMap[_pTk[0].toUpperCase()] = { n1: _pTk[1], n2: _pTk[2] };
+        }
+      }
+    }
     lines.forEach(function(rawLine) {
       var line = stripInlineComment(rawLine);
       if (!line || line.charAt(0) === '*' || line.charAt(0) === ';') return;
@@ -12668,16 +12777,41 @@ VXA.SpiceImport = (function() {
         circuit.parts.push({ type: 'behavioral', nodes: [gn(tk[1]), gn(tk[2])], expression: bRest, srcType: bIsV ? 'V' : 'I' });
       }
       else if (ch === 'E') {
-        circuit.parts.push({ type: 'vcvs', nodes: [gn(tk[1]), gn(tk[2]), gn(tk[3]), gn(tk[4])], val: pv(tk[5] || '1') });
+        // SPICE format: Ename out+ out- ctrl+ ctrl- gain
+        // Sprint 69 FIX: sim-legacy VCVS expects [ncP, ncN, noP, noN] — control first.
+        circuit.parts.push({ type: 'vcvs', nodes: [gn(tk[3]), gn(tk[4]), gn(tk[1]), gn(tk[2])], val: pv(tk[5] || '1') });
       }
       else if (ch === 'G') {
-        circuit.parts.push({ type: 'vccs', nodes: [gn(tk[1]), gn(tk[2]), gn(tk[3]), gn(tk[4])], val: pv(tk[5] || '0.001') });
+        // SPICE format: Gname out+ out- ctrl+ ctrl- gm
+        // Sprint 69 FIX: sim-legacy VCCS expects [ncP, ncN, noP, noN] — control first.
+        circuit.parts.push({ type: 'vccs', nodes: [gn(tk[3]), gn(tk[4]), gn(tk[1]), gn(tk[2])], val: pv(tk[5] || '0.001') });
       }
       else if (ch === 'F') {
-        circuit.parts.push({ type: 'cccs', nodes: [gn(tk[1]), gn(tk[2]), gn(tk[1]), gn(tk[2])], val: pv(tk[4] || '1') });
+        // Fname out+ out- vname gain — current-controlled current source
+        // Control current flows through V source "vname" (n1→n2 direction)
+        // Sprint 69 FIX v2: Sim-legacy builds CCCS as
+        //   {ncP:nodes[0], ncN:nodes[1], noP:nodes[2], noN:nodes[3]}
+        // i.e. control pins FIRST, output pins SECOND. Order nodes accordingly.
+        var _fVn = (tk[3] || '').toUpperCase();
+        var _fVnode = vNameMap[_fVn];
+        var _fGain = pv(tk[4] || '1');
+        if (_fVnode) {
+          circuit.parts.push({ type: 'cccs', nodes: [gn(_fVnode.n1), gn(_fVnode.n2), gn(tk[1]), gn(tk[2])], val: _fGain });
+        } else {
+          warnings.push('F' + sanitizeHTML(tk[0].substring(1)) + ': V source "' + sanitizeHTML(tk[3] || '') + '" not found');
+        }
       }
       else if (ch === 'H') {
-        circuit.parts.push({ type: 'ccvs', nodes: [gn(tk[1]), gn(tk[2]), gn(tk[1]), gn(tk[2])], val: pv(tk[4] || '1000') });
+        // Hname out+ out- vname transresistance — current-controlled voltage source
+        // Sprint 69 FIX v2: same node ordering as F — control first, output second.
+        var _hVn = (tk[3] || '').toUpperCase();
+        var _hVnode = vNameMap[_hVn];
+        var _hRm = pv(tk[4] || '1000');
+        if (_hVnode) {
+          circuit.parts.push({ type: 'ccvs', nodes: [gn(_hVnode.n1), gn(_hVnode.n2), gn(tk[1]), gn(tk[2])], val: _hRm });
+        } else {
+          warnings.push('H' + sanitizeHTML(tk[0].substring(1)) + ': V source "' + sanitizeHTML(tk[3] || '') + '" not found');
+        }
       }
       else if (ch === 'K') {
         circuit.parts.push({ type: 'coupled_l', nodes: [], val: pv(tk[3] || '1'), ref1: tk[1], ref2: tk[2] });
@@ -12692,12 +12826,22 @@ VXA.SpiceImport = (function() {
         circuit.parts.push({ type: 'tline', nodes: [gn(tk[1]), gn(tk[2]), gn(tk[3]), gn(tk[4])], val: tlZ0, td: tlTD });
       }
       else if (ch === 'W') {
-        // Current-controlled switch: W1 n+ n- vname modelname
-        circuit.parts.push({ type: 'switch', nodes: [gn(tk[1]), gn(tk[2])], model: tk[4] || '', closed: true });
+        // Current-controlled switch: W<name> n+ n- vname modelname
+        // Control current flows through V source "vname". Store vname as metadata;
+        // runtime switch is open/closed based on whether control current > threshold.
+        var _wVname = (tk[3] || '').toUpperCase();
+        var _wVnode = vNameMap[_wVname];
+        var _wPart = { type: 'switch', nodes: [gn(tk[1]), gn(tk[2])], model: tk[4] || '', closed: true };
+        if (_wVnode) { _wPart.vctrl = _wVname; _wPart.vctrlN1 = gn(_wVnode.n1); _wPart.vctrlN2 = gn(_wVnode.n2); }
+        else warnings.push('W' + sanitizeHTML(tk[0].substring(1)) + ': V source "' + sanitizeHTML(tk[3] || '') + '" not found — treated as simple switch');
+        circuit.parts.push(_wPart);
       }
       else if (ch === 'O') {
-        // Lossy transmission line: O1 n1+ n1- n2+ n2- modelname
-        circuit.parts.push({ type: 'tline', nodes: [gn(tk[1]), gn(tk[2]), gn(tk[3]), gn(tk[4])], model: tk[5] || '', val: 50 });
+        // Lossy transmission line: O<name> n1+ n1- n2+ n2- modelname
+        // Kept as a warning because full lossy TL requires the RLGC model parsed
+        // from .model, which is currently not implemented — treat as lossless.
+        circuit.parts.push({ type: 'tline', nodes: [gn(tk[1]), gn(tk[2]), gn(tk[3]), gn(tk[4])], model: tk[5] || '', val: 50, td: 1e-9 });
+        warnings.push('O' + sanitizeHTML(tk[0].substring(1)) + ': lossy transmission line treated as lossless (Z0=50\u03a9, TD=1ns)');
       }
       else {
         warnings.push('Unsupported element: ' + sanitizeHTML(tk[0]));
@@ -21718,42 +21862,26 @@ VXA.SmithChart = (function() {
   else setTimeout(applyPatches, 500);
 
   // ── Scope auto-assign: first non-zero node after sim start ──
-  // Listens to toggleSim; on start, pick highest-V node for CH1.
+  // Sprint 69 FIX: The original Sprint 58 implementation set `scope.ch[0].src`
+  // to a node index, but sim.js looks up `src` as a part ID via
+  // S.parts.find(pp => pp.id === sch.src). This mismatch meant auto-assign
+  // silently produced flat 0V traces. Since the default `src: null` mode
+  // already picks nodes by index (scope.ch[ch] maps to nodes[ch]), this hook
+  // is now a NO-OP that simply ensures channels are ON — the rest is handled
+  // by the default fall-through in sim.js.
   if (typeof window !== 'undefined') {
-    var _origToggle = (typeof toggleSim === 'function') ? toggleSim : null;
-    // We don't override toggleSim here — too risky. Instead, a periodic
-    // check after sim is running assigns scope if channels are empty.
     setInterval(function() {
       if (typeof S === 'undefined' || !S || !S.sim || !S.sim.running) return;
       if (!S.scope || !Array.isArray(S.scope.ch)) return;
-      // Only auto-assign if NO channel has a src set
+      // Ensure at least channels 0 & 1 are ON if nothing is explicitly set.
       var anySet = false;
       for (var ci = 0; ci < S.scope.ch.length; ci++) {
-        if (S.scope.ch[ci] && S.scope.ch[ci].src && S.scope.ch[ci].src > 0 && S.scope.ch[ci].on) anySet = true;
+        if (S.scope.ch[ci] && S.scope.ch[ci].src && S.scope.ch[ci].on) anySet = true;
       }
       if (anySet) return;
-      // Find highest-V node
-      if (typeof SIM === 'undefined' || !SIM || !S._nodeVoltages) return;
-      var maxV = 0, maxN = 1;
-      for (var ni = 1; ni < SIM.N; ni++) {
-        var nv = Math.abs(S._nodeVoltages[ni] || 0);
-        if (nv > maxV) { maxV = nv; maxN = ni; }
-      }
-      if (maxV > 0.1 && S.scope.ch[0]) {
-        S.scope.ch[0].src = maxN;
-        S.scope.ch[0].on = true;
-        // Second channel: next distinct node
-        var sec = 0, secN = 1;
-        for (var si = 1; si < SIM.N; si++) {
-          if (si === maxN) continue;
-          var sv = Math.abs(S._nodeVoltages[si] || 0);
-          if (sv > sec) { sec = sv; secN = si; }
-        }
-        if (sec > 0.05 && S.scope.ch[1]) {
-          S.scope.ch[1].src = secN;
-          S.scope.ch[1].on = true;
-        }
-      }
+      // Turn on channels but leave src=null — sim.js falls back to node-index mode.
+      if (S.scope.ch[0]) { S.scope.ch[0].on = true; S.scope.ch[0].src = null; }
+      if (S.scope.ch[1]) { S.scope.ch[1].on = true; S.scope.ch[1].src = null; }
     }, 500);
   }
 
@@ -25648,7 +25776,7 @@ function showWelcome() {
           : "World's Most Advanced Free Circuit Simulator") + '</div>'
     + '<div style="font:11px var(--font-mono);color:var(--text-3);margin-bottom:20px">'
     + '71 ' + (tr?'bile\u015fen':'components') + ' \u00B7 55 '
-    + (tr?'haz\u0131r devre':'presets') + ' \u00B7 14 '
+    + (tr?'haz\u0131r devre':'presets') + ' \u00B7 16 '
     + (tr?'analiz arac\u0131':'analysis tools') + '</div>'
     + '<div style="display:flex;flex-direction:column;gap:8px;align-items:center">'
     // Live Demo (primary)

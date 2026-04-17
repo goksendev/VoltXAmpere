@@ -385,13 +385,20 @@ function autoDetectDt() {
   for (var i = 0; i < SIM.comps.length; i++) {
     var c = SIM.comps[i];
     if (c.isPulse || c.type === 'VPULSE') {
+      // Sprint 69 FIX: capture both rise/fall AND pulse width — pulse width
+      // matters for very short pulses (0.1*pw prevents missing the pulse).
       if (c.tr > 0) minEdge = Math.min(minEdge, c.tr);
       if (c.tf > 0) minEdge = Math.min(minEdge, c.tf);
+      if (c.pw > 0) minEdge = Math.min(minEdge, c.pw * 0.1);
     }
-    if (c.isAC && c.freq > 0) minEdge = Math.min(minEdge, 1 / (c.freq * 50));
+    // Sprint 69 FIX: 50 samples/period → 200 samples/period for AC — IEEE
+    // recommendation is >=100 sps for <0.5% THD at base harmonic. 200 is a
+    // safety margin that still keeps 1kHz AC at dt=5us (cheap).
+    if (c.isAC && c.freq > 0) minEdge = Math.min(minEdge, 1 / (c.freq * 200));
   }
   if (minEdge < Infinity && minEdge > 0) {
-    var newDt = Math.max(minEdge / 10, 1e-9);
+    // edge/20 for PULSE gives ~20 timesteps to resolve a single rise edge.
+    var newDt = Math.max(minEdge / 20, 1e-9);
     if (newDt < VXA.AdaptiveStep.getDt()) VXA.AdaptiveStep.setDt(newDt);
   }
 }

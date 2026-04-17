@@ -172,7 +172,13 @@ function loadPreset(id) {
     else { var defModel = VXA.Models && VXA.Models.getDefault ? VXA.Models.getDefault(p.type) : null; if (defModel) { newPart.model = defModel; if (typeof applyModel === 'function') applyModel(newPart, defModel); } }
     S.parts.push(newPart);
   });
-  pr.wires.forEach(w => S.wires.push({ x1: w.x1, y1: w.y1, x2: w.x2, y2: w.y2 }));
+  // Sprint 69 FIX: Filter zero-length wires (33 found in existing presets).
+  // They are harmless because coincident pins already snap to the same node,
+  // but they clutter renders and can confuse interaction tests.
+  pr.wires.forEach(w => {
+    if (w.x1 === w.x2 && w.y1 === w.y2) return;
+    S.wires.push({ x1: w.x1, y1: w.y1, x2: w.x2, y2: w.y2 });
+  });
   // Center view on preset
   if (S.parts.length) {
     let mnx=Infinity,mny=Infinity,mxx=-Infinity,mxy=-Infinity;
