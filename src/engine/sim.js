@@ -583,14 +583,9 @@ VXA.SimV2 = (function() {
         if (cur < 1e-15) cur = Math.abs(shockleyCur);
         c.part._v = Math.abs(vd); c.part._i = cur; c.part._p = Math.abs(vd * cur);
         c.vPrev = vd;
-        // Sprint 70h: keep an instantaneous-current ring buffer so the
-        // Inspector can display an RMS reading instead of a single sample.
-        // On AC rectifiers the DC solver is correct (≈9 mA on the forward
-        // half, saturation current on the reverse half), but a 100 ms
-        // Inspector tick catches the off-phase and reports picoamps.
-        if (!c.part._iHistory) c.part._iHistory = [];
-        c.part._iHistory.push(cur);
-        if (c.part._iHistory.length > 2000) c.part._iHistory.shift();
+        // Sprint 72: history tracking is now unified in a single loop
+        // at the end of the solve pass — handles diode / LED / zener
+        // along with every other AC-capable component type.
       } else if (c.type === 'BJT') {
         var pol = c.polarity;
         var vB = nodeV[c.n1] || 0, vC = nodeV[c.n2] || 0, vE = nodeV[c.n3] || 0;
@@ -708,6 +703,27 @@ VXA.SimV2 = (function() {
         c.part._i = 0; c.part._p = 0;
         c.part._latchState = c.part.ic555State ? c.part.ic555State.latch : false;
       }
+    }
+
+    // Sprint 72: per-component sample history for RMS readouts. Sprint
+    // 70h already tracked diode/LED/zener current so the Inspector could
+    // average over a rectifier's off-phase. Extend to every part that
+    // can carry AC (passives, sources, active devices), and store
+    // voltage alongside current so RMS also works on the V card.
+    // Ring-buffered to 2000 samples (matches Sprint 70h cap).
+    var _TRACKED_TYPES = { resistor:1, capacitor:1, inductor:1,
+      diode:1, led:1, zener:1,
+      vdc:1, vac:1, pulse:1, pwl:1, idc:1, iac:1, noise:1,
+      npn:1, pnp:1, nmos:1, pmos:1, njfet:1, pjfet:1, opamp:1 };
+    for (var _hi = 0; _hi < S.parts.length; _hi++) {
+      var _hp = S.parts[_hi];
+      if (!_TRACKED_TYPES[_hp.type]) continue;
+      if (!_hp._vHistory) _hp._vHistory = [];
+      if (!_hp._iHistory) _hp._iHistory = [];
+      _hp._vHistory.push(_hp._v || 0);
+      _hp._iHistory.push(_hp._i || 0);
+      if (_hp._vHistory.length > 2000) _hp._vHistory.shift();
+      if (_hp._iHistory.length > 2000) _hp._iHistory.shift();
     }
 
     // Wire currents — match wire endpoints to nearby component pins

@@ -1,20 +1,35 @@
 // ──────── 3.5: ENHANCED INSPECTOR ────────
 var _inspLiveInterval = null;
 
-// Sprint 70h: some components carry fast AC (diodes on rectifier
-// lines, switching devices). A single-sample readout at the 100 ms
-// Inspector tick drifts between the forward half-cycle's real
-// current and the reverse-bias saturation current (~10 pA). Keep a
-// ring buffer on the solver side and surface an RMS here so the
-// user sees a physically-meaningful number.
+// Sprint 70h / 72: per-component sample history fuels RMS readouts.
+// Sprint 70h seeded this for diode/LED/zener so the Inspector tick
+// stopped landing on a rectifier's reverse phase and reading pA.
+// Sprint 72 generalises: any component whose sign flips across the
+// buffered window is deemed AC and its Inspector card switches to
+// RMS (with an "RMS" suffix). DC components keep the instantaneous
+// value so resistor dividers still read "12.00 V" not an RMS
+// approximation of zero-variance samples.
+function getRMS(history) {
+  if (!history || history.length < 2) return 0;
+  var sum = 0;
+  for (var i = 0; i < history.length; i++) sum += history[i] * history[i];
+  return Math.sqrt(sum / history.length);
+}
+function isACSignal(history) {
+  if (!history || history.length < 10) return false;
+  var hasPos = false, hasNeg = false;
+  for (var i = 0; i < history.length; i++) {
+    if (history[i] >  1e-9) hasPos = true;
+    if (history[i] < -1e-9) hasNeg = true;
+    if (hasPos && hasNeg) return true;
+  }
+  return false;
+}
 function getRMSCurrent(part) {
   var h = part && part._iHistory;
   if (!h || h.length < 2) return Math.abs(part && part._i ? part._i : 0);
-  var sum = 0;
-  for (var i = 0; i < h.length; i++) sum += h[i] * h[i];
-  return Math.sqrt(sum / h.length);
+  return getRMS(h);
 }
-var _RMS_DISPLAY_TYPES = { diode:1, zener:1, led:1 };
 
 function updateInspector() {
   var el = document.getElementById('inspector');
@@ -222,16 +237,25 @@ function updateInspector() {
       if (pEl) pEl.textContent = fmtVal(pp._p || 0, 'W');
       return;
     }
-    if (vEl) vEl.textContent = fmtVal(pp._v || 0, 'V');
-    // Sprint 70h: rectifier-class devices report RMS over the ring
-    // buffer so the Inspector doesn't land on a zero-crossing sample.
-    if (iEl) {
-      if (_RMS_DISPLAY_TYPES[pp.type] && pp._iHistory && pp._iHistory.length > 5) {
-        iEl.textContent = fmtVal(getRMSCurrent(pp), 'A') + ' (RMS)';
-      } else {
-        iEl.textContent = fmtVal(pp._i || 0, 'A');
-      }
+    // Sprint 72: generic AC detection. If the buffered samples cross
+    // zero we report RMS on the corresponding card and append "RMS"
+    // to the label (unless the label is a custom one from Sprint 70c
+    // ground framing or Sprint 70d source direction — those branches
+    // return early above this block, so we're safe).
+    var vAC = isACSignal(pp._vHistory);
+    var iAC = isACSignal(pp._iHistory);
+    if (vEl) {
+      var vVal = vAC ? getRMS(pp._vHistory) : (pp._v || 0);
+      vEl.textContent = fmtVal(vVal, 'V') + (vAC ? ' RMS' : '');
     }
+    var vLbl = document.querySelector('#im-v .im-label');
+    if (vLbl && !vLbl.dataset.custom) vLbl.textContent = vAC ? 'V (RMS)' : 'V';
+    if (iEl) {
+      var iVal = iAC ? getRMS(pp._iHistory) : (pp._i || 0);
+      iEl.textContent = fmtVal(iVal, 'A') + (iAC ? ' RMS' : '');
+    }
+    var iLbl = document.querySelector('#im-i .im-label');
+    if (iLbl && !iLbl.dataset.custom) iLbl.textContent = iAC ? 'I (RMS)' : 'I';
     if (pEl) pEl.textContent = fmtVal(pp._p || 0, 'W');
     var pth = pp._thermal;
     if (tEl) {
