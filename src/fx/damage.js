@@ -73,7 +73,19 @@ VXA.Damage = (function() {
       if (th.T >= th.Tmax) { apply(part, 'thermal_runaway'); return; }
     }
     else if (type === 'nmos' || type === 'pmos') {
-      if ((part._v || 0) > 20 && type.startsWith('n') && (part._vgs || 0) > 20) { apply(part, 'gate_oxide'); return; }
+      // Sprint 70f: gate-oxide breakdown is polarity-symmetric — the
+      // old `type.startsWith('n')` gate silently exempted every pmos.
+      // Also accumulate energy before triggering so a single noisy
+      // Vgs sample can't condemn the device on its own.
+      var vgsAbs = Math.abs(part._vgs || part._v || 0);
+      if (!part._damageEnergy) part._damageEnergy = 0;
+      if (vgsAbs > 20) {
+        var dtM = S._simDt || 1e-5;
+        part._damageEnergy += (vgsAbs - 20) * Math.abs(part._i || 0) * dtM;
+        if (part._damageEnergy > 0.1) { apply(part, 'gate_oxide'); return; }
+      } else {
+        part._damageEnergy = Math.max(0, (part._damageEnergy || 0) - 1e-4);
+      }
     }
     else if (type === 'fuse') {
       var Imax = part.val || 1;

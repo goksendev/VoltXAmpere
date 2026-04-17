@@ -1,0 +1,7 @@
+* Thermal overload sanity check — 24V across 10Ω 1/4W resistor.
+* Steady-state P = 57.6W = 230× Pmax → damage MUST trigger within
+* a few seconds of sim time (τ = Rth·Cth = 300·0.05 = 15s, but
+* Pmax is breached on the first sample so damage accumulates fast).
+V1 1 0 24
+R1 1 0 10
+.END
