@@ -306,17 +306,32 @@ VXA.SpiceImport = (function() {
       });
     });
 
-    // Manhattan routing for non-GND nodes
+    // Compute axis-aligned body bounding boxes for obstacle-aware routing.
+    // Body radius chosen per part family; pins extend beyond body (±40 typ.),
+    // so wires may legally terminate AT pins but not pass THROUGH the body.
+    var BODY_R = {
+      resistor:20, capacitor:20, inductor:20, diode:20, led:20,
+      vdc:22, vac:22, idc:22, iac:22, pulse:22, pwl:22, noise:22,
+      npn:28, pnp:28, nmos:28, pmos:28, njfet:28, pjfet:28,
+      vcvs:24, vccs:24, ccvs:24, cccs:24,
+      ground:14, switch:18, opamp:24, behavioral:22
+    };
+    var boxes = S.parts.map(function(pp) {
+      var r = BODY_R[pp.type] || 20;
+      return { minX: pp.x - r, maxX: pp.x + r, minY: pp.y - r, maxY: pp.y + r,
+               type: pp.type, x: pp.x, y: pp.y };
+    });
+
+    // Manhattan routing for non-GND nodes (obstacle-aware)
     var router = VXA.SpiceRouter;
     Object.keys(nodePins).forEach(function(nodeIdx) {
       if (+nodeIdx === 0) return; // GND handled separately
       var pins = nodePins[nodeIdx];
       if (!pins || pins.length < 2) return;
       if (router && router.connectNode) {
-        var segs = router.connectNode(pins);
+        var segs = router.connectNode(pins, { boxes: boxes });
         segs.forEach(function(w) { S.wires.push(w); });
       } else {
-        // Pre-router fallback: diagonal chain
         for (var i = 0; i < pins.length - 1; i++) {
           S.wires.push({ x1: pins[i].x, y1: pins[i].y, x2: pins[i+1].x, y2: pins[i+1].y });
         }
@@ -329,7 +344,7 @@ VXA.SpiceImport = (function() {
       S.parts.forEach(function(pp) { if (pp.y > maxY) maxY = pp.y; });
       var busY = snap(maxY + 80);
       if (router && router.groundBus) {
-        var gb = router.groundBus(nodePins[0], busY);
+        var gb = router.groundBus(nodePins[0], busY, boxes);
         gb.wires.forEach(function(w) { S.wires.push(w); });
         S.parts.push({
           id: S.nextId++, type: 'ground', name: 'GND',

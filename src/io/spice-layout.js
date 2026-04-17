@@ -146,6 +146,18 @@ VXA.SpiceLayout = (function() {
       pl.y = Math.round(yRaw / 20) * 20;
     });
 
+    // 7. Center the whole layout around the origin (x-axis).
+    // Y is already centered per column. fitToScreen zoom/pans the view,
+    // but centering world coords keeps GND symbol and ground rail
+    // symmetric around canvas middle.
+    var xMin = Infinity, xMax = -Infinity;
+    placements.forEach(function(pl) {
+      if (pl.x < xMin) xMin = pl.x;
+      if (pl.x > xMax) xMax = pl.x;
+    });
+    var shift = isFinite(xMin) ? Math.round((xMin + xMax) / 2 / 20) * 20 : 0;
+    placements.forEach(function(pl) { pl.x -= shift; });
+
     return {
       placements: placements,
       nodeDepth: nodeDepth,
