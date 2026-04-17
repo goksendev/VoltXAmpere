@@ -289,6 +289,7 @@ const CIRCUITS = [
       let orphanWires = 0;
       let groundPinCurrent = null;
       let result_vSignCheck = null;
+      let result_kclCheck = null;
       try {
         buildCircuitFromCanvas();
         simNodes = (typeof SIM !== 'undefined' && SIM && SIM.N) ? SIM.N : 0;
@@ -307,25 +308,71 @@ const CIRCUITS = [
           if (gnd) groundPinCurrent = Math.abs(gnd._i || 0);
           S.sim.running = false;
         }
-        // Sprint 70d: V-source signed-current sanity. On any live
-        // resistive net, V1._i should be non-trivial (> 1 µA) and
-        // sign should equal sign(V1._v) for a normal delivery
-        // circuit. Sum of |R branch currents at V+| should match
-        // |V1._i| within a small tolerance.
+        // Sprint 70d: V-source signed-current sanity.
         var vSignCheck = null;
         if (isSimple && S.parts.some(p => p.type === 'vdc') && S.parts.length >= 3) {
           const V1 = S.parts.find(p => p.type === 'vdc');
-          const Rs = S.parts.filter(p => p.type === 'resistor');
-          const sumRs = Rs.reduce((a, r) => a + Math.abs(r._i || 0), 0);
-          vSignCheck = {
-            vi: V1._i,
-            vv: V1._v,
-            vp: V1._p,
-            sumR: sumRs,
-            kclDelta: Math.abs(Math.abs(V1._i) - sumRs)
-          };
+          vSignCheck = { vi: V1._i, vv: V1._v, vp: V1._p };
         }
         result_vSignCheck = vSignCheck;
+
+        // Sprint 73: per-node KCL balance. For each pin coordinate on
+        // a 2-pin passive/source, compute the signed branch current
+        // (sign from V drop across the branch) and add/subtract it at
+        // the adjacent pin coordinates. Internal nodes should sum to
+        // ~0, including the ground pin. This catches ground-floating /
+        // trunk-short regressions that a V-source-only sign check
+        // cannot see.
+        if (isSimple && S._nodeVoltages) {
+          const V = S._nodeVoltages;
+          const p2n = S._pinToNode || {};
+          const COMP = window.COMP;
+          function pinCoords(p) {
+            const def = COMP[p.type]; if (!def || !def.pins) return [];
+            const a = (p.rot || 0) * Math.PI / 2, c = Math.cos(a), s = Math.sin(a);
+            return def.pins.map(pin => ({
+              x: Math.round(p.x + pin.dx * c - pin.dy * s),
+              y: Math.round(p.y + pin.dx * s + pin.dy * c)
+            }));
+          }
+          // Sum over NODE INDEX, not pin coordinate — one net can have
+          // many pin positions spread across the layout after Sprint
+          // 70a routing (V+ rail reaches V1's top pin AND R1's left
+          // pin at different xy, same node).
+          const nodeSum = {};
+          function add(nIdx, val) { nodeSum[nIdx] = (nodeSum[nIdx] || 0) + val; }
+          for (const p of S.parts) {
+            const pins = pinCoords(p);
+            if (pins.length !== 2) continue;
+            const n0 = p2n[pins[0].x + ',' + pins[0].y];
+            const n1 = p2n[pins[1].x + ',' + pins[1].y];
+            if (n0 == null || n1 == null) continue;
+            if (p.type === 'resistor') {
+              const v0 = V[n0] || 0, v1 = V[n1] || 0;
+              const iSigned = (v0 - v1) / (p.val || 1);
+              // Positive iSigned ⇒ current flows from n0 to n1.
+              // At n0: current LEAVES → -iSigned
+              // At n1: current ARRIVES → +iSigned
+              add(n0, -iSigned);
+              add(n1, +iSigned);
+            } else if (p.type === 'vdc') {
+              // Source INJECTS at V+ (pin 0, node n0).
+              add(n0, +(p._i || 0));
+              add(n1, -(p._i || 0));
+            }
+          }
+          // Ground node (index 0) absorbs all return currents and
+          // can legitimately have a large net (it's an external
+          // reference). Score the max imbalance across INTERNAL
+          // nodes only (node index > 0).
+          let maxAbs = 0;
+          for (const k in nodeSum) {
+            if (+k === 0) continue;
+            const a = Math.abs(nodeSum[k]);
+            if (a > maxAbs) maxAbs = a;
+          }
+          result_kclCheck = { maxImbalance: maxAbs, nodeCount: Object.keys(nodeSum).length };
+        }
       } catch (e) { simError = e.message || String(e); }
 
       return {
@@ -342,7 +389,8 @@ const CIRCUITS = [
         nonHorizontalPassives, compactness, scopeFirstSample,
         gndFloatingParts, dropIntegrityViolations, busY,
         simNodes, simError, orphanWires, groundPinCurrent,
-        vSignCheck: result_vSignCheck
+        vSignCheck: result_vSignCheck,
+        kclCheck: result_kclCheck
       };
     }, text);
 
@@ -398,6 +446,12 @@ const CIRCUITS = [
                   + 'I=' + (snapshot.vSignCheck.vi * 1000).toFixed(3) + 'mA, '
                   + 'P=' + (snapshot.vSignCheck.vp * 1000).toFixed(3) + 'mW ('
                   + ((snapshot.vSignCheck.vv * snapshot.vSignCheck.vi) > 0 ? 'delivering' : 'sinking') + ')' },
+      { rule: 'per-node KCL balance',
+        ok: snapshot.kclCheck === null || snapshot.kclCheck.maxImbalance < 1e-4,
+        detail: snapshot.kclCheck === null
+                ? 'N/A (sim skipped)'
+                : 'max |Σ I_node| = ' + (snapshot.kclCheck.maxImbalance * 1e6).toFixed(2) + ' µA across '
+                  + snapshot.kclCheck.nodeCount + ' nodes' },
     ];
     const pass = checks.every(c => c.ok);
     if (!pass) anyFail = true;
