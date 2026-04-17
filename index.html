@@ -719,7 +719,7 @@ input:focus{border-color:var(--accent)}
     <span id="sb-temp" style="color:var(--text-3)"></span>
     <span id="sb-engine" style="color:var(--text-4)"></span>
     <span id="sb-extra" style="color:var(--text-3)"></span>
-    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v9.0 — Build: 2026-04-17 20:34 — © 2026</span>
+    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v9.0 — Build: 2026-04-17 21:13 — © 2026</span>
   </div>
 </div>
 
@@ -18195,17 +18195,59 @@ function getCapacitorBreathing(part) {
 }
 
 // ===== D. DRAGGABLE 3D PROBE UX =====
+// Sprint 79: multimeter probe with wire attach, AC RMS, mode select, hold.
+//
+// Extensions over the original probe:
+//   • Probes can snap to wires, not just part pins. Wire endpoints are
+//     registered as nodes by buildCircuitFromCanvas, so we can resolve
+//     any wire to a net via S._pinToNode.
+//   • Node voltages are sampled per render frame into per-probe ring
+//     buffers. This drives an isACSignal / getRMS pair (Sprint 72) so
+//     the tooltip switches between DC instantaneous and AC RMS with
+//     unambiguous labelling.
+//   • Mode selector: auto / V / I / R / dB. Cycled with the 'm' key
+//     while probe mode is active. R requires both probes on the same
+//     part with a measurable current; dB requires black probe at a
+//     non-zero reference.
+//   • Hold buffer: live / min / max / peak, cycled with 'h'. Only
+//     accumulates while S.sim.running.
 
 VXA.Probes = (function() {
   'use strict';
 
   var _probes = {
-    red:   { x: -1, y: -1, attached: false, partId: null, pinIndex: -1, color: '#ff3333', label: '+' },
-    black: { x: -1, y: -1, attached: false, partId: null, pinIndex: -1, color: '#444444', label: '\u2212' }
+    red:   { x: -1, y: -1, attached: false, partId: null, pinIndex: -1,
+             wireIdx: null, color: '#ff3333', label: '+', vHistory: [] },
+    black: { x: -1, y: -1, attached: false, partId: null, pinIndex: -1,
+             wireIdx: null, color: '#444444', label: '\u2212', vHistory: [] }
   };
 
   var _activeProbe = null;
-  var _probeMode = false;
+  var _probeMode   = false;
+  var MODES        = ['auto', 'V', 'I', 'R', 'dB'];
+  var HOLDS        = ['live', 'min', 'max', 'peak'];
+  var _mode        = 'auto';
+  var _hold        = 'live';
+  var _holdState   = { vDiff: null, current: null };
+  var HIST_CAP     = 500; // samples per probe (≈5s at 100 Hz paint)
+
+  function _rmsSafe(h) {
+    if (typeof getRMS === 'function') return getRMS(h);
+    if (!h || h.length < 2) return 0;
+    var s = 0; for (var i = 0; i < h.length; i++) s += h[i] * h[i];
+    return Math.sqrt(s / h.length);
+  }
+  function _isACSafe(h) {
+    if (typeof isACSignal === 'function') return isACSignal(h);
+    if (!h || h.length < 10) return false;
+    var hasPos = false, hasNeg = false;
+    for (var i = 0; i < h.length; i++) {
+      if (h[i] >  1e-9) hasPos = true;
+      if (h[i] < -1e-9) hasNeg = true;
+      if (hasPos && hasNeg) return true;
+    }
+    return false;
+  }
 
   function findPinNear(wx, wy, maxDist) {
     var best = null, bestD = maxDist || 25;
@@ -18215,11 +18257,121 @@ VXA.Probes = (function() {
       for (var pi = 0; pi < pins.length; pi++) {
         var dx = wx - pins[pi].x, dy = wy - pins[pi].y;
         var d = Math.sqrt(dx * dx + dy * dy);
-        if (d < bestD) { bestD = d; best = { partId: p.id, pinIndex: pi, x: pins[pi].x, y: pins[pi].y, dist: d }; }
+        if (d < bestD) {
+          bestD = d;
+          best = { partId: p.id, pinIndex: pi, x: pins[pi].x, y: pins[pi].y, dist: d };
+        }
       }
     }
     return best;
   }
+
+  // Perpendicular distance from (px,py) to segment (ax,ay)-(bx,by).
+  function _distPointToSeg(px, py, ax, ay, bx, by) {
+    var dx = bx - ax, dy = by - ay;
+    var len2 = dx * dx + dy * dy;
+    if (len2 < 1e-6) { var ddx = px - ax, ddy = py - ay; return Math.sqrt(ddx*ddx+ddy*ddy); }
+    var t = ((px - ax) * dx + (py - ay) * dy) / len2;
+    if (t < 0) t = 0; else if (t > 1) t = 1;
+    var cx = ax + t * dx, cy = ay + t * dy;
+    var ddx2 = px - cx, ddy2 = py - cy;
+    return { d: Math.sqrt(ddx2*ddx2 + ddy2*ddy2), t: t, cx: cx, cy: cy };
+  }
+
+  function findWireNear(wx, wy, maxDist) {
+    if (!S.wires || !S.wires.length) return null;
+    var best = null, bestD = maxDist || 20;
+    for (var i = 0; i < S.wires.length; i++) {
+      var w = S.wires[i];
+      var r = _distPointToSeg(wx, wy, w.x1, w.y1, w.x2, w.y2);
+      if (r.d < bestD) {
+        bestD = r.d;
+        best = { wireIdx: i, x: r.cx, y: r.cy, dist: r.d };
+      }
+    }
+    return best;
+  }
+
+  // Return the node index this probe is connected to, or null.
+  function _probeNodeIdx(pr) {
+    if (!S._pinToNode) return null;
+    if (pr.wireIdx !== null && pr.wireIdx >= 0 && S.wires[pr.wireIdx]) {
+      var w = S.wires[pr.wireIdx];
+      var k1 = w.x1 + ',' + w.y1, k2 = w.x2 + ',' + w.y2;
+      if (S._pinToNode[k1] !== undefined) return S._pinToNode[k1];
+      if (S._pinToNode[k2] !== undefined) return S._pinToNode[k2];
+    }
+    if (pr.partId !== null) {
+      var p = null;
+      for (var i = 0; i < S.parts.length; i++) if (S.parts[i].id === pr.partId) { p = S.parts[i]; break; }
+      if (!p) return null;
+      var pins = getPartPins(p);
+      if (pr.pinIndex < 0 || pr.pinIndex >= pins.length) return null;
+      var pk = pins[pr.pinIndex].x + ',' + pins[pr.pinIndex].y;
+      if (S._pinToNode[pk] !== undefined) return S._pinToNode[pk];
+    }
+    return null;
+  }
+
+  function _nodeVoltage(nodeIdx) {
+    if (nodeIdx === null || nodeIdx === undefined || nodeIdx < 0) return 0;
+    if (!S._nodeVoltages) return 0;
+    return S._nodeVoltages[nodeIdx] || 0;
+  }
+
+  function _probePart(pr) {
+    if (pr.partId === null) return null;
+    for (var i = 0; i < S.parts.length; i++) if (S.parts[i].id === pr.partId) return S.parts[i];
+    return null;
+  }
+
+  function _tickHistory() {
+    var probes = [_probes.red, _probes.black];
+    for (var i = 0; i < probes.length; i++) {
+      var pr = probes[i];
+      if (!pr.attached) { pr.vHistory = []; continue; }
+      if (!pr.vHistory) pr.vHistory = [];
+      var v = _nodeVoltage(_probeNodeIdx(pr));
+      pr.vHistory.push(v);
+      if (pr.vHistory.length > HIST_CAP) pr.vHistory.shift();
+    }
+  }
+
+  function _updateHold(vDiff, current) {
+    if (_hold === 'live') return;
+    if (!(S.sim && S.sim.running)) return;
+    if (_holdState.vDiff === null) _holdState.vDiff = vDiff;
+    if (_hold === 'max'  && vDiff > _holdState.vDiff) _holdState.vDiff = vDiff;
+    if (_hold === 'min'  && vDiff < _holdState.vDiff) _holdState.vDiff = vDiff;
+    if (_hold === 'peak' && Math.abs(vDiff) > Math.abs(_holdState.vDiff)) _holdState.vDiff = vDiff;
+    if (current !== null) {
+      if (_holdState.current === null) _holdState.current = current;
+      if (_hold === 'max'  && current > _holdState.current) _holdState.current = current;
+      if (_hold === 'min'  && current < _holdState.current) _holdState.current = current;
+      if (_hold === 'peak' && Math.abs(current) > Math.abs(_holdState.current)) _holdState.current = current;
+    }
+  }
+
+  function _resetHold() { _holdState = { vDiff: null, current: null }; }
+
+  function _cycle(arr, cur) { var i = arr.indexOf(cur); return arr[(i + 1) % arr.length]; }
+
+  function _installKeys() {
+    if (typeof window === 'undefined') return;
+    if (window.__vxa_probeKeysInstalled) return;
+    window.__vxa_probeKeysInstalled = true;
+    window.addEventListener('keydown', function(e) {
+      if (!_probeMode) return;
+      var tgt = e.target;
+      if (tgt && (tgt.tagName === 'INPUT' || tgt.tagName === 'TEXTAREA' || tgt.isContentEditable)) return;
+      if (e.key === 'm' || e.key === 'M') {
+        _mode = _cycle(MODES, _mode); needsRender = true; e.preventDefault();
+      } else if (e.key === 'h' || e.key === 'H') {
+        _hold = _cycle(HOLDS, _hold); _resetHold(); needsRender = true; e.preventDefault();
+      }
+    });
+  }
+  _installKeys();
 
   return {
     isActive: function() { return _probeMode; },
@@ -18228,12 +18380,22 @@ VXA.Probes = (function() {
       _probeMode = !_probeMode;
       if (!_probeMode) {
         _probes.red.attached = false; _probes.black.attached = false;
-        _probes.red.x = _probes.red.y = -1;
+        _probes.red.x  = _probes.red.y  = -1;
         _probes.black.x = _probes.black.y = -1;
+        _probes.red.wireIdx = _probes.black.wireIdx = null;
+        _probes.red.partId  = _probes.black.partId  = null;
+        _probes.red.vHistory = _probes.black.vHistory = [];
+        _resetHold();
         _activeProbe = null;
       }
       needsRender = true;
     },
+
+    setMode: function(m) { if (MODES.indexOf(m) >= 0) { _mode = m; needsRender = true; } },
+    getMode: function() { return _mode; },
+    setHold: function(h) { if (HOLDS.indexOf(h) >= 0) { _hold = h; _resetHold(); needsRender = true; } },
+    getHold: function() { return _hold; },
+    resetHold: _resetHold,
 
     startDrag: function(probeId) {
       if (!_probeMode) return;
@@ -18252,20 +18414,46 @@ VXA.Probes = (function() {
 
     onDrop: function(wx, wy) {
       if (!_activeProbe) return;
-      var pin = findPinNear(wx, wy, 25);
-      if (pin) {
-        _probes[_activeProbe].x = pin.x;
-        _probes[_activeProbe].y = pin.y;
-        _probes[_activeProbe].attached = true;
-        _probes[_activeProbe].partId = pin.partId;
-        _probes[_activeProbe].pinIndex = pin.pinIndex;
+      var pr = _probes[_activeProbe];
+      // Sprint 79: pick whichever target (pin or wire) is physically
+      // closer. Pins take priority only on a tie — otherwise dropping
+      // on the middle of a long wire that happens to be within 25 px
+      // of a pin would always snap to the pin, which is not what the
+      // user is pointing at.
+      var pin  = findPinNear(wx, wy, 25);
+      var wire = findWireNear(wx, wy, 20);
+      var pickPin = false, pickWire = false;
+      if (pin && wire) {
+        // Prefer wire when strictly closer; pins win on equality so
+        // endpoint clicks still snap to the pin.
+        if (wire.dist < pin.dist - 0.5) pickWire = true;
+        else                            pickPin  = true;
+      } else if (pin)  { pickPin  = true; }
+      else if (wire)   { pickWire = true; }
+
+      if (pickPin) {
+        pr.x = pin.x; pr.y = pin.y;
+        pr.attached = true;
+        pr.partId   = pin.partId;
+        pr.pinIndex = pin.pinIndex;
+        pr.wireIdx  = null;
+        pr.vHistory = [];
         if (VXA.SpatialAudio) VXA.SpatialAudio.playAt('click', pin.x, pin.y);
+      } else if (pickWire) {
+        pr.x = wire.x; pr.y = wire.y;
+        pr.attached = true;
+        pr.partId   = null;
+        pr.pinIndex = -1;
+        pr.wireIdx  = wire.wireIdx;
+        pr.vHistory = [];
+        if (VXA.SpatialAudio) VXA.SpatialAudio.playAt('click', wire.x, wire.y);
       } else {
-        _probes[_activeProbe].attached = false;
-        _probes[_activeProbe].x = -1;
-        _probes[_activeProbe].y = -1;
+        pr.attached = false;
+        pr.x = -1; pr.y = -1;
+        pr.wireIdx = null; pr.partId = null;
       }
       _activeProbe = null;
+      _resetHold();
       needsRender = true;
     },
 
@@ -18278,33 +18466,86 @@ VXA.Probes = (function() {
         var dx = wx - pr.x, dy = wy - pr.y;
         if (Math.sqrt(dx * dx + dy * dy) < 15) return ids[i];
       }
-      // If no probe placed, check if near toolbar area — start from mouse pos
       return null;
     },
 
+    // Primary measurement API. Signed ΔV, current (through same part OR
+    // through wire if probed there), plus AC RMS when the probe history
+    // indicates the node is oscillating.
     getMeasurement: function() {
       if (!_probes.red.attached || !_probes.black.attached) return null;
-      var rPart = null, bPart = null;
-      for (var i = 0; i < S.parts.length; i++) {
-        if (S.parts[i].id === _probes.red.partId) rPart = S.parts[i];
-        if (S.parts[i].id === _probes.black.partId) bPart = S.parts[i];
-      }
-      if (!rPart || !bPart) return null;
 
-      // Get pin voltages from node voltages if available
-      var vRed = rPart._v || 0;
-      var vBlack = bPart._v || 0;
-      var vDiff = vRed - vBlack;
-      var current = null, power = null;
-      if (_probes.red.partId === _probes.black.partId) {
-        current = Math.abs(rPart._i || 0);
-        power = Math.abs(vDiff * current);
+      var nR = _probeNodeIdx(_probes.red);
+      var nB = _probeNodeIdx(_probes.black);
+      var vR = _nodeVoltage(nR), vB = _nodeVoltage(nB);
+      var vDiff = vR - vB;
+
+      // Build ΔV history for RMS.
+      var vDiffHistory = null;
+      var hR = _probes.red.vHistory, hB = _probes.black.vHistory;
+      if (hR && hB && hR.length === hB.length && hR.length > 10) {
+        vDiffHistory = new Array(hR.length);
+        for (var h = 0; h < hR.length; h++) vDiffHistory[h] = hR[h] - hB[h];
       }
-      return { voltage: vDiff, vRed: vRed, vBlack: vBlack, current: current, power: power };
+      var vDiffIsAC = vDiffHistory ? _isACSafe(vDiffHistory) : false;
+      var vDiffRMS  = vDiffIsAC ? _rmsSafe(vDiffHistory) : null;
+
+      // Current — only meaningful when both probes share a part, or
+      // when the red probe is on a wire (wire._current is signed in
+      // the wire's native direction).
+      var current = null, currentRMS = null, currentIsAC = false, power = null;
+      if (_probes.red.partId !== null && _probes.red.partId === _probes.black.partId) {
+        var p = _probePart(_probes.red);
+        if (p) {
+          current = p._i || 0;
+          if (_isACSafe(p._iHistory)) { currentRMS = _rmsSafe(p._iHistory); currentIsAC = true; }
+          power = Math.abs(vDiff * current);
+        }
+      } else if (_probes.red.wireIdx !== null && _probes.red.wireIdx >= 0 && S.wires) {
+        var w = S.wires[_probes.red.wireIdx];
+        if (w) current = w._current || 0;
+      }
+
+      _updateHold(vDiff, current);
+
+      // Resistance (mode 'R') — only makes sense on a single part with
+      // non-zero current. Uses signed ΔV / signed I. Returns null if
+      // the probes aren't configured for a meaningful reading.
+      var resistance = null;
+      if (_mode === 'R' && current !== null && Math.abs(current) > 1e-9) {
+        resistance = vDiff / current;
+      }
+
+      // dB ratio — 20·log10(|V_red| / |V_black|). Requires non-zero
+      // reference. RMS pair is used when both probes see AC.
+      var dB = null;
+      if (_mode === 'dB' && Math.abs(vB) > 1e-9) {
+        var vRref = Math.abs(vR), vBref = Math.abs(vB);
+        if (vDiffIsAC && hR && hB && hR.length > 10) {
+          vRref = _rmsSafe(hR); vBref = _rmsSafe(hB);
+        }
+        if (vBref > 1e-12 && vRref > 1e-12) dB = 20 * Math.log10(vRref / vBref);
+      }
+
+      return {
+        voltage: vDiff, vDiffRMS: vDiffRMS, vDiffIsAC: vDiffIsAC,
+        vRed: vR, vBlack: vB,
+        current: current, currentRMS: currentRMS, currentIsAC: currentIsAC,
+        power: power,
+        resistance: resistance,
+        dB: dB,
+        mode: _mode, hold: _hold,
+        holdVDiff: _holdState.vDiff, holdCurrent: _holdState.current,
+        redOnWire:   _probes.red.wireIdx   !== null,
+        blackOnWire: _probes.black.wireIdx !== null
+      };
     },
 
     draw: function(ctx) {
       if (!_probeMode) return;
+
+      _tickHistory();
+
       var ids = ['red', 'black'];
       for (var i = 0; i < ids.length; i++) {
         var id = ids[i];
@@ -18314,16 +18555,26 @@ VXA.Probes = (function() {
         ctx.save();
         var radius = pr.attached ? 6 : 4;
 
-        // Pulsing glow if attached
         if (pr.attached) {
           var pulse = 0.25 + Math.sin(Date.now() / 300) * 0.15;
           ctx.beginPath();
-          ctx.arc(pr.x, pr.y, 12, 0, Math.PI * 2);
-          ctx.fillStyle = id === 'red' ? 'rgba(255, 50, 50, ' + pulse + ')' : 'rgba(100, 100, 100, ' + pulse + ')';
+          ctx.arc(pr.x, pr.y, pr.wireIdx !== null ? 14 : 12, 0, Math.PI * 2);
+          ctx.fillStyle = id === 'red'
+            ? 'rgba(255, 50, 50, ' + pulse + ')'
+            : 'rgba(100, 100, 100, ' + pulse + ')';
           ctx.fill();
+          // Extra ring when attached to a wire (visual distinction)
+          if (pr.wireIdx !== null) {
+            ctx.beginPath();
+            ctx.arc(pr.x, pr.y, 10, 0, Math.PI * 2);
+            ctx.strokeStyle = id === 'red' ? 'rgba(255,80,80,0.8)' : 'rgba(180,180,180,0.8)';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([3, 2]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+          }
         }
 
-        // Probe tip
         ctx.beginPath();
         ctx.arc(pr.x, pr.y, radius, 0, Math.PI * 2);
         ctx.fillStyle = pr.color;
@@ -18332,7 +18583,6 @@ VXA.Probes = (function() {
         ctx.lineWidth = 1;
         ctx.stroke();
 
-        // Label
         ctx.fillStyle = '#fff';
         ctx.font = 'bold 9px sans-serif';
         ctx.textAlign = 'center';
@@ -18344,38 +18594,92 @@ VXA.Probes = (function() {
 
       // Measurement tooltip
       var m = this.getMeasurement();
-      if (m) {
-        var px = (_probes.red.x + _probes.black.x) / 2;
-        var py = Math.min(_probes.red.y, _probes.black.y) - 45;
+      if (!m) return;
 
-        var lines = ['\u0394V = ' + fmtEng(m.voltage) + 'V'];
-        if (m.current !== null) lines.push('I = ' + fmtEng(m.current) + 'A');
-        if (m.power !== null) lines.push('P = ' + fmtEng(m.power) + 'W');
+      var px = (_probes.red.x + _probes.black.x) / 2;
+      var py = Math.min(_probes.red.y, _probes.black.y) - 45;
 
-        var lineH = 16, pad = 8;
-        var bW = 140, bH = pad * 2 + lines.length * lineH;
-        var bx = px - bW / 2, by = py - bH;
+      var lines = [];
+      // Header — mode + hold
+      var header = '[' + m.mode.toUpperCase() + (m.hold !== 'live' ? ' · ' + m.hold.toUpperCase() : '') + ']';
+      lines.push(header);
 
-        ctx.save();
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
-        ctx.strokeStyle = 'rgba(74, 158, 255, 0.5)';
-        ctx.lineWidth = 1;
-        _roundRect(ctx, bx, by, bW, bH, 6);
-        ctx.fill();
-        ctx.stroke();
-
-        ctx.font = '11px "JetBrains Mono", monospace';
-        ctx.fillStyle = '#00ff41';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        for (var li = 0; li < lines.length; li++) {
-          ctx.fillText(lines[li], px, by + pad + li * lineH + lineH / 2);
+      // Voltage — live or held
+      if (m.mode !== 'I' && m.mode !== 'R') {
+        var vShown = (m.hold !== 'live' && m.holdVDiff !== null) ? m.holdVDiff : m.voltage;
+        var vLbl;
+        if (m.vDiffIsAC && m.hold === 'live') {
+          vLbl = '\u0394V (RMS) = ' + fmtEng(m.vDiffRMS) + 'V';
+        } else if (m.hold !== 'live') {
+          vLbl = '\u0394V (' + m.hold + ') = ' + fmtEng(vShown) + 'V';
+        } else {
+          vLbl = '\u0394V = ' + fmtEng(vShown) + 'V';
         }
-        ctx.restore();
+        lines.push(vLbl);
       }
+
+      // Current
+      if ((m.mode === 'auto' || m.mode === 'I') && m.current !== null) {
+        var iShown = (m.hold !== 'live' && m.holdCurrent !== null) ? m.holdCurrent : m.current;
+        var iLbl;
+        if (m.currentIsAC && m.hold === 'live') {
+          iLbl = 'I (RMS) = ' + fmtEng(m.currentRMS) + 'A';
+        } else if (m.hold !== 'live') {
+          iLbl = 'I (' + m.hold + ') = ' + fmtEng(iShown) + 'A';
+        } else {
+          iLbl = 'I = ' + fmtEng(iShown) + 'A';
+        }
+        lines.push(iLbl);
+      }
+
+      if (m.mode === 'auto' && m.power !== null) {
+        lines.push('P = ' + fmtEng(m.power) + 'W');
+      }
+      if (m.mode === 'R') {
+        lines.push(m.resistance !== null
+          ? 'R = ' + fmtEng(m.resistance) + '\u03a9'
+          : 'R = — (both probes on one part w/ I ≠ 0)');
+      }
+      if (m.mode === 'dB') {
+        lines.push(m.dB !== null
+          ? '20·log\u2081\u2080(V\u208a/V\u208b) = ' + m.dB.toFixed(2) + ' dB'
+          : 'dB = — (V\u208b ≈ 0)');
+      }
+
+      // Hint footer
+      lines.push('[m] mode · [h] hold');
+
+      var lineH = 14, pad = 6;
+      var bW = 170, bH = pad * 2 + lines.length * lineH;
+      var bx = px - bW / 2, by = py - bH;
+
+      ctx.save();
+      ctx.fillStyle   = 'rgba(0, 0, 0, 0.85)';
+      ctx.strokeStyle = 'rgba(74, 158, 255, 0.5)';
+      ctx.lineWidth   = 1;
+      _roundRect(ctx, bx, by, bW, bH, 6);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.font = '11px "JetBrains Mono", monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      for (var li = 0; li < lines.length; li++) {
+        // Color: header in blue, hint in grey, rest in green
+        if (li === 0)                    ctx.fillStyle = '#4a9eff';
+        else if (li === lines.length - 1) ctx.fillStyle = '#5a6a7a';
+        else                              ctx.fillStyle = '#00ff41';
+        ctx.fillText(lines[li], px, by + pad + li * lineH + lineH / 2);
+      }
+      ctx.restore();
     },
 
-    getState: function() { return { probes: _probes, mode: _probeMode, active: _activeProbe }; }
+    getState: function() {
+      return {
+        probes: _probes, mode: _probeMode, active: _activeProbe,
+        measureMode: _mode, hold: _hold
+      };
+    }
   };
 })();
 
