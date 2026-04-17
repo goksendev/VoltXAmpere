@@ -142,7 +142,15 @@ VXA.Stamps.bjt_gp = function(matrix, rhs, nB, nC, nE, pol, params, nodeV, dt) {
 // 7.4: ENHANCED MOSFET STAMP (Parasitic Capacitances)
 VXA.Stamps.nmos_spice = function(matrix, rhs, nG, nD, nS, pol, params, nodeV, dt) {
   var Sp = VXA.Sparse;
-  var VTO = params.VTO || 2, KP = params.KP || 110e-6, LAMBDA = params.LAMBDA || 0.04;
+  // Sprint 83: junction-temperature coupling, same formulation as the
+  // inline Level-1 stamp. Clone-free — params arrives via sim.js which
+  // already stuffs TjK into a shallow copy when it differs from 300 K.
+  var TjK = (params && params.TjK) || 300;
+  if (TjK < 150) TjK = 150; else if (TjK > 500) TjK = 500;
+  var ALPHA_VT = -2e-3;
+  var VTO0 = params.VTO || 2, KP0 = params.KP || 110e-6, LAMBDA = params.LAMBDA || 0.04;
+  var VTO = VTO0 + ALPHA_VT * (TjK - 300);
+  var KP  = KP0 * Math.pow(TjK / 300, -1.5);
   var vgs = pol * ((nodeV[nG] || 0) - (nodeV[nS] || 0));
   var vds = pol * ((nodeV[nD] || 0) - (nodeV[nS] || 0));
   var id = 0, gm = 0, gds = 1e-12;

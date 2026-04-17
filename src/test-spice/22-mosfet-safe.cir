@@ -1,0 +1,11 @@
+* Sprint 83 — MOSFET in the NEGATIVE-TC region (Vov ≈ 2 V,
+* heavy drive). Mobility degradation (KP ~ T^-1.5) overtakes the
+* Vth drift, the device self-regulates, and the load resistor
+* pulls it into triode so Vds — and therefore dissipation — is
+* small. Expected peak Tj very close to ambient.
+.MODEL MPWR NMOS VTO=2 KP=0.5 LAMBDA=0.01
+V1 1 0 DC 10
+R1 1 2 25
+M1 2 3 0 MPWR
+V2 3 0 DC 4.0
+.END

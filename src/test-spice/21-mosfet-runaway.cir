@@ -1,0 +1,11 @@
+* Sprint 83 — MOSFET in the POSITIVE-TC region (Vov ≈ 1 V).
+* Vov small → dVth/dT dominates → Id climbs with Tj → more power →
+* hotter → repeat. TO-220 thermal defaults (Rth=62.5 K/W, Tmax=175 °C)
+* give a ~60 °C rise at quiescent dissipation here, so the coupling
+* effect is clearly visible above ambient noise.
+.MODEL MPWR NMOS VTO=2 KP=0.5 LAMBDA=0.01
+V1 1 0 DC 10
+R1 1 2 25
+M1 2 3 0 MPWR
+V2 3 0 DC 3.0
+.END

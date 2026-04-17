@@ -125,20 +125,34 @@ VXA.Stamps = (function() {
       stampG(matrix, nC, nE, go);
     }
   }
-  function mosfet(matrix, rhs, nG, nD, nS, pol, VTO, KP, LAMBDA, nodeV) {
+  // Sprint 83: added trailing optional TjK (junction temperature in K).
+  // Two temperature terms drive MOSFET behaviour:
+  //   Vth(T) = Vth0 + ALPHA_VT · (Tj − 300)         α_Vth ≈ −2 mV/K
+  //   KP(T)  = KP0 · (Tj/300)^(−1.5)                mobility falloff
+  // Net TC flips sign around the ZTC point; below it the Vth term
+  // dominates (positive TC, runaway risk), above it the KP term
+  // dominates (negative TC, self-regulating). When TjK is omitted or
+  // = 300 K the expressions collapse to the prior (isothermal) result,
+  // so existing circuits are bit-identical.
+  function mosfet(matrix, rhs, nG, nD, nS, pol, VTO, KP, LAMBDA, nodeV, TjK) {
+    var T = (TjK && isFinite(TjK)) ? TjK : 300;
+    if (T < 150) T = 150; else if (T > 500) T = 500;
+    var ALPHA_VT = -2e-3;
+    var VTH = VTO + ALPHA_VT * (T - 300);
+    var KPt = KP * Math.pow(T / 300, -1.5);
     var vgs = pol * ((nodeV[nG] || 0) - (nodeV[nS] || 0));
     var vds = pol * ((nodeV[nD] || 0) - (nodeV[nS] || 0));
     var id = 0, gm = 0, gds = 1e-12;
-    if (vgs <= VTO) {
+    if (vgs <= VTH) {
       id = 0; gm = 0; gds = 1e-12;
-    } else if (vds < vgs - VTO) {
-      id = KP * ((vgs - VTO) * vds - vds * vds / 2) * (1 + LAMBDA * vds);
-      gm = KP * vds * (1 + LAMBDA * vds);
-      gds = KP * ((vgs - VTO) - vds) * (1 + LAMBDA * vds) + KP * ((vgs - VTO) * vds - vds * vds / 2) * LAMBDA + 1e-12;
+    } else if (vds < vgs - VTH) {
+      id = KPt * ((vgs - VTH) * vds - vds * vds / 2) * (1 + LAMBDA * vds);
+      gm = KPt * vds * (1 + LAMBDA * vds);
+      gds = KPt * ((vgs - VTH) - vds) * (1 + LAMBDA * vds) + KPt * ((vgs - VTH) * vds - vds * vds / 2) * LAMBDA + 1e-12;
     } else {
-      id = KP / 2 * (vgs - VTO) * (vgs - VTO) * (1 + LAMBDA * vds);
-      gm = KP * (vgs - VTO) * (1 + LAMBDA * vds);
-      gds = KP / 2 * (vgs - VTO) * (vgs - VTO) * LAMBDA + 1e-12;
+      id = KPt / 2 * (vgs - VTH) * (vgs - VTH) * (1 + LAMBDA * vds);
+      gm = KPt * (vgs - VTH) * (1 + LAMBDA * vds);
+      gds = KPt / 2 * (vgs - VTH) * (vgs - VTH) * LAMBDA + 1e-12;
     }
     var ieq = id - gm * vgs - gds * vds;
     if (nD > 0 && nG > 0) Sp.stamp(matrix, nD - 1, nG - 1, gm * pol);

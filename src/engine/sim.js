@@ -210,6 +210,15 @@ VXA.SimV2 = (function() {
           }
           St.bjt_gp(matrix, rhs, c.n1, c.n2, c.n3, c.polarity, bjtParams, nodeV, dt);
         } else if (c.type === 'MOS') {
+          // Sprint 83: compute junction temperature once, pass to whichever
+          // path handles this device. thermal.T is in °C → Kelvin. For
+          // BSIM3 devices TNOM stays dominant (static-bias model); only
+          // Level-1 paths use TjK for live coupling, matching the BJT
+          // (Sprint 81) pattern.
+          var _mosTjK = 300;
+          if (c.part && c.part._thermal && isFinite(c.part._thermal.T)) {
+            _mosTjK = c.part._thermal.T + 273.15;
+          }
           // Sprint 41: BSIM3 takes precedence when model is marked BSIM3-class.
           if (c.isBSIM3 && c.bsim3 && VXA.BSIM3) {
             try {
@@ -218,14 +227,22 @@ VXA.SimV2 = (function() {
               VXA.BSIM3.stamp(matrix, rhs, c.n1, c.n2, c.n3, 0, c.bsim3, nodeV, Sp);
             } catch (e) {
               // Fallback to Level 1 if BSIM3 stamp throws (safety net)
-              St.mosfet(matrix, rhs, c.n1, c.n2, c.n3, c.polarity, c.VTO || 2, c.KP || 110e-6, c.LAMBDA || 0.04, nodeV);
+              St.mosfet(matrix, rhs, c.n1, c.n2, c.n3, c.polarity, c.VTO || 2, c.KP || 110e-6, c.LAMBDA || 0.04, nodeV, _mosTjK);
             }
           } else {
             var mosModel = c.part && c.part.model ? VXA.Models.getModel(c.part.type, c.part.model) : null;
             if (mosModel && (mosModel.CGS > 0 || mosModel.CBD > 0)) {
-              St.nmos_spice(matrix, rhs, c.n1, c.n2, c.n3, c.polarity, mosModel, nodeV, dt);
+              // Shallow-clone the model so we don't mutate a shared
+              // VXA.Models entry (identical strategy to the BJT branch).
+              var _mosParams = mosModel;
+              if (mosModel.TjK !== _mosTjK) {
+                _mosParams = {};
+                for (var _mk in mosModel) _mosParams[_mk] = mosModel[_mk];
+                _mosParams.TjK = _mosTjK;
+              }
+              St.nmos_spice(matrix, rhs, c.n1, c.n2, c.n3, c.polarity, _mosParams, nodeV, dt);
             } else {
-              St.mosfet(matrix, rhs, c.n1, c.n2, c.n3, c.polarity, c.VTO, c.KP, c.LAMBDA, nodeV);
+              St.mosfet(matrix, rhs, c.n1, c.n2, c.n3, c.polarity, c.VTO, c.KP, c.LAMBDA, nodeV, _mosTjK);
             }
           }
         } else if (c.type === 'OA') {
