@@ -229,7 +229,8 @@ input:focus{border-color:var(--accent)}
 #tutorial-card p{font:13px var(--font-ui);color:var(--text-2);margin-bottom:16px;line-height:1.6}
 #tutorial-card .step-dots{display:flex;gap:6px;justify-content:center;margin-bottom:14px}
 #tutorial-card .step-dot{width:8px;height:8px;border-radius:50%;background:var(--border-2)}
-#tutorial-card .step-dot.active{background:var(--accent)}
+#tutorial-card .step-dot.active{background:var(--accent);box-shadow:0 0 6px var(--accent-glow,rgba(0,224,158,.6))}
+#tutorial-card .step-dot.done{background:var(--accent);opacity:.35}
 .tut-btn{padding:6px 20px;border-radius:8px;font:500 13px var(--font-ui);cursor:pointer;border:none;transition:.15s}
 .tut-btn-next{background:var(--accent);color:var(--bg)}
 .tut-btn-next:hover{box-shadow:0 0 12px var(--accent-glow)}
