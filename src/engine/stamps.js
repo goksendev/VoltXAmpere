@@ -238,10 +238,15 @@ VXA.Stamps = (function() {
     stampI(rhs, n1, Ieq); stampI(rhs, n2, -Ieq);
   }
   function inductorTRAP(matrix, rhs, n1, n2, L, dt, Iprev, Vprev) {
+    // Sprint 77: sign fix. Historic current I_hist = Iprev + Geq·Vprev is
+    // the current the inductor is "trying to maintain" in the n1→n2
+    // direction. Per the codebase convention (see currentSource/diode),
+    // a historic source with that direction stamps (-I, +I) at (n1, n2).
+    // The old (+Ieq, -Ieq) was inverted and caused RL circuits to diverge.
     var Geq = dt / (2 * L);
     var Ieq = Iprev + Geq * (Vprev || 0);
     stampG(matrix, n1, n2, Geq);
-    stampI(rhs, n1, Ieq); stampI(rhs, n2, -Ieq);
+    stampI(rhs, n1, -Ieq); stampI(rhs, n2, Ieq);
   }
   return {
     stampG: stampG, stampI: stampI,

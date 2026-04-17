@@ -102,11 +102,17 @@ VXA.SimV2 = (function() {
           if (_simMethod === 'trap' && !_dtJustChanged) {
             St.inductorTRAP(matrix, rhs, c.n1, c.n2, c.val, dt, c.iPrev, c.vPrev || 0);
           } else {
+            // Sprint 77: BE inductor Norton companion. Sign convention must
+            // match stamps.js currentSource/diode: for historic current I
+            // flowing n1→n2, inject (-I, +I) at (n1, n2). The old
+            // (+iPrev, -iPrev) placement was the wrong sign and caused the
+            // Norton source to pump energy INTO the inductor every step,
+            // yielding exponential growth (RL τ=1µs blew up within 12 µs).
             var req = c.val / dt;
             var geq = 1 / (req + _currentGMIN);
             St.stampG(matrix, c.n1, c.n2, geq);
-            St.stampI(rhs, c.n1, c.iPrev);
-            St.stampI(rhs, c.n2, -c.iPrev);
+            St.stampI(rhs, c.n1, -c.iPrev);
+            St.stampI(rhs, c.n2, c.iPrev);
           }
         } else if (c.type === 'I') {
           var current = c.val;

@@ -1,0 +1,7 @@
+* RL decay — analytic τ = L/R = 1µs, I_ss = 10mA
+* I(t) = 10mA × (1 - exp(-t/τ))
+* t=1µs:  6.32mA | t=5µs:  9.93mA | t=10µs: 9.9995mA
+V1 1 0 DC 10
+R1 1 2 1k
+L1 2 0 1m
+.END

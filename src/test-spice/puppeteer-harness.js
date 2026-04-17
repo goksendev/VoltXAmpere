@@ -17,7 +17,10 @@ const CIRCUITS = [
   '01-voltage-divider.cir', '02-parallel-r.cir', '03-rlc-series.cir',
   '04-diode-bridge.cir', '05-ce-amp.cir', '06-opamp-buffer.cir',
   '07-555-astable.cir', '08-voltage-regulator.cir', '09-h-bridge.cir',
-  '10-boost-converter.cir'
+  '10-boost-converter.cir',
+  // Sprint 77: RL decay — analytic τ=L/R and I_ss=V/R, proves inductor
+  // companion sign fix (diverged exponentially on previous sims).
+  '14-rl-decay.cir'
 ];
 
 (async () => {
@@ -66,7 +69,7 @@ const CIRCUITS = [
     const text = fs.readFileSync(path.join(TEST_DIR, cirFile), 'utf8');
 
     // Run import live in-page
-    const snapshot = await page.evaluate((spiceText) => {
+    const snapshot = await page.evaluate(({ spiceText, cirFile }) => {
       // Fresh state
       S.parts = [];
       S.wires = [];
@@ -290,6 +293,7 @@ const CIRCUITS = [
       let groundPinCurrent = null;
       let result_vSignCheck = null;
       let result_kclCheck = null;
+      let result_rlCheck = null;
       try {
         buildCircuitFromCanvas();
         simNodes = (typeof SIM !== 'undefined' && SIM && SIM.N) ? SIM.N : 0;
@@ -359,6 +363,19 @@ const CIRCUITS = [
               // Source INJECTS at V+ (pin 0, node n0).
               add(n0, +(p._i || 0));
               add(n1, -(p._i || 0));
+            } else if (p.type === 'inductor' || p.type === 'capacitor') {
+              // Sprint 77: look up signed iPrev in SIM.comps (positive ⇒
+              // current flows in the SIM n1→n2 direction). We map n0/n1
+              // (harness pin-0/pin-1) to SIM's n1/n2 by identity of the
+              // part reference.
+              const comp = (typeof SIM !== 'undefined' && SIM && SIM.comps)
+                ? SIM.comps.find(c => c.part === p)
+                : null;
+              if (comp) {
+                const iSigned = comp.iPrev || 0;
+                add(comp.n1, -iSigned);
+                add(comp.n2, +iSigned);
+              }
             }
           }
           // Ground node (index 0) absorbs all return currents and
@@ -372,6 +389,51 @@ const CIRCUITS = [
             if (a > maxAbs) maxAbs = a;
           }
           result_kclCheck = { maxImbalance: maxAbs, nodeCount: Object.keys(nodeSum).length };
+        }
+
+        // Sprint 77: RL transient sanity — only for 14-rl-decay.
+        // Run 500 steps of dt=100 ns (50 µs total), measure I(L1) at the end.
+        // Expected: I(t=50µs) ≈ 10 mA within 1 % (τ=1µs, ~50 time constants).
+        if (cirFile === '14-rl-decay.cir' && typeof SIM !== 'undefined' && SIM && SIM.comps) {
+          // Find the inductor
+          var lComp = null;
+          for (var i = 0; i < SIM.comps.length; i++) {
+            if (SIM.comps[i].type === 'L') { lComp = SIM.comps[i]; break; }
+          }
+          if (lComp) {
+            // Fresh start
+            lComp.iPrev = 0; lComp.vPrev = 0;
+            for (var j = 0; j < SIM.comps.length; j++) {
+              if (SIM.comps[j].type === 'C') { SIM.comps[j].vPrev = 0; SIM.comps[j].iPrev = 0; }
+            }
+            S.sim.t = 0; S.sim.running = true; if (S.sim.error) S.sim.error = null;
+            var dtRL = 1e-7, stepsRL = 500;
+            var samples = { i_1us: null, i_5us: null, i_50us: null };
+            var targets = [
+              { t: 1e-6,  key: 'i_1us'  },
+              { t: 5e-6,  key: 'i_5us'  },
+              { t: 5e-5,  key: 'i_50us' }
+            ];
+            var nextCp = 0;
+            for (var step = 0; step < stepsRL && !S.sim.error; step++) {
+              VXA.SimV2.solve(dtRL);
+              S.sim.t += dtRL;
+              while (nextCp < targets.length && S.sim.t >= targets[nextCp].t - dtRL * 0.5) {
+                samples[targets[nextCp].key] = lComp.iPrev;
+                nextCp++;
+              }
+            }
+            S.sim.running = false;
+            // Analytic references — I(t) = I_ss · (1 − e^(−t/τ)), τ=1µs, I_ss=10mA
+            function A(t) { return 10e-3 * (1 - Math.exp(-t / 1e-6)); }
+            result_rlCheck = {
+              i_1us:  samples.i_1us,
+              i_5us:  samples.i_5us,
+              i_50us: samples.i_50us,
+              a_1us:  A(1e-6), a_5us: A(5e-6), a_50us: A(5e-5),
+              error:  S.sim.error || null
+            };
+          }
         }
       } catch (e) { simError = e.message || String(e); }
 
@@ -390,9 +452,10 @@ const CIRCUITS = [
         gndFloatingParts, dropIntegrityViolations, busY,
         simNodes, simError, orphanWires, groundPinCurrent,
         vSignCheck: result_vSignCheck,
-        kclCheck: result_kclCheck
+        kclCheck: result_kclCheck,
+        rlCheck: result_rlCheck
       };
-    }, text);
+    }, { spiceText: text, cirFile: cirFile });
 
     // Screenshot the canvas (v2 suffix — Sprint 70a-fix-2)
     const shotPath = path.join(OUT_DIR, cirFile.replace('.cir', '-v2.png'));
@@ -452,6 +515,26 @@ const CIRCUITS = [
                 ? 'N/A (sim skipped)'
                 : 'max |Σ I_node| = ' + (snapshot.kclCheck.maxImbalance * 1e6).toFixed(2) + ' µA across '
                   + snapshot.kclCheck.nodeCount + ' nodes' },
+      // Sprint 77: RL τ analytic match (only fires on 14-rl-decay.cir).
+      { rule: 'RL transient within 5% of analytic',
+        ok: (() => {
+          const r = snapshot.rlCheck;
+          if (!r) return true; // N/A for other circuits
+          if (r.error || r.i_50us === null) return false;
+          // Settle check: I(50µs) within ±1 % of 10 mA.
+          if (Math.abs(r.i_50us - 10e-3) > 1e-4) return false;
+          // Early sample: I(5µs) within ±5 % of analytic 9.93 mA.
+          if (r.i_5us === null || Math.abs(r.i_5us - r.a_5us) / r.a_5us > 0.05) return false;
+          return true;
+        })(),
+        detail: (() => {
+          const r = snapshot.rlCheck;
+          if (!r) return 'N/A (not the RL decay circuit)';
+          if (r.error) return 'diverged: ' + r.error;
+          const f = x => x === null ? 'null' : (x * 1000).toFixed(3) + 'mA';
+          return 't=5µs: ' + f(r.i_5us) + ' (exp ' + f(r.a_5us) + ') | '
+               + 't=50µs: ' + f(r.i_50us) + ' (exp 10.000mA)';
+        })() },
     ];
     const pass = checks.every(c => c.ok);
     if (!pass) anyFail = true;

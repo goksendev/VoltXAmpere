@@ -717,7 +717,7 @@ input:focus{border-color:var(--accent)}
     <span id="sb-temp" style="color:var(--text-3)"></span>
     <span id="sb-engine" style="color:var(--text-4)"></span>
     <span id="sb-extra" style="color:var(--text-3)"></span>
-    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v9.0 — Build: 2026-04-17 19:59 — © 2026</span>
+    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v9.0 — Build: 2026-04-17 20:17 — © 2026</span>
   </div>
 </div>
 
@@ -6124,10 +6124,15 @@ VXA.Stamps = (function() {
     stampI(rhs, n1, Ieq); stampI(rhs, n2, -Ieq);
   }
   function inductorTRAP(matrix, rhs, n1, n2, L, dt, Iprev, Vprev) {
+    // Sprint 77: sign fix. Historic current I_hist = Iprev + Geq·Vprev is
+    // the current the inductor is "trying to maintain" in the n1→n2
+    // direction. Per the codebase convention (see currentSource/diode),
+    // a historic source with that direction stamps (-I, +I) at (n1, n2).
+    // The old (+Ieq, -Ieq) was inverted and caused RL circuits to diverge.
     var Geq = dt / (2 * L);
     var Ieq = Iprev + Geq * (Vprev || 0);
     stampG(matrix, n1, n2, Geq);
-    stampI(rhs, n1, Ieq); stampI(rhs, n2, -Ieq);
+    stampI(rhs, n1, -Ieq); stampI(rhs, n2, Ieq);
   }
   return {
     stampG: stampG, stampI: stampI,
@@ -6263,11 +6268,17 @@ VXA.SimV2 = (function() {
           if (_simMethod === 'trap' && !_dtJustChanged) {
             St.inductorTRAP(matrix, rhs, c.n1, c.n2, c.val, dt, c.iPrev, c.vPrev || 0);
           } else {
+            // Sprint 77: BE inductor Norton companion. Sign convention must
+            // match stamps.js currentSource/diode: for historic current I
+            // flowing n1→n2, inject (-I, +I) at (n1, n2). The old
+            // (+iPrev, -iPrev) placement was the wrong sign and caused the
+            // Norton source to pump energy INTO the inductor every step,
+            // yielding exponential growth (RL τ=1µs blew up within 12 µs).
             var req = c.val / dt;
             var geq = 1 / (req + _currentGMIN);
             St.stampG(matrix, c.n1, c.n2, geq);
-            St.stampI(rhs, c.n1, c.iPrev);
-            St.stampI(rhs, c.n2, -c.iPrev);
+            St.stampI(rhs, c.n1, -c.iPrev);
+            St.stampI(rhs, c.n2, c.iPrev);
           }
         } else if (c.type === 'I') {
           var current = c.val;
