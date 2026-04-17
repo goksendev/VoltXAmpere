@@ -717,7 +717,7 @@ input:focus{border-color:var(--accent)}
     <span id="sb-temp" style="color:var(--text-3)"></span>
     <span id="sb-engine" style="color:var(--text-4)"></span>
     <span id="sb-extra" style="color:var(--text-3)"></span>
-    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v9.0 — Build: 2026-04-17 19:55 — © 2026</span>
+    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v9.0 — Build: 2026-04-17 19:57 — © 2026</span>
   </div>
 </div>
 
@@ -12963,7 +12963,7 @@ VXA.SpiceLayout = (function() {
 
   var SOURCE_TYPES = { vdc: 1, vac: 1, pulse: 1, pwl: 1, idc: 1, iac: 1, noise: 1 };
   var CONTROLLED_TYPES = { vcvs: 1, vccs: 1, ccvs: 1, cccs: 1 };
-  var ACTIVE_3PIN = { npn: 1, pnp: 1, nmos: 1, pmos: 1, njfet: 1, pjfet: 1 };
+  var ACTIVE_3PIN = { npn: 1, pnp: 1, nmos: 1, pmos: 1, njfet: 1, pjfet: 1, scr: 1, triac: 1 };
   // Parts that default to VERTICAL pin layout (pins on top/bottom)
   var VERTICAL_DEFAULT = { vdc: 1, vac: 1, pulse: 1, pwl: 1, idc: 1, iac: 1, noise: 1, ground: 1 };
   // Sprint 70a-fix-2: 2-pin passives industry standard — horizontal (rot=0).
@@ -13854,6 +13854,18 @@ VXA.SpiceImport = (function() {
         // from .model, which is currently not implemented — treat as lossless.
         circuit.parts.push({ type: 'tline', nodes: [gn(tk[1]), gn(tk[2]), gn(tk[3]), gn(tk[4])], model: tk[5] || '', val: 50, td: 1e-9 });
         warnings.push('O' + sanitizeHTML(tk[0].substring(1)) + ': lossy transmission line treated as lossless (Z0=50\u03a9, TD=1ns)');
+      }
+      else if (ch === 'Y') {
+        // Sprint 75: SCR thyristor.
+        // Format: Y<name> <anode> <gate> <cathode> [model]
+        // (sim-legacy.js builds comps with nodes = [A, K, G]; we push
+        // in that order so the downstream latch engine sees the right
+        // pins.)
+        circuit.parts.push({
+          type: 'scr',
+          nodes: [gn(tk[1]), gn(tk[3]), gn(tk[2])],
+          model: tk[4] || ''
+        });
       }
       else {
         warnings.push('Unsupported element: ' + sanitizeHTML(tk[0]));

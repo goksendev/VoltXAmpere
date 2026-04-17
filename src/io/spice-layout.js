@@ -14,7 +14,7 @@ VXA.SpiceLayout = (function() {
 
   var SOURCE_TYPES = { vdc: 1, vac: 1, pulse: 1, pwl: 1, idc: 1, iac: 1, noise: 1 };
   var CONTROLLED_TYPES = { vcvs: 1, vccs: 1, ccvs: 1, cccs: 1 };
-  var ACTIVE_3PIN = { npn: 1, pnp: 1, nmos: 1, pmos: 1, njfet: 1, pjfet: 1 };
+  var ACTIVE_3PIN = { npn: 1, pnp: 1, nmos: 1, pmos: 1, njfet: 1, pjfet: 1, scr: 1, triac: 1 };
   // Parts that default to VERTICAL pin layout (pins on top/bottom)
   var VERTICAL_DEFAULT = { vdc: 1, vac: 1, pulse: 1, pwl: 1, idc: 1, iac: 1, noise: 1, ground: 1 };
   // Sprint 70a-fix-2: 2-pin passives industry standard — horizontal (rot=0).

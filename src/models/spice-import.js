@@ -227,6 +227,18 @@ VXA.SpiceImport = (function() {
         circuit.parts.push({ type: 'tline', nodes: [gn(tk[1]), gn(tk[2]), gn(tk[3]), gn(tk[4])], model: tk[5] || '', val: 50, td: 1e-9 });
         warnings.push('O' + sanitizeHTML(tk[0].substring(1)) + ': lossy transmission line treated as lossless (Z0=50\u03a9, TD=1ns)');
       }
+      else if (ch === 'Y') {
+        // Sprint 75: SCR thyristor.
+        // Format: Y<name> <anode> <gate> <cathode> [model]
+        // (sim-legacy.js builds comps with nodes = [A, K, G]; we push
+        // in that order so the downstream latch engine sees the right
+        // pins.)
+        circuit.parts.push({
+          type: 'scr',
+          nodes: [gn(tk[1]), gn(tk[3]), gn(tk[2])],
+          model: tk[4] || ''
+        });
+      }
       else {
         warnings.push('Unsupported element: ' + sanitizeHTML(tk[0]));
       }
