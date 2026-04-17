@@ -1,0 +1,11 @@
+* Sprint 82 — L with saturation knee at 2 A.
+* Step response of a 1 Ω / 1 mH series pair driven from a 10 V rail.
+* Ideal analytic: τ = L/R = 1 ms, I∞ = 10 A. Current crosses 2 A at
+* t ≈ 223 µs.
+* With Isat=2 the core gives up once the current passes ~2 A; L_eff
+* collapses and the inductor starts behaving like a wire, so the
+* transient overshoots the ideal trajectory past the knee.
+V1 1 0 DC 10
+R1 1 2 1
+L1 2 0 1m Isat=2
+.END

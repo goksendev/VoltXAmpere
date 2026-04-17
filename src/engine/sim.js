@@ -99,8 +99,32 @@ VXA.SimV2 = (function() {
             St.capacitorBE(matrix, rhs, c.n1, c.n2, c.val, dt, c.vPrev);
           }
         } else if (c.type === 'L') {
+          // Sprint 82: inductor core saturation. When the part carries an
+          // Isat attribute (from SPICE `Isat=…` or a UI input), drop the
+          // effective inductance as current climbs past the knee:
+          //   L_eff(I) = L_nom / (1 + |I/Isat|^n)
+          // With n≈4 this matches the soft-shoulder datasheet curves of
+          // typical drum/toroid cores. A hard floor at L_nom × 1e-3 stops
+          // geq from diverging when the core is driven deep into the
+          // saturated region (L_eff → 0 would give an infinite Norton
+          // conductance).
+          var _L_eff = c.val;
+          var _Isat = (c.part && isFinite(c.part.Isat) && c.part.Isat > 0)
+                        ? c.part.Isat : 0;
+          if (_Isat > 0) {
+            var _satN = (c.part && isFinite(c.part.satExp) && c.part.satExp >= 2)
+                          ? c.part.satExp : 4;
+            var _ratio = Math.abs(c.iPrev || 0) / _Isat;
+            _L_eff = c.val / (1 + Math.pow(_ratio, _satN));
+            var _Lmin = c.val * 1e-3;
+            if (_L_eff < _Lmin) _L_eff = _Lmin;
+            if (c.part) c.part._saturated = _ratio > 0.7;
+          } else if (c.part) {
+            c.part._saturated = false;
+          }
+
           if (_simMethod === 'trap' && !_dtJustChanged) {
-            St.inductorTRAP(matrix, rhs, c.n1, c.n2, c.val, dt, c.iPrev, c.vPrev || 0);
+            St.inductorTRAP(matrix, rhs, c.n1, c.n2, _L_eff, dt, c.iPrev, c.vPrev || 0);
           } else {
             // Sprint 77: BE inductor Norton companion. Sign convention must
             // match stamps.js currentSource/diode: for historic current I
@@ -108,7 +132,7 @@ VXA.SimV2 = (function() {
             // (+iPrev, -iPrev) placement was the wrong sign and caused the
             // Norton source to pump energy INTO the inductor every step,
             // yielding exponential growth (RL τ=1µs blew up within 12 µs).
-            var req = c.val / dt;
+            var req = _L_eff / dt;
             var geq = 1 / (req + _currentGMIN);
             St.stampG(matrix, c.n1, c.n2, geq);
             St.stampI(rhs, c.n1, -c.iPrev);
@@ -568,10 +592,26 @@ VXA.SimV2 = (function() {
         c.iPrev = cur;
         c.part._v = Math.abs(vd); c.part._i = Math.abs(cur); c.part._p = Math.abs(vd * cur);
       } else if (c.type === 'L') {
-        var cur = c.iPrev + (dt / c.val) * vd;
+        // Sprint 82: use the SAME L_eff that was stamped this step,
+        // otherwise the iPrev integrator drifts away from what the
+        // solver actually saw. When no saturation is configured the
+        // formula collapses to L_eff = L_nom (unchanged from Sprint 77).
+        var _L_update = c.val;
+        var _Isat_u = (c.part && isFinite(c.part.Isat) && c.part.Isat > 0)
+                        ? c.part.Isat : 0;
+        if (_Isat_u > 0) {
+          var _nU = (c.part && isFinite(c.part.satExp) && c.part.satExp >= 2)
+                      ? c.part.satExp : 4;
+          var _rU = Math.abs(c.iPrev || 0) / _Isat_u;
+          _L_update = c.val / (1 + Math.pow(_rU, _nU));
+          var _LminU = c.val * 1e-3;
+          if (_L_update < _LminU) _L_update = _LminU;
+        }
+        var cur = c.iPrev + (dt / _L_update) * vd;
         c.iPrev = cur;
         c.vPrev = vd;
         c.part._v = Math.abs(vd); c.part._i = Math.abs(cur); c.part._p = Math.abs(vd * cur);
+        c.part._L_eff = _L_update;
       } else if (c.type === 'V') {
         // Sprint 69 FIX: Proper KCL — sum ALL branch currents leaving node n1
         // (through every adjacent branch: R, C, L, D, BJT coll/emit, MOSFET drain/source).

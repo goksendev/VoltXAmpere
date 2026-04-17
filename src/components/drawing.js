@@ -321,6 +321,28 @@ function drawPart(part) {
 
   if (_overrode) def.color = _origDefColor;
 
+  // Sprint 82: core-saturation halo. Only inductors set part._saturated,
+  // and only when the user configured a finite Isat for that part. The
+  // halo breathes at ~2 Hz; amber for 0.7×Isat < |I| ≤ Isat, red once
+  // we're above the knee.
+  if (part.type === 'inductor' && part._saturated && S.sim && S.sim.running) {
+    var _abs = Math.abs(part._i || 0);
+    var _knee = isFinite(part.Isat) && part.Isat > 0 ? part.Isat : _abs;
+    var _hot  = _abs >= _knee;
+    var _sp = 0.5 + 0.5 * Math.sin(Date.now() / 160);
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(0, 0, 32, 0, Math.PI * 2);
+    ctx.strokeStyle = _hot
+      ? 'rgba(255, 80, 80, ' + (0.45 + 0.35 * _sp) + ')'
+      : 'rgba(245, 200, 50, ' + (0.35 + 0.25 * _sp) + ')';
+    ctx.lineWidth = _hot ? 3 : 2;
+    ctx.shadowColor = _hot ? 'rgba(255,80,80,0.6)' : 'rgba(245,200,50,0.5)';
+    ctx.shadowBlur = 10;
+    ctx.stroke();
+    ctx.restore();
+  }
+
   // Sprint 70b — active source pulse ring. Signals "this source is
   // delivering energy" without bleeding into the schematic symbol.
   // Gentle 1.5 Hz breathing at ~radius 24, matched to the source's

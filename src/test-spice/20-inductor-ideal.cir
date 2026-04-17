@@ -1,0 +1,7 @@
+* Sprint 82 — identical topology to 19, but no Isat → ideal L.
+* Analytic reference: τ = L/R = 1 ms, I∞ = 10 A.
+*   t=223 µs → I ≈ 2 A   t=1 ms → I ≈ 6.32 A   t=5 ms → I ≈ 9.93 A
+V1 1 0 DC 10
+R1 1 2 1
+L1 2 0 1m
+.END

@@ -720,7 +720,7 @@ input:focus{border-color:var(--accent)}
     <span id="sb-temp" style="color:var(--text-3)"></span>
     <span id="sb-engine" style="color:var(--text-4)"></span>
     <span id="sb-extra" style="color:var(--text-3)"></span>
-    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v9.0 — Build: 2026-04-17 21:38 — © 2026</span>
+    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v9.0 — Build: 2026-04-17 22:06 — © 2026</span>
   </div>
 </div>
 
@@ -4131,6 +4131,28 @@ function drawPart(part) {
 
   if (_overrode) def.color = _origDefColor;
 
+  // Sprint 82: core-saturation halo. Only inductors set part._saturated,
+  // and only when the user configured a finite Isat for that part. The
+  // halo breathes at ~2 Hz; amber for 0.7×Isat < |I| ≤ Isat, red once
+  // we're above the knee.
+  if (part.type === 'inductor' && part._saturated && S.sim && S.sim.running) {
+    var _abs = Math.abs(part._i || 0);
+    var _knee = isFinite(part.Isat) && part.Isat > 0 ? part.Isat : _abs;
+    var _hot  = _abs >= _knee;
+    var _sp = 0.5 + 0.5 * Math.sin(Date.now() / 160);
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(0, 0, 32, 0, Math.PI * 2);
+    ctx.strokeStyle = _hot
+      ? 'rgba(255, 80, 80, ' + (0.45 + 0.35 * _sp) + ')'
+      : 'rgba(245, 200, 50, ' + (0.35 + 0.25 * _sp) + ')';
+    ctx.lineWidth = _hot ? 3 : 2;
+    ctx.shadowColor = _hot ? 'rgba(255,80,80,0.6)' : 'rgba(245,200,50,0.5)';
+    ctx.shadowBlur = 10;
+    ctx.stroke();
+    ctx.restore();
+  }
+
   // Sprint 70b — active source pulse ring. Signals "this source is
   // delivering energy" without bleeding into the schematic symbol.
   // Gentle 1.5 Hz breathing at ~radius 24, matched to the source's
@@ -6302,8 +6324,32 @@ VXA.SimV2 = (function() {
             St.capacitorBE(matrix, rhs, c.n1, c.n2, c.val, dt, c.vPrev);
           }
         } else if (c.type === 'L') {
+          // Sprint 82: inductor core saturation. When the part carries an
+          // Isat attribute (from SPICE `Isat=…` or a UI input), drop the
+          // effective inductance as current climbs past the knee:
+          //   L_eff(I) = L_nom / (1 + |I/Isat|^n)
+          // With n≈4 this matches the soft-shoulder datasheet curves of
+          // typical drum/toroid cores. A hard floor at L_nom × 1e-3 stops
+          // geq from diverging when the core is driven deep into the
+          // saturated region (L_eff → 0 would give an infinite Norton
+          // conductance).
+          var _L_eff = c.val;
+          var _Isat = (c.part && isFinite(c.part.Isat) && c.part.Isat > 0)
+                        ? c.part.Isat : 0;
+          if (_Isat > 0) {
+            var _satN = (c.part && isFinite(c.part.satExp) && c.part.satExp >= 2)
+                          ? c.part.satExp : 4;
+            var _ratio = Math.abs(c.iPrev || 0) / _Isat;
+            _L_eff = c.val / (1 + Math.pow(_ratio, _satN));
+            var _Lmin = c.val * 1e-3;
+            if (_L_eff < _Lmin) _L_eff = _Lmin;
+            if (c.part) c.part._saturated = _ratio > 0.7;
+          } else if (c.part) {
+            c.part._saturated = false;
+          }
+
           if (_simMethod === 'trap' && !_dtJustChanged) {
-            St.inductorTRAP(matrix, rhs, c.n1, c.n2, c.val, dt, c.iPrev, c.vPrev || 0);
+            St.inductorTRAP(matrix, rhs, c.n1, c.n2, _L_eff, dt, c.iPrev, c.vPrev || 0);
           } else {
             // Sprint 77: BE inductor Norton companion. Sign convention must
             // match stamps.js currentSource/diode: for historic current I
@@ -6311,7 +6357,7 @@ VXA.SimV2 = (function() {
             // (+iPrev, -iPrev) placement was the wrong sign and caused the
             // Norton source to pump energy INTO the inductor every step,
             // yielding exponential growth (RL τ=1µs blew up within 12 µs).
-            var req = c.val / dt;
+            var req = _L_eff / dt;
             var geq = 1 / (req + _currentGMIN);
             St.stampG(matrix, c.n1, c.n2, geq);
             St.stampI(rhs, c.n1, -c.iPrev);
@@ -6771,10 +6817,26 @@ VXA.SimV2 = (function() {
         c.iPrev = cur;
         c.part._v = Math.abs(vd); c.part._i = Math.abs(cur); c.part._p = Math.abs(vd * cur);
       } else if (c.type === 'L') {
-        var cur = c.iPrev + (dt / c.val) * vd;
+        // Sprint 82: use the SAME L_eff that was stamped this step,
+        // otherwise the iPrev integrator drifts away from what the
+        // solver actually saw. When no saturation is configured the
+        // formula collapses to L_eff = L_nom (unchanged from Sprint 77).
+        var _L_update = c.val;
+        var _Isat_u = (c.part && isFinite(c.part.Isat) && c.part.Isat > 0)
+                        ? c.part.Isat : 0;
+        if (_Isat_u > 0) {
+          var _nU = (c.part && isFinite(c.part.satExp) && c.part.satExp >= 2)
+                      ? c.part.satExp : 4;
+          var _rU = Math.abs(c.iPrev || 0) / _Isat_u;
+          _L_update = c.val / (1 + Math.pow(_rU, _nU));
+          var _LminU = c.val * 1e-3;
+          if (_L_update < _LminU) _L_update = _LminU;
+        }
+        var cur = c.iPrev + (dt / _L_update) * vd;
         c.iPrev = cur;
         c.vPrev = vd;
         c.part._v = Math.abs(vd); c.part._i = Math.abs(cur); c.part._p = Math.abs(vd * cur);
+        c.part._L_eff = _L_update;
       } else if (c.type === 'V') {
         // Sprint 69 FIX: Proper KCL — sum ALL branch currents leaving node n1
         // (through every adjacent branch: R, C, L, D, BJT coll/emit, MOSFET drain/source).
@@ -14028,6 +14090,20 @@ VXA.SpiceImport = (function() {
         var lCV = extractValueAndIC(tk, 3);
         var lPart = { type: 'inductor', nodes: [gn(tk[1]), gn(tk[2])], val: lCV.val != null ? lCV.val : 1e-3 };
         if (lCV.ic != null) lPart.ic = lCV.ic;
+        // Sprint 82: extended tokens for core saturation:
+        //   L1 n1 n2 100u Isat=3          (default knee sharpness n=4)
+        //   L1 n1 n2 100u Isat=3 Nsat=6   (explicit sharpness)
+        // Tokens are case-insensitive and position-free past the value.
+        for (var _lt = 3; _lt < tk.length; _lt++) {
+          var _ltk = (tk[_lt] || '').toLowerCase();
+          if (_ltk.indexOf('isat=') === 0) {
+            var _iv = pv(_ltk.slice(5));
+            if (isFinite(_iv) && _iv > 0) lPart.Isat = _iv;
+          } else if (_ltk.indexOf('nsat=') === 0) {
+            var _nv = parseFloat(_ltk.slice(5));
+            if (isFinite(_nv) && _nv >= 2) lPart.satExp = _nv;
+          }
+        }
         circuit.parts.push(lPart);
       }
       else if (ch === 'V') {
@@ -14204,6 +14280,9 @@ VXA.SpiceImport = (function() {
         if (cp.ic != null) p.ic = cp.ic;
         if (cp.expression) p.expression = cp.expression;
         if (cp.srcType) p.srcType = cp.srcType;
+        // Sprint 82: inductor saturation metadata.
+        if (cp.Isat != null)   p.Isat   = cp.Isat;
+        if (cp.satExp != null) p.satExp = cp.satExp;
         if (cp.type === 'subcircuit' && cp.subcktName) {
           p.subcktName = cp.subcktName;
           var sc = (typeof VXA !== 'undefined' && VXA.Subcircuit) ? VXA.Subcircuit.getSubcircuit(cp.subcktName) : null;
@@ -14229,6 +14308,8 @@ VXA.SpiceImport = (function() {
         if (cp.model) { p.model = cp.model; if (typeof applyModel === 'function') applyModel(p, cp.model); }
         if (cp.freq) p.freq = cp.freq;
         if (cp.ic != null) p.ic = cp.ic;
+        if (cp.Isat != null)   p.Isat   = cp.Isat;
+        if (cp.satExp != null) p.satExp = cp.satExp;
         S.parts.push(p);
         idMap[idx] = p;
       });
