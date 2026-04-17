@@ -1,0 +1,9 @@
+* Sprint 84 — Forward-biased Si diode, V_F temperature coefficient.
+* Uses the Generic Si model (IS=1e-14, N=1 ideal) so the textbook
+* −2 mV/°C slope is visible; the real-world 1N4148 has N=1.75 which
+* steepens the slope by roughly its ideality factor. R keeps I_D
+* near 1 mA regardless of V_F drift.
+V1 1 0 DC 5
+R1 1 2 4.7k
+D1 2 0 Generic
+.END

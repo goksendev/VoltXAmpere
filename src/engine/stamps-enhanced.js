@@ -1,6 +1,21 @@
 VXA.Stamps.diode_spice = function(matrix, rhs, n1, n2, params, Vd_prev, dt) {
-  var Sp = VXA.Sparse, VT = 0.026;
-  var IS = params.IS || 1e-14, N = params.N || 1, RS = params.RS || 0;
+  // Sprint 84: junction temperature coupling (same physics as the inline
+  // diode stamp). Skipped entirely when params.TjK is absent or equal to
+  // 300 K → bit-identical to the pre-Sprint-84 behaviour. Eg defaults to
+  // 1.12 eV (silicon); Schottky / Ge / Ge-SiC models can override via a
+  // custom Eg field on the model entry.
+  var Sp = VXA.Sparse;
+  var TjK = (params && params.TjK) || 300;
+  if (TjK < 150) TjK = 150; else if (TjK > 500) TjK = 500;
+  var K_BOLT = 8.617333e-5;
+  var Eg = (params && isFinite(params.Eg)) ? params.Eg : 1.12;
+  var Tref = 300;
+  var VT = K_BOLT * TjK;
+  var IS0 = params.IS || 1e-14, N = params.N || 1, RS = params.RS || 0;
+  var Tr = TjK / Tref;
+  var xp = Eg / K_BOLT * (1 / Tref - 1 / TjK);
+  if (xp > 80) xp = 80;
+  var IS = IS0 * Math.pow(Tr, 3) * Math.exp(xp);
   var BV = params.BV || 100, CJO = params.CJO || 0, VJ = params.VJ || 0.7, M = params.M || 0.5, TT = params.TT || 0;
   var VdMax = params.Vf_typ ? params.Vf_typ + 1.0 : 0.8; // LED: Vf+1V, Si diode: 0.8V
   var Vd = Math.max(-BV - 5, Math.min(Vd_prev, VdMax));

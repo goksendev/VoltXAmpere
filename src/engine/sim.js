@@ -181,14 +181,34 @@ VXA.SimV2 = (function() {
         } else if (c.type === 'D') {
           var vd = (nodeV[c.n1] || 0) - (nodeV[c.n2] || 0);
           var dModel = c.part && c.part.model ? VXA.Models.getModel(c.part.type, c.part.model) : null;
+          // Sprint 84: feed junction temperature into the stamp. LEDs
+          // are intentionally NOT coupled — their V_F(T) obeys
+          // material-specific laws that the silicon bandgap model
+          // can't fake; deferred to a future LED-thermal sprint.
+          var _dTjK = 300;
+          if (c.part && c.part.type !== 'led'
+              && c.part._thermal && isFinite(c.part._thermal.T)) {
+            _dTjK = c.part._thermal.T + 273.15;
+          }
           // Sprint 24: LEDs use basic stamp with model IS/N for better convergence
           // diode_spice RS handling causes convergence issues with high-N LED models
           if (dModel && c.part && c.part.type !== 'led' && (dModel.RS > 0 || dModel.CJO > 0 || dModel.BV)) {
-            St.diode_spice(matrix, rhs, c.n1, c.n2, dModel, vd, dt);
+            // Shallow-clone so VXA.Models entries stay pristine.
+            var _dParams = dModel;
+            if (dModel.TjK !== _dTjK) {
+              _dParams = {};
+              for (var _dk in dModel) _dParams[_dk] = dModel[_dk];
+              _dParams.TjK = _dTjK;
+            }
+            St.diode_spice(matrix, rhs, c.n1, c.n2, _dParams, vd, dt);
           } else {
             var dIS = dModel ? (dModel.IS || DIODE_IS) : (c.IS || DIODE_IS);
             var dN = dModel ? (dModel.N || DIODE_N) : (c.N || DIODE_N);
-            St.diode(matrix, rhs, c.n1, c.n2, dIS, dN, vd, VT_VAL);
+            var dEg = dModel && isFinite(dModel.Eg) ? dModel.Eg : 1.12;
+            // LEDs: pass TjK = 300 → stamp's internal branch becomes a
+            // no-op and we retain the Sprint 25 isothermal behaviour.
+            var dTjPass = (c.part && c.part.type === 'led') ? 300 : _dTjK;
+            St.diode(matrix, rhs, c.n1, c.n2, dIS, dN, vd, VT_VAL, dTjPass, dEg);
           }
         } else if (c.type === 'BJT') {
           // Always use Gummel-Poon when model available (more accurate convergence)
@@ -676,10 +696,23 @@ VXA.SimV2 = (function() {
         // Sprint 69 FIX: Primary readout via Shockley equation (physically correct),
         // then compare with KCL from anode — if KCL gives finite non-zero, prefer it
         // (more robust for multi-resistor parallel LED configurations).
+        // Sprint 84: apply the same Tj-coupled IS/VT the stamp used above
+        // so this fallback stays consistent with the electrical solve.
         var dMdl2 = c.part && c.part.model ? VXA.Models.getModel(c.part.type, c.part.model) : null;
         var dIS2 = dMdl2 ? (dMdl2.IS || DIODE_IS) : (c.IS || DIODE_IS);
         var dN2 = dMdl2 ? (dMdl2.N || DIODE_N) : (c.N || DIODE_N);
-        var eArg = Math.min(vd / (dN2 * VT_VAL), 500);
+        var _vtRead = VT_VAL;
+        if (c.part && c.part.type !== 'led'
+            && c.part._thermal && isFinite(c.part._thermal.T)) {
+          var _TjR = c.part._thermal.T + 273.15;
+          if (_TjR < 150) _TjR = 150; else if (_TjR > 500) _TjR = 500;
+          _vtRead = 8.617333e-5 * _TjR;
+          var _egR = (dMdl2 && isFinite(dMdl2.Eg)) ? dMdl2.Eg : 1.12;
+          var _xpR = _egR / 8.617333e-5 * (1 / 300 - 1 / _TjR);
+          if (_xpR > 80) _xpR = 80;
+          dIS2 = dIS2 * Math.pow(_TjR / 300, 3) * Math.exp(_xpR);
+        }
+        var eArg = Math.min(vd / (dN2 * _vtRead), 500);
         var shockleyCur = dIS2 * (Math.exp(eArg) - 1);
 
         // KCL at anode (n1): sum all currents flowing OUT via adjacent R/L/C/D (excluding self)

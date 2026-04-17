@@ -90,8 +90,23 @@ VXA.ACAnalysis = (function() {
           vsIdx++;
         } else if (c.type === 'D') {
           var vd = (nodeV[c.n1] || 0) - (nodeV[c.n2] || 0);
+          // Sprint 84: re-linearise the diode about the DC operating
+          // point using the Tj-coupled Is and Vt, so the small-signal
+          // gd AC-MNA stamps with matches the transient-path solver.
           var Is = c.IS || DIODE_IS, Nf = c.N || DIODE_N;
-          var gd = Is / (Nf * VT_VAL) * Math.exp(Math.min(vd / (Nf * VT_VAL), 40)) + 1e-12;
+          var vtAC = VT_VAL;
+          if (c.part && c.part.type !== 'led'
+              && c.part._thermal && isFinite(c.part._thermal.T)) {
+            var TjAC = c.part._thermal.T + 273.15;
+            if (TjAC < 150) TjAC = 150; else if (TjAC > 500) TjAC = 500;
+            vtAC = 8.617333e-5 * TjAC;
+            var mdlEg = c.part && c.part.model ? VXA.Models.getModel(c.part.type, c.part.model) : null;
+            var egAC = (mdlEg && isFinite(mdlEg.Eg)) ? mdlEg.Eg : 1.12;
+            var xpAC = egAC / 8.617333e-5 * (1 / 300 - 1 / TjAC);
+            if (xpAC > 80) xpAC = 80;
+            Is = Is * Math.pow(TjAC / 300, 3) * Math.exp(xpAC);
+          }
+          var gd = Is / (Nf * vtAC) * Math.exp(Math.min(vd / (Nf * vtAC), 40)) + 1e-12;
           sR(c.n1, c.n2, 1 / gd);
           var mdl = c.part && c.part.model ? VXA.Models.getModel(c.part.type, c.part.model) : null;
           if (mdl && mdl.CJO > 0) { var Cj = mdl.CJO; var Cd = (mdl.TT || 0) * gd; sC(c.n1, c.n2, Cj + Cd); }

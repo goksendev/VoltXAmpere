@@ -30,7 +30,27 @@ VXA.Stamps = (function() {
     Sp.stamp(matrix, bi, bi, -L / dt);
     rhs[bi] = -L / dt * Iprev;
   }
-  function diode(matrix, rhs, n1, n2, Is, Nf, Vd, VT) {
+  // Sprint 84: optional TjK (Kelvin) + Eg (eV) trailing parameters.
+  // When supplied they OVERRIDE the caller's isothermal VT and Is via
+  // the standard SPICE bandgap model:
+  //     Vt  = k_B · Tj / q
+  //     Is  = Is0 · (Tj/Tref)^3 · exp( Eg/k_B · (1/Tref − 1/Tj) )
+  // Default Eg = 1.12 eV (silicon). Schottky (≈0.5 eV) and Ge (≈0.67 eV)
+  // can override via model. When TjK is omitted we pass through Is/VT
+  // unchanged — existing callers stay bit-identical.
+  function diode(matrix, rhs, n1, n2, Is, Nf, Vd, VT, TjK, Eg) {
+    if (TjK && isFinite(TjK)) {
+      var T = TjK;
+      if (T < 150) T = 150; else if (T > 500) T = 500;
+      var K_BOLT = 8.617333e-5;
+      var BG = (Eg && isFinite(Eg)) ? Eg : 1.12;
+      var Tref = 300;
+      VT = K_BOLT * T;
+      var Tr = T / Tref;
+      var xp = BG / K_BOLT * (1 / Tref - 1 / T);
+      if (xp > 80) xp = 80;
+      Is = Is * Math.pow(Tr, 3) * Math.exp(xp);
+    }
     var nVt = Nf * VT;
     // Sprint 25: vcrit calculation with safe bounds for tiny IS
     var logArg = nVt / (Math.sqrt(2) * Math.max(Is, 1e-40));

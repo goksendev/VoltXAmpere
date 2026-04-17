@@ -720,7 +720,7 @@ input:focus{border-color:var(--accent)}
     <span id="sb-temp" style="color:var(--text-3)"></span>
     <span id="sb-engine" style="color:var(--text-4)"></span>
     <span id="sb-extra" style="color:var(--text-3)"></span>
-    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v9.0 — Build: 2026-04-17 22:30 — © 2026</span>
+    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v9.0 — Build: 2026-04-17 22:40 — © 2026</span>
   </div>
 </div>
 
@@ -5975,7 +5975,27 @@ VXA.Stamps = (function() {
     Sp.stamp(matrix, bi, bi, -L / dt);
     rhs[bi] = -L / dt * Iprev;
   }
-  function diode(matrix, rhs, n1, n2, Is, Nf, Vd, VT) {
+  // Sprint 84: optional TjK (Kelvin) + Eg (eV) trailing parameters.
+  // When supplied they OVERRIDE the caller's isothermal VT and Is via
+  // the standard SPICE bandgap model:
+  //     Vt  = k_B · Tj / q
+  //     Is  = Is0 · (Tj/Tref)^3 · exp( Eg/k_B · (1/Tref − 1/Tj) )
+  // Default Eg = 1.12 eV (silicon). Schottky (≈0.5 eV) and Ge (≈0.67 eV)
+  // can override via model. When TjK is omitted we pass through Is/VT
+  // unchanged — existing callers stay bit-identical.
+  function diode(matrix, rhs, n1, n2, Is, Nf, Vd, VT, TjK, Eg) {
+    if (TjK && isFinite(TjK)) {
+      var T = TjK;
+      if (T < 150) T = 150; else if (T > 500) T = 500;
+      var K_BOLT = 8.617333e-5;
+      var BG = (Eg && isFinite(Eg)) ? Eg : 1.12;
+      var Tref = 300;
+      VT = K_BOLT * T;
+      var Tr = T / Tref;
+      var xp = BG / K_BOLT * (1 / Tref - 1 / T);
+      if (xp > 80) xp = 80;
+      Is = Is * Math.pow(Tr, 3) * Math.exp(xp);
+    }
     var nVt = Nf * VT;
     // Sprint 25: vcrit calculation with safe bounds for tiny IS
     var logArg = nVt / (Math.sqrt(2) * Math.max(Is, 1e-40));
@@ -6420,14 +6440,34 @@ VXA.SimV2 = (function() {
         } else if (c.type === 'D') {
           var vd = (nodeV[c.n1] || 0) - (nodeV[c.n2] || 0);
           var dModel = c.part && c.part.model ? VXA.Models.getModel(c.part.type, c.part.model) : null;
+          // Sprint 84: feed junction temperature into the stamp. LEDs
+          // are intentionally NOT coupled — their V_F(T) obeys
+          // material-specific laws that the silicon bandgap model
+          // can't fake; deferred to a future LED-thermal sprint.
+          var _dTjK = 300;
+          if (c.part && c.part.type !== 'led'
+              && c.part._thermal && isFinite(c.part._thermal.T)) {
+            _dTjK = c.part._thermal.T + 273.15;
+          }
           // Sprint 24: LEDs use basic stamp with model IS/N for better convergence
           // diode_spice RS handling causes convergence issues with high-N LED models
           if (dModel && c.part && c.part.type !== 'led' && (dModel.RS > 0 || dModel.CJO > 0 || dModel.BV)) {
-            St.diode_spice(matrix, rhs, c.n1, c.n2, dModel, vd, dt);
+            // Shallow-clone so VXA.Models entries stay pristine.
+            var _dParams = dModel;
+            if (dModel.TjK !== _dTjK) {
+              _dParams = {};
+              for (var _dk in dModel) _dParams[_dk] = dModel[_dk];
+              _dParams.TjK = _dTjK;
+            }
+            St.diode_spice(matrix, rhs, c.n1, c.n2, _dParams, vd, dt);
           } else {
             var dIS = dModel ? (dModel.IS || DIODE_IS) : (c.IS || DIODE_IS);
             var dN = dModel ? (dModel.N || DIODE_N) : (c.N || DIODE_N);
-            St.diode(matrix, rhs, c.n1, c.n2, dIS, dN, vd, VT_VAL);
+            var dEg = dModel && isFinite(dModel.Eg) ? dModel.Eg : 1.12;
+            // LEDs: pass TjK = 300 → stamp's internal branch becomes a
+            // no-op and we retain the Sprint 25 isothermal behaviour.
+            var dTjPass = (c.part && c.part.type === 'led') ? 300 : _dTjK;
+            St.diode(matrix, rhs, c.n1, c.n2, dIS, dN, vd, VT_VAL, dTjPass, dEg);
           }
         } else if (c.type === 'BJT') {
           // Always use Gummel-Poon when model available (more accurate convergence)
@@ -6915,10 +6955,23 @@ VXA.SimV2 = (function() {
         // Sprint 69 FIX: Primary readout via Shockley equation (physically correct),
         // then compare with KCL from anode — if KCL gives finite non-zero, prefer it
         // (more robust for multi-resistor parallel LED configurations).
+        // Sprint 84: apply the same Tj-coupled IS/VT the stamp used above
+        // so this fallback stays consistent with the electrical solve.
         var dMdl2 = c.part && c.part.model ? VXA.Models.getModel(c.part.type, c.part.model) : null;
         var dIS2 = dMdl2 ? (dMdl2.IS || DIODE_IS) : (c.IS || DIODE_IS);
         var dN2 = dMdl2 ? (dMdl2.N || DIODE_N) : (c.N || DIODE_N);
-        var eArg = Math.min(vd / (dN2 * VT_VAL), 500);
+        var _vtRead = VT_VAL;
+        if (c.part && c.part.type !== 'led'
+            && c.part._thermal && isFinite(c.part._thermal.T)) {
+          var _TjR = c.part._thermal.T + 273.15;
+          if (_TjR < 150) _TjR = 150; else if (_TjR > 500) _TjR = 500;
+          _vtRead = 8.617333e-5 * _TjR;
+          var _egR = (dMdl2 && isFinite(dMdl2.Eg)) ? dMdl2.Eg : 1.12;
+          var _xpR = _egR / 8.617333e-5 * (1 / 300 - 1 / _TjR);
+          if (_xpR > 80) _xpR = 80;
+          dIS2 = dIS2 * Math.pow(_TjR / 300, 3) * Math.exp(_xpR);
+        }
+        var eArg = Math.min(vd / (dN2 * _vtRead), 500);
         var shockleyCur = dIS2 * (Math.exp(eArg) - 1);
 
         // KCL at anode (n1): sum all currents flowing OUT via adjacent R/L/C/D (excluding self)
@@ -7476,8 +7529,23 @@ VXA.Models = (function() {
 
 // ═══ stamps-enhanced.js ═══
 VXA.Stamps.diode_spice = function(matrix, rhs, n1, n2, params, Vd_prev, dt) {
-  var Sp = VXA.Sparse, VT = 0.026;
-  var IS = params.IS || 1e-14, N = params.N || 1, RS = params.RS || 0;
+  // Sprint 84: junction temperature coupling (same physics as the inline
+  // diode stamp). Skipped entirely when params.TjK is absent or equal to
+  // 300 K → bit-identical to the pre-Sprint-84 behaviour. Eg defaults to
+  // 1.12 eV (silicon); Schottky / Ge / Ge-SiC models can override via a
+  // custom Eg field on the model entry.
+  var Sp = VXA.Sparse;
+  var TjK = (params && params.TjK) || 300;
+  if (TjK < 150) TjK = 150; else if (TjK > 500) TjK = 500;
+  var K_BOLT = 8.617333e-5;
+  var Eg = (params && isFinite(params.Eg)) ? params.Eg : 1.12;
+  var Tref = 300;
+  var VT = K_BOLT * TjK;
+  var IS0 = params.IS || 1e-14, N = params.N || 1, RS = params.RS || 0;
+  var Tr = TjK / Tref;
+  var xp = Eg / K_BOLT * (1 / Tref - 1 / TjK);
+  if (xp > 80) xp = 80;
+  var IS = IS0 * Math.pow(Tr, 3) * Math.exp(xp);
   var BV = params.BV || 100, CJO = params.CJO || 0, VJ = params.VJ || 0.7, M = params.M || 0.5, TT = params.TT || 0;
   var VdMax = params.Vf_typ ? params.Vf_typ + 1.0 : 0.8; // LED: Vf+1V, Si diode: 0.8V
   var Vd = Math.max(-BV - 5, Math.min(Vd_prev, VdMax));
@@ -12508,8 +12576,23 @@ VXA.ACAnalysis = (function() {
           vsIdx++;
         } else if (c.type === 'D') {
           var vd = (nodeV[c.n1] || 0) - (nodeV[c.n2] || 0);
+          // Sprint 84: re-linearise the diode about the DC operating
+          // point using the Tj-coupled Is and Vt, so the small-signal
+          // gd AC-MNA stamps with matches the transient-path solver.
           var Is = c.IS || DIODE_IS, Nf = c.N || DIODE_N;
-          var gd = Is / (Nf * VT_VAL) * Math.exp(Math.min(vd / (Nf * VT_VAL), 40)) + 1e-12;
+          var vtAC = VT_VAL;
+          if (c.part && c.part.type !== 'led'
+              && c.part._thermal && isFinite(c.part._thermal.T)) {
+            var TjAC = c.part._thermal.T + 273.15;
+            if (TjAC < 150) TjAC = 150; else if (TjAC > 500) TjAC = 500;
+            vtAC = 8.617333e-5 * TjAC;
+            var mdlEg = c.part && c.part.model ? VXA.Models.getModel(c.part.type, c.part.model) : null;
+            var egAC = (mdlEg && isFinite(mdlEg.Eg)) ? mdlEg.Eg : 1.12;
+            var xpAC = egAC / 8.617333e-5 * (1 / 300 - 1 / TjAC);
+            if (xpAC > 80) xpAC = 80;
+            Is = Is * Math.pow(TjAC / 300, 3) * Math.exp(xpAC);
+          }
+          var gd = Is / (Nf * vtAC) * Math.exp(Math.min(vd / (Nf * vtAC), 40)) + 1e-12;
           sR(c.n1, c.n2, 1 / gd);
           var mdl = c.part && c.part.model ? VXA.Models.getModel(c.part.type, c.part.model) : null;
           if (mdl && mdl.CJO > 0) { var Cj = mdl.CJO; var Cd = (mdl.TT || 0) * gd; sC(c.n1, c.n2, Cj + Cd); }
