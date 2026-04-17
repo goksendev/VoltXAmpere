@@ -1,6 +1,21 @@
 // ──────── 3.5: ENHANCED INSPECTOR ────────
 var _inspLiveInterval = null;
 
+// Sprint 70h: some components carry fast AC (diodes on rectifier
+// lines, switching devices). A single-sample readout at the 100 ms
+// Inspector tick drifts between the forward half-cycle's real
+// current and the reverse-bias saturation current (~10 pA). Keep a
+// ring buffer on the solver side and surface an RMS here so the
+// user sees a physically-meaningful number.
+function getRMSCurrent(part) {
+  var h = part && part._iHistory;
+  if (!h || h.length < 2) return Math.abs(part && part._i ? part._i : 0);
+  var sum = 0;
+  for (var i = 0; i < h.length; i++) sum += h[i] * h[i];
+  return Math.sqrt(sum / h.length);
+}
+var _RMS_DISPLAY_TYPES = { diode:1, zener:1, led:1 };
+
 function updateInspector() {
   var el = document.getElementById('inspector');
   if (_inspLiveInterval) { clearInterval(_inspLiveInterval); _inspLiveInterval = null; }
@@ -208,7 +223,15 @@ function updateInspector() {
       return;
     }
     if (vEl) vEl.textContent = fmtVal(pp._v || 0, 'V');
-    if (iEl) iEl.textContent = fmtVal(pp._i || 0, 'A');
+    // Sprint 70h: rectifier-class devices report RMS over the ring
+    // buffer so the Inspector doesn't land on a zero-crossing sample.
+    if (iEl) {
+      if (_RMS_DISPLAY_TYPES[pp.type] && pp._iHistory && pp._iHistory.length > 5) {
+        iEl.textContent = fmtVal(getRMSCurrent(pp), 'A') + ' (RMS)';
+      } else {
+        iEl.textContent = fmtVal(pp._i || 0, 'A');
+      }
+    }
     if (pEl) pEl.textContent = fmtVal(pp._p || 0, 'W');
     var pth = pp._thermal;
     if (tEl) {

@@ -155,8 +155,12 @@ function drawFormulaOverlay(ctx, part) {
   var padding = 10;
   var boxH = padding * 2 + formulas.length * lineH;
 
-  // Position: right of component
-  var bx = part.x + 35;
+  // Position: right of component. Sprint 70h: diode / LED / zener
+  // pins extend only ±30 px (vs ±40 for resistor/cap/inductor), so a
+  // +35 tooltip offset leaves the formula box overlapping the glyph.
+  // Bump the offset for narrow-pin parts.
+  var narrowPin = (part.type === 'diode' || part.type === 'led' || part.type === 'zener');
+  var bx = part.x + (narrowPin ? 55 : 35);
   var by = part.y - boxH / 2;
 
   // Fade-in (200ms after 300ms delay)

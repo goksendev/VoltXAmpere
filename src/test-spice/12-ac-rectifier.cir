@@ -1,0 +1,8 @@
+* AC half-wave rectifier — 10 Vpk 360 Hz, diode + 1 k load.
+* Expected: peak I ≈ (10 - 0.7) / 1k = 9.3 mA on positive half,
+*           ≈ 0 on negative half. RMS ≈ 4.5 mA.
+V1 1 0 SIN(0 10 360)
+D1 1 2 DMOD
+R1 2 0 1k
+.MODEL DMOD D(IS=1e-14 N=1)
+.END

@@ -561,6 +561,14 @@ VXA.SimV2 = (function() {
         if (cur < 1e-15) cur = Math.abs(shockleyCur);
         c.part._v = Math.abs(vd); c.part._i = cur; c.part._p = Math.abs(vd * cur);
         c.vPrev = vd;
+        // Sprint 70h: keep an instantaneous-current ring buffer so the
+        // Inspector can display an RMS reading instead of a single sample.
+        // On AC rectifiers the DC solver is correct (≈9 mA on the forward
+        // half, saturation current on the reverse half), but a 100 ms
+        // Inspector tick catches the off-phase and reports picoamps.
+        if (!c.part._iHistory) c.part._iHistory = [];
+        c.part._iHistory.push(cur);
+        if (c.part._iHistory.length > 2000) c.part._iHistory.shift();
       } else if (c.type === 'BJT') {
         var pol = c.polarity;
         var vB = nodeV[c.n1] || 0, vC = nodeV[c.n2] || 0, vE = nodeV[c.n3] || 0;

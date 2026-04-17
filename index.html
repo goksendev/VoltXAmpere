@@ -717,7 +717,7 @@ input:focus{border-color:var(--accent)}
     <span id="sb-temp" style="color:var(--text-3)"></span>
     <span id="sb-engine" style="color:var(--text-4)"></span>
     <span id="sb-extra" style="color:var(--text-3)"></span>
-    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v9.0 — Build: 2026-04-17 19:03 — © 2026</span>
+    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v9.0 — Build: 2026-04-17 19:23 — © 2026</span>
   </div>
 </div>
 
@@ -6722,6 +6722,14 @@ VXA.SimV2 = (function() {
         if (cur < 1e-15) cur = Math.abs(shockleyCur);
         c.part._v = Math.abs(vd); c.part._i = cur; c.part._p = Math.abs(vd * cur);
         c.vPrev = vd;
+        // Sprint 70h: keep an instantaneous-current ring buffer so the
+        // Inspector can display an RMS reading instead of a single sample.
+        // On AC rectifiers the DC solver is correct (≈9 mA on the forward
+        // half, saturation current on the reverse half), but a 100 ms
+        // Inspector tick catches the off-phase and reports picoamps.
+        if (!c.part._iHistory) c.part._iHistory = [];
+        c.part._iHistory.push(cur);
+        if (c.part._iHistory.length > 2000) c.part._iHistory.shift();
       } else if (c.type === 'BJT') {
         var pol = c.polarity;
         var vB = nodeV[c.n1] || 0, vC = nodeV[c.n2] || 0, vE = nodeV[c.n3] || 0;
@@ -17825,8 +17833,12 @@ function drawFormulaOverlay(ctx, part) {
   var padding = 10;
   var boxH = padding * 2 + formulas.length * lineH;
 
-  // Position: right of component
-  var bx = part.x + 35;
+  // Position: right of component. Sprint 70h: diode / LED / zener
+  // pins extend only ±30 px (vs ±40 for resistor/cap/inductor), so a
+  // +35 tooltip offset leaves the formula box overlapping the glyph.
+  // Bump the offset for narrow-pin parts.
+  var narrowPin = (part.type === 'diode' || part.type === 'led' || part.type === 'zener');
+  var bx = part.x + (narrowPin ? 55 : 35);
   var by = part.y - boxH / 2;
 
   // Fade-in (200ms after 300ms delay)
@@ -20517,6 +20529,21 @@ function _buildRecentSection(container) {
 // ──────── 3.5: ENHANCED INSPECTOR ────────
 var _inspLiveInterval = null;
 
+// Sprint 70h: some components carry fast AC (diodes on rectifier
+// lines, switching devices). A single-sample readout at the 100 ms
+// Inspector tick drifts between the forward half-cycle's real
+// current and the reverse-bias saturation current (~10 pA). Keep a
+// ring buffer on the solver side and surface an RMS here so the
+// user sees a physically-meaningful number.
+function getRMSCurrent(part) {
+  var h = part && part._iHistory;
+  if (!h || h.length < 2) return Math.abs(part && part._i ? part._i : 0);
+  var sum = 0;
+  for (var i = 0; i < h.length; i++) sum += h[i] * h[i];
+  return Math.sqrt(sum / h.length);
+}
+var _RMS_DISPLAY_TYPES = { diode:1, zener:1, led:1 };
+
 function updateInspector() {
   var el = document.getElementById('inspector');
   if (_inspLiveInterval) { clearInterval(_inspLiveInterval); _inspLiveInterval = null; }
@@ -20724,7 +20751,15 @@ function updateInspector() {
       return;
     }
     if (vEl) vEl.textContent = fmtVal(pp._v || 0, 'V');
-    if (iEl) iEl.textContent = fmtVal(pp._i || 0, 'A');
+    // Sprint 70h: rectifier-class devices report RMS over the ring
+    // buffer so the Inspector doesn't land on a zero-crossing sample.
+    if (iEl) {
+      if (_RMS_DISPLAY_TYPES[pp.type] && pp._iHistory && pp._iHistory.length > 5) {
+        iEl.textContent = fmtVal(getRMSCurrent(pp), 'A') + ' (RMS)';
+      } else {
+        iEl.textContent = fmtVal(pp._i || 0, 'A');
+      }
+    }
     if (pEl) pEl.textContent = fmtVal(pp._p || 0, 'W');
     var pth = pp._thermal;
     if (tEl) {

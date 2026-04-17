@@ -1,0 +1,7 @@
+* SCR on AC line — 10 Vpk 50 Hz, gate held at 2 V DC.
+* Expected: positive half triggers latch (I flows through 1 k load),
+*           negative half extinguishes.
+V1 1 0 SIN(0 10 50)
+V2 3 0 2
+R1 2 0 1k
+.END
