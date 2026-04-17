@@ -469,6 +469,28 @@ VXA.SimV2 = (function() {
     _lastNRIter = iter + 1;
     _lastConverged = converged;
 
+    // Sprint 71: surface divergence to the UI/harness. Node voltages
+    // above 1 MV or non-finite indicate the time step is too large for
+    // the switching rate (boost-converter class) or an uncontrolled
+    // positive-feedback loop. Without this guard the bad nodeV
+    // cascades into part._i/_v/_p and colour/inspector display garbage.
+    var _divIdx = -1, _divVal = 0;
+    for (var _nvi = 0; _nvi < nodeV.length; _nvi++) {
+      var _v = nodeV[_nvi];
+      if (!isFinite(_v) || Math.abs(_v) > 1e6) { _divIdx = _nvi; _divVal = _v; break; }
+    }
+    if (_divIdx >= 0) {
+      S.sim.error = 'Simülasyon ıraksadı: node ' + _divIdx + ' = ' +
+                     (isFinite(_divVal) ? _divVal.toExponential(2) : String(_divVal)) +
+                     ' (dt çok büyük veya devre kararsız)';
+      // Clamp so downstream readouts stay finite instead of amplifying.
+      for (var _nvj = 0; _nvj < nodeV.length; _nvj++) {
+        if (!isFinite(nodeV[_nvj]) || Math.abs(nodeV[_nvj]) > 1e6) nodeV[_nvj] = 0;
+      }
+      S._nodeVoltages = nodeV;
+      return;
+    }
+
     // Write results back (identical to old engine)
     S._nodeVoltages = nodeV;
     for (var ci = 0; ci < SIM.comps.length; ci++) {
