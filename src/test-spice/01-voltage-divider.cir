@@ -1,0 +1,5 @@
+* Voltage Divider — 12V → 3.75V across 2.2k
+V1 1 0 12
+R1 1 2 1k
+R2 2 0 2.2k
+.END

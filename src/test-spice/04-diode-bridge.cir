@@ -1,0 +1,9 @@
+* Full-wave diode bridge rectifier with load
+V1 1 0 SIN(0 10 60)
+D1 1 3 DMOD
+D2 0 3 DMOD
+D3 4 1 DMOD
+D4 4 0 DMOD
+R1 3 4 1k
+.MODEL DMOD D(IS=1e-14)
+.END

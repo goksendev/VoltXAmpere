@@ -1,0 +1,12 @@
+* 555-style astable (two-BJT multivibrator equivalent)
+V1 5 0 9
+RC1 5 1 2.2k
+RC2 5 2 2.2k
+RB1 5 3 47k
+RB2 5 4 47k
+C1 1 4 10n
+C2 2 3 10n
+Q1 1 3 0 QMOD
+Q2 2 4 0 QMOD
+.MODEL QMOD NPN(BF=100)
+.END

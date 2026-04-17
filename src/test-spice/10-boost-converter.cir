@@ -1,0 +1,11 @@
+* Boost DC-DC converter (5V → ~15V typical)
+V1 1 0 5
+L1 1 2 100u
+M1 2 3 0 MNMOS
+V2 3 0 PULSE(0 5 0 10n 10n 5u 10u)
+D1 2 4 DMOD
+C1 4 0 100u
+RL 4 0 10
+.MODEL DMOD D(IS=1e-14)
+.MODEL MNMOS NMOS(VTO=1.5)
+.END

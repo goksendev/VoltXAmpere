@@ -717,7 +717,7 @@ input:focus{border-color:var(--accent)}
     <span id="sb-temp" style="color:var(--text-3)"></span>
     <span id="sb-engine" style="color:var(--text-4)"></span>
     <span id="sb-extra" style="color:var(--text-3)"></span>
-    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v9.0 — Build: 2026-04-17 01:42 — © 2026</span>
+    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v9.0 — Build: 2026-04-17 02:40 — © 2026</span>
   </div>
 </div>
 
@@ -12613,6 +12613,287 @@ function saveAsBlock() {
 }
 
 
+// ═══ spice-layout.js ═══
+// ──────── SPRINT 70a: SPICE IMPORT LAYOUT ENGINE ────────
+// Graph-based column/row assignment for imported SPICE circuits.
+// Sources → leftmost column, cascaded node depth → increasing columns,
+// GND → bottom bus (handled by router). Each column stacks parts vertically.
+
+VXA.SpiceLayout = (function() {
+  'use strict';
+
+  // Grid constants — 20px snap alignment, 160px column pitch, 120px row pitch.
+  // 160 = part body (~80) + 80 routing channel; 120 = body + vertical margin.
+  var COL_W = 160, ROW_H = 120;
+
+  var SOURCE_TYPES = { vdc: 1, vac: 1, pulse: 1, pwl: 1, idc: 1, iac: 1, noise: 1 };
+  var CONTROLLED_TYPES = { vcvs: 1, vccs: 1, ccvs: 1, cccs: 1 };
+  var ACTIVE_3PIN = { npn: 1, pnp: 1, nmos: 1, pmos: 1, njfet: 1, pjfet: 1 };
+  // Parts that default to VERTICAL pin layout (pins on top/bottom)
+  var VERTICAL_DEFAULT = { vdc: 1, vac: 1, pulse: 1, pwl: 1, idc: 1, iac: 1, noise: 1, ground: 1 };
+
+  function isSource(type) { return SOURCE_TYPES[type] === 1; }
+  function isVerticalDefault(type) { return VERTICAL_DEFAULT[type] === 1; }
+
+  // ─── Main entry ───
+  // Input: { parts: [{type, nodes, val, ...}], nodeCount }
+  // Output: { placements: [{partIdx, x, y, rot}], nodeDepth: {n: col}, maxCol }
+  function computeLayout(circuit) {
+    var parts = circuit.parts || [];
+    var nodeCount = circuit.nodeCount || 1;
+    if (parts.length === 0) {
+      return { placements: [], nodeDepth: {}, maxCol: 0 };
+    }
+
+    // 1. Build node → [{partIdx, pinIdx}] adjacency
+    var nodeToParts = {};
+    for (var i = 0; i < nodeCount; i++) nodeToParts[i] = [];
+    parts.forEach(function(p, pi) {
+      (p.nodes || []).forEach(function(n, pin) {
+        if (n != null && nodeToParts[n]) nodeToParts[n].push({ partIdx: pi, pinIdx: pin });
+      });
+    });
+
+    // 2. Find source rail nodes (positive terminals of V sources)
+    var sourceRails = {};
+    parts.forEach(function(p) {
+      if (isSource(p.type) && p.nodes && p.nodes[0] != null && p.nodes[0] !== 0) {
+        sourceRails[p.nodes[0]] = true;
+      }
+    });
+    // Fallback: if no V+ rail, seed with any non-GND node that has degree ≥ 2
+    if (Object.keys(sourceRails).length === 0) {
+      for (var n = 1; n < nodeCount; n++) {
+        if (nodeToParts[n] && nodeToParts[n].length >= 2) { sourceRails[n] = true; break; }
+      }
+    }
+
+    // 3. BFS depth from source rails — skip through sources themselves
+    var nodeDepth = {};
+    Object.keys(sourceRails).forEach(function(n) { nodeDepth[n] = 0; });
+    var queue = Object.keys(sourceRails).map(Number);
+    while (queue.length > 0) {
+      var curr = queue.shift();
+      var cd = nodeDepth[curr];
+      (nodeToParts[curr] || []).forEach(function(ref) {
+        var pt = parts[ref.partIdx];
+        if (isSource(pt.type)) return; // don't propagate through sources
+        (pt.nodes || []).forEach(function(nn) {
+          if (nn === curr || nn === 0 || nn == null) return;
+          if (nodeDepth[nn] === undefined) {
+            nodeDepth[nn] = cd + 1;
+            queue.push(nn);
+          }
+        });
+      });
+    }
+    // Uncolored nodes → depth 1 fallback
+    for (var k = 1; k < nodeCount; k++) {
+      if (nodeDepth[k] === undefined) nodeDepth[k] = 1;
+    }
+
+    // 4. Max depth across non-GND nodes
+    var maxDepth = 0;
+    Object.keys(nodeDepth).forEach(function(nk) {
+      if (+nk !== 0 && nodeDepth[nk] > maxDepth) maxDepth = nodeDepth[nk];
+    });
+
+    // 5. Assign each part a column + row + rotation
+    var colParts = {}; // col → [partIdx]
+    var placements = [];
+
+    parts.forEach(function(p, pi) {
+      var ns = (p.nodes || []).filter(function(x) { return x != null; });
+      var nonGnd = ns.filter(function(x) { return x !== 0; });
+      var col = 0, rot = 0;
+
+      // Column assignment
+      if (isSource(p.type)) {
+        col = 0; // sources always left
+      } else if (ACTIVE_3PIN[p.type] || CONTROLLED_TYPES[p.type] || p.type === 'opamp' || p.type === 'subcircuit') {
+        // Active device → place at center of its node-column range
+        if (nonGnd.length === 0) col = 1;
+        else {
+          var depths = nonGnd.map(function(n) { return nodeDepth[n] || 1; });
+          col = Math.round((Math.min.apply(null, depths) + Math.max.apply(null, depths)) / 2) + 1;
+        }
+      } else {
+        // Passive 2-pin or generic
+        if (nonGnd.length === 0) {
+          col = maxDepth + 1; // floating GND-only → rightmost
+        } else if (nonGnd.length === 1) {
+          col = (nodeDepth[nonGnd[0]] || 1) + 1;
+        } else {
+          var d1 = nodeDepth[nonGnd[0]] || 1;
+          var d2 = nodeDepth[nonGnd[1]] || 1;
+          col = (d1 === d2) ? d1 + 1 : Math.min(d1, d2) + 1;
+        }
+      }
+      if (col < 0) col = 0;
+
+      // Rotation
+      if (isVerticalDefault(p.type)) {
+        rot = 0; // vertical parts keep default (pins top/bottom)
+      } else if (ns.length >= 2) {
+        var hasGnd = ns.indexOf(0) >= 0;
+        if (nonGnd.length === 1 && hasGnd) {
+          rot = 1; // drop-to-ground → vertical
+        } else if (nonGnd.length >= 2) {
+          var da = nodeDepth[nonGnd[0]] || 1;
+          var db = nodeDepth[nonGnd[1]] || 1;
+          rot = (da === db) ? 1 : 0; // same col = vertical stack; different cols = horizontal
+        } else if (hasGnd) {
+          rot = 1;
+        }
+      }
+
+      if (!colParts[col]) colParts[col] = [];
+      var row = colParts[col].length;
+      colParts[col].push(pi);
+      placements.push({ partIdx: pi, col: col, row: row, rot: rot, _type: p.type });
+    });
+
+    // 6. Convert col/row → x/y (20-snapped)
+    placements.forEach(function(pl) {
+      var countInCol = colParts[pl.col].length;
+      var xRaw = pl.col * COL_W;
+      var yRaw = (pl.row - (countInCol - 1) / 2) * ROW_H;
+      pl.x = Math.round(xRaw / 20) * 20;
+      pl.y = Math.round(yRaw / 20) * 20;
+    });
+
+    return {
+      placements: placements,
+      nodeDepth: nodeDepth,
+      maxCol: maxDepth + 1,
+      colParts: colParts
+    };
+  }
+
+  return { computeLayout: computeLayout };
+})();
+
+
+// ═══ spice-router.js ═══
+// ──────── SPRINT 70a: SPICE IMPORT MANHATTAN ROUTER ────────
+// Converts star-topology node pin sets into 90° Manhattan wire segments.
+// Two modes: trunk (horizontal or vertical backbone for a node with ≥2 pins)
+// and direct L-shape (for 2 pins). Ground bus consolidator emits a single
+// horizontal rail at bottom + one ground symbol.
+
+VXA.SpiceRouter = (function() {
+  'use strict';
+
+  function snap20(v) { return Math.round(v / 20) * 20; }
+
+  // Remove degenerate (zero-length) and exact-duplicate segments.
+  function dedupWires(wires) {
+    var seen = {};
+    var out = [];
+    wires.forEach(function(w) {
+      if (w.x1 === w.x2 && w.y1 === w.y2) return;
+      var k1 = w.x1 + ',' + w.y1 + '→' + w.x2 + ',' + w.y2;
+      var k2 = w.x2 + ',' + w.y2 + '→' + w.x1 + ',' + w.y1;
+      if (seen[k1] || seen[k2]) return;
+      seen[k1] = true;
+      out.push(w);
+    });
+    return out;
+  }
+
+  // Route a single node (≥2 pins) using a horizontal trunk at trunkY.
+  // Every pin: vertical stub from pin to trunk, then single horizontal segment
+  // spanning min→max X of pins.
+  function horizontalTrunk(pins, trunkY) {
+    if (pins.length < 2) return [];
+    var ty = trunkY != null ? trunkY : snap20(pins.reduce(function(s, p) { return s + p.y; }, 0) / pins.length);
+    var wires = [];
+    var xs = pins.map(function(p) { return p.x; });
+    var minX = Math.min.apply(null, xs);
+    var maxX = Math.max.apply(null, xs);
+    pins.forEach(function(p) {
+      if (p.y !== ty) wires.push({ x1: p.x, y1: p.y, x2: p.x, y2: ty });
+    });
+    if (maxX > minX) wires.push({ x1: minX, y1: ty, x2: maxX, y2: ty });
+    return wires;
+  }
+
+  // Route using a vertical trunk at trunkX.
+  function verticalTrunk(pins, trunkX) {
+    if (pins.length < 2) return [];
+    var tx = trunkX != null ? trunkX : snap20(pins.reduce(function(s, p) { return s + p.x; }, 0) / pins.length);
+    var wires = [];
+    var ys = pins.map(function(p) { return p.y; });
+    var minY = Math.min.apply(null, ys);
+    var maxY = Math.max.apply(null, ys);
+    pins.forEach(function(p) {
+      if (p.x !== tx) wires.push({ x1: p.x, y1: p.y, x2: tx, y2: p.y });
+    });
+    if (maxY > minY) wires.push({ x1: tx, y1: minY, x2: tx, y2: maxY });
+    return wires;
+  }
+
+  // Direct L-shape between 2 pins: horizontal first, then vertical.
+  function lShape(pinA, pinB) {
+    if (pinA.x === pinB.x && pinA.y === pinB.y) return [];
+    if (pinA.x === pinB.x) return [{ x1: pinA.x, y1: pinA.y, x2: pinB.x, y2: pinB.y }];
+    if (pinA.y === pinB.y) return [{ x1: pinA.x, y1: pinA.y, x2: pinB.x, y2: pinB.y }];
+    // Bend point
+    return [
+      { x1: pinA.x, y1: pinA.y, x2: pinB.x, y2: pinA.y },
+      { x1: pinB.x, y1: pinA.y, x2: pinB.x, y2: pinB.y }
+    ];
+  }
+
+  // Auto-pick routing mode from pin distribution.
+  // Returns wires array (already deduped).
+  function connectNode(pins, opts) {
+    if (!pins || pins.length < 2) return [];
+    opts = opts || {};
+    if (pins.length === 2) return dedupWires(lShape(pins[0], pins[1]));
+
+    // ≥3 pins: pick trunk orientation based on which axis has more spread
+    var xs = pins.map(function(p) { return p.x; });
+    var ys = pins.map(function(p) { return p.y; });
+    var xRange = Math.max.apply(null, xs) - Math.min.apply(null, xs);
+    var yRange = Math.max.apply(null, ys) - Math.min.apply(null, ys);
+
+    if (xRange >= yRange) {
+      // pins spread horizontally → horizontal trunk
+      return dedupWires(horizontalTrunk(pins, opts.trunkY));
+    }
+    return dedupWires(verticalTrunk(pins, opts.trunkX));
+  }
+
+  // Consolidate all ground pins onto a single horizontal rail.
+  // Returns { wires, groundX, groundY } — caller places ONE ground symbol at (groundX, groundY+20).
+  function groundBus(gndPins, busY) {
+    if (!gndPins || gndPins.length === 0) return { wires: [], groundX: 0, groundY: busY };
+    var wires = [];
+    var xs = gndPins.map(function(p) { return p.x; });
+    var minX = Math.min.apply(null, xs);
+    var maxX = Math.max.apply(null, xs);
+    // Vertical drop from each pin to bus
+    gndPins.forEach(function(p) {
+      if (p.y !== busY) wires.push({ x1: p.x, y1: p.y, x2: p.x, y2: busY });
+    });
+    // Horizontal bus spanning all drop points
+    if (maxX > minX) wires.push({ x1: minX, y1: busY, x2: maxX, y2: busY });
+    var gx = snap20((minX + maxX) / 2);
+    return { wires: dedupWires(wires), groundX: gx, groundY: busY };
+  }
+
+  return {
+    connectNode: connectNode,
+    groundBus: groundBus,
+    horizontalTrunk: function(pins, ty) { return dedupWires(horizontalTrunk(pins, ty)); },
+    verticalTrunk: function(pins, tx) { return dedupWires(verticalTrunk(pins, tx)); },
+    lShape: lShape,
+    dedupWires: dedupWires
+  };
+})();
+
+
 // ═══ spice-import.js ═══
 VXA.SpiceImport = (function() {
   // XSS sanitization for user-supplied SPICE text
@@ -12852,60 +13133,112 @@ VXA.SpiceImport = (function() {
     circuit.nodeCount = nextN;
     return circuit;
   }
+  // Sprint 70a: Professional schematic layout — topology-sorted columns,
+  // Manhattan routing, single consolidated ground bus. Replaces naive sqrt grid.
   function placeCircuit(circuit) {
     saveUndo();
-    var n = circuit.parts.length;
-    var cols = Math.max(1, Math.ceil(Math.sqrt(n)));
-    var spX = 160, spY = 120;
+    var layout = (VXA.SpiceLayout && VXA.SpiceLayout.computeLayout)
+      ? VXA.SpiceLayout.computeLayout(circuit)
+      : null;
     var idMap = {};
-    circuit.parts.forEach(function(cp, idx) {
-      var col = idx % cols, row = Math.floor(idx / cols);
-      var def = COMP[cp.type];
-      var p = { id: S.nextId++, type: cp.type, name: nextName(cp.type), x: snap(200 + col * spX), y: snap(100 + row * spY), rot: 0, val: cp.val || (def ? def.def : 0), flipH: false, flipV: false };
-      if (cp.model) { p.model = cp.model; if (typeof applyModel === 'function') applyModel(p, cp.model); }
-      if (cp.freq) p.freq = cp.freq;
-      if (cp.ic != null) p.ic = cp.ic;
-      if (cp.expression) p.expression = cp.expression;
-      if (cp.srcType) p.srcType = cp.srcType;
-      if (cp.type === 'subcircuit' && cp.subcktName) {
-        p.subcktName = cp.subcktName;
-        var sc = (typeof VXA !== 'undefined' && VXA.Subcircuit) ? VXA.Subcircuit.getSubcircuit(cp.subcktName) : null;
-        var pinCount = sc ? sc.pins.length : (cp.nodes ? cp.nodes.length : 3);
-        var step = 20;
-        var leftN = Math.ceil(pinCount / 2), rightN = pinCount - leftN;
-        var pins = [];
-        for (var li = 0; li < leftN; li++) pins.push({ dx: -40, dy: -((leftN - 1) * step / 2) + li * step });
-        for (var ri = 0; ri < rightN; ri++) pins.push({ dx: 40, dy: -((rightN - 1) * step / 2) + ri * step });
-        p.pins = pins;
-      }
-      S.parts.push(p);
-      idMap[idx] = p;
-    });
-    var nodePositions = {};
+
+    if (layout && layout.placements.length === circuit.parts.length) {
+      // New engine path
+      layout.placements.forEach(function(pl) {
+        var cp = circuit.parts[pl.partIdx];
+        var def = COMP[cp.type];
+        var p = {
+          id: S.nextId++, type: cp.type, name: nextName(cp.type),
+          x: pl.x, y: pl.y, rot: pl.rot,
+          val: cp.val != null ? cp.val : (def ? def.def : 0),
+          flipH: false, flipV: false
+        };
+        if (cp.model) { p.model = cp.model; if (typeof applyModel === 'function') applyModel(p, cp.model); }
+        if (cp.freq) p.freq = cp.freq;
+        if (cp.ic != null) p.ic = cp.ic;
+        if (cp.expression) p.expression = cp.expression;
+        if (cp.srcType) p.srcType = cp.srcType;
+        if (cp.type === 'subcircuit' && cp.subcktName) {
+          p.subcktName = cp.subcktName;
+          var sc = (typeof VXA !== 'undefined' && VXA.Subcircuit) ? VXA.Subcircuit.getSubcircuit(cp.subcktName) : null;
+          var pinCount = sc ? sc.pins.length : (cp.nodes ? cp.nodes.length : 3);
+          var step = 20;
+          var leftN = Math.ceil(pinCount / 2), rightN = pinCount - leftN;
+          var sPins = [];
+          for (var li = 0; li < leftN; li++) sPins.push({ dx: -40, dy: -((leftN - 1) * step / 2) + li * step });
+          for (var ri = 0; ri < rightN; ri++) sPins.push({ dx: 40, dy: -((rightN - 1) * step / 2) + ri * step });
+          p.pins = sPins;
+        }
+        S.parts.push(p);
+        idMap[pl.partIdx] = p;
+      });
+    } else {
+      // Legacy fallback (shouldn't happen, but defensive)
+      var n = circuit.parts.length;
+      var cols = Math.max(1, Math.ceil(Math.sqrt(n)));
+      circuit.parts.forEach(function(cp, idx) {
+        var col = idx % cols, row = Math.floor(idx / cols);
+        var def = COMP[cp.type];
+        var p = { id: S.nextId++, type: cp.type, name: nextName(cp.type), x: snap(200 + col * 160), y: snap(100 + row * 120), rot: 0, val: cp.val || (def ? def.def : 0), flipH: false, flipV: false };
+        if (cp.model) { p.model = cp.model; if (typeof applyModel === 'function') applyModel(p, cp.model); }
+        if (cp.freq) p.freq = cp.freq;
+        if (cp.ic != null) p.ic = cp.ic;
+        S.parts.push(p);
+        idMap[idx] = p;
+      });
+    }
+
+    // Collect pin positions per node
+    var nodePins = {};
     circuit.parts.forEach(function(cp, idx) {
       var part = idMap[idx]; if (!part) return;
       var pins = getPartPins(part);
-      cp.nodes.forEach(function(nodeIdx, pinIdx) {
-        if (pinIdx >= pins.length) return;
-        if (!nodePositions[nodeIdx]) nodePositions[nodeIdx] = [];
-        nodePositions[nodeIdx].push({ x: pins[pinIdx].x, y: pins[pinIdx].y });
+      (cp.nodes || []).forEach(function(nodeIdx, pinIdx) {
+        if (nodeIdx == null || pinIdx >= pins.length) return;
+        if (!nodePins[nodeIdx]) nodePins[nodeIdx] = [];
+        nodePins[nodeIdx].push({
+          x: Math.round(pins[pinIdx].x),
+          y: Math.round(pins[pinIdx].y)
+        });
       });
     });
-    Object.keys(nodePositions).forEach(function(nodeIdx) {
-      var positions = nodePositions[nodeIdx]; if (positions.length < 2) return;
-      for (var i = 0; i < positions.length - 1; i++) {
-        var ax = Math.round(positions[i].x), ay = Math.round(positions[i].y);
-        var bx = Math.round(positions[i+1].x), by = Math.round(positions[i+1].y);
-        if (ax === bx && ay === by) continue;
-        S.wires.push({ x1: ax, y1: ay, x2: bx, y2: by });
+
+    // Manhattan routing for non-GND nodes
+    var router = VXA.SpiceRouter;
+    Object.keys(nodePins).forEach(function(nodeIdx) {
+      if (+nodeIdx === 0) return; // GND handled separately
+      var pins = nodePins[nodeIdx];
+      if (!pins || pins.length < 2) return;
+      if (router && router.connectNode) {
+        var segs = router.connectNode(pins);
+        segs.forEach(function(w) { S.wires.push(w); });
+      } else {
+        // Pre-router fallback: diagonal chain
+        for (var i = 0; i < pins.length - 1; i++) {
+          S.wires.push({ x1: pins[i].x, y1: pins[i].y, x2: pins[i+1].x, y2: pins[i+1].y });
+        }
       }
     });
-    if (nodePositions[0] && nodePositions[0].length > 0) {
-      var gp = nodePositions[0][0];
-      var gy = snap(gp.y + 60);
-      S.parts.push({ id: S.nextId++, type: 'ground', name: 'GND', x: snap(gp.x), y: gy, rot: 0, val: 0, flipH: false, flipV: false });
-      S.wires.push({ x1: snap(gp.x), y1: snap(gp.y), x2: snap(gp.x), y2: gy - 20 });
+
+    // Ground bus consolidation — single horizontal rail + one ground symbol
+    if (nodePins[0] && nodePins[0].length > 0) {
+      var maxY = -Infinity;
+      S.parts.forEach(function(pp) { if (pp.y > maxY) maxY = pp.y; });
+      var busY = snap(maxY + 80);
+      if (router && router.groundBus) {
+        var gb = router.groundBus(nodePins[0], busY);
+        gb.wires.forEach(function(w) { S.wires.push(w); });
+        S.parts.push({
+          id: S.nextId++, type: 'ground', name: 'GND',
+          x: gb.groundX, y: snap(busY + 20),
+          rot: 0, val: 0, flipH: false, flipV: false
+        });
+      } else {
+        var gp = nodePins[0][0];
+        S.parts.push({ id: S.nextId++, type: 'ground', name: 'GND', x: snap(gp.x), y: snap(gp.y + 60), rot: 0, val: 0, flipH: false, flipV: false });
+      }
     }
+
     fitToScreen();
     needsRender = true; updateInspector();
   }

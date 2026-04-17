@@ -1,0 +1,7 @@
+* Zener shunt voltage regulator — 12V → 5.1V
+V1 1 0 12
+R1 1 2 220
+D1 0 2 DZEN
+RL 2 0 1k
+.MODEL DZEN D(BV=5.1 IS=1e-12)
+.END

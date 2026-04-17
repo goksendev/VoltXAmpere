@@ -1,0 +1,6 @@
+* Three resistors in parallel across a 10V supply
+V1 1 0 10
+R1 1 0 1k
+R2 1 0 2.2k
+R3 1 0 4.7k
+.END

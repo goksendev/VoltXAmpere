@@ -182,6 +182,10 @@ const JS_FILES = [
   // IO: blocks (subcircuits)
   'src/io/blocks.js',
 
+  // Sprint 70a: SPICE import layout + router (must precede spice-import.js)
+  'src/io/spice-layout.js',
+  'src/io/spice-router.js',
+
   // Models: SPICE import
   'src/models/spice-import.js',
 

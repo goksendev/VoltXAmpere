@@ -1,0 +1,6 @@
+* Op-amp unity-gain buffer modelled as high-gain VCVS
+V1 1 0 5
+R1 1 2 1k
+E1 3 0 2 3 1e6
+RL 3 0 10k
+.END

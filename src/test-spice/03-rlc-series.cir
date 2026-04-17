@@ -1,0 +1,6 @@
+* RLC series — 1kHz AC, damped resonance
+V1 1 0 SIN(0 5 1000)
+R1 1 2 100
+L1 2 3 1m
+C1 3 0 100n
+.END

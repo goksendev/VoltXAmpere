@@ -236,60 +236,112 @@ VXA.SpiceImport = (function() {
     circuit.nodeCount = nextN;
     return circuit;
   }
+  // Sprint 70a: Professional schematic layout — topology-sorted columns,
+  // Manhattan routing, single consolidated ground bus. Replaces naive sqrt grid.
   function placeCircuit(circuit) {
     saveUndo();
-    var n = circuit.parts.length;
-    var cols = Math.max(1, Math.ceil(Math.sqrt(n)));
-    var spX = 160, spY = 120;
+    var layout = (VXA.SpiceLayout && VXA.SpiceLayout.computeLayout)
+      ? VXA.SpiceLayout.computeLayout(circuit)
+      : null;
     var idMap = {};
-    circuit.parts.forEach(function(cp, idx) {
-      var col = idx % cols, row = Math.floor(idx / cols);
-      var def = COMP[cp.type];
-      var p = { id: S.nextId++, type: cp.type, name: nextName(cp.type), x: snap(200 + col * spX), y: snap(100 + row * spY), rot: 0, val: cp.val || (def ? def.def : 0), flipH: false, flipV: false };
-      if (cp.model) { p.model = cp.model; if (typeof applyModel === 'function') applyModel(p, cp.model); }
-      if (cp.freq) p.freq = cp.freq;
-      if (cp.ic != null) p.ic = cp.ic;
-      if (cp.expression) p.expression = cp.expression;
-      if (cp.srcType) p.srcType = cp.srcType;
-      if (cp.type === 'subcircuit' && cp.subcktName) {
-        p.subcktName = cp.subcktName;
-        var sc = (typeof VXA !== 'undefined' && VXA.Subcircuit) ? VXA.Subcircuit.getSubcircuit(cp.subcktName) : null;
-        var pinCount = sc ? sc.pins.length : (cp.nodes ? cp.nodes.length : 3);
-        var step = 20;
-        var leftN = Math.ceil(pinCount / 2), rightN = pinCount - leftN;
-        var pins = [];
-        for (var li = 0; li < leftN; li++) pins.push({ dx: -40, dy: -((leftN - 1) * step / 2) + li * step });
-        for (var ri = 0; ri < rightN; ri++) pins.push({ dx: 40, dy: -((rightN - 1) * step / 2) + ri * step });
-        p.pins = pins;
-      }
-      S.parts.push(p);
-      idMap[idx] = p;
-    });
-    var nodePositions = {};
+
+    if (layout && layout.placements.length === circuit.parts.length) {
+      // New engine path
+      layout.placements.forEach(function(pl) {
+        var cp = circuit.parts[pl.partIdx];
+        var def = COMP[cp.type];
+        var p = {
+          id: S.nextId++, type: cp.type, name: nextName(cp.type),
+          x: pl.x, y: pl.y, rot: pl.rot,
+          val: cp.val != null ? cp.val : (def ? def.def : 0),
+          flipH: false, flipV: false
+        };
+        if (cp.model) { p.model = cp.model; if (typeof applyModel === 'function') applyModel(p, cp.model); }
+        if (cp.freq) p.freq = cp.freq;
+        if (cp.ic != null) p.ic = cp.ic;
+        if (cp.expression) p.expression = cp.expression;
+        if (cp.srcType) p.srcType = cp.srcType;
+        if (cp.type === 'subcircuit' && cp.subcktName) {
+          p.subcktName = cp.subcktName;
+          var sc = (typeof VXA !== 'undefined' && VXA.Subcircuit) ? VXA.Subcircuit.getSubcircuit(cp.subcktName) : null;
+          var pinCount = sc ? sc.pins.length : (cp.nodes ? cp.nodes.length : 3);
+          var step = 20;
+          var leftN = Math.ceil(pinCount / 2), rightN = pinCount - leftN;
+          var sPins = [];
+          for (var li = 0; li < leftN; li++) sPins.push({ dx: -40, dy: -((leftN - 1) * step / 2) + li * step });
+          for (var ri = 0; ri < rightN; ri++) sPins.push({ dx: 40, dy: -((rightN - 1) * step / 2) + ri * step });
+          p.pins = sPins;
+        }
+        S.parts.push(p);
+        idMap[pl.partIdx] = p;
+      });
+    } else {
+      // Legacy fallback (shouldn't happen, but defensive)
+      var n = circuit.parts.length;
+      var cols = Math.max(1, Math.ceil(Math.sqrt(n)));
+      circuit.parts.forEach(function(cp, idx) {
+        var col = idx % cols, row = Math.floor(idx / cols);
+        var def = COMP[cp.type];
+        var p = { id: S.nextId++, type: cp.type, name: nextName(cp.type), x: snap(200 + col * 160), y: snap(100 + row * 120), rot: 0, val: cp.val || (def ? def.def : 0), flipH: false, flipV: false };
+        if (cp.model) { p.model = cp.model; if (typeof applyModel === 'function') applyModel(p, cp.model); }
+        if (cp.freq) p.freq = cp.freq;
+        if (cp.ic != null) p.ic = cp.ic;
+        S.parts.push(p);
+        idMap[idx] = p;
+      });
+    }
+
+    // Collect pin positions per node
+    var nodePins = {};
     circuit.parts.forEach(function(cp, idx) {
       var part = idMap[idx]; if (!part) return;
       var pins = getPartPins(part);
-      cp.nodes.forEach(function(nodeIdx, pinIdx) {
-        if (pinIdx >= pins.length) return;
-        if (!nodePositions[nodeIdx]) nodePositions[nodeIdx] = [];
-        nodePositions[nodeIdx].push({ x: pins[pinIdx].x, y: pins[pinIdx].y });
+      (cp.nodes || []).forEach(function(nodeIdx, pinIdx) {
+        if (nodeIdx == null || pinIdx >= pins.length) return;
+        if (!nodePins[nodeIdx]) nodePins[nodeIdx] = [];
+        nodePins[nodeIdx].push({
+          x: Math.round(pins[pinIdx].x),
+          y: Math.round(pins[pinIdx].y)
+        });
       });
     });
-    Object.keys(nodePositions).forEach(function(nodeIdx) {
-      var positions = nodePositions[nodeIdx]; if (positions.length < 2) return;
-      for (var i = 0; i < positions.length - 1; i++) {
-        var ax = Math.round(positions[i].x), ay = Math.round(positions[i].y);
-        var bx = Math.round(positions[i+1].x), by = Math.round(positions[i+1].y);
-        if (ax === bx && ay === by) continue;
-        S.wires.push({ x1: ax, y1: ay, x2: bx, y2: by });
+
+    // Manhattan routing for non-GND nodes
+    var router = VXA.SpiceRouter;
+    Object.keys(nodePins).forEach(function(nodeIdx) {
+      if (+nodeIdx === 0) return; // GND handled separately
+      var pins = nodePins[nodeIdx];
+      if (!pins || pins.length < 2) return;
+      if (router && router.connectNode) {
+        var segs = router.connectNode(pins);
+        segs.forEach(function(w) { S.wires.push(w); });
+      } else {
+        // Pre-router fallback: diagonal chain
+        for (var i = 0; i < pins.length - 1; i++) {
+          S.wires.push({ x1: pins[i].x, y1: pins[i].y, x2: pins[i+1].x, y2: pins[i+1].y });
+        }
       }
     });
-    if (nodePositions[0] && nodePositions[0].length > 0) {
-      var gp = nodePositions[0][0];
-      var gy = snap(gp.y + 60);
-      S.parts.push({ id: S.nextId++, type: 'ground', name: 'GND', x: snap(gp.x), y: gy, rot: 0, val: 0, flipH: false, flipV: false });
-      S.wires.push({ x1: snap(gp.x), y1: snap(gp.y), x2: snap(gp.x), y2: gy - 20 });
+
+    // Ground bus consolidation — single horizontal rail + one ground symbol
+    if (nodePins[0] && nodePins[0].length > 0) {
+      var maxY = -Infinity;
+      S.parts.forEach(function(pp) { if (pp.y > maxY) maxY = pp.y; });
+      var busY = snap(maxY + 80);
+      if (router && router.groundBus) {
+        var gb = router.groundBus(nodePins[0], busY);
+        gb.wires.forEach(function(w) { S.wires.push(w); });
+        S.parts.push({
+          id: S.nextId++, type: 'ground', name: 'GND',
+          x: gb.groundX, y: snap(busY + 20),
+          rot: 0, val: 0, flipH: false, flipV: false
+        });
+      } else {
+        var gp = nodePins[0][0];
+        S.parts.push({ id: S.nextId++, type: 'ground', name: 'GND', x: snap(gp.x), y: snap(gp.y + 60), rot: 0, val: 0, flipH: false, flipV: false });
+      }
     }
+
     fitToScreen();
     needsRender = true; updateInspector();
   }
