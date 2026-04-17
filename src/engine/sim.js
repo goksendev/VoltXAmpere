@@ -746,7 +746,30 @@ VXA.SimV2 = (function() {
         var cur = c.iPrev + (dt / _L_update) * vd;
         c.iPrev = cur;
         c.vPrev = vd;
-        c.part._v = Math.abs(vd); c.part._i = Math.abs(cur); c.part._p = Math.abs(vd * cur);
+        // Sprint 87: simplified hysteresis / core-loss channel. A
+        // proper B-H loop needs N·A·H geometry that the lumped
+        // inductor doesn't carry, so we reinterpret Hc as the
+        // coercive-current equivalent (A) and pay out energy at
+        //   P_core ≈ Hc · |di/dt| · L
+        // which is:
+        //   • zero at DC (|di/dt|=0)
+        //   • linear in frequency (matches hysteresis physics)
+        //   • Ampere² · Henry / s = V·A = W dimensionally
+        // The loss is added to part._p so VXA.Thermal picks it up
+        // as ordinary dissipation. When Hc is absent or ≤ 0 every
+        // inductor behaves exactly like Sprint 82.
+        var _Hc_l = (c.part && isFinite(c.part.Hc) && c.part.Hc > 0) ? c.part.Hc : 0;
+        var _core_loss = 0;
+        if (_Hc_l > 0 && dt > 0) {
+          var _iOld = (c.part && isFinite(c.part._iHystPrev)) ? c.part._iHystPrev : 0;
+          var _dIdt = Math.abs(cur - _iOld) / dt;
+          _core_loss = _Hc_l * _dIdt * c.val;
+          c.part._iHystPrev = cur;
+          c.part._core_loss_W = _core_loss;
+        }
+        c.part._v = Math.abs(vd);
+        c.part._i = Math.abs(cur);
+        c.part._p = Math.abs(vd * cur) + _core_loss;
         c.part._L_eff = _L_update;
       } else if (c.type === 'V') {
         // Sprint 69 FIX: Proper KCL — sum ALL branch currents leaving node n1

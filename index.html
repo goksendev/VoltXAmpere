@@ -720,7 +720,7 @@ input:focus{border-color:var(--accent)}
     <span id="sb-temp" style="color:var(--text-3)"></span>
     <span id="sb-engine" style="color:var(--text-4)"></span>
     <span id="sb-extra" style="color:var(--text-3)"></span>
-    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v9.0 — Build: 2026-04-17 23:33 — © 2026</span>
+    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v9.0 — Build: 2026-04-17 23:45 — © 2026</span>
   </div>
 </div>
 
@@ -7005,7 +7005,30 @@ VXA.SimV2 = (function() {
         var cur = c.iPrev + (dt / _L_update) * vd;
         c.iPrev = cur;
         c.vPrev = vd;
-        c.part._v = Math.abs(vd); c.part._i = Math.abs(cur); c.part._p = Math.abs(vd * cur);
+        // Sprint 87: simplified hysteresis / core-loss channel. A
+        // proper B-H loop needs N·A·H geometry that the lumped
+        // inductor doesn't carry, so we reinterpret Hc as the
+        // coercive-current equivalent (A) and pay out energy at
+        //   P_core ≈ Hc · |di/dt| · L
+        // which is:
+        //   • zero at DC (|di/dt|=0)
+        //   • linear in frequency (matches hysteresis physics)
+        //   • Ampere² · Henry / s = V·A = W dimensionally
+        // The loss is added to part._p so VXA.Thermal picks it up
+        // as ordinary dissipation. When Hc is absent or ≤ 0 every
+        // inductor behaves exactly like Sprint 82.
+        var _Hc_l = (c.part && isFinite(c.part.Hc) && c.part.Hc > 0) ? c.part.Hc : 0;
+        var _core_loss = 0;
+        if (_Hc_l > 0 && dt > 0) {
+          var _iOld = (c.part && isFinite(c.part._iHystPrev)) ? c.part._iHystPrev : 0;
+          var _dIdt = Math.abs(cur - _iOld) / dt;
+          _core_loss = _Hc_l * _dIdt * c.val;
+          c.part._iHystPrev = cur;
+          c.part._core_loss_W = _core_loss;
+        }
+        c.part._v = Math.abs(vd);
+        c.part._i = Math.abs(cur);
+        c.part._p = Math.abs(vd * cur) + _core_loss;
         c.part._L_eff = _L_update;
       } else if (c.type === 'V') {
         // Sprint 69 FIX: Proper KCL — sum ALL branch currents leaving node n1
@@ -14331,6 +14354,8 @@ VXA.SpiceImport = (function() {
         // Sprint 82: extended tokens for core saturation:
         //   L1 n1 n2 100u Isat=3          (default knee sharpness n=4)
         //   L1 n1 n2 100u Isat=3 Nsat=6   (explicit sharpness)
+        // Sprint 87: additional core-loss / hysteresis token:
+        //   L1 n1 n2 100u Hc=0.05         (coercive-current proxy, A)
         // Tokens are case-insensitive and position-free past the value.
         for (var _lt = 3; _lt < tk.length; _lt++) {
           var _ltk = (tk[_lt] || '').toLowerCase();
@@ -14340,6 +14365,9 @@ VXA.SpiceImport = (function() {
           } else if (_ltk.indexOf('nsat=') === 0) {
             var _nv = parseFloat(_ltk.slice(5));
             if (isFinite(_nv) && _nv >= 2) lPart.satExp = _nv;
+          } else if (_ltk.indexOf('hc=') === 0) {
+            var _hv = pv(_ltk.slice(3));
+            if (isFinite(_hv) && _hv > 0) lPart.Hc = _hv;
           }
         }
         circuit.parts.push(lPart);
@@ -14521,6 +14549,8 @@ VXA.SpiceImport = (function() {
         // Sprint 82: inductor saturation metadata.
         if (cp.Isat != null)   p.Isat   = cp.Isat;
         if (cp.satExp != null) p.satExp = cp.satExp;
+        // Sprint 87: hysteresis / core-loss coercive current.
+        if (cp.Hc != null)     p.Hc     = cp.Hc;
         if (cp.type === 'subcircuit' && cp.subcktName) {
           p.subcktName = cp.subcktName;
           var sc = (typeof VXA !== 'undefined' && VXA.Subcircuit) ? VXA.Subcircuit.getSubcircuit(cp.subcktName) : null;
@@ -14548,6 +14578,7 @@ VXA.SpiceImport = (function() {
         if (cp.ic != null) p.ic = cp.ic;
         if (cp.Isat != null)   p.Isat   = cp.Isat;
         if (cp.satExp != null) p.satExp = cp.satExp;
+        if (cp.Hc != null)     p.Hc     = cp.Hc;
         S.parts.push(p);
         idMap[idx] = p;
       });

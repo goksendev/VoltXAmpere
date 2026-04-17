@@ -1,0 +1,10 @@
+* Sprint 87 — Hysteresis / core-loss probe. Bipolar square-wave
+* drive (10 kHz, ±5 V) forces the inductor current to reverse every
+* 50 µs, so the hysteresis channel fires on every edge. Hc=0.05 A
+* is a reasonable coercive-current equivalent for a soft-ferrite
+* core at this scale; P_core should be a non-trivial fraction of
+* the copper loss.
+V1 1 0 PULSE(-5 5 0 1u 1u 50u 100u)
+R1 1 2 0.5
+L1 2 0 1m Hc=0.05
+.END

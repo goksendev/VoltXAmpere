@@ -1,0 +1,8 @@
+* Sprint 87 — Control group for 26. Same pulse drive, same R+L, but
+* no Hc attribute → ideal core, P_core = 0, copper loss only.
+* This circuit must be bit-identical to its Sprint 82 behaviour
+* (Hc is the only new knob).
+V1 1 0 PULSE(-5 5 0 1u 1u 50u 100u)
+R1 1 2 0.5
+L1 2 0 1m
+.END

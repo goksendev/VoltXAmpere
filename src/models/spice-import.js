@@ -115,6 +115,8 @@ VXA.SpiceImport = (function() {
         // Sprint 82: extended tokens for core saturation:
         //   L1 n1 n2 100u Isat=3          (default knee sharpness n=4)
         //   L1 n1 n2 100u Isat=3 Nsat=6   (explicit sharpness)
+        // Sprint 87: additional core-loss / hysteresis token:
+        //   L1 n1 n2 100u Hc=0.05         (coercive-current proxy, A)
         // Tokens are case-insensitive and position-free past the value.
         for (var _lt = 3; _lt < tk.length; _lt++) {
           var _ltk = (tk[_lt] || '').toLowerCase();
@@ -124,6 +126,9 @@ VXA.SpiceImport = (function() {
           } else if (_ltk.indexOf('nsat=') === 0) {
             var _nv = parseFloat(_ltk.slice(5));
             if (isFinite(_nv) && _nv >= 2) lPart.satExp = _nv;
+          } else if (_ltk.indexOf('hc=') === 0) {
+            var _hv = pv(_ltk.slice(3));
+            if (isFinite(_hv) && _hv > 0) lPart.Hc = _hv;
           }
         }
         circuit.parts.push(lPart);
@@ -305,6 +310,8 @@ VXA.SpiceImport = (function() {
         // Sprint 82: inductor saturation metadata.
         if (cp.Isat != null)   p.Isat   = cp.Isat;
         if (cp.satExp != null) p.satExp = cp.satExp;
+        // Sprint 87: hysteresis / core-loss coercive current.
+        if (cp.Hc != null)     p.Hc     = cp.Hc;
         if (cp.type === 'subcircuit' && cp.subcktName) {
           p.subcktName = cp.subcktName;
           var sc = (typeof VXA !== 'undefined' && VXA.Subcircuit) ? VXA.Subcircuit.getSubcircuit(cp.subcktName) : null;
@@ -332,6 +339,7 @@ VXA.SpiceImport = (function() {
         if (cp.ic != null) p.ic = cp.ic;
         if (cp.Isat != null)   p.Isat   = cp.Isat;
         if (cp.satExp != null) p.satExp = cp.satExp;
+        if (cp.Hc != null)     p.Hc     = cp.Hc;
         S.parts.push(p);
         idMap[idx] = p;
       });
