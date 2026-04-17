@@ -1,0 +1,11 @@
+* Sprint 85 — deep-saturation BJT stress.
+* Small collector resistance + strong base drive forces the device
+* into heavy saturation. Pre-Sprint-85 the GP q1 factor (with its
+* 0.01 floor) could spike enough to destabilise outer NR near the
+* knee; the 0.05 floor + qb clamp keep Ic steady.
+* Expected: Ic ≈ (Vcc − Vcesat)/R ≈ (5 − 0.2)/10 ≈ 480 mA, stable.
+V1 1 0 DC 5
+R1 1 2 10
+Q1 2 3 0 2N3904
+V2 3 0 DC 1.2
+.END

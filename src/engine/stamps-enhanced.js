@@ -105,11 +105,28 @@ VXA.Stamps.bjt_gp = function(matrix, rhs, nB, nC, nE, pol, params, nodeV, dt) {
   if (vbc > 0.80) vbc = 0.80;
   var eVbe = Math.exp(Math.min(vbe / nVtF, 500));
   var eVbc = Math.exp(Math.min(vbc / nVtR, 500));
-  // Base charge factor (Early + high-current)
-  var q1 = 1 / Math.max(0.01, 1 - vbc / VAF - vbe / VAR);
+  // Base charge factor (Early + high-current). Sprint 85 tightens
+  // the pathological-region guards:
+  //   • saturationFactor floor 0.01 → 0.05. At 0.01 a single NR step
+  //     near the knee could push q1 to 100× its physical value; 0.05
+  //     still covers conservative operating points but keeps q1 ≤ 20
+  //     which outer-NR can resolve in a couple of iterations.
+  //   • qb clamp [0.1, 100] + NaN guard. qb is a base-charge ratio —
+  //     dropping below 0.1 or climbing past 100 during transient is
+  //     a numerical artefact, not physics.
+  // (Between-step under-relaxation was tried and produced an earlier
+  //  collapse on the runaway test — removed. The observed transient
+  //  dropout at very high Tj is an outer-NR convergence failure in
+  //  the divergence-guard path, not a qb problem; deferring to a
+  //  dedicated NR-damping sprint.)
+  var satDenom = 1 - vbc / VAF - vbe / VAR;
+  var q1 = 1 / Math.max(0.05, satDenom);
   var Iff = IS * (eVbe - 1);
   var q2 = IKF > 0 ? Iff / IKF : 0;
   var qb = q1 * (1 + Math.sqrt(1 + 4 * q2)) / 2;
+  if (!isFinite(qb)) qb = 1;
+  if (qb < 0.1) qb = 0.1;
+  else if (qb > 100) qb = 100;
   // Currents
   var Icc = IS / qb * (eVbe - eVbc);
   var Ibe = IS / BF * (eVbe - 1) + (ISE > 0 ? ISE * (Math.exp(Math.min(vbe / (NE * VT), 500)) - 1) : 0);
