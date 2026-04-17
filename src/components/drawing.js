@@ -725,9 +725,21 @@ function drawWire(w) {
       ctx.beginPath(); ctx.arc(px, py, dotSize, 0, Math.PI * 2); ctx.fill();
     }
 
-    // Direction arrows at normal+ zoom
-    if (S.view.zoom > 0.5 && dist > 40) {
-      var midFrac = 0.5;
+    // Sprint 70g: direction arrows render at every zoom level and on
+    // every wire long enough to host at least one glyph. Arrow size
+    // tracks the engineering-decade of |I| (µA → 3 px, mA → 5 px,
+    // 0.1–1 A → 7 px, ≥ 1 A → 9 px) so a glance tells you whether
+    // the wire is a sensor line or a power rail. Colour is pulled
+    // from _curColor so the arrow agrees with the wire body and the
+    // rest of the palette (Sprint 70e).
+    var arrowSize = cur < 1e-3 ? 3 : cur < 0.1 ? 5 : cur < 1 ? 7 : 9;
+    var arrowCount = Math.max(1, Math.floor(dist / 60));
+    var arrowColor = _curColor(cur, '#3a4a5a');
+    ctx.strokeStyle = arrowColor;
+    ctx.lineWidth = Math.max(1.5, arrowSize * 0.25);
+    ctx.lineCap = 'round';
+    for (var ai = 0; ai < arrowCount; ai++) {
+      var midFrac = (ai + 0.5) / arrowCount;
       var ax, ay, ax2, ay2;
       if (style === 'catenary') {
         if (!sag) { sag = Math.min(dist * 0.1, 25); mx = (w.x1 + w.x2) / 2; my = (w.y1 + w.y2) / 2 + sag; }
@@ -736,17 +748,32 @@ function drawWire(w) {
         var mf2 = midFrac + 0.01;
         ax2 = (1-mf2)*(1-mf2)*w.x1 + 2*(1-mf2)*mf2*mx + mf2*mf2*w.x2;
         ay2 = (1-mf2)*(1-mf2)*w.y1 + 2*(1-mf2)*mf2*my + mf2*mf2*w.y2;
+      } else if (style === 'manhattan') {
+        var midXA = (w.x1 + w.x2) / 2;
+        var sA = Math.abs(midXA - w.x1), sB = Math.abs(w.y2 - w.y1), sC = Math.abs(w.x2 - midXA);
+        var totLA = sA + sB + sC;
+        var dA = midFrac * totLA;
+        if (dA <= sA) {
+          ax = w.x1 + (midXA - w.x1) * (sA > 0 ? dA / sA : 0); ay = w.y1;
+          ax2 = ax + (w.x2 >= w.x1 ? 1 : -1); ay2 = ay;
+        } else if (dA <= sA + sB) {
+          ax = midXA; ay = w.y1 + (w.y2 - w.y1) * (sB > 0 ? (dA - sA) / sB : 0);
+          ax2 = ax; ay2 = ay + (w.y2 > w.y1 ? 1 : -1);
+        } else {
+          ax = midXA + (w.x2 - midXA) * (sC > 0 ? (dA - sA - sB) / sC : 0); ay = w.y2;
+          ax2 = ax + (w.x2 >= midXA ? 1 : -1); ay2 = ay;
+        }
       } else {
-        ax = (w.x1 + w.x2) / 2; ay = (w.y1 + w.y2) / 2;
-        ax2 = ax + (w.x2 - w.x1) * 0.01; ay2 = ay + (w.y2 - w.y1) * 0.01;
+        ax = w.x1 + (w.x2 - w.x1) * midFrac;
+        ay = w.y1 + (w.y2 - w.y1) * midFrac;
+        ax2 = ax + (w.x2 - w.x1) * 0.01;
+        ay2 = ay + (w.y2 - w.y1) * 0.01;
       }
       var angle = Math.atan2((ay2 - ay) * dirSign, (ax2 - ax) * dirSign);
-      var aLen = 5;
-      ctx.strokeStyle = dotColor; ctx.lineWidth = 1.5;
       ctx.beginPath();
-      ctx.moveTo(ax - aLen * Math.cos(angle - 0.5), ay - aLen * Math.sin(angle - 0.5));
+      ctx.moveTo(ax - arrowSize * Math.cos(angle - 0.45), ay - arrowSize * Math.sin(angle - 0.45));
       ctx.lineTo(ax, ay);
-      ctx.lineTo(ax - aLen * Math.cos(angle + 0.5), ay - aLen * Math.sin(angle + 0.5));
+      ctx.lineTo(ax - arrowSize * Math.cos(angle + 0.45), ay - arrowSize * Math.sin(angle + 0.45));
       ctx.stroke();
     }
 
