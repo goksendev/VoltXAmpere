@@ -170,7 +170,21 @@ VXA.SimV2 = (function() {
           // Always use Gummel-Poon when model available (more accurate convergence)
           var bjtModel = c.part && c.part.model ? VXA.Models.getModel(c.part.type, c.part.model) : null;
           if (!bjtModel) bjtModel = { IS: c.IS, BF: c.BF, NF: c.NF, VAF: c.VAF, BR: 1, NR: 1, IKF: 1000 };
-          St.bjt_gp(matrix, rhs, c.n1, c.n2, c.n3, c.polarity, bjtModel, nodeV, dt);
+          // Sprint 81: feed the junction temperature in so the Vt / IS(T)
+          // terms in the stamp can close the thermal-runaway feedback.
+          // thermal.T is in °C; convert to Kelvin. Clone params to avoid
+          // mutating a shared model entry in VXA.Models.
+          var bjtTjK = 300;
+          if (c.part && c.part._thermal && isFinite(c.part._thermal.T)) {
+            bjtTjK = c.part._thermal.T + 273.15;
+          }
+          var bjtParams = bjtModel;
+          if (bjtModel.TjK !== bjtTjK) {
+            bjtParams = {};
+            for (var _bk in bjtModel) bjtParams[_bk] = bjtModel[_bk];
+            bjtParams.TjK = bjtTjK;
+          }
+          St.bjt_gp(matrix, rhs, c.n1, c.n2, c.n3, c.polarity, bjtParams, nodeV, dt);
         } else if (c.type === 'MOS') {
           // Sprint 41: BSIM3 takes precedence when model is marked BSIM3-class.
           if (c.isBSIM3 && c.bsim3 && VXA.BSIM3) {

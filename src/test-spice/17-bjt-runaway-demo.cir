@@ -1,0 +1,11 @@
+* BJT thermal runaway — no emitter degeneration, no swamp resistor.
+* 15 V rail, 100 Ω collector load, base hard-driven at 0.75 V.
+* Expected (Sprint 81): with the junction-temperature coupling active
+* the BJT's collector current slowly climbs as T_j rises, lifting
+* dissipation and heating the junction further until thermal damage
+* triggers (T_j ≥ 150 °C on the TO-92 model).
+V1 1 0 DC 15
+R1 1 2 100
+Q1 2 3 0 Q2N3904
+V2 3 0 DC 0.75
+.END

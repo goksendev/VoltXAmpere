@@ -44,9 +44,36 @@ VXA.Stamps.diode_spice = function(matrix, rhs, n1, n2, params, Vd_prev, dt) {
 };
 
 // 7.3: GUMMEL-POON BJT STAMP
+// Sprint 81: junction temperature coupling for thermal-runaway physics.
+// Call site stashes params.TjK (junction temperature in Kelvin). When
+// absent we default to 300 K and match the previous (temperature-
+// independent) behaviour. When present we scale:
+//   Vt  = k_B · T / q          (thermal voltage)
+//   I_S = I_S0 · (T/Tref)³ · exp( Eg/k_B · (1/Tref − 1/T) )
+// with Tref = 300 K and Eg = 1.12 eV (silicon bandgap). This is the
+// standard SPICE level-1 BJT temperature model.  Without it, the BJT
+// is a purely electrical device and "thermal runaway" is impossible
+// no matter how hot the junction gets.
 VXA.Stamps.bjt_gp = function(matrix, rhs, nB, nC, nE, pol, params, nodeV, dt) {
-  var Sp = VXA.Sparse, VT = 0.026;
-  var IS = params.IS || 1e-14, BF = params.BF || 100, NF = params.NF || 1;
+  var Sp = VXA.Sparse;
+  var BOLTZMANN_eV = 8.617333e-5;
+  var Eg = 1.12;
+  var Tref = 300;
+  var TjK = (params && params.TjK) || 300;
+  // Clamp to a sane range — below 150 K Vt underflows, above 500 K the
+  // device is either smoking or already open-circuit. Either way,
+  // passing something exotic to the junction equation just hurts
+  // convergence without buying physical fidelity.
+  if (TjK < 150) TjK = 150;
+  else if (TjK > 500) TjK = 500;
+  var VT = BOLTZMANN_eV * TjK;           // 0.02585 V @ 300 K
+  var IS0 = params.IS || 1e-14;
+  var Tr = TjK / Tref;
+  var expArg = Eg / BOLTZMANN_eV * (1 / Tref - 1 / TjK);
+  if (expArg > 80)  expArg = 80;         // matches NR voltage clamp
+  var IS  = IS0 * Math.pow(Tr, 3) * Math.exp(expArg);
+
+  var BF = params.BF || 100, NF = params.NF || 1;
   var BR = params.BR || 1, NR = params.NR || 1;
   var VAF = params.VAF || 1000, VAR = params.VAR || 1000, IKF = params.IKF || 1000;
   var ISE = params.ISE || 0, NE = params.NE || 1.5;
