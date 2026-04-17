@@ -720,7 +720,7 @@ input:focus{border-color:var(--accent)}
     <span id="sb-temp" style="color:var(--text-3)"></span>
     <span id="sb-engine" style="color:var(--text-4)"></span>
     <span id="sb-extra" style="color:var(--text-3)"></span>
-    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v9.0 — Build: 2026-04-17 23:17 — © 2026</span>
+    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v9.0 — Build: 2026-04-17 23:33 — © 2026</span>
   </div>
 </div>
 
@@ -6259,17 +6259,35 @@ VXA.AdaptiveStep = (function() {
 // ═══ sim.js ═══
 VXA.SimV2 = (function() {
   var Sp = VXA.Sparse, St = VXA.Stamps;
-  var NR_MAX_ITER = 30;
+  // Sprint 86: headroom for saturation-region NR. 30 was tight once Tj
+  // coupling (Sprints 81/83/84) started moving the operating point
+  // between outer solver calls; 60 gives NR a fighting chance before
+  // the divergence-guard fires. Pure-resistive circuits still converge
+  // in 1 iteration — the ceiling is hit only in hot BJT / MOS / diode
+  // setups where NR legitimately needs more room.
+  var NR_MAX_ITER = 60;
   var V_TOL = 1e-4;
   var GMIN_VAL = 1e-12;
   var VT_VAL = 0.026;
+  // Sprint 86: oscillation detector state. When the per-iteration max
+  // |ΔV| fails to shrink twice in a row we treat the NR loop as
+  // oscillating and apply under-relaxation to nodeV before the next
+  // iteration. Damping ramps down 1.0 → 0.5 → 0.25 on successive
+  // non-convergent rounds and resets when delta starts to shrink.
   var _lastNRIter = 0;
   var _lastConverged = true;
   var _lastNodeCount = 0;
   var _lastBandwidth = 0;
+  var _lastMaxDamping = 1;     // diagnostic: smallest damping used last step
   var _simMethod = 'trap'; // 'trap' or 'be'
   var _currentGMIN = 1e-12;
   var _dtJustChanged = false;
+  // Sprint 86: last successfully-solved node voltages for divergence
+  // recovery. When a step diverges we roll back to this snapshot and
+  // retry with dt/2 instead of zero-wiping — that wipe was the root
+  // cause of the Sprint-81 runaway "collapse" artefact.
+  var _lastGoodV = null;
+  var _recoveryRetriesLeft = 0;
 
   function getNRIter() { return _lastNRIter; }
   function getConverged() { return _lastConverged; }
@@ -6313,15 +6331,55 @@ VXA.SimV2 = (function() {
   function solve(dt) {
     if (!SIM || SIM.N <= 1) return;
     var nSub = _computeSubsteps(dt);
-    if (nSub > 1) {
-      var subDt = dt / nSub;
-      for (var s = 0; s < nSub; s++) {
-        _solveStep(subDt);
-        if (S.sim && S.sim.error) return;
-      }
-      return;
+    var subDt = nSub > 1 ? dt / nSub : dt;
+    var steps = nSub > 1 ? nSub : 1;
+    for (var s = 0; s < steps; s++) {
+      _solveStepWithRecovery(subDt);
+      if (S.sim && S.sim.error) return;
     }
+  }
+
+  // Sprint 86: divergence recovery wrapper. Runs _solveStep; if it
+  // trips the divergence guard AND we have a last-known-good snapshot,
+  // restores from that snapshot and retries with dt/2 up to 2 times.
+  // Only if the retries also fail do we surface the divergence error
+  // (and zero-clamp, matching the Sprint-71 behaviour as a last
+  // resort). Purely resistive circuits never invoke recovery.
+  function _solveStepWithRecovery(dt) {
+    // Snapshot BEFORE the step so we always have "last good" to roll
+    // back to. This costs one Float64Array copy per step.
+    var snapshot = null;
+    if (S._nodeVoltages) {
+      snapshot = new Float64Array(S._nodeVoltages.length);
+      snapshot.set(S._nodeVoltages);
+    }
+
     _solveStep(dt);
+
+    // If the guard fired, S.sim.error is set. Retry with a smaller
+    // step from the snapshot.
+    var retryLeft = 2;
+    while (S.sim && S.sim.error && snapshot && retryLeft > 0) {
+      S.sim.error = '';                      // clear so next attempt can run
+      S._nodeVoltages = snapshot;
+      // Also roll back any iPrev / vPrev state the previous step
+      // already wrote. We can't restore component-level history
+      // perfectly (too many fields), but the snapshot of nodeV is
+      // enough for the dominant transient channels.
+      dt = dt / 2;
+      retryLeft--;
+      _solveStep(dt);
+    }
+    // If still failing after retries, the guard's zero-clamp runs
+    // (already done inside _solveStep) and S.sim.error stays set.
+    if (!(S.sim && S.sim.error) && S._nodeVoltages) {
+      // Step succeeded — update last-good reference for the next
+      // round.
+      if (!_lastGoodV || _lastGoodV.length !== S._nodeVoltages.length) {
+        _lastGoodV = new Float64Array(S._nodeVoltages.length);
+      }
+      _lastGoodV.set(S._nodeVoltages);
+    }
   }
   function _solveStep(dt) {
     if (!SIM || SIM.N <= 1) return;
@@ -6332,6 +6390,13 @@ VXA.SimV2 = (function() {
     var nodeV = S._nodeVoltages || new Float64Array(N);
     var converged = false;
     var iter = 0;
+    // Sprint 86: global under-relaxation state. Starts at 1.0 (full
+    // Newton step), drops when successive iterations fail to reduce
+    // maxDelta. Resets toward 1.0 as the residual falls.
+    var _damping = 1.0;
+    var _prevMaxDelta = Infinity;
+    var _stallCount = 0;
+    _lastMaxDamping = 1.0;
 
     // N-R loop
     while (!converged && iter < NR_MAX_ITER) {
@@ -6841,7 +6906,41 @@ VXA.SimV2 = (function() {
         }
       }
 
-      nodeV = newV;
+      // Sprint 86: global delta tracking + adaptive under-relaxation.
+      // Measure the largest voltage step the Newton update wants us to
+      // take. If it fails to shrink versus the previous iteration we
+      // damp the update; if it keeps falling we relax the damping back
+      // toward 1.0 so we don't pay a perpetual speed penalty.
+      var _maxDelta = 0;
+      for (var _di = 1; _di < N; _di++) {
+        var _d = Math.abs(newV[_di] - (nodeV[_di] || 0));
+        if (_d > _maxDelta) _maxDelta = _d;
+      }
+      if (_maxDelta > _prevMaxDelta * 0.9 && iter > 1) {
+        // Not making progress; stall detected.
+        _stallCount++;
+        if (_stallCount >= 2) _damping = Math.max(0.1, _damping * 0.5);
+      } else if (_maxDelta < _prevMaxDelta * 0.5) {
+        // Good progress; let damping relax.
+        _damping = Math.min(1.0, _damping * 1.25);
+        _stallCount = 0;
+      }
+      _prevMaxDelta = _maxDelta;
+      if (_damping < _lastMaxDamping) _lastMaxDamping = _damping;
+
+      // Apply damped update (α = 1 is identical to the pre-Sprint-86
+      // direct assignment, so pure-resistive circuits see no change).
+      if (_damping >= 0.999) {
+        nodeV = newV;
+      } else {
+        var blended = new Float64Array(N);
+        blended[0] = 0;
+        for (var _bi = 1; _bi < N; _bi++) {
+          var _old = nodeV[_bi] || 0;
+          blended[_bi] = _old + _damping * (newV[_bi] - _old);
+        }
+        nodeV = blended;
+      }
       S._nodeVoltages = nodeV;
 
       // If no nonlinear components, one iteration is enough
