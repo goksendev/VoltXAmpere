@@ -1,0 +1,10 @@
+* RC low-pass — Bode & Nyquist reference
+* R=1k, C=100n ⇒ f_c = 1/(2πRC) ≈ 1.5915 kHz
+* Bode: DC gain 0 dB, −3 dB @ f_c, −20 dB/decade past f_c, phase → −90°
+* Nyquist: (1, 0) at ω→0, sweeping the lower half-plane to (0, 0) at ω→∞
+* SIN amplitude is used as the AC magnitude by VXA.ACAnalysis; the SIN
+* frequency is a placeholder (ACAnalysis overrides it per sweep point).
+V1 1 0 SIN(0 1 1000)
+R1 1 2 1k
+C1 2 0 100n
+.END

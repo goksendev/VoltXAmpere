@@ -116,6 +116,7 @@
     <div style="display:flex;gap:2px;padding:3px 8px;background:var(--surface-2);border-bottom:1px solid var(--border);overflow-x:auto;overflow-y:hidden;white-space:nowrap;scrollbar-width:thin">
       <button class="btab active" data-tab="scope" onclick="switchTab('scope')">Osiloskop</button>
       <button class="btab" data-tab="bode" onclick="switchTab('bode')">Bode Plot</button>
+      <button class="btab" data-tab="nyquist" onclick="switchTab('nyquist')">Nyquist</button>
       <button class="btab" data-tab="dcsweep" onclick="switchTab('dcsweep')">DC Sweep</button>
       <button class="btab" data-tab="paramsweep" onclick="switchTab('paramsweep')">Param Sweep</button>
       <button class="btab" data-tab="fft" onclick="switchTab('fft')">FFT</button>
@@ -225,6 +226,7 @@
       </div>
     </div>
     <div id="tab-bode" class="tab-panel" style="position:relative"><canvas id="BODE" style="width:100%;height:100%"></canvas><div class="tab-overlay" id="ov-bode"><p>AC devre kurun, sim&uuml;lasyonu ba&scedil;lat&inodot;n</p><button class="run-btn" onclick="runBode()">&#9654; Bode Analizi Ba&scedil;lat</button></div></div>
+    <div id="tab-nyquist" class="tab-panel" style="position:relative"><canvas id="NYQUIST" style="width:100%;height:100%"></canvas><div class="tab-overlay" id="ov-nyquist"><p>AC devre kurun, Nyquist e&#287;risini &ccedil;izin</p><button class="run-btn" onclick="runNyquist()">&#9654; Nyquist Analizi Ba&scedil;lat</button></div></div>
     <div id="tab-dcsweep" class="tab-panel" style="position:relative"><canvas id="DCSW" style="width:100%;height:100%"></canvas><div class="tab-overlay" id="ov-dcsweep"><p>DC kaynak ekleyin</p><button class="run-btn" onclick="runDCSweep('vdc',0,10,50)">&#9654; DC Sweep Ba&scedil;lat</button></div></div>
     <div id="tab-paramsweep" class="tab-panel" style="position:relative"><canvas id="PSWEEP" style="width:100%;height:100%"></canvas><div class="tab-overlay" id="ov-paramsweep"><p>Bir bile&scedil;en se&ccedil;in</p><button class="run-btn" onclick="if(S.sel[0])runParamSweep(S.sel[0],'val',100,10000,20)">&#9654; Param Sweep Ba&scedil;lat</button></div></div>
     <div id="tab-fft" class="tab-panel" style="position:relative"><canvas id="FFTC" style="width:100%;height:100%"></canvas><div class="tab-overlay" id="ov-fft"><p>Sim&uuml;lasyonu &ccedil;al&inodot;&scedil;t&inodot;r&inodot;n</p><button class="run-btn" onclick="runFFT()">&#9654; FFT Hesapla</button></div></div>

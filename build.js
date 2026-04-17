@@ -198,6 +198,9 @@ const JS_FILES = [
   // UI: Bode plot
   'src/ui/bode.js',
 
+  // UI: Nyquist plot (Sprint 78 — shares AC backend with Bode)
+  'src/ui/nyquist.js',
+
   // UI: param sweep
   'src/ui/param-sweep.js',
 

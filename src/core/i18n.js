@@ -44,7 +44,7 @@ var STR = {
     reportTitle:'Devre Raporu', reportDate:'Tarih', reportSchema:'Devre Şeması',
     reportBOM:'Malzeme Listesi', reportDC:'DC Çalışma Noktası',
     reportMeas:'Ölçüm Sonuçları',
-    runBode:'▶ Bode Analizi Başlat', runDCSweep:'▶ DC Sweep Başlat',
+    runBode:'▶ Bode Analizi Başlat', runNyquist:'▶ Nyquist Analizi Başlat', runDCSweep:'▶ DC Sweep Başlat',
     runParam:'▶ Param Sweep Başlat', runFFT:'▶ FFT Hesapla',
     runMC:'▶ Monte Carlo', runTemp:'▶ Sıcaklık Taraması',
     runNoise:'▶ Gürültü Analizi', runSens:'▶ Duyarlılık Analizi',
@@ -151,7 +151,7 @@ var STR = {
     reportTitle:'Circuit Report', reportDate:'Date', reportSchema:'Schematic',
     reportBOM:'Bill of Materials', reportDC:'DC Operating Point',
     reportMeas:'Measurements',
-    runBode:'▶ Run Bode', runDCSweep:'▶ Run DC Sweep',
+    runBode:'▶ Run Bode', runNyquist:'▶ Run Nyquist', runDCSweep:'▶ Run DC Sweep',
     runParam:'▶ Run Param Sweep', runFFT:'▶ Run FFT',
     runMC:'▶ Run Monte Carlo', runTemp:'▶ Run Temp Sweep',
     runNoise:'▶ Run Noise Analysis', runSens:'▶ Run Sensitivity',
@@ -286,7 +286,7 @@ function updateMeasLabels() {
 
 function updateOverlays() {
   var ovMap = {
-    'ov-bode': 'runBode', 'ov-dcsweep': 'runDCSweep', 'ov-paramsweep': 'runParam',
+    'ov-bode': 'runBode', 'ov-nyquist': 'runNyquist', 'ov-dcsweep': 'runDCSweep', 'ov-paramsweep': 'runParam',
     'ov-fft': 'runFFT', 'ov-montecarlo': 'runMC', 'ov-tempsweep': 'runTemp',
     'ov-noise': 'runNoise', 'ov-sensitivity': 'runSens', 'ov-worstcase': 'runWC'
   };

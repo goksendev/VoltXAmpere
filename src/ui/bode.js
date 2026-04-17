@@ -1,68 +1,40 @@
 // ──────── BODE PLOT ────────
+// Sprint 78: backend migrated from transient sweep to VXA.ACAnalysis
+// (complex MNA, one linear solve per frequency). Typical speedup on a
+// 60-point decade sweep: 10–50× versus the old 40-steps-per-period
+// transient-and-sample loop. Draw code unchanged.
 var bodeData = null;
 function runBode(fStart, fStop, ppd) {
   if (!S.parts.length) return;
   fStart = fStart || 10; fStop = fStop || 100000; ppd = ppd || 20;
   buildCircuitFromCanvas();
   if (!SIM || SIM.N <= 1) return;
-  bodeData = { f: [], mag: [], phase: [] };
-  var decades = Math.log10(fStop/fStart);
-  var total = Math.ceil(decades * ppd);
+  if (!VXA.ACAnalysis || typeof VXA.ACAnalysis.run !== 'function') {
+    console.error('[Bode] VXA.ACAnalysis not loaded');
+    return;
+  }
+  // Need at least one AC voltage source; otherwise there is nothing to sweep.
   var acSrc = SIM.comps.find(function(c){ return c.type === 'V' && c.isAC; });
   if (!acSrc) { bodeData = null; switchTab('bode'); return; }
-  var origFreq = acSrc.freq;
-  for (var i = 0; i <= total; i++) {
-    var f = fStart * Math.pow(10, i/ppd);
-    acSrc.freq = f;
-    S.sim.t = 0;
-    S._nodeVoltages = null;
-    var periods = 5, dt = 1/(f*40);
-    var stepsPerPeriod = 40, totalSteps = periods * stepsPerPeriod;
-    var maxOut = 0, minOut = 1e30;
-    for (var s = 0; s < totalSteps; s++) {
-      S.sim.t += dt;
-      try { solveStep(dt); } catch(e) { break; }
-      if (s >= (periods-2)*stepsPerPeriod && S._nodeVoltages) {
-        var vOut = S._nodeVoltages.length > 2 ? Math.abs(S._nodeVoltages[2]||0) : Math.abs(S._nodeVoltages[1]||0);
-        if (vOut > maxOut) maxOut = vOut;
-        if (vOut < minOut) minOut = vOut;
-      }
-    }
-    var vpp = maxOut - minOut;
-    var gain = (acSrc.val > 0) ? (vpp / 2) / acSrc.val : 0;
-    var magDB = gain > 1e-10 ? 20 * Math.log10(gain) : -100;
-    // Real phase measurement: compare input and output zero-crossings
-    var inZero = -1, outZero = -1, phaseDeg = 0;
-    S.sim.t = 0; S._nodeVoltages = null;
-    for (var s2 = 0; s2 < totalSteps; s2++) {
-      S.sim.t += dt;
-      try { solveStep(dt); } catch(e) { break; }
-      if (s2 >= (periods-2)*stepsPerPeriod && S._nodeVoltages) {
-        var vIn = acSrc.val * Math.sin(2*Math.PI*f*S.sim.t);
-        var vOut2 = S._nodeVoltages.length > 2 ? (S._nodeVoltages[2]||0) : (S._nodeVoltages[1]||0);
-        var prevIn = acSrc.val * Math.sin(2*Math.PI*f*(S.sim.t-dt));
-        var prevOut = S._nodeVoltages.length > 2 ? (S._nodeVoltages[2]||0) : (S._nodeVoltages[1]||0);
-        if (inZero < 0 && prevIn <= 0 && vIn > 0) inZero = S.sim.t;
-        if (outZero < 0 && inZero > 0 && prevOut <= 0 && vOut2 > 0) outZero = S.sim.t;
-        if (inZero > 0 && outZero > 0) break;
-      }
-    }
-    if (inZero > 0 && outZero > 0) {
-      var delay = outZero - inZero;
-      phaseDeg = -delay * f * 360;
-      while (phaseDeg < -180) phaseDeg += 360;
-      while (phaseDeg > 180) phaseDeg -= 360;
-    } else {
-      phaseDeg = gain < 0.5 ? -90 : 0; // fallback estimate
-    }
-    bodeData.f.push(f);
-    bodeData.mag.push(magDB);
-    bodeData.phase.push(phaseDeg);
+
+  // Output node selection: convention used by the prior transient code —
+  // node 2 if the circuit has >2 non-ground nodes, otherwise node 1.
+  var outNode = SIM.N > 2 ? 2 : 1;
+
+  var t0 = (typeof performance !== 'undefined') ? performance.now() : Date.now();
+  var results = VXA.ACAnalysis.run(fStart, fStop, ppd, outNode);
+  var t1 = (typeof performance !== 'undefined') ? performance.now() : Date.now();
+
+  bodeData = { f: [], mag: [], phase: [] };
+  for (var i = 0; i < results.length; i++) {
+    bodeData.f.push(results[i].freq);
+    bodeData.mag.push(results[i].gain_dB);
+    bodeData.phase.push(results[i].phase);
   }
-  acSrc.freq = origFreq;
-  S.sim.t = 0;
-  S._nodeVoltages = null;
-  var ov=document.getElementById('ov-bode');if(ov)ov.style.display='none';
+  bodeData._elapsedMs = t1 - t0;
+  bodeData._method = 'ac-mna';
+
+  var ov = document.getElementById('ov-bode'); if (ov) ov.style.display = 'none';
   switchTab('bode');
 }
 
@@ -231,5 +203,11 @@ function drawBode() {
     var fux2 = mx + Math.log10(fUnityVal / fMin) / logRange * pw;
     c.fillStyle = '#888'; c.font = '8px "JetBrains Mono"'; c.textAlign = 'center';
     c.fillText('f\u1D64=' + fmtVal(fUnityVal, 'Hz'), fux2, my + ph + 12);
+  }
+
+  // Sprint 78: tiny footer note — AC-MNA backend + timing.
+  if (d._elapsedMs !== undefined) {
+    c.fillStyle = 'rgba(0,224,158,0.55)'; c.font = '8px "JetBrains Mono"'; c.textAlign = 'right';
+    c.fillText('AC-MNA · ' + d._elapsedMs.toFixed(1) + ' ms · ' + d.f.length + ' pts', w - 6, h - 6);
   }
 }

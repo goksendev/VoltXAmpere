@@ -3,6 +3,7 @@ function switchTab(name) {
   document.querySelectorAll('.btab').forEach(function(b){ b.classList.toggle('active', b.dataset.tab === name); });
   document.querySelectorAll('.tab-panel').forEach(function(p){ p.classList.toggle('active', p.id === 'tab-'+name); });
   if (name === 'bode') drawBode();
+  if (name === 'nyquist') drawNyquist();
   if (name === 'dcsweep') drawDCSweep();
   if (name === 'paramsweep') drawParamSweep();
   if (name === 'fft') drawFFT();
