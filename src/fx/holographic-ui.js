@@ -155,12 +155,25 @@ function drawFormulaOverlay(ctx, part) {
   var padding = 10;
   var boxH = padding * 2 + formulas.length * lineH;
 
-  // Position: right of component. Sprint 70h: diode / LED / zener
-  // pins extend only ±30 px (vs ±40 for resistor/cap/inductor), so a
-  // +35 tooltip offset leaves the formula box overlapping the glyph.
-  // Bump the offset for narrow-pin parts.
+  // Position: right of component by default. Sprint 70h: diode / LED /
+  // zener pins extend only ±30 px (vs ±40 for resistor/cap/inductor),
+  // so a +35 px tooltip offset leaves the formula box overlapping the
+  // glyph — widen the offset for narrow-pin parts.
+  // Sprint 76: viewport-aware flip. If the tooltip would spill past
+  // the right edge of the canvas at the current zoom/pan, draw it on
+  // the LEFT of the component instead.
   var narrowPin = (part.type === 'diode' || part.type === 'led' || part.type === 'zener');
-  var bx = part.x + (narrowPin ? 55 : 35);
+  var offset = narrowPin ? 55 : 35;
+  var bx = part.x + offset;
+  // Convert tooltip right edge to screen-space; if off-canvas, flip.
+  var canvasW = (typeof cvs !== 'undefined' && cvs.width) ?
+                cvs.width / ((typeof DPR !== 'undefined' && DPR) ? DPR : 1) : 1400;
+  var zoom = (S && S.view && S.view.zoom) || 1;
+  var ox = (S && S.view && S.view.ox) || 0;
+  var rightEdgeScreen = ((bx + boxW) * zoom) + ox;
+  if (rightEdgeScreen > canvasW - 8) {
+    bx = part.x - offset - boxW;
+  }
   var by = part.y - boxH / 2;
 
   // Fade-in (200ms after 300ms delay)
