@@ -717,7 +717,7 @@ input:focus{border-color:var(--accent)}
     <span id="sb-temp" style="color:var(--text-3)"></span>
     <span id="sb-engine" style="color:var(--text-4)"></span>
     <span id="sb-extra" style="color:var(--text-3)"></span>
-    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v9.0 — Build: 2026-04-17 19:42 — © 2026</span>
+    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v9.0 — Build: 2026-04-17 19:55 — © 2026</span>
   </div>
 </div>
 
@@ -6182,7 +6182,50 @@ VXA.SimV2 = (function() {
   function getCurrentGMIN() { return _currentGMIN; }
 
   // Main solver — replaces old solveStep() internals
+  // Sprint 74: adaptive substepping wrapper. Stiff circuits (fast L,
+  // small C, high-Q RLC) diverge under forward-Euler companions when
+  // the outer dt is larger than the circuit's smallest time constant.
+  // Compute required substeps from L and C values, then call the
+  // actual NR step N times with dt/N. Uniform-integer substepping
+  // keeps the existing iPrev/vPrev bookkeeping intact and adds zero
+  // overhead when the circuit is purely resistive.
+  function _computeSubsteps(dt) {
+    if (!SIM || !SIM.comps) return 1;
+    var minTau = Infinity;
+    for (var i = 0; i < SIM.comps.length; i++) {
+      var c = SIM.comps[i];
+      if (c.type === 'L' && c.val > 0) {
+        // L/R: assume R ≈ 100 Ω typical; τ = L / R. With L=1 mH → τ=10 µs.
+        var tauL = c.val / 100;
+        if (tauL < minTau) minTau = tauL;
+      } else if (c.type === 'C' && c.val > 0) {
+        // RC: τ = R · C; with R ≈ 100 Ω, C=100 nF → τ=10 µs.
+        var tauC = c.val * 100;
+        if (tauC < minTau) minTau = tauC;
+      }
+    }
+    if (!isFinite(minTau)) return 1;
+    // Want dt_sub ≤ τ/10. Required substeps = ceil(dt / (τ/10)) = ceil(10 dt/τ).
+    // Clamp at 64 substeps so a 1 ms outer step on a 1 nF cap (τ ≈ 100 ns)
+    // doesn't explode compute.
+    var required = Math.ceil((dt * 10) / minTau);
+    if (required <= 1) return 1;
+    return Math.min(64, required);
+  }
   function solve(dt) {
+    if (!SIM || SIM.N <= 1) return;
+    var nSub = _computeSubsteps(dt);
+    if (nSub > 1) {
+      var subDt = dt / nSub;
+      for (var s = 0; s < nSub; s++) {
+        _solveStep(subDt);
+        if (S.sim && S.sim.error) return;
+      }
+      return;
+    }
+    _solveStep(dt);
+  }
+  function _solveStep(dt) {
     if (!SIM || SIM.N <= 1) return;
     var N = SIM.N, nv = SIM.vSrc.length;
     var sz = N - 1 + nv;
