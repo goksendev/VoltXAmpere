@@ -27,6 +27,10 @@ function render() {
   ctx.save();
   ctx.translate(S.view.ox, S.view.oy); ctx.scale(S.view.zoom, S.view.zoom);
 
+  // Sprint 70e: refresh circuit max current once per frame so wires
+  // and parts share a consistent brightness reference.
+  if (typeof _updateCircuitMaxI === 'function') _updateCircuitMaxI();
+
   S.wires.forEach(drawWire);
   drawWirePreview();
 

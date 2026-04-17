@@ -1,20 +1,52 @@
 // ──────── DRAWING FUNCTIONS ────────
 
-// Sprint 70b: current-aware visual feedback. A component's colour is
-// driven by how much current it carries while the simulator is live —
-// idle parts keep their original palette entry, active parts heat up
-// through mint → orange → red as |I| grows. Physics intent: electrons
-// only exist where current flows; the UI should honour that.
-var _CUR_IDLE  = 1e-6;        // below this: treat as idle
-var _CUR_FULL  = 0.05;        // 50 mA saturates the colour ramp
+// Sprint 70b/e: current-aware visual feedback with log-scale palette
+// and adaptive brightness. A flat linear ramp washed everything into
+// red on 1 A circuits and made 10 µA circuits look dead; a log scale
+// preserves engineering-decade distinctions (µA / mA / A / kA). Per-
+// circuit brightness modulation then keeps every part visible —
+// highest-current branch at 100 %, lowest at 60 % — so a mint circuit
+// still shows a gradient without losing the "this is small-signal"
+// cue from the base colour.
+var _CUR_IDLE = 10e-6;  // below this: treat as idle
+var _circuitMaxI = 0;   // refreshed once per frame from render-loop
+function _logCurColor(absI) {
+  if (absI < 10e-6)    return '#3a4a5a'; // idle grey
+  if (absI < 1e-3)     return '#00bfa5'; // 10 µA – 1 mA: small-signal teal
+  if (absI < 100e-3)   return '#00e09e'; // 1 mA – 100 mA: analog/digital mint
+  if (absI < 1)        return '#f59e0b'; // 100 mA – 1 A: power orange
+  if (absI < 5)        return '#ff3333'; // 1 A – 5 A: high-current red
+  return '#c41e3a';                      // >5 A: danger dark-red
+}
+function _applyBrightness(hex, bright) {
+  if (bright >= 1) return hex;
+  var n = parseInt(hex.slice(1), 16);
+  var r = Math.round(Math.min(255, ((n >> 16) & 0xff) * bright));
+  var g = Math.round(Math.min(255, ((n >> 8) & 0xff) * bright));
+  var b = Math.round(Math.min(255, (n & 0xff) * bright));
+  var out = (r << 16) | (g << 8) | b;
+  return '#' + out.toString(16).padStart(6, '0');
+}
+function _updateCircuitMaxI() {
+  if (!S.sim || !S.sim.running) { _circuitMaxI = 0; return; }
+  var m = 0;
+  for (var i = 0; i < S.parts.length; i++) {
+    var c = Math.abs(S.parts[i]._i || 0);
+    if (c > m) m = c;
+  }
+  for (var j = 0; j < S.wires.length; j++) {
+    var wc = Math.abs(S.wires[j]._current || 0);
+    if (wc > m) m = wc;
+  }
+  _circuitMaxI = m;
+}
 function _curColor(cur, fallback) {
   if (!S.sim || !S.sim.running) return fallback;
   var a = Math.abs(cur || 0);
   if (a < _CUR_IDLE) return fallback;
-  var r = Math.min(1, a / _CUR_FULL);
-  if (r < 0.2) return '#00e09e'; // mint — light current
-  if (r < 0.6) return '#f59e0b'; // orange — moderate
-  return '#ff3333';              // red — high
+  var base = _logCurColor(a);
+  var bright = _circuitMaxI > 0 ? (0.6 + 0.4 * Math.min(1, a / _circuitMaxI)) : 1;
+  return _applyBrightness(base, bright);
 }
 
 // Match Sprint 70a-fix-5's _segTouchesPoint: an interior pin-coord on
@@ -535,19 +567,18 @@ function drawWire(w) {
   var isHovered = (S._hoveredWire === w);
   var isSelected = (S._selectedWire === w);
 
-  // Sprint 12: Akım bazlı renk değişimi
-  var wireRatio = Math.min(1, cur / 1.0);
+  // Sprint 70e: unified current-aware colour — log palette + adaptive
+  // brightness from _curColor. Idle wires share the same dull grey the
+  // rest of the palette falls back to.
   var wireColor;
   if (isSelected || isHovered) {
     wireColor = '#4488ff';
-  } else if (wireRatio > 0.8) wireColor = '#ff3333';
-  else if (wireRatio > 0.5) {
-    var r = Math.min(255, 100 + wireRatio * 200);
-    var g = Math.max(50, 200 - wireRatio * 200);
-    wireColor = 'rgb(' + Math.round(r) + ',' + Math.round(g) + ',50)';
   } else {
-    wireColor = cur > 0.5 ? '#f59e0b' : cur > 1e-6 ? '#00e09e' : '#3a4a5a';
+    wireColor = _curColor(cur, '#3a4a5a');
   }
+  // Vibration / motion effect still triggered by current magnitude,
+  // but now against the circuit-wide maximum so it scales with context.
+  var wireRatio = _circuitMaxI > 0 ? Math.min(1, cur / _circuitMaxI) : 0;
 
   ctx.strokeStyle = wireColor;
   if (isSelected || isHovered) { ctx.shadowColor = '#4488ff'; ctx.shadowBlur = 6; ctx.lineWidth = 3; }
