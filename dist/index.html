@@ -717,7 +717,7 @@ input:focus{border-color:var(--accent)}
     <span id="sb-temp" style="color:var(--text-3)"></span>
     <span id="sb-engine" style="color:var(--text-4)"></span>
     <span id="sb-extra" style="color:var(--text-3)"></span>
-    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v9.0 — Build: 2026-04-17 17:18 — © 2026</span>
+    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v9.0 — Build: 2026-04-17 17:33 — © 2026</span>
   </div>
 </div>
 
@@ -3772,6 +3772,59 @@ document.addEventListener('keydown', e => {
 
 // ═══ drawing.js ═══
 // ──────── DRAWING FUNCTIONS ────────
+
+// Sprint 70b: current-aware visual feedback. A component's colour is
+// driven by how much current it carries while the simulator is live —
+// idle parts keep their original palette entry, active parts heat up
+// through mint → orange → red as |I| grows. Physics intent: electrons
+// only exist where current flows; the UI should honour that.
+var _CUR_IDLE  = 1e-6;        // below this: treat as idle
+var _CUR_FULL  = 0.05;        // 50 mA saturates the colour ramp
+function _curColor(cur, fallback) {
+  if (!S.sim || !S.sim.running) return fallback;
+  var a = Math.abs(cur || 0);
+  if (a < _CUR_IDLE) return fallback;
+  var r = Math.min(1, a / _CUR_FULL);
+  if (r < 0.2) return '#00e09e'; // mint — light current
+  if (r < 0.6) return '#f59e0b'; // orange — moderate
+  return '#ff3333';              // red — high
+}
+
+// Match Sprint 70a-fix-5's _segTouchesPoint: an interior pin-coord on
+// a segmented bus is electrically on the wire. Used to gather the
+// current flowing into a ground symbol's pin.
+function _wireTouchesPoint(w, px, py) {
+  if (Math.abs(w.x1 - px) <= 1 && Math.abs(w.y1 - py) <= 1) return true;
+  if (Math.abs(w.x2 - px) <= 1 && Math.abs(w.y2 - py) <= 1) return true;
+  if (w.x1 === w.x2 && px === w.x1) {
+    var miY = Math.min(w.y1, w.y2), maY = Math.max(w.y1, w.y2);
+    if (py > miY + 1 && py < maY - 1) return true;
+  } else if (w.y1 === w.y2 && py === w.y1) {
+    var miX = Math.min(w.x1, w.x2), maX = Math.max(w.x1, w.x2);
+    if (px > miX + 1 && px < maX - 1) return true;
+  }
+  return false;
+}
+function _groundPinCurrent(part) {
+  // Ground's sole pin is at dy=-20 relative to centre (rot=0 assumed —
+  // the canonical import never rotates ground). Transform for safety.
+  var r = (part.rot || 0) * Math.PI / 2, co = Math.cos(r), si = Math.sin(r);
+  var pinX = part.x + 0 * co - (-20) * si;
+  var pinY = part.y + 0 * si + (-20) * co;
+  var maxCur = 0;
+  for (var i = 0; i < S.wires.length; i++) {
+    var w = S.wires[i];
+    if (_wireTouchesPoint(w, pinX, pinY)) {
+      var c = Math.abs(w._current || 0);
+      if (c > maxCur) maxCur = c;
+    }
+  }
+  return maxCur;
+}
+
+var _SOURCE_TYPES = { vdc:1, vac:1, pulse:1, pwl:1, idc:1, iac:1, noise:1 };
+var _PASSIVE_TYPES = { resistor:1, capacitor:1, inductor:1 };
+
 function getDetailLevel() {
   if (S.view.zoom < 0.3) return 'overview';
   if (S.view.zoom < 0.7) return 'medium';
@@ -3989,7 +4042,47 @@ function drawPart(part) {
     ctx.shadowBlur = 18 * _pulse;
     ctx.lineWidth = (ctx.lineWidth || 2) + 1;
   }
+
+  // Sprint 70b — live current → body colour override. Mutate def.color
+  // only for the draw call, then restore. Ground reads current from
+  // wires touching its pin (it has no _i itself); passives read part._i.
+  var _origDefColor = def.color;
+  var _overrode = false;
+  if (S.sim && S.sim.running) {
+    if (part.type === 'ground') {
+      var gc = _groundPinCurrent(part);
+      if (gc >= _CUR_IDLE) { def.color = _curColor(gc, _origDefColor); _overrode = true; }
+    } else if (_PASSIVE_TYPES[part.type]) {
+      var pc = Math.abs(part._i || 0);
+      if (pc >= _CUR_IDLE) { def.color = _curColor(pc, _origDefColor); _overrode = true; }
+    }
+  }
+
   def.draw(ctx, GRID, part);
+
+  if (_overrode) def.color = _origDefColor;
+
+  // Sprint 70b — active source pulse ring. Signals "this source is
+  // delivering energy" without bleeding into the schematic symbol.
+  // Gentle 1.5 Hz breathing at ~radius 24, matched to the source's
+  // brand colour. Only when the simulator is running AND the source
+  // is actually sourcing current.
+  if (S.sim && S.sim.running && _SOURCE_TYPES[part.type]) {
+    var srcCur = Math.abs(part._i || 0);
+    if (srcCur >= _CUR_IDLE) {
+      var now = (typeof performance !== 'undefined' ? performance.now() : Date.now()) / 1000;
+      var alpha = 0.18 + 0.12 * Math.sin(now * 2 * Math.PI * 1.5);
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.strokeStyle = _origDefColor;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(0, 0, 24, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
   ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0;
 
   // Damage crack marks (permanent, after animation ends)
