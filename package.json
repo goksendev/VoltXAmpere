@@ -1,6 +1,6 @@
 {
   "name": "voltxampere",
-  "version": "12.0.0-alpha.2",
+  "version": "12.0.0-alpha.3",
   "description": "Professional web-based circuit simulator with full thermal-electrical coupling, AC-MNA analysis, and interactive measurement.",
   "main": "index.html",
   "homepage": "https://voltxampere.com",

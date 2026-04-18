@@ -49,7 +49,7 @@ input:focus{border-color:var(--accent)}
 .cat-header.open .arrow{transform:rotate(90deg)}
 .cat-body{overflow:hidden;transition:max-height .25s ease}
 .cat-body.closed{max-height:0!important}
-.comp-item{display:flex;align-items:center;justify-content:space-between;padding:7px 8px 7px 20px;cursor:pointer;border-radius:5px;font-size:13px;color:var(--text-2);transition:.12s;user-select:none;min-height:40px}
+.comp-item{display:flex;align-items:center;justify-content:space-between;padding:7px 8px;cursor:pointer;border-radius:5px;font-size:13px;color:var(--text-2);transition:.12s;user-select:none;min-height:40px}
 .comp-item:hover{background:var(--accent-dim);color:var(--text)}
 .comp-item .dot{width:6px;height:6px;border-radius:50%;margin-right:8px;flex-shrink:0}
 .comp-item .key{font-family:var(--font-mono);font-size:9px;padding:1px 5px;border-radius:3px;background:var(--surface-3);color:var(--text-4)}
@@ -262,7 +262,7 @@ input:focus{border-color:var(--accent)}
 #canvas-wrap canvas{touch-action:none}
 @media (pointer:coarse){
   .tb-btn{padding:8px 14px;font-size:13px;min-height:44px}
-  .comp-item{padding:10px 12px 10px 24px;font-size:14px;min-height:44px}
+  .comp-item{padding:10px 12px;font-size:14px;min-height:44px}
   .cat-header{padding:10px 12px;min-height:44px}
   .btab{padding:8px 14px;font-size:12px;min-height:40px}
   button,input[type="range"]{min-height:44px}
@@ -387,7 +387,7 @@ input:focus{border-color:var(--accent)}
   .tb-btn{padding:8px 12px;font-size:12px;min-height:44px}
   #analysis-tabs,.tab-bar{overflow-x:auto;-webkit-overflow-scrolling:touch}
   .btab{padding:8px 14px;font-size:12px;min-height:40px;white-space:nowrap}
-  .comp-item{padding:12px 14px 12px 24px;font-size:14px;min-height:44px}
+  .comp-item{padding:12px 14px;font-size:14px;min-height:44px}
   .cat-header{padding:12px 14px;min-height:44px}
 }
 /* Touch hover disable */
