@@ -57,7 +57,7 @@ function setAriaLabels() {
 setAriaLabels();
 
 // Console banner
-console.log('%c\u26A1 VoltXAmpere v12.0.0-alpha.5', 'color:#00e09e;font-size:18px;font-weight:bold');
+console.log('%c\u26A1 VoltXAmpere v12.0.0-alpha.6', 'color:#00e09e;font-size:18px;font-weight:bold');
 console.log('%cProfessional Circuit Simulator \u2014 voltxampere.com', 'color:#8899aa;font-size:12px');
 console.log('%c' + t('scriptApi'), 'color:#f59e0b;font-size:11px');
 
@@ -424,10 +424,24 @@ function ctxSaveBlock() {
   showInfoCard('Blok Kaydedildi', name + ' bloğu oluşturuldu.', blockPins.length + ' pin tespit edildi.');
 }
 
-// ──────── SPRINT 104.3 — GRID CARD SIDEBAR ────────
-// Bilingual name lookup. Where the existing COMP[k].name is already the Turkish
-// string we still list it explicitly here so TR/EN always stay side by side —
-// easier to read than a conditional based on `currentLang`.
+// ──────── SPRINT 104.3 / 104.3.2 — GRID CARD SIDEBAR ────────
+// Bilingual name lookup. Where COMP[k].name already holds the Turkish string
+// we still list it explicitly so TR/EN always stay side by side — easier to
+// read than a conditional based on `currentLang`.
+//
+// Schema (forward-compatible so 104.5+ can add Arduino / ESP32 / 74HCxx
+// variants without migrating the map again):
+//   tr:      Turkish name (display default)
+//   en:      English name (shown in tooltip + searchable)
+//   h:       (optional) TR with soft-hyphens U+00AD for manual line-break
+//            positions. Only set when auto-inject would produce a bad cut.
+//   display: (optional) TR override if the card should show something other
+//            than `tr` — currently unused, reserved for 104.5+.
+//   letter:  (optional) redundant with SHORTCUT_PILLS[key].letter, kept here
+//            for future schemas that merge the two maps.
+//   digit:   (optional) same, for the digit shortcut.
+//   tags:    (optional) extra search terms — "arduino", "microcontroller",
+//            "uno" etc. Consumed by _matchComp (104.5+).
 var SIDEBAR_I18N = {
   resistor:      { tr: 'Direnç',              en: 'Resistor' },
   capacitor:     { tr: 'Kapasitör',           en: 'Capacitor' },
@@ -484,12 +498,12 @@ var SIDEBAR_I18N = {
   wattmeter:     { tr: 'Wattmetre',           en: 'Wattmeter' },
   diffProbe:     { tr: 'Dif. Probu',          en: 'Diff Probe' },
   iProbe:        { tr: 'Akım Probu',          en: 'Current Probe' },
-  potentiometer: { tr: 'Potansiyometre',      en: 'Potentiometer' },
+  potentiometer: { tr: 'Potansiyometre',      en: 'Potentiometer', h: 'Potansiyo\u00ADmetre' },
   ntc:           { tr: 'NTC Termistör',       en: 'NTC Thermistor' },
   ptc:           { tr: 'PTC Termistör',       en: 'PTC Thermistor' },
   ldr:           { tr: 'LDR',                 en: 'Photoresistor' },
   mov:           { tr: 'Varistör (MOV)',      en: 'Varistor' },
-  comparator:    { tr: 'Komparatör',          en: 'Comparator' },
+  comparator:    { tr: 'Komparatör',          en: 'Comparator',    h: 'Kompa\u00ADratör' },
   crystal:       { tr: 'Kristal',             en: 'Crystal' },
   coupledL:      { tr: 'Bağlı Bobin',         en: 'Coupled Inductor' },
   dcmotor:       { tr: 'DC Motor',            en: 'DC Motor' },
@@ -501,6 +515,22 @@ var SIDEBAR_I18N = {
   dac:           { tr: 'DAC (8-bit)',         en: 'DAC 8-bit' },
   pwm:           { tr: 'PWM Üreteci',         en: 'PWM Generator' }
 };
+
+// Sprint 104.3.2 — derive the visible TR label. Explicit `h` wins. Otherwise
+// if the name is a single word longer than 10 chars, inject a soft hyphen at
+// the midpoint so `hyphens:manual` has a valid break to use. Multi-word
+// names already wrap at spaces so we leave them alone.
+function _hyphenatedName(key, tr) {
+  var entry = SIDEBAR_I18N[key];
+  if (entry && entry.h) return entry.h;
+  if (!tr) return tr;
+  if (tr.indexOf(' ') >= 0) return tr;       // multi-word → break on spaces
+  if (tr.indexOf('-') >= 0) return tr;       // already hyphen-bearing
+  if (tr.indexOf('\u00AD') >= 0) return tr;  // author already injected
+  if (tr.length <= 10) return tr;
+  var mid = Math.floor(tr.length / 2);
+  return tr.slice(0, mid) + '\u00AD' + tr.slice(mid);
+}
 
 // Pill-only shortcut map per Sprint 104.3 spec. `letter` and/or `digit` are
 // rendered as chips; if a field is absent (LED has no letter, opamp has no
@@ -576,8 +606,9 @@ function _renderCardSymbol(compDef) {
   return mc;
 }
 
-// Sprint 104.3.1 — compact card. Structure: symbol, TR name, optional badge
-// (top-right absolute, letter-only). EN name is no longer painted; it lives
+// Sprint 104.3.1 / 104.3.2 — compact card. Structure: symbol, TR name
+// (hyphenated for narrow columns), optional badge (top-right absolute,
+// letter-only, category-agnostic surface). EN name is not painted; it lives
 // in the title attr so tooltips reveal it and _matchComp still searches it.
 function _renderCompCard(compKey, compDef, catKey) {
   var names = _compNames(compKey, compDef);
@@ -586,6 +617,8 @@ function _renderCompCard(compKey, compDef, catKey) {
   d.dataset.comp = compKey;
   d.dataset.cat = catKey || compDef.cat || '';
   d.style.setProperty('--cat-color', _catColor(catKey || compDef.cat));
+  // title stays clean — no soft hyphens — so tooltip + copy-paste show the
+  // original text. Card text uses the hyphenated form.
   d.title = names.tr + ' · ' + names.en;
   d.setAttribute('role', 'button');
   d.setAttribute('tabindex', '0');
@@ -597,11 +630,11 @@ function _renderCompCard(compKey, compDef, catKey) {
 
   var trEl = document.createElement('div');
   trEl.className = 'comp-name-tr';
-  trEl.textContent = names.tr;
+  trEl.textContent = _hyphenatedName(compKey, names.tr);
   d.appendChild(trEl);
 
-  // Letter-only badge top-right. Digit shortcuts are dropped from the card
-  // face — they're still declared in SHORTCUT_PILLS for 104.4's binding work.
+  // Letter-only badge top-right. Digit shortcuts stay registered in
+  // SHORTCUT_PILLS for 104.4's binding work but don't paint on the card.
   var sc = SHORTCUT_PILLS[compKey];
   if (sc && sc.letter) {
     var badge = document.createElement('span');
@@ -650,15 +683,16 @@ function rebuildPalette() {
   });
 }
 
-// ──────── SPRINT 104.3.1 — RESIZABLE SIDEBAR + ADAPTIVE GRID ────────
+// ──────── SPRINT 104.3.1 / 104.3.2 — RESIZABLE SIDEBAR + ADAPTIVE GRID ────────
 // The sidebar is user-resizable via a 4px drag handle on its right edge.
 // Width is persisted in localStorage (vxa.sidebar.width) and clamped to
-// [200, 480]. Double-clicking the handle snaps back to 290. A ResizeObserver
-// on #left flips between 2 / 3 / 4 column card grids at 260px and 360px
-// breakpoints. Canvas re-layout is handled by the existing canvas-setup.js
-// ResizeObserver on #canvas-wrap, so there's nothing extra to wire here.
-var SIDEBAR_MIN = 200;
-var SIDEBAR_MAX = 480;
+// [140, 520]. Double-clicking the handle snaps back to 290. A ResizeObserver
+// on #left flips between 1 / 2 / 3 / 4 / 5 / 6 column card grids at
+// 180 / 260 / 340 / 420 / 480px breakpoints. Canvas re-layout is handled by
+// the existing canvas-setup.js ResizeObserver on #canvas-wrap, so there's
+// nothing extra to wire here.
+var SIDEBAR_MIN = 140;
+var SIDEBAR_MAX = 520;
 var SIDEBAR_DEFAULT = 290;
 var SIDEBAR_LS_KEY = 'vxa.sidebar.width';
 
@@ -673,12 +707,18 @@ function _applySidebarWidth(px) {
 function _updateSidebarCols(w) {
   var left = document.getElementById('left');
   if (!left) return;
-  var cols = 3;
-  if (w < 260) cols = 2;
-  else if (w > 360) cols = 4;
-  left.classList.toggle('cols-2', cols === 2);
-  left.classList.toggle('cols-3', cols === 3);
-  left.classList.toggle('cols-4', cols === 4);
+  // Breakpoints chosen so each card stays readable: 1-col mode starts at
+  // 140px (hyphenation kicks in for long names), 6-col mode above 480px
+  // keeps cards close to the ~75px minimum where the 38px icon + 2 lines
+  // of name still fit.
+  var cols;
+  if (w < 180)       cols = 1;
+  else if (w < 260)  cols = 2;
+  else if (w < 340)  cols = 3;
+  else if (w < 420)  cols = 4;
+  else if (w < 480)  cols = 5;
+  else               cols = 6;
+  for (var i = 1; i <= 6; i++) left.classList.toggle('cols-' + i, cols === i);
 }
 
 (function _setupSidebarResize() {

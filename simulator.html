@@ -6,27 +6,27 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>VoltXAmpere v12.0.0-alpha.5 — Professional Circuit Simulator</title>
+<title>VoltXAmpere v12.0.0-alpha.6 — Professional Circuit Simulator</title>
 <meta name="description" content="Professional browser-based circuit simulator. 71+ components, full SPICE parser, complete thermal-electrical coupling, AC-MNA analysis (Bode + Nyquist), professional multimeter probe. MIT licensed.">
 <meta name="keywords" content="circuit simulator, SPICE, devre simülatörü, electronics, voltxampere, free, online, oscilloscope, Bode, Nyquist, thermal, Newton-Raphson, MNA, Gummel-Poon">
 <meta name="author" content="goksendev">
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="https://voltxampere.com/simulator.html">
-<meta property="og:title" content="VoltXAmpere v12.0.0-alpha.5 — Professional Circuit Simulator">
+<meta property="og:title" content="VoltXAmpere v12.0.0-alpha.6 — Professional Circuit Simulator">
 <meta property="og:description" content="71+ components. Full SPICE parser. Thermal-electrical coupling. AC-MNA analysis. Professional multimeter. Free and open source.">
 <meta property="og:url" content="https://voltxampere.com/simulator.html">
 <meta property="og:type" content="website">
 <meta property="og:locale" content="en_US">
 <meta property="og:locale:alternate" content="tr_TR">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="VoltXAmpere v12.0.0-alpha.5 — Circuit Simulator">
+<meta name="twitter:title" content="VoltXAmpere v12.0.0-alpha.6 — Circuit Simulator">
 <meta name="twitter:description" content="71+ components. Full SPICE parser. Thermal-electrical coupling. Free and open source.">
 <meta name="theme-color" content="#0a0e14">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="VoltXAmpere">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='28' font-size='28'%3E%E2%9A%A1%3C/text%3E%3C/svg%3E">
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"VoltXAmpere","url":"https://voltxampere.com/simulator.html","description":"Professional browser-based circuit simulator with full SPICE parser, thermal-electrical coupling, and AC-MNA analysis","applicationCategory":"EducationalApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"softwareVersion":"12.0.0-alpha.5","license":"https://opensource.org/licenses/MIT","featureList":"71 components, Full SPICE parser, Thermal-electrical coupling, BSIM3 MOSFET, Gummel-Poon BJT, AC-MNA Bode and Nyquist, Professional multimeter probe, Inductor saturation, Hysteresis and eddy-current losses, Curie-point derating, Adaptive Newton-Raphson solver"}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"VoltXAmpere","url":"https://voltxampere.com/simulator.html","description":"Professional browser-based circuit simulator with full SPICE parser, thermal-electrical coupling, and AC-MNA analysis","applicationCategory":"EducationalApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"softwareVersion":"12.0.0-alpha.6","license":"https://opensource.org/licenses/MIT","featureList":"71 components, Full SPICE parser, Thermal-electrical coupling, BSIM3 MOSFET, Gummel-Poon BJT, AC-MNA Bode and Nyquist, Professional multimeter probe, Inductor saturation, Hysteresis and eddy-current losses, Curie-point derating, Adaptive Newton-Raphson solver"}</script>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
@@ -106,30 +106,36 @@ body.sidebar-resizing *{user-select:none!important}
 .cat-header:hover{background:var(--surface-2);color:var(--text)}
 .cat-header .arrow{transition:transform .2s;font-size:10px;color:var(--text-4)}
 .cat-header.open .arrow{transform:rotate(90deg)}
-/* Sprint 104.3 / 104.3.1 — cat-body is the grid container. Column count comes
- * from the .cols-2 / .cols-3 / .cols-4 class set on #left by the sidebar
- * ResizeObserver (JS). Default is 3 cols so the first paint looks right
- * before the observer fires. */
+/* Sprint 104.3 / 104.3.1 / 104.3.2 — cat-body is the grid container. Column
+ * count comes from #left.cols-1 … .cols-6 set by the sidebar ResizeObserver
+ * (JS). Default is 3 cols so the first paint looks right before the observer
+ * fires. Breakpoints at <180 / 180–260 / 260–340 / 340–420 / 420–480 / >480. */
 .cat-body{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:8px 0;transition:opacity .15s ease}
+#left.cols-1 .cat-body{grid-template-columns:repeat(1,1fr)}
 #left.cols-2 .cat-body{grid-template-columns:repeat(2,1fr)}
 #left.cols-3 .cat-body{grid-template-columns:repeat(3,1fr)}
 #left.cols-4 .cat-body{grid-template-columns:repeat(4,1fr)}
+#left.cols-5 .cat-body{grid-template-columns:repeat(5,1fr)}
+#left.cols-6 .cat-body{grid-template-columns:repeat(6,1fr)}
 .cat-body.closed{display:none}
-/* Sprint 104.3.1 — compact card.
- *   .comp-symbol canvas — 38px icon, centred (was 34)
- *   .comp-name-tr       — 12px/600 #fff, 2-line clamp
- *   .comp-badge         — top-right letter shortcut only (digits dropped),
- *                         tinted with the category neon.
- * The EN label + horizontal pill row from 104.3 are gone — EN is still in the
- * title attr so hover tooltip reveals it, and search still matches both. */
+/* Sprint 104.3.2 — compact card, unified surface.
+ *   .comp-symbol canvas — 38px icon, flex:0 0 auto → never shrinks.
+ *   .comp-name-tr       — 12px/600 #fff, 2-line clamp with hyphens:manual so
+ *                         soft-hyphen (U+00AD) breaks appear only when the
+ *                         line actually wraps. No word-break:break-word — that
+ *                         chopped names mid-glyph in narrow columns.
+ *   .comp-badge         — top-right shortcut letter. 104.3.2 strips the
+ *                         per-category tint; a single neutral white surface
+ *                         reads equally on every row. Category colour lives
+ *                         in the card border/hover glow only. */
 .comp-item{position:relative;display:flex;flex-direction:column;align-items:center;gap:4px;padding:6px;min-height:72px;cursor:pointer;border-radius:8px;background:rgba(255,255,255,0.03);border:1px solid transparent;transition:transform .12s ease-out,background .12s ease-out,border-color .12s ease-out,box-shadow .12s ease-out;user-select:none;color:var(--text-2);overflow:hidden}
 .comp-item:hover{background:rgba(255,255,255,0.06);color:var(--text);transform:translateY(-2px);border-color:color-mix(in srgb,var(--cat-color,var(--cat-temel)) 33%,transparent);box-shadow:0 0 0 1px color-mix(in srgb,var(--cat-color,var(--cat-temel)) 33%,transparent),0 4px 12px color-mix(in srgb,var(--cat-color,var(--cat-temel)) 20%,transparent)}
 .comp-item:active{transform:scale(.96);transition-duration:80ms}
 .comp-item.selected{border:1.5px solid var(--cat-color,var(--cat-temel));background:color-mix(in srgb,var(--cat-color,var(--cat-temel)) 8%,transparent);color:var(--text)}
-.comp-item .comp-symbol{display:flex;align-items:center;justify-content:center;width:38px;height:38px;flex-shrink:0}
-.comp-item .comp-symbol canvas{display:block}
-.comp-item .comp-name-tr{font-size:12px;font-weight:600;color:#fff;text-align:center;line-height:1.15;max-width:100%;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;text-overflow:ellipsis;word-break:break-word}
-.comp-item .comp-badge{position:absolute;top:4px;right:4px;font-family:var(--font-mono);font-size:9px;line-height:1;padding:1px 4px;border-radius:3px;background:color-mix(in srgb,var(--cat-color,var(--cat-temel)) 22%,transparent);color:var(--cat-color,var(--cat-temel));pointer-events:none;letter-spacing:.2px}
+.comp-item .comp-symbol{display:flex;align-items:center;justify-content:center;width:38px;height:38px;flex:0 0 auto}
+.comp-item .comp-symbol canvas{display:block;width:38px;height:38px}
+.comp-item .comp-name-tr{font-size:12px;font-weight:600;line-height:1.15;color:#fff;text-align:center;max-width:100%;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;text-overflow:ellipsis;word-break:normal;overflow-wrap:break-word;hyphens:manual;-webkit-hyphens:manual}
+.comp-item .comp-badge{position:absolute;top:4px;right:4px;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:9px;font-weight:600;line-height:1;padding:2px 5px;border-radius:3px;background:rgba(255,255,255,0.09);color:rgba(255,255,255,0.72);letter-spacing:.02em;pointer-events:none}
 /* Legacy helpers retained for non-card contexts (e.g. preset list fallback) */
 .comp-item .dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
 .comp-item .key{font-family:var(--font-mono);font-size:9px;padding:1px 5px;border-radius:3px;background:var(--surface-3);color:var(--text-4)}
@@ -775,7 +781,7 @@ body.sidebar-resizing *{user-select:none!important}
     <span id="sb-temp" style="color:var(--text-3)"></span>
     <span id="sb-engine" style="color:var(--text-4)"></span>
     <span id="sb-extra" style="color:var(--text-3)"></span>
-    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v12.0.0-alpha.5 — Build: 2026-04-18 22:08 — © 2026</span>
+    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v12.0.0-alpha.6 — Build: 2026-04-18 22:30 — © 2026</span>
   </div>
 </div>
 
@@ -16776,7 +16782,7 @@ function setAriaLabels() {
 setAriaLabels();
 
 // Console banner
-console.log('%c\u26A1 VoltXAmpere v12.0.0-alpha.5', 'color:#00e09e;font-size:18px;font-weight:bold');
+console.log('%c\u26A1 VoltXAmpere v12.0.0-alpha.6', 'color:#00e09e;font-size:18px;font-weight:bold');
 console.log('%cProfessional Circuit Simulator \u2014 voltxampere.com', 'color:#8899aa;font-size:12px');
 console.log('%c' + t('scriptApi'), 'color:#f59e0b;font-size:11px');
 
@@ -17143,10 +17149,24 @@ function ctxSaveBlock() {
   showInfoCard('Blok Kaydedildi', name + ' bloğu oluşturuldu.', blockPins.length + ' pin tespit edildi.');
 }
 
-// ──────── SPRINT 104.3 — GRID CARD SIDEBAR ────────
-// Bilingual name lookup. Where the existing COMP[k].name is already the Turkish
-// string we still list it explicitly here so TR/EN always stay side by side —
-// easier to read than a conditional based on `currentLang`.
+// ──────── SPRINT 104.3 / 104.3.2 — GRID CARD SIDEBAR ────────
+// Bilingual name lookup. Where COMP[k].name already holds the Turkish string
+// we still list it explicitly so TR/EN always stay side by side — easier to
+// read than a conditional based on `currentLang`.
+//
+// Schema (forward-compatible so 104.5+ can add Arduino / ESP32 / 74HCxx
+// variants without migrating the map again):
+//   tr:      Turkish name (display default)
+//   en:      English name (shown in tooltip + searchable)
+//   h:       (optional) TR with soft-hyphens U+00AD for manual line-break
+//            positions. Only set when auto-inject would produce a bad cut.
+//   display: (optional) TR override if the card should show something other
+//            than `tr` — currently unused, reserved for 104.5+.
+//   letter:  (optional) redundant with SHORTCUT_PILLS[key].letter, kept here
+//            for future schemas that merge the two maps.
+//   digit:   (optional) same, for the digit shortcut.
+//   tags:    (optional) extra search terms — "arduino", "microcontroller",
+//            "uno" etc. Consumed by _matchComp (104.5+).
 var SIDEBAR_I18N = {
   resistor:      { tr: 'Direnç',              en: 'Resistor' },
   capacitor:     { tr: 'Kapasitör',           en: 'Capacitor' },
@@ -17203,12 +17223,12 @@ var SIDEBAR_I18N = {
   wattmeter:     { tr: 'Wattmetre',           en: 'Wattmeter' },
   diffProbe:     { tr: 'Dif. Probu',          en: 'Diff Probe' },
   iProbe:        { tr: 'Akım Probu',          en: 'Current Probe' },
-  potentiometer: { tr: 'Potansiyometre',      en: 'Potentiometer' },
+  potentiometer: { tr: 'Potansiyometre',      en: 'Potentiometer', h: 'Potansiyo\u00ADmetre' },
   ntc:           { tr: 'NTC Termistör',       en: 'NTC Thermistor' },
   ptc:           { tr: 'PTC Termistör',       en: 'PTC Thermistor' },
   ldr:           { tr: 'LDR',                 en: 'Photoresistor' },
   mov:           { tr: 'Varistör (MOV)',      en: 'Varistor' },
-  comparator:    { tr: 'Komparatör',          en: 'Comparator' },
+  comparator:    { tr: 'Komparatör',          en: 'Comparator',    h: 'Kompa\u00ADratör' },
   crystal:       { tr: 'Kristal',             en: 'Crystal' },
   coupledL:      { tr: 'Bağlı Bobin',         en: 'Coupled Inductor' },
   dcmotor:       { tr: 'DC Motor',            en: 'DC Motor' },
@@ -17220,6 +17240,22 @@ var SIDEBAR_I18N = {
   dac:           { tr: 'DAC (8-bit)',         en: 'DAC 8-bit' },
   pwm:           { tr: 'PWM Üreteci',         en: 'PWM Generator' }
 };
+
+// Sprint 104.3.2 — derive the visible TR label. Explicit `h` wins. Otherwise
+// if the name is a single word longer than 10 chars, inject a soft hyphen at
+// the midpoint so `hyphens:manual` has a valid break to use. Multi-word
+// names already wrap at spaces so we leave them alone.
+function _hyphenatedName(key, tr) {
+  var entry = SIDEBAR_I18N[key];
+  if (entry && entry.h) return entry.h;
+  if (!tr) return tr;
+  if (tr.indexOf(' ') >= 0) return tr;       // multi-word → break on spaces
+  if (tr.indexOf('-') >= 0) return tr;       // already hyphen-bearing
+  if (tr.indexOf('\u00AD') >= 0) return tr;  // author already injected
+  if (tr.length <= 10) return tr;
+  var mid = Math.floor(tr.length / 2);
+  return tr.slice(0, mid) + '\u00AD' + tr.slice(mid);
+}
 
 // Pill-only shortcut map per Sprint 104.3 spec. `letter` and/or `digit` are
 // rendered as chips; if a field is absent (LED has no letter, opamp has no
@@ -17295,8 +17331,9 @@ function _renderCardSymbol(compDef) {
   return mc;
 }
 
-// Sprint 104.3.1 — compact card. Structure: symbol, TR name, optional badge
-// (top-right absolute, letter-only). EN name is no longer painted; it lives
+// Sprint 104.3.1 / 104.3.2 — compact card. Structure: symbol, TR name
+// (hyphenated for narrow columns), optional badge (top-right absolute,
+// letter-only, category-agnostic surface). EN name is not painted; it lives
 // in the title attr so tooltips reveal it and _matchComp still searches it.
 function _renderCompCard(compKey, compDef, catKey) {
   var names = _compNames(compKey, compDef);
@@ -17305,6 +17342,8 @@ function _renderCompCard(compKey, compDef, catKey) {
   d.dataset.comp = compKey;
   d.dataset.cat = catKey || compDef.cat || '';
   d.style.setProperty('--cat-color', _catColor(catKey || compDef.cat));
+  // title stays clean — no soft hyphens — so tooltip + copy-paste show the
+  // original text. Card text uses the hyphenated form.
   d.title = names.tr + ' · ' + names.en;
   d.setAttribute('role', 'button');
   d.setAttribute('tabindex', '0');
@@ -17316,11 +17355,11 @@ function _renderCompCard(compKey, compDef, catKey) {
 
   var trEl = document.createElement('div');
   trEl.className = 'comp-name-tr';
-  trEl.textContent = names.tr;
+  trEl.textContent = _hyphenatedName(compKey, names.tr);
   d.appendChild(trEl);
 
-  // Letter-only badge top-right. Digit shortcuts are dropped from the card
-  // face — they're still declared in SHORTCUT_PILLS for 104.4's binding work.
+  // Letter-only badge top-right. Digit shortcuts stay registered in
+  // SHORTCUT_PILLS for 104.4's binding work but don't paint on the card.
   var sc = SHORTCUT_PILLS[compKey];
   if (sc && sc.letter) {
     var badge = document.createElement('span');
@@ -17369,15 +17408,16 @@ function rebuildPalette() {
   });
 }
 
-// ──────── SPRINT 104.3.1 — RESIZABLE SIDEBAR + ADAPTIVE GRID ────────
+// ──────── SPRINT 104.3.1 / 104.3.2 — RESIZABLE SIDEBAR + ADAPTIVE GRID ────────
 // The sidebar is user-resizable via a 4px drag handle on its right edge.
 // Width is persisted in localStorage (vxa.sidebar.width) and clamped to
-// [200, 480]. Double-clicking the handle snaps back to 290. A ResizeObserver
-// on #left flips between 2 / 3 / 4 column card grids at 260px and 360px
-// breakpoints. Canvas re-layout is handled by the existing canvas-setup.js
-// ResizeObserver on #canvas-wrap, so there's nothing extra to wire here.
-var SIDEBAR_MIN = 200;
-var SIDEBAR_MAX = 480;
+// [140, 520]. Double-clicking the handle snaps back to 290. A ResizeObserver
+// on #left flips between 1 / 2 / 3 / 4 / 5 / 6 column card grids at
+// 180 / 260 / 340 / 420 / 480px breakpoints. Canvas re-layout is handled by
+// the existing canvas-setup.js ResizeObserver on #canvas-wrap, so there's
+// nothing extra to wire here.
+var SIDEBAR_MIN = 140;
+var SIDEBAR_MAX = 520;
 var SIDEBAR_DEFAULT = 290;
 var SIDEBAR_LS_KEY = 'vxa.sidebar.width';
 
@@ -17392,12 +17432,18 @@ function _applySidebarWidth(px) {
 function _updateSidebarCols(w) {
   var left = document.getElementById('left');
   if (!left) return;
-  var cols = 3;
-  if (w < 260) cols = 2;
-  else if (w > 360) cols = 4;
-  left.classList.toggle('cols-2', cols === 2);
-  left.classList.toggle('cols-3', cols === 3);
-  left.classList.toggle('cols-4', cols === 4);
+  // Breakpoints chosen so each card stays readable: 1-col mode starts at
+  // 140px (hyphenation kicks in for long names), 6-col mode above 480px
+  // keeps cards close to the ~75px minimum where the 38px icon + 2 lines
+  // of name still fit.
+  var cols;
+  if (w < 180)       cols = 1;
+  else if (w < 260)  cols = 2;
+  else if (w < 340)  cols = 3;
+  else if (w < 420)  cols = 4;
+  else if (w < 480)  cols = 5;
+  else               cols = 6;
+  for (var i = 1; i <= 6; i++) left.classList.toggle('cols-' + i, cols === i);
 }
 
 (function _setupSidebarResize() {
@@ -28664,7 +28710,7 @@ function runQuickDemo() {
 function showAbout() {
   var box = document.getElementById('about-box');
   var tr = currentLang === 'tr';
-  box.innerHTML = '<div style="font:800 24px var(--font-ui);margin-bottom:4px"><span style="color:var(--accent)">\u26A1 Volt</span><span style="color:var(--orange)">X</span><span style="color:var(--blue)">Ampere</span> <span style="font:500 14px var(--font-mono);color:var(--text-3)">v12.0.0-alpha.5</span></div>'
+  box.innerHTML = '<div style="font:800 24px var(--font-ui);margin-bottom:4px"><span style="color:var(--accent)">\u26A1 Volt</span><span style="color:var(--orange)">X</span><span style="color:var(--blue)">Ampere</span> <span style="font:500 14px var(--font-mono);color:var(--text-3)">v12.0.0-alpha.6</span></div>'
     + '<div style="font:13px var(--font-ui);color:var(--text-2);margin-bottom:16px">' + (tr?'D\u00fcnyan\u0131n En Geli\u015fmi\u015f \u00dccretsiz Devre Sim\u00fclat\u00f6r\u00fc':'World\'s Most Advanced Free Circuit Simulator') + '</div>'
     + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;text-align:left;font-size:11px;color:var(--text-2);margin-bottom:12px">'
     + '<div>\u2705 71+ ' + (tr?'Bile\u015fen':'Components') + '</div>'
