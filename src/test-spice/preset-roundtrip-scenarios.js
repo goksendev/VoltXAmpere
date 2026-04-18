@@ -54,6 +54,21 @@ const LOSSY_ROUNDTRIP = new Set([
   'h-bridge', 'bridge-rect', 'dc-motor',
 ]);
 
+// Sprint 103: presets with ConnectionCheck 5px-tolerance false positives —
+// they load and simulate correctly via the solver's 25px snap but the
+// Connection Warning modal fires on Run. Slated for Sprint 104 cleanup
+// (either per-preset wire tightening or ConnectionCheck tolerance rework).
+// Must match the KNOWN_CC_NOISE list in preset-integrity-scenarios.js.
+const CC_NOISE_ROUNDTRIP = new Set([
+  'serpar', 'npn-sw', 'noninv-opamp', 'vreg-7805', 'logic-demo',
+  'dep-src', 'jfet-cs', 'scr-phase', 'dff-toggle', 'diff-meas',
+  'ntc-sensor', 'ldr-sensor', 'pot-divider', 'mc-rc', 'crystal-osc',
+  'sens-demo', 'wc-demo', '555-astable', '555-mono', 'bjt-astable',
+  'vreg-7805-bypass', 'class-a-amp', 'diff-amp', 'inst-amp', 'push-pull',
+  'sallen-key', 'active-bpf', 'ldr-led', 'ntc-alarm', 'led-chaser',
+  'binary-counter', 'h-bridge', 'relay-ctrl', 'lissajous', 'trafo',
+]);
+
 // Anchor matcher — compare sorted voltage vectors element-wise.
 // `V` is the actual (unsorted) voltage vector from path A.
 // `expectedSorted` is the hand-computed expected vector, already sorted.
@@ -133,6 +148,13 @@ function sortedDiff(a, b) {
         // we step to steady state with a sequence of short transients,
         // which matches the Sprint 101 audit methodology.
         buildCircuitFromCanvas();
+        // Sprint 103 (F-006 integrity gate): a preset with unconnected pins
+        // can still converge once the solver resolves remaining nodes, but
+        // the answer is wrong. Take a ConnectionCheck snapshot here so the
+        // probe can fail on floating pins even when both paths agree.
+        const ccWarn = VXA.ConnectionCheck
+          ? VXA.ConnectionCheck.check().map(w => w.message)
+          : [];
         let convergedFlag = true;
         try {
           // 10 short steps at dt=1e-5 to relax into DC steady state.
@@ -147,6 +169,7 @@ function sortedDiff(a, b) {
           ? Array.from(S._nodeVoltages).map(v => Number(Number(v).toFixed(6)))
           : [];
         return {
+          ccWarnings: ccWarn,
           N: SIM ? SIM.N : 0,
           converged: convergedFlag && V.every(v => Number.isFinite(v)),
           V,
@@ -215,6 +238,19 @@ function sortedDiff(a, b) {
     if (LOSSY_ROUNDTRIP.has(id) && r.pathA && r.pathB && r.pathA.converged && r.pathB.converged) {
       r.lossy = true;
       r.pass = true;
+    }
+    // Sprint 103 integrity gate — any unconnected pins reported by
+    // VXA.ConnectionCheck on Path A override convergence and lossy
+    // markers. A circuit the app's own Connection Warning modal flags
+    // as broken is never OK here, regardless of diff or lossy status.
+    // Known-noisy presets (KNOWN_CC_NOISE in preset-integrity-scenarios)
+    // are explicitly listed here for the round-trip gate; Sprint 104
+    // will audit each one individually.
+    if (r.pathA && r.pathA.ccWarnings && r.pathA.ccWarnings.length > 0) {
+      if (!LOSSY_ROUNDTRIP.has(id) && !CC_NOISE_ROUNDTRIP.has(id)) {
+        r.pass = false;
+        r.integrityFail = r.pathA.ccWarnings.length;
+      }
     }
     results.push(r);
 

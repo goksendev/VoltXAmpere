@@ -1,6 +1,6 @@
 {
   "name": "voltxampere",
-  "version": "11.2.0",
+  "version": "11.2.1",
   "description": "Professional web-based circuit simulator with full thermal-electrical coupling, AC-MNA analysis, and interactive measurement.",
   "main": "index.html",
   "homepage": "https://voltxampere.com",
@@ -32,7 +32,8 @@
     "dev": "python3 -m http.server 8765",
     "scenarios": "for f in src/test-spice/*-scenarios.js; do echo \"— $f —\"; node \"$f\" || exit 1; done",
     "test:sparse": "node src/test-spice/sparse-dense-differential-scenarios.js",
-    "test:presets": "node src/test-spice/preset-roundtrip-scenarios.js"
+    "test:presets": "node src/test-spice/preset-roundtrip-scenarios.js",
+    "test:integrity": "node src/test-spice/preset-integrity-scenarios.js"
   },
   "dependencies": {
     "puppeteer": "^24.40.0"

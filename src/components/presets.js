@@ -70,15 +70,30 @@ var PRESETS = [
     wires:[{x1:-100,y1:-40,x2:-40,y2:-40},{x1:40,y1:-40,x2:20,y2:0},{x1:80,y1:-40,x2:100,y2:-80},{x1:-100,y1:40,x2:-100,y2:60},{x1:60,y1:40,x2:60,y2:60}]},
   { id:'cmos-inv', name:'CMOS Inverter', color:'#a855f7',
     desc:'Dijital NOT kapisi', formula:'Vin=0V\u2192Vout=5V, Vin=5V\u2192Vout=0V',
+    // Sprint 103 (F-004): previous preset had the Vin source's bottom
+    // terminal coincident with the VCC rail's top terminal, creating a
+    // 0V==5V short that pinned the inverter rails to nonsense values.
+    // Rewired with separate VCC and Vin sources each going to their own
+    // ground, plus explicit NMOS/PMOS pin connections.
+    // NMOS at (40,40): gate(0,40), drain(60,0), source(60,80)
+    // PMOS at (40,-40): gate(0,-40), drain(60,-80), source(60,0)
     parts:[
-      {type:'vdc',x:-80,y:0,rot:0,val:5},
-      {type:'nmos',x:60,y:40,rot:0,val:0},
-      {type:'pmos',x:60,y:-40,rot:0,val:0},
-      {type:'vdc',x:-80,y:-80,rot:0,val:0},
-      {type:'ground',x:-80,y:80,rot:0,val:0},
-      {type:'ground',x:60,y:100,rot:0,val:0},
+      {type:'vdc',x:-120,y:0,rot:0,val:5},         // VCC rail
+      {type:'vdc',x:-60,y:0,rot:0,val:0},          // Vin (default logic LOW)
+      {type:'pmos',x:40,y:-40,rot:0,val:0},
+      {type:'nmos',x:40,y:40,rot:0,val:0},
+      {type:'ground',x:-120,y:80,rot:0,val:0},
+      {type:'ground',x:-60,y:80,rot:0,val:0},
+      {type:'ground',x:60,y:120,rot:0,val:0}
     ],
-    wires:[{x1:-80,y1:-40,x2:60,y2:-80},{x1:-80,y1:-120,x2:20,y2:-40},{x1:20,y1:-40,x2:20,y2:40},{x1:-80,y1:40,x2:-80,y2:60}]},
+    wires:[
+      {x1:-120,y1:-40,x2:60,y2:-80},     // VCC → PMOS drain (top)
+      {x1:-120,y1:40,x2:-120,y2:60},     // VCC- → GND1
+      {x1:-60,y1:40,x2:-60,y2:60},       // Vin- → GND2
+      {x1:-60,y1:-40,x2:0,y2:-40},       // Vin+ → PMOS gate
+      {x1:0,y1:-40,x2:0,y2:40},          // PMOS gate → NMOS gate (input tied)
+      {x1:60,y1:80,x2:60,y2:100}         // NMOS source → GND3
+    ]},
   { id:'inv-opamp', name:'Evirici Op-Amp', color:'#f59e0b',
     desc:'Av = -Rf/Ri', formula:'Av = -10 (Ri=1k\u03A9, Rf=10k\u03A9)',
     parts:[
@@ -208,8 +223,25 @@ var PRESETS = [
     wires:[{x1:0,y1:-160,x2:-80,y2:-80},{x1:0,y1:-160,x2:80,y2:-80},{x1:-80,y1:80,x2:80,y2:80},{x1:80,y1:80,x2:0,y2:120}]},
   { id:'bridge-rect', name:'Köprü Doğrultucu', color:'#3498db',
     desc:'4 diyot tam dalga', formula:'Vout_peak ≈ Vpeak - 1.4V',
+    // Sprint 103 (F-003): previous wiring had dangling segments (-30,-40)→(60,-40)
+    // and (-30,40)→(60,40) that didn't reach D2/D4 anodes at (20,-40)/(20,40),
+    // plus no wires to C1 pins (120,±40). Every pin was geometrically correct
+    // but 4 of them lacked any wire endpoint within 25px snap range so the
+    // solver saw them as floating. Rewired to connect every pin to its
+    // intended neighbour: AC rails → anode rows → cathode rows → C1/R1.
     parts:[{type:'vac',x:-150,y:0,rot:0,val:12,freq:50},{type:'diode',x:-60,y:-40,rot:0,val:0},{type:'diode',x:60,y:-40,rot:0,val:0},{type:'diode',x:-60,y:40,rot:0,val:0},{type:'diode',x:60,y:40,rot:0,val:0},{type:'capacitor',x:120,y:0,rot:1,val:1000e-6},{type:'resistor',x:180,y:0,rot:1,val:1000},{type:'ground',x:-150,y:80,rot:0,val:0},{type:'ground',x:180,y:80,rot:0,val:0}],
-    wires:[{x1:-150,y1:-40,x2:-90,y2:-40},{x1:-30,y1:-40,x2:60,y2:-40},{x1:-150,y1:40,x2:-90,y2:40},{x1:-30,y1:40,x2:60,y2:40},{x1:90,y1:-40,x2:180,y2:-40},{x1:90,y1:40,x2:180,y2:40},{x1:180,y1:40,x2:180,y2:60},{x1:-150,y1:40,x2:-150,y2:60}]},
+    wires:[
+      {x1:-150,y1:-40,x2:-90,y2:-40},
+      {x1:-30,y1:-40,x2:30,y2:-40},
+      {x1:90,y1:-40,x2:120,y2:-40},
+      {x1:120,y1:-40,x2:180,y2:-40},
+      {x1:-150,y1:40,x2:-90,y2:40},
+      {x1:-30,y1:40,x2:30,y2:40},
+      {x1:90,y1:40,x2:120,y2:40},
+      {x1:120,y1:40,x2:180,y2:40},
+      {x1:180,y1:40,x2:180,y2:60},
+      {x1:-150,y1:40,x2:-150,y2:60}
+    ]},
   { id:'vreg-7805-bypass', name:'7805 Filtreli Regülatör', color:'#2ecc71',
     desc:'12V → 5V + bypass kapasitör', formula:'Vout = 5V (±2%, filtreli)',
     parts:[{type:'vdc',x:-120,y:0,rot:0,val:12},{type:'vreg',x:0,y:0,rot:0,val:5,model:'7805'},{type:'capacitor',x:-60,y:40,rot:1,val:100e-6},{type:'capacitor',x:60,y:40,rot:1,val:100e-6},{type:'resistor',x:120,y:0,rot:1,val:1000},{type:'ground',x:0,y:80,rot:0,val:0}],

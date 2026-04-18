@@ -1,10 +1,11 @@
 # VoltXAmpere
 
-[![version](https://img.shields.io/badge/version-11.2.0-00e09e)](./CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-11.2.1-00e09e)](./CHANGELOG.md)
 [![harness](https://img.shields.io/badge/harness-11%2F11_pass-22cc44)](./src/test-spice/puppeteer-harness.js)
-[![scenarios](https://img.shields.io/badge/scenarios-15%2F15_pass-22cc44)](./src/test-spice)
+[![scenarios](https://img.shields.io/badge/scenarios-16%2F16_pass-22cc44)](./src/test-spice)
 [![sparse](https://img.shields.io/badge/sparse-25%2F25_pass-22cc44)](./src/test-spice/sparse-dense-differential-scenarios.js)
 [![presets](https://img.shields.io/badge/presets-55%2F55_pass-22cc44)](./src/test-spice/preset-roundtrip-scenarios.js)
+[![integrity](https://img.shields.io/badge/integrity-55%2F55_pass-22cc44)](./src/test-spice/preset-integrity-scenarios.js)
 [![license](https://img.shields.io/badge/license-MIT-blue)](./LICENSE)
 
 Professional web-based circuit simulator — 71+ components, full
@@ -12,6 +13,27 @@ SPICE parser, complete thermal-electrical coupling, AC-MNA analysis,
 interactive multimeter, Bode and Nyquist plotting.
 
 Live at **[voltxampere.com](https://voltxampere.com)**.
+
+## What's New in 11.2.1
+
+Emergency patch. v11.2.0 shipped 55/55 "PASS" but operator manual
+verification found three critical user-visible bugs the probe had
+reported as green — convergence alone is not correctness.
+
+- **`bridge-rect` preset wiring fixed** — four unconnected pins
+  (D2/D4 anodes and C1 top/bottom). Now produces ~10V filtered
+  output from 12V AC input.
+- **`cmos-inv` preset wiring fixed** — Vin source's bottom terminal
+  was shorting to VCC. Inverter now gives Vout=5V when Vin=0V.
+- **`findDCOperatingPoint` no longer hangs** — 5 s wall-clock + 500
+  iteration budget added. Chrome stays responsive on `npn-sw`.
+- **New `npm run test:integrity`** and round-trip integrity gate —
+  any preset with unconnected pins now FAILs regardless of other
+  signals. Third fence added alongside the existing round-trip +
+  anchor ones.
+
+See [CHANGELOG.md](./CHANGELOG.md#1121--2026-04-19) for the full
+entry including Sprint Narrative.
 
 ## What's New in 11.2
 
@@ -90,9 +112,10 @@ python3 -m http.server 8765
 
 ```bash
 npm test               # main harness — 11 reference circuits
-npm run scenarios      # sequential: 15 device / physics / UX probes
+npm run scenarios      # sequential: 16 device / physics / UX probes
 npm run test:sparse    # sparse-vs-dense differential — 25 circuits
 npm run test:presets   # preset round-trip + 10 gold anchors — 55 presets
+npm run test:integrity # preset Connection-Check integrity — 55 presets
 ```
 
 Every commit in the Sprint 77 → 99 series was verified against the

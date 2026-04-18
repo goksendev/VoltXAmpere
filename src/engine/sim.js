@@ -1395,6 +1395,23 @@ VXA.SimV2 = (function() {
   }
 
   function findDCOperatingPoint() {
+    // Sprint 103 (F-005): wall-clock + iteration budget so a non-converging
+    // circuit (e.g. npn-sw feedback loop with a deep hysteresis) can't hang
+    // the browser. The NR algorithm below is unchanged; we simply bail
+    // out of the outer stepping loops when either budget is exhausted and
+    // return false with a clear error. Root cause (why npn-sw does not
+    // converge) is deferred to Sprint 104 under the no-silent-scope rule.
+    var _dcopStart = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+    var _dcopBudgetMs = 5000;  // 5 s wall-clock budget
+    var _dcopMaxOuter = 500;    // safety on any outer loop count
+    var _dcopOuterCount = 0;
+    function _dcopTimedOut() {
+      var now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+      if (now - _dcopStart > _dcopBudgetMs) return true;
+      if (_dcopOuterCount++ > _dcopMaxOuter) return true;
+      return false;
+    }
+
     // Sprint 49: opt-in wiring of VXA.Convergence.findDCOP — kept as a
     // non-destructive probe. If S._useConvergenceUltimate=true, we try the
     // 4-tier strategy first; any outcome (success or fail) still falls into
@@ -1437,6 +1454,7 @@ VXA.SimV2 = (function() {
       var ti = 0;
       var stuckCount = 0;
       while (ti < targetFactors.length) {
+        if (_dcopTimedOut()) { success = false; break; }
         var f = targetFactors[ti];
         for (var j = 0; j < sources.length; j++) sources[j].val = origVals[j] * f;
         solve(1e-5);
@@ -1468,6 +1486,7 @@ VXA.SimV2 = (function() {
       // Original GMIN stepping for non-BJT circuits
       var GMIN_STEPS = [1e-2, 1e-4, 1e-6, 1e-8, 1e-10, 1e-12];
       for (var g = 0; g < GMIN_STEPS.length; g++) {
+        if (_dcopTimedOut()) { success = false; break; }
         _currentGMIN = GMIN_STEPS[g];
         solve(1e-5);
         if (_lastConverged) {
@@ -1477,12 +1496,13 @@ VXA.SimV2 = (function() {
           if (g === 0) break;
         }
       }
-      if (!success) {
+      if (!success && !_dcopTimedOut()) {
         _currentGMIN = 1e-12;
         var sources2 = SIM.comps.filter(function(c) { return c.type === 'V'; });
         var origVals2 = sources2.map(function(s) { return s.val; });
         var steps2 = [0.1, 0.2, 0.4, 0.6, 0.8, 1.0];
         for (var si2 = 0; si2 < steps2.length; si2++) {
+          if (_dcopTimedOut()) break;
           for (var j2 = 0; j2 < sources2.length; j2++) sources2[j2].val = origVals2[j2] * steps2[si2];
           solve(1e-5);
         }
@@ -1495,7 +1515,15 @@ VXA.SimV2 = (function() {
     _simMethod = S.simMethod || 'trap';
     _dtJustChanged = false;
 
-    if (!success) console.warn('DC operating point bulunamadı');
+    if (!success) {
+      var _elapsed = ((typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now()) - _dcopStart;
+      if (_elapsed > _dcopBudgetMs || _dcopOuterCount > _dcopMaxOuter) {
+        console.warn('DC operating point timeout after ' + _elapsed.toFixed(0) + 'ms — aborting to keep UI responsive');
+        if (S && S.sim) S.sim.error = 'DC OP timeout (' + _elapsed.toFixed(0) + 'ms)';
+      } else {
+        console.warn('DC operating point bulunamadı');
+      }
+    }
     return success;
   }
 

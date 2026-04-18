@@ -5,6 +5,112 @@ All notable changes to VoltXAmpere are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [11.2.1] — 2026-04-19
+
+Emergency patch. The operator's manual verification of v11.2.0 found
+three CRITICAL user-visible bugs that the v11.2.0 round-trip probe
+reported as PASS:
+
+1. **bridge-rect** shipped with 4 unconnected pins (D2 pin 1, D4 pin 1,
+   C1 pin 1, C1 pin 2). The simulator's own Connection Warning modal
+   flagged this immediately on load. DC/transient output was 0V
+   everywhere — the filter cap and load were electrically floating.
+2. **cmos-inv** shipped with the Vin source's bottom terminal coincident
+   with the VCC rail's top terminal, creating an implicit 0V==5V short
+   that pinned the inverter to nonsense values.
+3. **npn-sw** + Find DC Operating Point caused Chrome to report
+   "page not responding" — a user-facing hang caused by the
+   `findDCOperatingPoint` outer stepping loop having no wall-clock
+   or iteration budget.
+
+The v11.2.0 round-trip probe missed #1 and #2 because it only checked
+"converged vs diverged" — a circuit with floating pins can still
+converge (the solver resolves remaining nodes). Anchors 10/10 passed
+because none of the broken presets were in the anchor set. The
+`findDCOperatingPoint` hang was already flagged during Sprint 102
+probe development but correctly deferred under the no-silent-scope
+rule; this release carries the scoped follow-up fix.
+
+### Fixed
+
+- **F-003 — `bridge-rect` preset unconnected pins**
+  *(`src/components/presets.js`)* Previous wiring had dangling segments
+  `(-30,-40)→(60,-40)` and `(-30,40)→(60,40)` that didn't reach
+  D2/D4 anodes at `(30,±40)` (diode pins are at ±30px, not ±40), plus
+  no wires to C1 pins at `(120,±40)`. Rewired with correct coordinates.
+  Verified: 1s transient with 12V AC input produces ~10V filtered DC
+  output; peak-to-peak matches `Vpeak - 1.4V` to within diode model
+  tolerance.
+- **F-004 — `cmos-inv` preset wiring**
+  *(`src/components/presets.js`)* Vin source moved from `(-80,-80)` to
+  `(-60,0)` with its own ground so its bottom terminal no longer
+  collides with the VCC rail. PMOS/NMOS gate-tied input, source/drain
+  connections explicit. Verified: Vin=0V → Vout=5V (HIGH), the
+  standard inverter logic.
+- **F-005 — `findDCOperatingPoint` hang**
+  *(`src/engine/sim.js`)* Added wall-clock (5 s) and outer-loop
+  iteration (500) budgets to both the BJT source-stepping path and the
+  GMIN-stepping path. Any overrun now returns `false` with
+  `S.sim.error = 'DC OP timeout (Xms)'`. NR algorithm and
+  convergence strategy unchanged. Verified on `npn-sw`: 99 ms bail
+  instead of indefinite hang. Root cause of `npn-sw` non-convergence
+  deferred to Sprint 104 under the no-silent-scope rule.
+
+### Added
+
+- **`npm run test:integrity`** — new standalone probe that loads every
+  preset and runs `VXA.ConnectionCheck.check()`, the same routine the
+  app's own "Connection Warning" modal fires on Run. Baseline
+  (pre-fix): 37 of 55 presets flagged. Post-fix: 20 strictly clean +
+  35 documented CC-noise (Sprint 104 follow-up list); `bridge-rect`
+  and `cmos-inv` removed from the noisy list as their failures were
+  real electrical bugs closed by F-003/F-004.
+  *(`src/test-spice/preset-integrity-scenarios.js`)*
+- **Round-trip integrity gate**
+  *(`src/test-spice/preset-roundtrip-scenarios.js`)* Any preset whose
+  Path A reports `ConnectionCheck` warnings now FAILs the round-trip
+  regardless of convergence, lossy marker, or diff. The only way for
+  an unconnected-pin preset to pass is to be explicitly listed as
+  LOSSY_ROUNDTRIP (intrinsic SPICE-export lossiness) or
+  CC_NOISE_ROUNDTRIP (25-vs-5-px tolerance mismatch, Sprint 104).
+
+### Infrastructure
+
+- **CLAUDE.md Protocol Rules** committed in Sprint 102.5
+  (commit `77b4d57`). Seven disciplines distilled from Sprints 98,
+  101, 102: no autonomous wakeups, no silent scope expansion,
+  no sahte PASS, user-visible priority, four-gate discipline,
+  fix-baseline-regression, clean termination. This release is the
+  first where those rules were operational throughout.
+
+### Sprint Narrative
+
+Sprint 102 shipped v11.2.0 with all four gates green:
+harness 11/11, scenarios 15/15, sparse 25/25, presets 55/55
+(+ 10/10 anchors). The operator's manual walkthrough of five presets
+took 15 minutes and found three CRITICAL bugs that had shipped to
+users. The round-trip probe had reported PASS on all of them because
+convergence is insufficient — a circuit with four unconnected pins
+still converges when the solver resolves the remaining nodes.
+
+This is the fourth iteration of the same underlying lesson:
+
+- Sprint 98: test probes can lie by racing themselves
+- Sprint 101: tests can lie by existing on paths that don't reach users
+- Sprint 102: round-trip can lie when both paths share the same bug
+- Sprint 103: convergence can lie when the topology is broken
+
+Every iteration tightens the fence. v11.2.1 adds the integrity gate:
+unconnected pin count > 0 means FAIL, regardless of any other signal.
+Combined with the anchor fence added in v11.2.0, the probe now rejects
+three distinct failure modes instead of one.
+
+The `findDCOperatingPoint` hang on `npn-sw` was a separate CRITICAL
+finding. Fix is surgical — wall-clock and iteration bounds, NR
+algorithm unchanged. Root cause investigation (why does NR never
+converge on `npn-sw`?) is deferred to Sprint 104 under the
+"no silent scope expansion" rule.
+
 ## [11.2.0] — 2026-04-19
 
 The release where our own audit caught us. Sprint 101 ran a read-only
@@ -434,6 +540,7 @@ marked completion of the initial SPICE parser, MNA solver with
 Backward-Euler / Trapezoidal companions, sparse LU factorisation,
 thermal-damage engine, and 71+ component library.
 
+[11.2.1]: https://github.com/goksendev/VoltXAmpere/releases/tag/v11.2.1
 [11.2.0]: https://github.com/goksendev/VoltXAmpere/releases/tag/v11.2.0
 [11.1.0]: https://github.com/goksendev/VoltXAmpere/releases/tag/v11.1.0
 [11.0.0]: https://github.com/goksendev/VoltXAmpere/releases/tag/v11.0.0
