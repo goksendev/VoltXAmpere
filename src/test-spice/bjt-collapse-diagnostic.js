@@ -28,7 +28,14 @@ const CIR  = fs.readFileSync(path.join(__dirname, '17-bjt-runaway-demo.cir'), 'u
     VXA.SpiceImport.placeCircuit(VXA.SpiceImport.parse(c));
     buildCircuitFromCanvas();
     S.sim.t = 0;
-    S.sim.running = true;
+    // Sprint 98: keep the render-loop's auto-stepping OUT of this
+    // diagnostic. When sim.running = true the browser's animation
+    // frame drives its own VXA.SimV2.solve() in parallel with the
+    // test's manual stepping — Sprint 98 discovered that the
+    // collapse documented as "Sprint 81 0.26 s" was actually caused
+    // by that race, not a stamp-level bug. With running = false the
+    // manual step loop owns the simulation deterministically.
+    S.sim.running = false;
     window.__diag = [];
   }, CIR);
 

@@ -27,7 +27,14 @@ async function simulateCircuit(page, cir, totalSteps, chunkSize, sampleEvery) {
     VXA.SpiceImport.placeCircuit(VXA.SpiceImport.parse(c));
     buildCircuitFromCanvas();
     S.sim.t = 0;
-    S.sim.running = true;
+    // Sprint 98: keep the render loop OUT of the probe. When
+    // sim.running = true the browser's animation frame drives its
+    // own VXA.SimV2.solve() between our chunked page.evaluate()
+    // calls, and that race was the real cause of the "Sprint 81
+    // runaway collapse at t ≈ 0.26 s" — a stamp-level physics bug
+    // was suspected but the stamp is actually well-behaved once
+    // the manual stepping loop owns the solve sequence.
+    S.sim.running = false;
     window.__bjtSamples = [];
   }, cir);
 
