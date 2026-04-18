@@ -1,0 +1,9 @@
+* Sprint 93: swap in a higher-IDSS model (J310) on the same
+* topology to prove the solver really tracks the .MODEL card and
+* does not hard-code 10 mA.  With IDSS = 60 mA, V(2) should drop
+* to ≈ 4 V across the same 100 Ω resistor.
+V1 1 0 DC 10
+R1 1 2 100
+J1 2 0 0 J310
+.model J310 NJF (IDSS=60m VTO=-6 LAMBDA=1e-4)
+.END

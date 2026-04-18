@@ -1,0 +1,11 @@
+* Sprint 93: drive V_GS below VTO = −1.5 V to put the 2N5457 into
+* cutoff.  A dedicated gate-bias source V2 holds node 3 at −2 V so
+* V_GS = V(G) − V(S) = −2 V < VTO, which the stamp collapses to
+* I_D = 0.  The 1 kΩ load R1 should then see essentially no drop
+* and V(2) should sit at the +10 V rail.
+V1 1 0 DC 10
+R1 1 2 1k
+V2 3 0 DC -2
+J1 2 3 0 2N5457
+.model 2N5457 NJF (IDSS=3m VTO=-1.5 LAMBDA=1e-4)
+.END

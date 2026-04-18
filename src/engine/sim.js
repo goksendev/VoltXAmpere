@@ -385,7 +385,7 @@ VXA.SimV2 = (function() {
           var zvd = (nodeV[c.n1] || 0) - (nodeV[c.n2] || 0);
           St.zener(matrix, rhs, c.n1, c.n2, DIODE_IS, DIODE_N, zvd, c.vz, VT_VAL);
         } else if (c.type === 'JFET') {
-          St.jfet(matrix, rhs, c.n1, c.n2, c.n3, c.polarity, c.Idss, c.Vp, nodeV);
+          St.jfet(matrix, rhs, c.n1, c.n2, c.n3, c.polarity, c.Idss, c.Vp, c.LAMBDA || 0, nodeV);
         } else if (c.type === 'VREG') {
           var vIn = nodeV[c.nIn] || 0, vGnd = nodeV[c.nGnd] || 0;
           var target = Math.min(c.vreg, vIn - vGnd - 2);
@@ -1055,8 +1055,14 @@ VXA.SimV2 = (function() {
         c.part._v = Math.abs((nodeV[c.noP] || 0) - (nodeV[c.noN] || 0));
         c.part._i = 0; c.part._p = 0;
       } else if (c.type === 'JFET') {
+        // Sprint 93: readout mirrors the stamp's LAMBDA-aware saturation
+        // formula — without this the UI would report the pre-Sprint-93
+        // (1+λ·vds) = 1 current even though the solver is now using
+        // the modulated value.
         var pol = c.polarity, vgs = pol * ((nodeV[c.n1] || 0) - (nodeV[c.n3] || 0)), vds = pol * ((nodeV[c.n2] || 0) - (nodeV[c.n3] || 0));
-        var id = c.Idss * Math.pow(Math.max(0, 1 - vgs / c.Vp), 2);
+        var _jfetLam = c.LAMBDA || 0;
+        var _normVgs = Math.max(0, 1 - vgs / c.Vp);
+        var id = c.Idss * _normVgs * _normVgs * (1 + _jfetLam * Math.abs(vds));
         c.part._v = Math.abs(vds); c.part._i = Math.abs(id); c.part._p = Math.abs(vds * id);
         c.part._region = (pol > 0 ? vgs <= c.Vp : vgs >= c.Vp) ? 'Kesim' : (Math.abs(vds) < Math.abs(vgs - c.Vp) ? 'Lineer' : 'Doyma');
       } else if (c.type === 'SCR') {

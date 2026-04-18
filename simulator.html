@@ -720,7 +720,7 @@ input:focus{border-color:var(--accent)}
     <span id="sb-temp" style="color:var(--text-3)"></span>
     <span id="sb-engine" style="color:var(--text-4)"></span>
     <span id="sb-extra" style="color:var(--text-3)"></span>
-    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v11.0 — Build: 2026-04-18 10:37 — © 2026</span>
+    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v11.0 — Build: 2026-04-18 10:46 — © 2026</span>
   </div>
 </div>
 
@@ -6128,7 +6128,17 @@ VXA.Stamps = (function() {
     var ieqPol = ieq * pol;
     stampI(rhs, nD, -ieqPol); stampI(rhs, nS, ieqPol);
   }
-  function jfet(matrix, rhs, nG, nD, nS, pol, Idss, Vp, nodeV) {
+  function jfet(matrix, rhs, nG, nD, nS, pol, Idss, Vp, LAMBDA, nodeV) {
+    // Sprint 93: channel-length modulation (LAMBDA) now multiplies the
+    // saturation-region current and feeds a real gds. Callers that still
+    // pass the legacy 9-argument signature (…, Vp, nodeV) won't break
+    // because the historical LAMBDA slot then holds the nodeV array; we
+    // detect that and shift down.
+    if (typeof LAMBDA === 'object' && LAMBDA !== null && nodeV === undefined) {
+      nodeV = LAMBDA;
+      LAMBDA = 0;
+    }
+    var lam = (typeof LAMBDA === 'number' && isFinite(LAMBDA)) ? LAMBDA : 0;
     var vgs = pol * ((nodeV[nG] || 0) - (nodeV[nS] || 0));
     var vds = pol * ((nodeV[nD] || 0) - (nodeV[nS] || 0));
     var id = 0, gm = 0, gds = 1e-12;
@@ -6138,9 +6148,10 @@ VXA.Stamps = (function() {
       gm = 2 * Idss / Math.abs(Vp) * Math.abs(vds / Vp);
       gds = 2 * Idss / Math.abs(Vp) * Math.abs(vgs / Vp - 1 - vds / Vp) + 1e-12;
     } else {
-      id = Idss * Math.pow(Math.max(0, 1 - vgs / Vp), 2);
-      gm = -2 * Idss / Vp * (1 - vgs / Vp);
-      gds = 1e-12;
+      var normVgs = Math.max(0, 1 - vgs / Vp);
+      id = Idss * normVgs * normVgs * (1 + lam * Math.abs(vds));
+      gm = -2 * Idss / Vp * normVgs * (1 + lam * Math.abs(vds));
+      gds = Idss * normVgs * normVgs * lam + 1e-12;
     }
     var ieq = id * pol - gm * vgs - gds * vds;
     if (nD > 0 && nG > 0) Sp.stamp(matrix, nD - 1, nG - 1, gm * pol);
@@ -6644,7 +6655,7 @@ VXA.SimV2 = (function() {
           var zvd = (nodeV[c.n1] || 0) - (nodeV[c.n2] || 0);
           St.zener(matrix, rhs, c.n1, c.n2, DIODE_IS, DIODE_N, zvd, c.vz, VT_VAL);
         } else if (c.type === 'JFET') {
-          St.jfet(matrix, rhs, c.n1, c.n2, c.n3, c.polarity, c.Idss, c.Vp, nodeV);
+          St.jfet(matrix, rhs, c.n1, c.n2, c.n3, c.polarity, c.Idss, c.Vp, c.LAMBDA || 0, nodeV);
         } else if (c.type === 'VREG') {
           var vIn = nodeV[c.nIn] || 0, vGnd = nodeV[c.nGnd] || 0;
           var target = Math.min(c.vreg, vIn - vGnd - 2);
@@ -7314,8 +7325,14 @@ VXA.SimV2 = (function() {
         c.part._v = Math.abs((nodeV[c.noP] || 0) - (nodeV[c.noN] || 0));
         c.part._i = 0; c.part._p = 0;
       } else if (c.type === 'JFET') {
+        // Sprint 93: readout mirrors the stamp's LAMBDA-aware saturation
+        // formula — without this the UI would report the pre-Sprint-93
+        // (1+λ·vds) = 1 current even though the solver is now using
+        // the modulated value.
         var pol = c.polarity, vgs = pol * ((nodeV[c.n1] || 0) - (nodeV[c.n3] || 0)), vds = pol * ((nodeV[c.n2] || 0) - (nodeV[c.n3] || 0));
-        var id = c.Idss * Math.pow(Math.max(0, 1 - vgs / c.Vp), 2);
+        var _jfetLam = c.LAMBDA || 0;
+        var _normVgs = Math.max(0, 1 - vgs / c.Vp);
+        var id = c.Idss * _normVgs * _normVgs * (1 + _jfetLam * Math.abs(vds));
         c.part._v = Math.abs(vds); c.part._i = Math.abs(id); c.part._p = Math.abs(vds * id);
         c.part._region = (pol > 0 ? vgs <= c.Vp : vgs >= c.Vp) ? 'Kesim' : (Math.abs(vds) < Math.abs(vgs - c.Vp) ? 'Lineer' : 'Doyma');
       } else if (c.type === 'SCR') {
@@ -7712,6 +7729,24 @@ VXA.Models = (function() {
     'LMV321':  { Aol:1e5, GBW:1e6, SR:1e6, Vos:7e-3, Ib:1e-9, Rin:1e12, Rout:150, Vs_min:2.7, Vs_max:5.5, desc:'Low voltage single, SOT-23-5' },
     'OPA2277': { Aol:1e6, GBW:1e6, SR:0.8e6, Vos:20e-6, Ib:1e-9, Rin:10e6, Rout:60, desc:'Precision dual, DIP-8' },
   };
+  // Sprint 93: JFET Level-1 Shichman–Hodges library.
+  // Parameters follow the standard SPICE NJF / PJF card:
+  //   IDSS   — drain current at V_GS = 0 in saturation
+  //   VTO    — pinch-off voltage (negative for NJF, positive for PJF)
+  //   LAMBDA — channel-length modulation coefficient (V⁻¹)
+  // A BETA-based alternative is deliberately not supported; IDSS ≈ BETA·VTO²
+  // covers every common small-signal device.
+  var JFET = {
+    'Generic':   { type:'NJF', IDSS: 10e-3, VTO: -2.0, LAMBDA: 0,    desc:'Generic N-ch JFET (legacy defaults)' },
+    '2N3819':    { type:'NJF', IDSS: 10e-3, VTO: -3.0, LAMBDA: 1e-4, desc:'GP N-ch, TO-92, 10 mA IDSS'        },
+    '2N5457':    { type:'NJF', IDSS: 3e-3,  VTO: -1.5, LAMBDA: 1e-4, desc:'Small signal N-ch, TO-92, 3 mA'    },
+    'J309':      { type:'NJF', IDSS: 30e-3, VTO: -6.0, LAMBDA: 1e-4, desc:'RF N-ch, SOT-23, 30 mA'           },
+    'J310':      { type:'NJF', IDSS: 60e-3, VTO: -6.0, LAMBDA: 1e-4, desc:'High-IDSS N-ch, SOT-23, 60 mA'    },
+    'BF245A':    { type:'NJF', IDSS: 6e-3,  VTO: -2.5, LAMBDA: 1e-4, desc:'Low-noise RF N-ch, TO-92'         },
+    'Generic-P': { type:'PJF', IDSS: 10e-3, VTO:  2.0, LAMBDA: 0,    desc:'Generic P-ch JFET (legacy defaults)' },
+    '2N3820':    { type:'PJF', IDSS: 15e-3, VTO:  4.0, LAMBDA: 1e-4, desc:'GP P-ch, TO-92, 15 mA'            },
+    'J175':      { type:'PJF', IDSS: 8e-3,  VTO:  4.0, LAMBDA: 1e-4, desc:'P-ch complement, TO-92'           },
+  };
   var REGULATOR = {
     '7805':{ Vout:5, Vdropout:2, Imax:1.5, desc:'5V fixed, TO-220, 1.5A' },
     '7809':{ Vout:9, Vdropout:2, Imax:1.5, desc:'9V fixed, TO-220' },
@@ -7726,11 +7761,13 @@ VXA.Models = (function() {
     'LM337':     { Vref:1.25, Vdropout:2.5, Imax:1.5, Vout_min:-1.25, Vout_max:-37, adjustable:true, desc:'Negative adjustable, TO-220' },
   };
   function getModel(type, name) {
-    var map = { npn:BJT, pnp:BJT, nmos:MOSFET, pmos:MOSFET, diode:DIODE, schottky:DIODE, led:LED, zener:ZENER, opamp:OPAMP, comparator:OPAMP, vreg:REGULATOR };
+    var map = { npn:BJT, pnp:BJT, nmos:MOSFET, pmos:MOSFET, diode:DIODE, schottky:DIODE, led:LED, zener:ZENER, opamp:OPAMP, comparator:OPAMP, vreg:REGULATOR,
+                njfet:JFET, pjfet:JFET, jfet:JFET };
     var lib = map[type]; return lib ? (lib[name] || null) : null;
   }
   function listModels(type) {
-    var map = { npn:BJT, pnp:BJT, nmos:MOSFET, pmos:MOSFET, diode:DIODE, schottky:DIODE, led:LED, zener:ZENER, opamp:OPAMP, comparator:OPAMP, vreg:REGULATOR };
+    var map = { npn:BJT, pnp:BJT, nmos:MOSFET, pmos:MOSFET, diode:DIODE, schottky:DIODE, led:LED, zener:ZENER, opamp:OPAMP, comparator:OPAMP, vreg:REGULATOR,
+                njfet:JFET, pjfet:JFET, jfet:JFET };
     var lib = map[type]; if (!lib) return [];
     return Object.keys(lib).filter(function(k) {
       var v = lib[k];
@@ -7738,17 +7775,21 @@ VXA.Models = (function() {
       if (type === 'pnp' && v.type === 'NPN') return false;
       if (type === 'nmos' && v.type === 'PMOS') return false;
       if (type === 'pmos' && v.type === 'NMOS') return false;
+      if (type === 'njfet' && v.type === 'PJF') return false;
+      if (type === 'pjfet' && v.type === 'NJF') return false;
       return true;
     }).map(function(k) { return { name: k, desc: lib[k].desc || '' }; });
   }
   function addCustomModel(type, name, params) {
-    var map = { npn:BJT, pnp:BJT, nmos:MOSFET, pmos:MOSFET, diode:DIODE, schottky:DIODE, led:LED, zener:ZENER, opamp:OPAMP, vreg:REGULATOR };
+    var map = { npn:BJT, pnp:BJT, nmos:MOSFET, pmos:MOSFET, diode:DIODE, schottky:DIODE, led:LED, zener:ZENER, opamp:OPAMP, vreg:REGULATOR,
+                njfet:JFET, pjfet:JFET, jfet:JFET };
     var lib = map[type]; if (lib) lib[name] = params;
   }
   // Default model assignments for new parts
-  var DEFAULTS = { npn:'2N2222', pnp:'2N3906', nmos:'2N7000', pmos:'Generic', diode:'1N4148', schottky:'1N5819', led:'RED_5MM', zener:'1N4733', opamp:'LM741', vreg:'7805' };
+  var DEFAULTS = { npn:'2N2222', pnp:'2N3906', nmos:'2N7000', pmos:'Generic', diode:'1N4148', schottky:'1N5819', led:'RED_5MM', zener:'1N4733', opamp:'LM741', vreg:'7805',
+                   njfet:'2N3819', pjfet:'J175' };
   function getDefault(type) { return DEFAULTS[type] || null; }
-  return { getModel:getModel, listModels:listModels, addCustomModel:addCustomModel, getDefault:getDefault, BJT:BJT, MOSFET:MOSFET, DIODE:DIODE, LED:LED, ZENER:ZENER, OPAMP:OPAMP, REGULATOR:REGULATOR };
+  return { getModel:getModel, listModels:listModels, addCustomModel:addCustomModel, getDefault:getDefault, BJT:BJT, MOSFET:MOSFET, DIODE:DIODE, LED:LED, ZENER:ZENER, OPAMP:OPAMP, REGULATOR:REGULATOR, JFET:JFET };
 })();
 
 // ═══ stamps-enhanced.js ═══
@@ -11119,11 +11160,23 @@ function buildCircuitFromCanvas() {
     else if (p.type === 'schottky') {
       comps.push({type:'D', n1:nodes[0], n2:nodes[1], part:p, vPrev:0.3, IS:3.16e-8, N:1.04});
     }
-    else if (p.type === 'njfet') {
-      comps.push({type:'JFET', polarity:1, n1:nodes[0], n2:nodes[1], n3:nodes[2], Idss:0.01, Vp:-2, part:p});
-    }
-    else if (p.type === 'pjfet') {
-      comps.push({type:'JFET', polarity:-1, n1:nodes[0], n2:nodes[1], n3:nodes[2], Idss:0.01, Vp:2, part:p});
+    else if (p.type === 'njfet' || p.type === 'pjfet') {
+      // Sprint 93: read IDSS / VTO / LAMBDA from the resolved .MODEL
+      // card. SPICE import + VXA.Models.addCustomModel('jfet', ...)
+      // seed the JFET library with whatever the netlist defined;
+      // VXA.Models.getModel(p.type, p.model) returns that entry.
+      // When nothing matches (user-drawn schematic with no model, or
+      // a pre-Sprint-93 part saved without p.model) we keep the
+      // original Idss = 10 mA / Vp = ±2 V fallback for backward compat.
+      var _jfetPol = (p.type === 'njfet') ? 1 : -1;
+      var _jfetMdl = p.model ? VXA.Models.getModel(p.type, p.model) : null;
+      var _jfetIdss = (_jfetMdl && _jfetMdl.IDSS != null) ? _jfetMdl.IDSS : 0.01;
+      var _jfetVp   = (_jfetMdl && _jfetMdl.VTO  != null) ? _jfetMdl.VTO  : (_jfetPol > 0 ? -2 : 2);
+      var _jfetLam  = (_jfetMdl && _jfetMdl.LAMBDA != null) ? _jfetMdl.LAMBDA : 0;
+      comps.push({type:'JFET', polarity:_jfetPol,
+                  n1:nodes[0], n2:nodes[1], n3:nodes[2],
+                  Idss:_jfetIdss, Vp:_jfetVp, LAMBDA:_jfetLam,
+                  part:p, model:p.model});
     }
     else if (p.type === 'igbt') {
       comps.push({type:'MOS', polarity:1, n1:nodes[0], n2:nodes[1], n3:nodes[2], VTO:4, KP:5, LAMBDA:0.01, part:p});

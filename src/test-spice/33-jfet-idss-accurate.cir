@@ -1,0 +1,12 @@
+* Sprint 93: verify JFET IDSS is read from custom .MODEL card.
+*
+* V_GS = 0 (G and S both tied to ground) puts the JFET in the
+* saturation region with I_D = IDSS · (1 + λ · V_DS).  With
+* 2N3819's IDSS = 10 mA and LAMBDA = 1e-4, a V_DS in the 9 V
+* neighbourhood adds only 0.09 % — so I_D ≈ 10 mA and
+* V(2) ≈ 10 V − 10 mA · 100 Ω ≈ 9 V.
+V1 1 0 DC 10
+R1 1 2 100
+J1 2 0 0 2N3819
+.model 2N3819 NJF (IDSS=10m VTO=-3 LAMBDA=1e-4)
+.END

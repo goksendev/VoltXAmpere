@@ -261,11 +261,23 @@ function buildCircuitFromCanvas() {
     else if (p.type === 'schottky') {
       comps.push({type:'D', n1:nodes[0], n2:nodes[1], part:p, vPrev:0.3, IS:3.16e-8, N:1.04});
     }
-    else if (p.type === 'njfet') {
-      comps.push({type:'JFET', polarity:1, n1:nodes[0], n2:nodes[1], n3:nodes[2], Idss:0.01, Vp:-2, part:p});
-    }
-    else if (p.type === 'pjfet') {
-      comps.push({type:'JFET', polarity:-1, n1:nodes[0], n2:nodes[1], n3:nodes[2], Idss:0.01, Vp:2, part:p});
+    else if (p.type === 'njfet' || p.type === 'pjfet') {
+      // Sprint 93: read IDSS / VTO / LAMBDA from the resolved .MODEL
+      // card. SPICE import + VXA.Models.addCustomModel('jfet', ...)
+      // seed the JFET library with whatever the netlist defined;
+      // VXA.Models.getModel(p.type, p.model) returns that entry.
+      // When nothing matches (user-drawn schematic with no model, or
+      // a pre-Sprint-93 part saved without p.model) we keep the
+      // original Idss = 10 mA / Vp = ±2 V fallback for backward compat.
+      var _jfetPol = (p.type === 'njfet') ? 1 : -1;
+      var _jfetMdl = p.model ? VXA.Models.getModel(p.type, p.model) : null;
+      var _jfetIdss = (_jfetMdl && _jfetMdl.IDSS != null) ? _jfetMdl.IDSS : 0.01;
+      var _jfetVp   = (_jfetMdl && _jfetMdl.VTO  != null) ? _jfetMdl.VTO  : (_jfetPol > 0 ? -2 : 2);
+      var _jfetLam  = (_jfetMdl && _jfetMdl.LAMBDA != null) ? _jfetMdl.LAMBDA : 0;
+      comps.push({type:'JFET', polarity:_jfetPol,
+                  n1:nodes[0], n2:nodes[1], n3:nodes[2],
+                  Idss:_jfetIdss, Vp:_jfetVp, LAMBDA:_jfetLam,
+                  part:p, model:p.model});
     }
     else if (p.type === 'igbt') {
       comps.push({type:'MOS', polarity:1, n1:nodes[0], n2:nodes[1], n3:nodes[2], VTO:4, KP:5, LAMBDA:0.01, part:p});

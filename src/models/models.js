@@ -119,6 +119,24 @@ VXA.Models = (function() {
     'LMV321':  { Aol:1e5, GBW:1e6, SR:1e6, Vos:7e-3, Ib:1e-9, Rin:1e12, Rout:150, Vs_min:2.7, Vs_max:5.5, desc:'Low voltage single, SOT-23-5' },
     'OPA2277': { Aol:1e6, GBW:1e6, SR:0.8e6, Vos:20e-6, Ib:1e-9, Rin:10e6, Rout:60, desc:'Precision dual, DIP-8' },
   };
+  // Sprint 93: JFET Level-1 Shichman–Hodges library.
+  // Parameters follow the standard SPICE NJF / PJF card:
+  //   IDSS   — drain current at V_GS = 0 in saturation
+  //   VTO    — pinch-off voltage (negative for NJF, positive for PJF)
+  //   LAMBDA — channel-length modulation coefficient (V⁻¹)
+  // A BETA-based alternative is deliberately not supported; IDSS ≈ BETA·VTO²
+  // covers every common small-signal device.
+  var JFET = {
+    'Generic':   { type:'NJF', IDSS: 10e-3, VTO: -2.0, LAMBDA: 0,    desc:'Generic N-ch JFET (legacy defaults)' },
+    '2N3819':    { type:'NJF', IDSS: 10e-3, VTO: -3.0, LAMBDA: 1e-4, desc:'GP N-ch, TO-92, 10 mA IDSS'        },
+    '2N5457':    { type:'NJF', IDSS: 3e-3,  VTO: -1.5, LAMBDA: 1e-4, desc:'Small signal N-ch, TO-92, 3 mA'    },
+    'J309':      { type:'NJF', IDSS: 30e-3, VTO: -6.0, LAMBDA: 1e-4, desc:'RF N-ch, SOT-23, 30 mA'           },
+    'J310':      { type:'NJF', IDSS: 60e-3, VTO: -6.0, LAMBDA: 1e-4, desc:'High-IDSS N-ch, SOT-23, 60 mA'    },
+    'BF245A':    { type:'NJF', IDSS: 6e-3,  VTO: -2.5, LAMBDA: 1e-4, desc:'Low-noise RF N-ch, TO-92'         },
+    'Generic-P': { type:'PJF', IDSS: 10e-3, VTO:  2.0, LAMBDA: 0,    desc:'Generic P-ch JFET (legacy defaults)' },
+    '2N3820':    { type:'PJF', IDSS: 15e-3, VTO:  4.0, LAMBDA: 1e-4, desc:'GP P-ch, TO-92, 15 mA'            },
+    'J175':      { type:'PJF', IDSS: 8e-3,  VTO:  4.0, LAMBDA: 1e-4, desc:'P-ch complement, TO-92'           },
+  };
   var REGULATOR = {
     '7805':{ Vout:5, Vdropout:2, Imax:1.5, desc:'5V fixed, TO-220, 1.5A' },
     '7809':{ Vout:9, Vdropout:2, Imax:1.5, desc:'9V fixed, TO-220' },
@@ -133,11 +151,13 @@ VXA.Models = (function() {
     'LM337':     { Vref:1.25, Vdropout:2.5, Imax:1.5, Vout_min:-1.25, Vout_max:-37, adjustable:true, desc:'Negative adjustable, TO-220' },
   };
   function getModel(type, name) {
-    var map = { npn:BJT, pnp:BJT, nmos:MOSFET, pmos:MOSFET, diode:DIODE, schottky:DIODE, led:LED, zener:ZENER, opamp:OPAMP, comparator:OPAMP, vreg:REGULATOR };
+    var map = { npn:BJT, pnp:BJT, nmos:MOSFET, pmos:MOSFET, diode:DIODE, schottky:DIODE, led:LED, zener:ZENER, opamp:OPAMP, comparator:OPAMP, vreg:REGULATOR,
+                njfet:JFET, pjfet:JFET, jfet:JFET };
     var lib = map[type]; return lib ? (lib[name] || null) : null;
   }
   function listModels(type) {
-    var map = { npn:BJT, pnp:BJT, nmos:MOSFET, pmos:MOSFET, diode:DIODE, schottky:DIODE, led:LED, zener:ZENER, opamp:OPAMP, comparator:OPAMP, vreg:REGULATOR };
+    var map = { npn:BJT, pnp:BJT, nmos:MOSFET, pmos:MOSFET, diode:DIODE, schottky:DIODE, led:LED, zener:ZENER, opamp:OPAMP, comparator:OPAMP, vreg:REGULATOR,
+                njfet:JFET, pjfet:JFET, jfet:JFET };
     var lib = map[type]; if (!lib) return [];
     return Object.keys(lib).filter(function(k) {
       var v = lib[k];
@@ -145,15 +165,19 @@ VXA.Models = (function() {
       if (type === 'pnp' && v.type === 'NPN') return false;
       if (type === 'nmos' && v.type === 'PMOS') return false;
       if (type === 'pmos' && v.type === 'NMOS') return false;
+      if (type === 'njfet' && v.type === 'PJF') return false;
+      if (type === 'pjfet' && v.type === 'NJF') return false;
       return true;
     }).map(function(k) { return { name: k, desc: lib[k].desc || '' }; });
   }
   function addCustomModel(type, name, params) {
-    var map = { npn:BJT, pnp:BJT, nmos:MOSFET, pmos:MOSFET, diode:DIODE, schottky:DIODE, led:LED, zener:ZENER, opamp:OPAMP, vreg:REGULATOR };
+    var map = { npn:BJT, pnp:BJT, nmos:MOSFET, pmos:MOSFET, diode:DIODE, schottky:DIODE, led:LED, zener:ZENER, opamp:OPAMP, vreg:REGULATOR,
+                njfet:JFET, pjfet:JFET, jfet:JFET };
     var lib = map[type]; if (lib) lib[name] = params;
   }
   // Default model assignments for new parts
-  var DEFAULTS = { npn:'2N2222', pnp:'2N3906', nmos:'2N7000', pmos:'Generic', diode:'1N4148', schottky:'1N5819', led:'RED_5MM', zener:'1N4733', opamp:'LM741', vreg:'7805' };
+  var DEFAULTS = { npn:'2N2222', pnp:'2N3906', nmos:'2N7000', pmos:'Generic', diode:'1N4148', schottky:'1N5819', led:'RED_5MM', zener:'1N4733', opamp:'LM741', vreg:'7805',
+                   njfet:'2N3819', pjfet:'J175' };
   function getDefault(type) { return DEFAULTS[type] || null; }
-  return { getModel:getModel, listModels:listModels, addCustomModel:addCustomModel, getDefault:getDefault, BJT:BJT, MOSFET:MOSFET, DIODE:DIODE, LED:LED, ZENER:ZENER, OPAMP:OPAMP, REGULATOR:REGULATOR };
+  return { getModel:getModel, listModels:listModels, addCustomModel:addCustomModel, getDefault:getDefault, BJT:BJT, MOSFET:MOSFET, DIODE:DIODE, LED:LED, ZENER:ZENER, OPAMP:OPAMP, REGULATOR:REGULATOR, JFET:JFET };
 })();

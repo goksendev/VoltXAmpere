@@ -183,7 +183,17 @@ VXA.Stamps = (function() {
     var ieqPol = ieq * pol;
     stampI(rhs, nD, -ieqPol); stampI(rhs, nS, ieqPol);
   }
-  function jfet(matrix, rhs, nG, nD, nS, pol, Idss, Vp, nodeV) {
+  function jfet(matrix, rhs, nG, nD, nS, pol, Idss, Vp, LAMBDA, nodeV) {
+    // Sprint 93: channel-length modulation (LAMBDA) now multiplies the
+    // saturation-region current and feeds a real gds. Callers that still
+    // pass the legacy 9-argument signature (…, Vp, nodeV) won't break
+    // because the historical LAMBDA slot then holds the nodeV array; we
+    // detect that and shift down.
+    if (typeof LAMBDA === 'object' && LAMBDA !== null && nodeV === undefined) {
+      nodeV = LAMBDA;
+      LAMBDA = 0;
+    }
+    var lam = (typeof LAMBDA === 'number' && isFinite(LAMBDA)) ? LAMBDA : 0;
     var vgs = pol * ((nodeV[nG] || 0) - (nodeV[nS] || 0));
     var vds = pol * ((nodeV[nD] || 0) - (nodeV[nS] || 0));
     var id = 0, gm = 0, gds = 1e-12;
@@ -193,9 +203,10 @@ VXA.Stamps = (function() {
       gm = 2 * Idss / Math.abs(Vp) * Math.abs(vds / Vp);
       gds = 2 * Idss / Math.abs(Vp) * Math.abs(vgs / Vp - 1 - vds / Vp) + 1e-12;
     } else {
-      id = Idss * Math.pow(Math.max(0, 1 - vgs / Vp), 2);
-      gm = -2 * Idss / Vp * (1 - vgs / Vp);
-      gds = 1e-12;
+      var normVgs = Math.max(0, 1 - vgs / Vp);
+      id = Idss * normVgs * normVgs * (1 + lam * Math.abs(vds));
+      gm = -2 * Idss / Vp * normVgs * (1 + lam * Math.abs(vds));
+      gds = Idss * normVgs * normVgs * lam + 1e-12;
     }
     var ieq = id * pol - gm * vgs - gds * vds;
     if (nD > 0 && nG > 0) Sp.stamp(matrix, nD - 1, nG - 1, gm * pol);
