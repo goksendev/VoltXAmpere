@@ -57,7 +57,7 @@ function setAriaLabels() {
 setAriaLabels();
 
 // Console banner
-console.log('%c\u26A1 VoltXAmpere v12.0.0-alpha.7', 'color:#00e09e;font-size:18px;font-weight:bold');
+console.log('%c\u26A1 VoltXAmpere v12.0.0-alpha.9', 'color:#00e09e;font-size:18px;font-weight:bold');
 console.log('%cProfessional Circuit Simulator \u2014 voltxampere.com', 'color:#8899aa;font-size:12px');
 console.log('%c' + t('scriptApi'), 'color:#f59e0b;font-size:11px');
 
@@ -471,8 +471,8 @@ var SIDEBAR_I18N = {
   nmos:          { tr: 'N-MOSFET',            en: 'NMOS' },
   pmos:          { tr: 'P-MOSFET',            en: 'PMOS' },
   opamp:         { tr: 'Op-Amp',              en: 'Op-Amp' },
-  bsource:       { tr: 'B Kaynak',            en: 'B Source' },
-  subckt:        { tr: 'Alt Devre',           en: 'Subcircuit' },
+  behavioral:    { tr: 'B Kaynak',            en: 'B Source' },
+  subcircuit:    { tr: 'Alt Devre',           en: 'Subcircuit' },
   zener:         { tr: 'Zener Diyot',         en: 'Zener Diode' },
   vreg:          { tr: 'Regülatör (7805)',    en: 'Regulator (7805)' },
   and:           { tr: 'VE Kapısı',           en: 'AND Gate' },
@@ -495,27 +495,27 @@ var SIDEBAR_I18N = {
   diac:          { tr: 'DIAC',                en: 'DIAC' },
   dff:           { tr: 'D Flip-Flop',         en: 'D Flip-Flop' },
   counter:       { tr: 'Sayıcı (4-bit)',      en: 'Counter (4-bit)' },
-  shiftReg:      { tr: 'Kaydırıcı',           en: 'Shift Register' },
+  shiftreg:      { tr: 'Kaydırıcı',           en: 'Shift Register' },
   mux:           { tr: 'Çoklayıcı (2:1)',     en: 'Multiplexer' },
   wattmeter:     { tr: 'Wattmetre',           en: 'Wattmeter' },
-  diffProbe:     { tr: 'Dif. Probu',          en: 'Diff Probe' },
-  iProbe:        { tr: 'Akım Probu',          en: 'Current Probe' },
+  diffprobe:     { tr: 'Dif. Probu',          en: 'Diff Probe' },
+  iprobe:        { tr: 'Akım Probu',          en: 'Current Probe' },
   potentiometer: { tr: 'Potansiyometre',      en: 'Potentiometer',   primaryUnit: 'Ω', h: 'Potansiyo\u00ADmetre' },
   ntc:           { tr: 'NTC Termistör',       en: 'NTC Thermistor',  primaryUnit: 'Ω' },
   ptc:           { tr: 'PTC Termistör',       en: 'PTC Thermistor',  primaryUnit: 'Ω' },
   ldr:           { tr: 'LDR',                 en: 'Photoresistor',   primaryUnit: 'Ω' },
-  mov:           { tr: 'Varistör (MOV)',      en: 'Varistor',        primaryUnit: 'Ω' },
+  varistor:      { tr: 'Varistör (MOV)',      en: 'Varistor',        primaryUnit: 'Ω' },
   comparator:    { tr: 'Komparatör',          en: 'Comparator',      h: 'Kompa\u00ADratör' },
   crystal:       { tr: 'Kristal',             en: 'Crystal',         primaryUnit: 'Hz' },
-  coupledL:      { tr: 'Bağlı Bobin',         en: 'Coupled Inductor', primaryUnit: 'H' },
+  coupled_l:     { tr: 'Bağlı Bobin',         en: 'Coupled Inductor', primaryUnit: 'H' },
   dcmotor:       { tr: 'DC Motor',            en: 'DC Motor' },
   tline:         { tr: 'İletim Hattı',        en: 'Transmission Line', primaryUnit: 'Ω' },
   netLabel:      { tr: 'Net Etiketi',         en: 'Net Label' },
-  vcc:           { tr: 'VCC',                 en: 'VCC',             primaryUnit: 'V' },
+  vccLabel:      { tr: 'VCC',                 en: 'VCC',             primaryUnit: 'V' },
   gndLabel:      { tr: 'GND Etiketi',         en: 'GND Label' },
   adc:           { tr: 'ADC (8-bit)',         en: 'ADC 8-bit' },
   dac:           { tr: 'DAC (8-bit)',         en: 'DAC 8-bit' },
-  pwm:           { tr: 'PWM Üreteci',         en: 'PWM Generator',   primaryUnit: 'Hz' }
+  pwmGen:        { tr: 'PWM Üreteci',         en: 'PWM Generator',   primaryUnit: 'Hz' }
 };
 
 // Sprint 104.3.2 — derive the visible TR label. Explicit `h` wins. Otherwise
@@ -584,24 +584,25 @@ function _compNames(compKey, def) {
   return { tr: tr, en: en };
 }
 
-// Sprint 104.3.3 — 32px icon (was 38), hard-locked in CSS so wider cards
-// don't scale it up. Canvas content scale tweaked to match: symbol still
-// renders centred with the same density it had at 38px (0.45 × 32/38 ≈
-// 0.38). devicePixelRatio keeps retina crisp.
+// Sprint 104.3.5 — 44px icon (was 32), hard-locked in CSS. Symbol scale
+// proportional: 0.38 × 44/32 ≈ 0.52. Default ctx.lineWidth drops 5 → 4 so
+// the effective stroke (≈2.1px) stays close to the 104.3.3 feel even
+// though the visible symbol got 37% larger — otherwise thin passive
+// symbols risk blooming. Draws that set their own lineWidth win as always.
 function _renderCardSymbol(compDef) {
   var mc = document.createElement('canvas');
   var dpr = (typeof window !== 'undefined' && window.devicePixelRatio) ? window.devicePixelRatio : 1;
-  mc.width = 32 * dpr; mc.height = 32 * dpr;
-  mc.style.cssText = 'width:32px;height:32px;display:block';
+  mc.width = 44 * dpr; mc.height = 44 * dpr;
+  mc.style.cssText = 'width:44px;height:44px;display:block';
   (function(canvas, drawFn) {
     requestAnimationFrame(function() {
       try {
         var ctx2 = canvas.getContext('2d');
         ctx2.save();
         ctx2.scale(dpr, dpr);
-        ctx2.translate(16, 16);
-        ctx2.scale(0.38, 0.38);
-        ctx2.lineWidth = 5;
+        ctx2.translate(22, 22);
+        ctx2.scale(0.52, 0.52);
+        ctx2.lineWidth = 4;
         drawFn(ctx2, 20, { val: 0, type: '' });
         ctx2.restore();
       } catch (err) {}
@@ -610,15 +611,18 @@ function _renderCardSymbol(compDef) {
   return mc;
 }
 
-// Sprint 104.3.1 / 104.3.2 / 104.3.3 — compact card. Painted structure:
-//   .comp-symbol  32px icon (hard-locked)
+// Sprint 104.3.1 / 104.3.2 / 104.3.3 / 104.3.5 — compact card. Painted:
+//   .comp-symbol  44px icon (hard-locked)
 //   .comp-name-tr 12px hyphenated Turkish name
-//   .comp-name-en 10px faint English name (only if present — older registry
-//                 rows with no `en` field just drop this row)
-//   .comp-unit    optional Ω/F/H/V/A/Hz chip, driven by primaryUnit
+//   .comp-name-en 10px faint English name + optional inline unit
+//                 ("<en> · <unit>"). Unit rendered only when the registry
+//                 declares primaryUnit. Modelled/digital parts — BJTs,
+//                 op-amps, gates, … — have no primaryUnit and render the
+//                 EN string alone.
 //   .comp-badge   top-right shortcut letter (category-agnostic surface)
-// title attr carries the clean "TR · EN" pair so tooltips and copy-paste are
-// unaffected by soft hyphens.
+// title attr carries the clean "TR · EN" pair so tooltips and copy-paste
+// stay unaffected by soft hyphens. The old standalone .comp-unit chip is
+// gone — a single row is tidier and lets the bigger 44px icon breathe.
 function _renderCompCard(compKey, compDef, catKey) {
   var names = _compNames(compKey, compDef);
   var entry = SIDEBAR_I18N[compKey] || {};
@@ -641,22 +645,31 @@ function _renderCompCard(compKey, compDef, catKey) {
   trEl.textContent = _hyphenatedName(compKey, names.tr);
   d.appendChild(trEl);
 
-  // EN sub-label. Only rendered when we actually have an EN string and it
-  // differs from the TR line — avoids a redundant "LED / LED" double row.
-  if (names.en && names.en !== names.tr) {
+  // EN sub-label + optional inline unit. Skipped entirely when we have no
+  // EN string (or when EN === TR, which would just duplicate the header) AND
+  // no primaryUnit. If we have a unit but no EN, we still render the row so
+  // users see the unit.
+  var hasEn = names.en && names.en !== names.tr;
+  var hasUnit = !!entry.primaryUnit;
+  if (hasEn || hasUnit) {
     var enEl = document.createElement('div');
     enEl.className = 'comp-name-en';
-    enEl.textContent = names.en;
+    if (hasEn) {
+      enEl.appendChild(document.createTextNode(names.en));
+    }
+    if (hasUnit) {
+      if (hasEn) {
+        var sep = document.createElement('span');
+        sep.className = 'sep';
+        sep.textContent = ' · ';
+        enEl.appendChild(sep);
+      }
+      var unitSpan = document.createElement('span');
+      unitSpan.className = 'unit';
+      unitSpan.textContent = entry.primaryUnit;
+      enEl.appendChild(unitSpan);
+    }
     d.appendChild(enEl);
-  }
-
-  // Optional unit chip. Modelled/digital parts (BJTs, op-amps, gates, …)
-  // have no `primaryUnit` and skip rendering entirely.
-  if (entry.primaryUnit) {
-    var unit = document.createElement('span');
-    unit.className = 'comp-unit';
-    unit.textContent = entry.primaryUnit;
-    d.appendChild(unit);
   }
 
   var sc = SHORTCUT_PILLS[compKey];
