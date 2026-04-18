@@ -57,7 +57,7 @@ function setAriaLabels() {
 setAriaLabels();
 
 // Console banner
-console.log('%c\u26A1 VoltXAmpere v12.0.0-alpha.3', 'color:#00e09e;font-size:18px;font-weight:bold');
+console.log('%c\u26A1 VoltXAmpere v12.0.0-alpha.4', 'color:#00e09e;font-size:18px;font-weight:bold');
 console.log('%cProfessional Circuit Simulator \u2014 voltxampere.com', 'color:#8899aa;font-size:12px');
 console.log('%c' + t('scriptApi'), 'color:#f59e0b;font-size:11px');
 
@@ -424,6 +424,210 @@ function ctxSaveBlock() {
   showInfoCard('Blok Kaydedildi', name + ' bloğu oluşturuldu.', blockPins.length + ' pin tespit edildi.');
 }
 
+// ──────── SPRINT 104.3 — GRID CARD SIDEBAR ────────
+// Bilingual name lookup. Where the existing COMP[k].name is already the Turkish
+// string we still list it explicitly here so TR/EN always stay side by side —
+// easier to read than a conditional based on `currentLang`.
+var SIDEBAR_I18N = {
+  resistor:      { tr: 'Direnç',              en: 'Resistor' },
+  capacitor:     { tr: 'Kapasitör',           en: 'Capacitor' },
+  inductor:      { tr: 'Bobin',               en: 'Inductor' },
+  vdc:           { tr: 'DC Kaynak',           en: 'DC Source' },
+  vac:           { tr: 'AC Kaynak',           en: 'AC Source' },
+  pulse:         { tr: 'Darbe Kaynağı',       en: 'Pulse Source' },
+  pwl:           { tr: 'PWL Kaynağı',         en: 'PWL Source' },
+  iac:           { tr: 'AC Akım Kaynağı',     en: 'AC Current' },
+  noise:         { tr: 'Gürültü Kaynağı',     en: 'Noise Source' },
+  vcvs:          { tr: 'VCVS (E)',            en: 'VCVS (E)' },
+  vccs:          { tr: 'VCCS (G)',            en: 'VCCS (G)' },
+  ccvs:          { tr: 'CCVS (H)',            en: 'CCVS (H)' },
+  cccs:          { tr: 'CCCS (F)',            en: 'CCCS (F)' },
+  diode:         { tr: 'Diyot',               en: 'Diode' },
+  led:           { tr: 'LED',                 en: 'LED' },
+  ground:        { tr: 'Toprak',              en: 'Ground' },
+  switch:        { tr: 'Anahtar',             en: 'Switch' },
+  pushButton:    { tr: 'Buton',               en: 'Push Button' },
+  timer555:      { tr: '555 Zamanlayıcı',     en: '555 Timer' },
+  speaker:       { tr: 'Hoparlör',            en: 'Speaker' },
+  buzzer:        { tr: 'Buzzer',              en: 'Buzzer' },
+  npn:           { tr: 'NPN Transistör',      en: 'NPN BJT' },
+  pnp:           { tr: 'PNP Transistör',      en: 'PNP BJT' },
+  nmos:          { tr: 'N-MOSFET',            en: 'NMOS' },
+  pmos:          { tr: 'P-MOSFET',            en: 'PMOS' },
+  opamp:         { tr: 'Op-Amp',              en: 'Op-Amp' },
+  bsource:       { tr: 'B Kaynak',            en: 'B Source' },
+  subckt:        { tr: 'Alt Devre',           en: 'Subcircuit' },
+  zener:         { tr: 'Zener Diyot',         en: 'Zener Diode' },
+  vreg:          { tr: 'Regülatör (7805)',    en: 'Regulator (7805)' },
+  and:           { tr: 'VE Kapısı',           en: 'AND Gate' },
+  or:            { tr: 'VEYA Kapısı',         en: 'OR Gate' },
+  not:           { tr: 'DEĞİL Kapısı',        en: 'NOT Gate' },
+  nand:          { tr: 'VE-DEĞİL',            en: 'NAND Gate' },
+  nor:           { tr: 'VEYA-DEĞİL',          en: 'NOR Gate' },
+  xor:           { tr: 'ÖZEL VEYA',           en: 'XOR Gate' },
+  transformer:   { tr: 'Trafo',               en: 'Transformer' },
+  relay:         { tr: 'Röle',                en: 'Relay' },
+  fuse:          { tr: 'Sigorta',             en: 'Fuse' },
+  ammeter:       { tr: 'Ampermetre',          en: 'Ammeter' },
+  voltmeter:     { tr: 'Voltmetre',           en: 'Voltmeter' },
+  schottky:      { tr: 'Schottky Diyot',      en: 'Schottky Diode' },
+  njfet:         { tr: 'N-JFET',              en: 'N-JFET' },
+  pjfet:         { tr: 'P-JFET',              en: 'P-JFET' },
+  igbt:          { tr: 'IGBT',                en: 'IGBT' },
+  scr:           { tr: 'Tristör (SCR)',       en: 'Thyristor (SCR)' },
+  triac:         { tr: 'TRIAC',               en: 'TRIAC' },
+  diac:          { tr: 'DIAC',                en: 'DIAC' },
+  dff:           { tr: 'D Flip-Flop',         en: 'D Flip-Flop' },
+  counter:       { tr: 'Sayıcı (4-bit)',      en: 'Counter (4-bit)' },
+  shiftReg:      { tr: 'Kaydırıcı',           en: 'Shift Register' },
+  mux:           { tr: 'Çoklayıcı (2:1)',     en: 'Multiplexer' },
+  wattmeter:     { tr: 'Wattmetre',           en: 'Wattmeter' },
+  diffProbe:     { tr: 'Dif. Probu',          en: 'Diff Probe' },
+  iProbe:        { tr: 'Akım Probu',          en: 'Current Probe' },
+  potentiometer: { tr: 'Potansiyometre',      en: 'Potentiometer' },
+  ntc:           { tr: 'NTC Termistör',       en: 'NTC Thermistor' },
+  ptc:           { tr: 'PTC Termistör',       en: 'PTC Thermistor' },
+  ldr:           { tr: 'LDR',                 en: 'Photoresistor' },
+  mov:           { tr: 'Varistör (MOV)',      en: 'Varistor' },
+  comparator:    { tr: 'Komparatör',          en: 'Comparator' },
+  crystal:       { tr: 'Kristal',             en: 'Crystal' },
+  coupledL:      { tr: 'Bağlı Bobin',         en: 'Coupled Inductor' },
+  dcmotor:       { tr: 'DC Motor',            en: 'DC Motor' },
+  tline:         { tr: 'İletim Hattı',        en: 'Transmission Line' },
+  netLabel:      { tr: 'Net Etiketi',         en: 'Net Label' },
+  vcc:           { tr: 'VCC',                 en: 'VCC' },
+  gndLabel:      { tr: 'GND Etiketi',         en: 'GND Label' },
+  adc:           { tr: 'ADC (8-bit)',         en: 'ADC 8-bit' },
+  dac:           { tr: 'DAC (8-bit)',         en: 'DAC 8-bit' },
+  pwm:           { tr: 'PWM Üreteci',         en: 'PWM Generator' }
+};
+
+// Pill-only shortcut map per Sprint 104.3 spec. `letter` and/or `digit` are
+// rendered as chips; if a field is absent (LED has no letter, opamp has no
+// digit) we simply omit that chip. 104.3 is visual-only — binding comes in
+// 104.4.
+var SHORTCUT_PILLS = {
+  resistor:      { letter: 'R', digit: '1' },
+  capacitor:     { letter: 'C', digit: '2' },
+  inductor:      { letter: 'L', digit: '3' },
+  vdc:           { letter: 'V', digit: '4' },
+  vac:           { letter: 'A', digit: '5' },
+  diode:         { letter: 'D', digit: '6' },
+  led:           { digit: '7' },
+  ground:        { letter: 'G', digit: '8' },
+  npn:           { letter: 'Q' },
+  pnp:           { letter: 'Q' },
+  nmos:          { letter: 'M' },
+  pmos:          { letter: 'M' },
+  njfet:         { letter: 'J' },
+  pjfet:         { letter: 'J' },
+  opamp:         { letter: 'O' },
+  potentiometer: { letter: 'P' }
+};
+
+// Category → CSS custom property used for neon accents. Unknown cats fall
+// back to --cat-temel so we never end up with no colour at all.
+var CAT_COLOR_VAR = {
+  Passive: '--cat-pasif',
+  Sources: '--cat-kaynaklar',
+  Semi:    '--cat-yariiletken',
+  ICs:     '--cat-entegre',
+  Logic:   '--cat-lojik',
+  Mixed:   '--cat-mixedsignal',
+  Control: '--cat-kontrol',
+  Blocks:  '--cat-temel',
+  Basic:   '--cat-temel'
+};
+
+function _catColor(catKey) {
+  return 'var(' + (CAT_COLOR_VAR[catKey] || '--cat-temel') + ')';
+}
+
+function _compNames(compKey, def) {
+  var i18n = SIDEBAR_I18N[compKey];
+  if (i18n) return { tr: i18n.tr, en: i18n.en };
+  // Fallback — existing `name` doubles as TR, short `en` upper as EN label.
+  var tr = def && def.name ? def.name : compKey;
+  var en = def && def.en ? def.en : tr;
+  return { tr: tr, en: en };
+}
+
+// Renders the 34px symbol canvas on top of each card. Extracted so the search
+// renderer and the category renderer use exactly the same pixel pipeline.
+function _renderCardSymbol(compDef) {
+  var mc = document.createElement('canvas');
+  var dpr = (typeof window !== 'undefined' && window.devicePixelRatio) ? window.devicePixelRatio : 1;
+  mc.width = 34 * dpr; mc.height = 34 * dpr;
+  mc.style.cssText = 'width:34px;height:34px;display:block';
+  (function(canvas, drawFn) {
+    requestAnimationFrame(function() {
+      try {
+        var ctx2 = canvas.getContext('2d');
+        ctx2.save();
+        ctx2.scale(dpr, dpr);
+        ctx2.translate(17, 17);
+        ctx2.scale(0.40, 0.40);
+        ctx2.lineWidth = 5;
+        drawFn(ctx2, 20, { val: 0, type: '' });
+        ctx2.restore();
+      } catch (err) {}
+    });
+  })(mc, compDef.draw.bind(compDef));
+  return mc;
+}
+
+function _renderCompCard(compKey, compDef, catKey) {
+  var names = _compNames(compKey, compDef);
+  var d = document.createElement('div');
+  d.className = 'comp-item';
+  d.dataset.comp = compKey;
+  d.dataset.cat = catKey || compDef.cat || '';
+  d.style.setProperty('--cat-color', _catColor(catKey || compDef.cat));
+  d.title = names.tr + ' / ' + names.en;
+  d.setAttribute('role', 'button');
+  d.setAttribute('tabindex', '0');
+
+  var sym = document.createElement('div');
+  sym.className = 'comp-symbol';
+  sym.appendChild(_renderCardSymbol(compDef));
+  d.appendChild(sym);
+
+  var trEl = document.createElement('div');
+  trEl.className = 'comp-name-tr';
+  trEl.textContent = names.tr;
+  d.appendChild(trEl);
+
+  var enEl = document.createElement('div');
+  enEl.className = 'comp-name-en';
+  enEl.textContent = names.en;
+  d.appendChild(enEl);
+
+  var sc = SHORTCUT_PILLS[compKey];
+  if (sc && (sc.letter || sc.digit)) {
+    var row = document.createElement('div');
+    row.className = 'comp-shortcuts';
+    if (sc.letter) {
+      var pL = document.createElement('span');
+      pL.className = 'pill';
+      pL.textContent = sc.letter;
+      row.appendChild(pL);
+    }
+    if (sc.digit) {
+      var pD = document.createElement('span');
+      pD.className = 'pill';
+      pD.textContent = sc.digit;
+      row.appendChild(pD);
+    }
+    d.appendChild(row);
+  }
+
+  d.addEventListener('click', function(){ startPlace(compKey); });
+  d.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); startPlace(compKey); }
+  });
+  return d;
+}
+
 function rebuildPalette() {
   // Sprint 27a: Render into #comp-panel-body (keeps search input at top)
   var el = document.getElementById('comp-panel-body') || document.getElementById('left');
@@ -434,46 +638,15 @@ function rebuildPalette() {
     var items = Object.entries(COMP).filter(function(e){ return e[1].cat === ck; });
     if (!items.length) continue;
     var hdr = document.createElement('div'); hdr.className = 'cat-header open';
+    hdr.style.setProperty('--cat-color', _catColor(ck));
     hdr.innerHTML = '<span>'+cl+'</span><span class="arrow">&#9654;</span>';
-    var body = document.createElement('div'); body.className = 'cat-body'; body.style.maxHeight = '600px';
-    items.forEach(function(e) {
-      var k = e[0], v = e[1];
-      var d = document.createElement('div'); d.className = 'comp-item';
-      // Sprint 104.1: sidebar icon up-sized from 24×18 to 36×28 (50% larger)
-      // with proportional scale 0.40. Devicepixelratio used to keep the
-      // stroke crisp at 2× retina. lineWidth bumped inside the transform
-      // via ctx.lineWidth override so symbol strokes don't look anaemic
-      // in the larger box.
-      var mc = document.createElement('canvas');
-      var dpr = (typeof window !== 'undefined' && window.devicePixelRatio) ? window.devicePixelRatio : 1;
-      mc.width = 36 * dpr; mc.height = 28 * dpr;
-      mc.style.cssText = 'width:36px;height:28px;margin-right:8px;vertical-align:middle;flex-shrink:0';
-      (function(canvas, drawFn) {
-        requestAnimationFrame(function() {
-          try {
-            var ctx2 = canvas.getContext('2d');
-            ctx2.save();
-            ctx2.scale(dpr, dpr);
-            ctx2.translate(18, 14);
-            ctx2.scale(0.40, 0.40);
-            // Boost default stroke-width so symbol lines are visible at
-            // the sidebar size; draw fns that set their own lineWidth
-            // will override this before each stroke.
-            ctx2.lineWidth = 5;
-            drawFn(ctx2, 20, { val: 0, type: '' });
-            ctx2.restore();
-          } catch(err) {}
-        });
-      })(mc, v.draw.bind(v));
-      var span = document.createElement('span');
-      span.style.cssText = 'display:flex;align-items:center';
-      span.appendChild(mc);
-      span.appendChild(document.createTextNode(v.name));
-      d.appendChild(span);
-      if (v.key) { var ks = document.createElement('span'); ks.className = 'key'; ks.textContent = v.key; d.appendChild(ks); }
-      d.addEventListener('click', function(){ startPlace(k); });
-      body.appendChild(d);
-    });
+    var body = document.createElement('div'); body.className = 'cat-body';
+    (function(categoryKey) {
+      items.forEach(function(e) {
+        var k = e[0], v = e[1];
+        body.appendChild(_renderCompCard(k, v, categoryKey));
+      });
+    })(ck);
     hdr.addEventListener('click', function(){ this.classList.toggle('open'); this.nextSibling.classList.toggle('closed'); });
     el.appendChild(hdr); el.appendChild(body);
   }
@@ -605,31 +778,12 @@ function _doFilterComponents(query) {
   hdr.innerHTML = '<span>' + matches.length + ' sonuç / results</span>';
   el.appendChild(hdr);
 
+  // Sprint 104.3 — search results render through the same card pipeline as
+  // the category view so the sidebar never flips back to the old list style.
   var body = document.createElement('div');
   body.className = 'cat-body';
-  body.style.maxHeight = '80vh';
   matches.forEach(function(entry) {
-    var k = entry[0], v = entry[1];
-    var d = document.createElement('div'); d.className = 'comp-item';
-    var mc = document.createElement('canvas');
-    mc.width = 24; mc.height = 18; mc.style.cssText = 'width:24px;height:18px;margin-right:6px;vertical-align:middle;flex-shrink:0';
-    (function(canvas, drawFn) {
-      requestAnimationFrame(function() {
-        try {
-          var ctx2 = canvas.getContext('2d');
-          ctx2.save(); ctx2.translate(12, 9); ctx2.scale(0.27, 0.27);
-          drawFn(ctx2, 20, { val: 0, type: '' });
-          ctx2.restore();
-        } catch(err) {}
-      });
-    })(mc, v.draw.bind(v));
-    var span = document.createElement('span');
-    span.style.cssText = 'display:flex;align-items:center';
-    span.appendChild(mc);
-    span.appendChild(document.createTextNode(v.name));
-    d.appendChild(span);
-    d.addEventListener('click', function() { startPlace(k); });
-    body.appendChild(d);
+    body.appendChild(_renderCompCard(entry[0], entry[1], entry[1].cat));
   });
   el.appendChild(body);
 }

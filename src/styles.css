@@ -7,6 +7,17 @@
 --yellow:#eab308;--cyan:#06b6d4;--pink:#ec4899;--green:#22c55e;
 --text:#e0e7f0;--text-2:#8899aa;--text-3:#5a6a7a;--text-4:#3a4a5a;
 --font-ui:'Outfit',sans-serif;--font-mono:'JetBrains Mono',monospace;
+/* Sprint 104.3 — category neon palette for sidebar grid cards */
+--cat-pasif:#4fc3f7;
+--cat-kaynaklar:#66bb6a;
+--cat-yariiletken:#ba68c8;
+--cat-optoelektronik:#ffa726;
+--cat-entegre:#42a5f5;
+--cat-lojik:#ec407a;
+--cat-mixedsignal:#ec407a;
+--cat-olcum:#ffd54f;
+--cat-kontrol:#ff7043;
+--cat-temel:#90a4ae;
 }
 html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:var(--font-ui);font-size:13px}
 button{font-family:inherit;cursor:pointer;border:none;background:none;color:var(--text)}
@@ -18,7 +29,10 @@ input:focus{border-color:var(--accent)}
 .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
 
 /* LAYOUT */
-#app{display:grid;grid-template-rows:44px 1fr 180px 26px;grid-template-columns:240px 1fr 260px;height:100vh;width:100vw}
+/* Sprint 104.3 — sidebar widened 240→290 to fit the new 3-column grid cards.
+ * Canvas re-lays out but breakpoints are unchanged (mobile+compact rules still
+ * fire at ≤1100px / ≤768px via the media queries below). */
+#app{display:grid;grid-template-rows:44px 1fr 180px 26px;grid-template-columns:290px 1fr 260px;height:100vh;width:100vw}
 #topbar{grid-column:1/-1;display:flex;align-items:center;padding:0 12px;gap:8px;background:var(--surface);border-bottom:1px solid var(--border)}
 #left{grid-row:2;overflow-y:auto;background:var(--surface);border-right:1px solid var(--border);padding:8px}
 #canvas-wrap{grid-row:2;position:relative;overflow:hidden;background:var(--bg)}
@@ -43,15 +57,36 @@ input:focus{border-color:var(--accent)}
 .sim-dot.on{background:var(--accent);box-shadow:0 0 8px var(--accent-glow)}
 
 /* LEFT PANEL */
-.cat-header{display:flex;align-items:center;justify-content:space-between;padding:6px 8px;cursor:pointer;border-radius:6px;font-size:12px;font-weight:600;color:var(--text-2);transition:.15s;user-select:none}
+/* Sprint 104.3 — category headers remain full-width (grid-column:1/-1 so
+ * they escape the 3-col grid inside cat-body). Accordion toggle/open-arrow
+ * behaviour is unchanged. */
+.cat-header{display:flex;align-items:center;justify-content:space-between;padding:6px 8px;cursor:pointer;border-radius:6px;font-size:12px;font-weight:600;color:var(--text-2);transition:.15s;user-select:none;grid-column:1/-1}
 .cat-header:hover{background:var(--surface-2);color:var(--text)}
 .cat-header .arrow{transition:transform .2s;font-size:10px;color:var(--text-4)}
 .cat-header.open .arrow{transform:rotate(90deg)}
-.cat-body{overflow:hidden;transition:max-height .25s ease}
-.cat-body.closed{max-height:0!important}
-.comp-item{display:flex;align-items:center;justify-content:space-between;padding:7px 8px;cursor:pointer;border-radius:5px;font-size:13px;color:var(--text-2);transition:.12s;user-select:none;min-height:40px}
-.comp-item:hover{background:var(--accent-dim);color:var(--text)}
-.comp-item .dot{width:6px;height:6px;border-radius:50%;margin-right:8px;flex-shrink:0}
+/* Sprint 104.3 — cat-body is now the 3-column grid container. Accordion
+ * close state uses display:none (max-height was only needed for the
+ * previous vertical list animation). */
+.cat-body{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:8px 0;transition:opacity .15s ease}
+.cat-body.closed{display:none}
+/* Sprint 104.3 — grid card. Replaces the old single-row list item.
+ * Structure (rendered by rebuildPalette):
+ *   .comp-symbol canvas  — 34px icon, centred
+ *   .comp-name-tr        — 12px/600 #fff, 2-line clamp
+ *   .comp-name-en        — 10px/400 opacity .45, 1-line ellipsis
+ *   .comp-shortcuts      — row of .pill chips (only rendered if present) */
+.comp-item{display:flex;flex-direction:column;align-items:center;gap:4px;padding:6px 4px;min-height:90px;cursor:pointer;border-radius:8px;background:rgba(255,255,255,0.03);border:1px solid transparent;transition:transform .12s ease-out,background .12s ease-out,border-color .12s ease-out,box-shadow .12s ease-out;user-select:none;color:var(--text-2);overflow:hidden}
+.comp-item:hover{background:rgba(255,255,255,0.06);color:var(--text);transform:translateY(-2px);border-color:color-mix(in srgb,var(--cat-color,var(--cat-temel)) 33%,transparent);box-shadow:0 0 0 1px color-mix(in srgb,var(--cat-color,var(--cat-temel)) 33%,transparent),0 4px 12px color-mix(in srgb,var(--cat-color,var(--cat-temel)) 20%,transparent)}
+.comp-item:active{transform:scale(.96);transition-duration:80ms}
+.comp-item.selected{border:1.5px solid var(--cat-color,var(--cat-temel));background:color-mix(in srgb,var(--cat-color,var(--cat-temel)) 8%,transparent);color:var(--text)}
+.comp-item .comp-symbol{display:flex;align-items:center;justify-content:center;width:34px;height:34px;flex-shrink:0}
+.comp-item .comp-symbol canvas{display:block}
+.comp-item .comp-name-tr{font-size:12px;font-weight:600;color:#fff;text-align:center;line-height:1.15;max-width:100%;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;text-overflow:ellipsis;word-break:break-word}
+.comp-item .comp-name-en{font-size:10px;font-weight:400;opacity:.45;color:#fff;text-align:center;line-height:1.1;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.comp-item .comp-shortcuts{display:flex;gap:4px;flex-wrap:nowrap;align-items:center;justify-content:center;margin-top:auto}
+.comp-item .comp-shortcuts .pill{font-family:var(--font-mono);font-size:10px;padding:1px 4px;border-radius:3px;background:rgba(255,255,255,0.08);color:var(--text);letter-spacing:.2px}
+/* Legacy helpers retained for non-card contexts (e.g. preset list fallback) */
+.comp-item .dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
 .comp-item .key{font-family:var(--font-mono);font-size:9px;padding:1px 5px;border-radius:3px;background:var(--surface-3);color:var(--text-4)}
 
 /* RIGHT PANEL */
@@ -262,7 +297,9 @@ input:focus{border-color:var(--accent)}
 #canvas-wrap canvas{touch-action:none}
 @media (pointer:coarse){
   .tb-btn{padding:8px 14px;font-size:13px;min-height:44px}
-  .comp-item{padding:10px 12px;font-size:14px;min-height:44px}
+  /* Sprint 104.3 — coarse pointer keeps the card layout but bumps min-height
+   * so finger targets stay ≥44pt. Grid column count stays 3 to match spec. */
+  .comp-item{padding:8px 4px;min-height:100px}
   .cat-header{padding:10px 12px;min-height:44px}
   .btab{padding:8px 14px;font-size:12px;min-height:40px}
   button,input[type="range"]{min-height:44px}
@@ -380,15 +417,20 @@ input:focus{border-color:var(--accent)}
   #ai-panel{width:calc(100vw - 32px);right:8px;bottom:56px}
 }
 @media (min-width:769px) and (max-width:1100px) {
-  #app{grid-template-columns:200px 1fr 200px}
+  /* Sprint 104.3 — compact desktop still runs the 3-column grid but the panel
+   * shrinks slightly and the cards drop one line of vertical padding. */
+  #app{grid-template-columns:240px 1fr 200px}
   #left{padding:4px;overflow-y:auto;-webkit-overflow-scrolling:touch}
   #right{padding:6px;overflow-y:auto;-webkit-overflow-scrolling:touch}
   #topbar{overflow-x:auto;-webkit-overflow-scrolling:touch;gap:4px;padding:0 8px}
   .tb-btn{padding:8px 12px;font-size:12px;min-height:44px}
   #analysis-tabs,.tab-bar{overflow-x:auto;-webkit-overflow-scrolling:touch}
   .btab{padding:8px 14px;font-size:12px;min-height:40px;white-space:nowrap}
-  .comp-item{padding:12px 14px;font-size:14px;min-height:44px}
+  .comp-item{padding:6px 3px;min-height:88px}
+  .comp-item .comp-name-tr{font-size:11px}
+  .comp-item .comp-name-en{font-size:9px}
   .cat-header{padding:12px 14px;min-height:44px}
+  .cat-body{gap:6px;padding:6px 0}
 }
 /* Touch hover disable */
 @media (hover:none) {
