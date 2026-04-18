@@ -1,35 +1,23 @@
 // ──────── PRESETS ────────
+// Sprint 104 — Great Reset. PRESETS is empty until each component earns
+// its feature-test slot under src/test-spice/feature-tests/.
 var PRESETS = [];
 
-
-(function buildPalette() {
-  const cats = { Passive: 'Pasif (Passive)', Sources: 'Kaynaklar (Sources)', Semi: 'Yarıiletken (Semiconductor)', ICs: 'Entegre (ICs)', Logic: 'Lojik (Logic)', Control: 'Kontrol (Control)', Basic: 'Temel (Basic)' };
-  const el = document.getElementById('left');
-  for (const [ck, cl] of Object.entries(cats)) {
-    const items = Object.entries(COMP).filter(([, v]) => v.cat === ck);
-    if (!items.length) continue;
-    const hdr = document.createElement('div');
-    hdr.className = 'cat-header open';
-    hdr.innerHTML = `<span>${cl}</span><span class="arrow">&#9654;</span>`;
-    const body = document.createElement('div');
-    body.className = 'cat-body'; body.style.maxHeight = '400px';
-    items.forEach(([k, v]) => {
-      const d = document.createElement('div'); d.className = 'comp-item';
-      d.innerHTML = `<span style="display:flex;align-items:center"><span class="dot" style="background:${v.color}"></span>${v.name}</span>${v.key ? '<span class="key">'+v.key+'</span>' : ''}`;
-      d.addEventListener('click', () => startPlace(k));
-      body.appendChild(d);
-    });
-    hdr.addEventListener('click', () => { hdr.classList.toggle('open'); body.classList.toggle('closed'); });
-    el.appendChild(hdr); el.appendChild(body);
-  }
-  // Preset section
-  const psec = document.createElement('div');
-  psec.innerHTML = '<div style="margin-top:16px;padding:8px;font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:1px;border-top:2px solid var(--accent);border-radius:0">&#9889; Hazır Devreler (Presets)</div>';
-  el.appendChild(psec);
-  PRESETS.forEach(pr => {
-    const d = document.createElement('div'); d.className = 'comp-item';
-    d.innerHTML = `<span style="display:flex;align-items:center"><span class="dot" style="background:${pr.color}"></span>${pr.name}</span>`;
-    d.addEventListener('click', () => loadPreset(pr.id));
-    el.appendChild(d);
+// Sprint 104.1 — the legacy buildPalette IIFE was removed. It rendered
+// into #left directly (outside #comp-panel-body), and every later call
+// to rebuildPalette (from setLanguage, save-block, search-clear) left
+// the IIFE's output in place — producing a visible duplicate component
+// list. rebuildPalette() is now the single source of truth and is
+// invoked at page ready via the initial call below.
+if (typeof rebuildPalette === 'function') {
+  // Fire once the DOM + rebuildPalette are both defined. rebuildPalette
+  // is declared later in the bundled startup.js; we defer one tick so
+  // the order of concatenation doesn't matter.
+  setTimeout(function() { try { rebuildPalette(); } catch (e) {} }, 0);
+} else if (typeof window !== 'undefined') {
+  window.addEventListener('load', function() {
+    if (typeof rebuildPalette === 'function') {
+      try { rebuildPalette(); } catch (e) {}
+    }
   });
-})();
+}

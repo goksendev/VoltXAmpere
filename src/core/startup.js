@@ -57,7 +57,7 @@ function setAriaLabels() {
 setAriaLabels();
 
 // Console banner
-console.log('%c\u26A1 VoltXAmpere v12.0.0-alpha.1', 'color:#00e09e;font-size:18px;font-weight:bold');
+console.log('%c\u26A1 VoltXAmpere v12.0.0-alpha.2', 'color:#00e09e;font-size:18px;font-weight:bold');
 console.log('%cProfessional Circuit Simulator \u2014 voltxampere.com', 'color:#8899aa;font-size:12px');
 console.log('%c' + t('scriptApi'), 'color:#f59e0b;font-size:11px');
 
@@ -439,14 +439,27 @@ function rebuildPalette() {
     items.forEach(function(e) {
       var k = e[0], v = e[1];
       var d = document.createElement('div'); d.className = 'comp-item';
-      // Mini canvas thumbnail (24×18px) — deferred draw for DOM readiness
+      // Sprint 104.1: sidebar icon up-sized from 24×18 to 36×28 (50% larger)
+      // with proportional scale 0.40. Devicepixelratio used to keep the
+      // stroke crisp at 2× retina. lineWidth bumped inside the transform
+      // via ctx.lineWidth override so symbol strokes don't look anaemic
+      // in the larger box.
       var mc = document.createElement('canvas');
-      mc.width = 24; mc.height = 18; mc.style.cssText = 'width:24px;height:18px;margin-right:6px;vertical-align:middle;flex-shrink:0';
+      var dpr = (typeof window !== 'undefined' && window.devicePixelRatio) ? window.devicePixelRatio : 1;
+      mc.width = 36 * dpr; mc.height = 28 * dpr;
+      mc.style.cssText = 'width:36px;height:28px;margin-right:8px;vertical-align:middle;flex-shrink:0';
       (function(canvas, drawFn) {
         requestAnimationFrame(function() {
           try {
             var ctx2 = canvas.getContext('2d');
-            ctx2.save(); ctx2.translate(12, 9); ctx2.scale(0.27, 0.27);
+            ctx2.save();
+            ctx2.scale(dpr, dpr);
+            ctx2.translate(18, 14);
+            ctx2.scale(0.40, 0.40);
+            // Boost default stroke-width so symbol lines are visible at
+            // the sidebar size; draw fns that set their own lineWidth
+            // will override this before each stroke.
+            ctx2.lineWidth = 5;
             drawFn(ctx2, 20, { val: 0, type: '' });
             ctx2.restore();
           } catch(err) {}
