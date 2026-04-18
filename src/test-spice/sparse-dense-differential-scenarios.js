@@ -27,12 +27,14 @@
 // the comparison proves the banded answer matches the dense
 // ground truth at floating-point precision.
 //
-// An internal diagnostic also runs forced-banded-on-every-circuit
-// (see DIAGNOSTIC_BANDED_ON_SMALL below).  That mode exposed a
-// small-matrix banded regression with branch-variable stamps
-// during Sprint 95 development; those three cases are tracked
-// separately as deferred work — they never hit production because
-// the dispatcher restricts banded to `n > 30`.
+// A secondary gate also forces every solve onto solveLU_banded —
+// Sprint 95 first turned up a small-matrix banded regression for
+// circuits with branch-variable stamps (CCVS, Gummel-Poon q1/qb),
+// which Sprint 96 traced to partial-pivoting fill outside the
+// banded solver's column cap and fixed by widening the effective
+// upper bandwidth to 2·bw (LAPACK GBTRF convention). From Sprint 96
+// onward banded is expected to agree with dense for every n, not
+// just n > 30, so any fresh discrepancy there is a hard failure.
 
 const puppeteer = require('puppeteer');
 const fs = require('fs');
@@ -40,7 +42,6 @@ const path = require('path');
 
 const url = process.env.VXA_URL || 'http://localhost:8765/simulator.html';
 const TEST_DIR = __dirname;
-const DIAGNOSTIC_BANDED_ON_SMALL = true;
 
 // 25 circuits: 24 from the existing suite plus the new 50-node
 // ladder that exercises the banded path. Mix covers every
@@ -166,7 +167,6 @@ function compareVoltages(vA, vB) {
   console.log('');
 
   var allPass = true;
-  var bandedSmallWarnings = [];
   var bigMatrixCount = 0;
 
   for (var ci = 0; ci < CIRCUITS.length; ci++) {
@@ -215,28 +215,22 @@ function compareVoltages(vA, vB) {
                   (pass ? '  PASS' : '  FAIL @ node ' + diff.worstNode));
 
       // Forced-banded comparison: pins every solve to the banded
-      // path regardless of matrix size. For n > 30 production could
-      // route banded (subject to the Sprint 69 runtime-verification
-      // fallback), so we treat banded ≠ dense as a hard failure.
-      // For n ≤ 30 production never calls banded, so a banded bug
-      // there is deferred technical debt (tracked, not gated).
+      // path regardless of matrix size. After Sprint 96 fixed the
+      // partial-pivoting fill bug in solveLU_banded, banded must
+      // agree with dense for every n, not just n > 30. A fresh
+      // discrepancy here is a real correctness regression.
       try {
         var rBanded = await solveWith(page, 'forced-banded', cir);
         if (rBanded.ok) {
           var dBand = compareVoltages(rDense.V, rBanded.V);
           var bandOK = dBand.maxAbs <= 1e-6 || dBand.maxRel <= 1e-4;
           if (!bandOK) {
-            if (diff.N > 30) {
-              console.log('    ✗ forced-banded vs dense @ ' + file +
-                          '  maxAbs=' + dBand.maxAbs.toExponential(2) +
-                          '  maxRel=' + dBand.maxRel.toExponential(2) +
-                          '  — banded path is broken for n>30');
-              allPass = false;
-            } else {
-              bandedSmallWarnings.push({
-                file, maxAbs: dBand.maxAbs, maxRel: dBand.maxRel
-              });
-            }
+            console.log('    ✗ forced-banded vs dense @ ' + file +
+                        '  (N=' + diff.N + ')' +
+                        '  maxAbs=' + dBand.maxAbs.toExponential(2) +
+                        '  maxRel=' + dBand.maxRel.toExponential(2) +
+                        '  — banded path is broken');
+            allPass = false;
           }
         }
       } catch (_) { /* diagnostic only */ }
@@ -254,17 +248,6 @@ function compareVoltages(vA, vB) {
   console.log('━'.repeat(76));
   console.log('  circuits tested       : ' + CIRCUITS.length);
   console.log('  circuits with n > 30  : ' + bigMatrixCount + ' (banded path actually exercised)');
-  if (bandedSmallWarnings.length > 0) {
-    console.log('');
-    console.log('  ⚠  FORCED-BANDED DISCREPANCIES ON SMALL MATRICES (diagnostic only,');
-    console.log('      production never routes banded for n ≤ 30 so these do not fail');
-    console.log('      the suite — tracked as deferred debt):');
-    bandedSmallWarnings.forEach(function (w) {
-      console.log('        ' + w.file.padEnd(34) +
-                  '  maxAbs=' + w.maxAbs.toExponential(2) +
-                  '  maxRel=' + w.maxRel.toExponential(2));
-    });
-  }
   console.log('');
   console.log(allPass ? '✓ ALL PASS' : '✗ FAIL');
   console.log('━'.repeat(76));

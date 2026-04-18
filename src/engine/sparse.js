@@ -132,7 +132,7 @@ VXA.Sparse = (function() {
     }
     var b = new Float64Array(n);
     for (var i = 0; i < n; i++) b[invOrder[i]] = rhs[i];
-    // Compute bandwidth
+    // Compute bandwidth of the reordered (but not yet factorised) matrix.
     var bw = 0;
     for (var i = 0; i < n; i++) {
       for (var j = 0; j < n; j++) {
@@ -140,8 +140,24 @@ VXA.Sparse = (function() {
       }
     }
     matrix._bandwidth = bw;
+
+    // Sprint 96 fix: partial pivoting inside a banded LU can push a
+    // pivot row's non-zeros into columns outside the original band.
+    // LAPACK GBTRF proves the resulting U factor has upper bandwidth
+    // kl + ku = 2·bw for a matrix whose input bandwidth is bw. If
+    // elimination and back-substitution only look within `bw`, those
+    // post-pivot entries are silently ignored — which is exactly the
+    // bug the Sprint 95 forced-banded probe flagged for circuits with
+    // branch-variable stamps (CCVS, Gummel-Poon q1/qb rows). Use an
+    // effective upper bandwidth of 2·bw so the fill from pivoting is
+    // accounted for without collapsing to a full O(n²) dense solve.
+    var bwEff = Math.min(2 * bw, n - 1);
+
     // Banded Gaussian elimination
     for (var col = 0; col < n; col++) {
+      // Partial pivoting only searches within the original lower band
+      // (a row below col+bw still has a zero in column col pre-pivot),
+      // so pEnd stays at col+bw+1 regardless of bwEff.
       var pEnd = Math.min(col + bw + 1, n);
       var maxVal = Math.abs(A[col][col]), maxRow = col;
       for (var r = col+1; r < pEnd; r++) {
@@ -155,17 +171,20 @@ VXA.Sparse = (function() {
       for (var r = col+1; r < pEnd; r++) {
         var f = A[r][col] / A[col][col];
         if (f === 0) continue;
-        var jEnd = Math.min(col + bw + 1, n);
+        // Inner j loop uses bwEff: the pivot row may now carry entries
+        // as far right as col + 2·bw, and fill propagates into the row
+        // being eliminated.
+        var jEnd = Math.min(col + bwEff + 1, n);
         for (var j = col+1; j < jEnd; j++) A[r][j] -= f * A[col][j];
         b[r] -= f * b[col];
         A[r][col] = 0;
       }
     }
-    // Back substitution (banded)
+    // Back substitution (banded, widened to bwEff)
     var xr = new Float64Array(n);
     for (var i = n-1; i >= 0; i--) {
       var sum = b[i];
-      var jEnd = Math.min(i + bw + 1, n);
+      var jEnd = Math.min(i + bwEff + 1, n);
       for (var j = i+1; j < jEnd; j++) sum -= A[i][j] * xr[j];
       xr[i] = Math.abs(A[i][i]) > 1e-18 ? sum / A[i][i] : 0;
     }
