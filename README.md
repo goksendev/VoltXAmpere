@@ -1,8 +1,9 @@
 # VoltXAmpere
 
-[![version](https://img.shields.io/badge/version-11.0.0-00e09e)](./CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-11.1.0-00e09e)](./CHANGELOG.md)
 [![harness](https://img.shields.io/badge/harness-11%2F11_pass-22cc44)](./src/test-spice/puppeteer-harness.js)
-[![scenarios](https://img.shields.io/badge/scenarios-8%2F8_pass-22cc44)](./src/test-spice)
+[![scenarios](https://img.shields.io/badge/scenarios-14%2F14_pass-22cc44)](./src/test-spice)
+[![sparse](https://img.shields.io/badge/sparse-25%2F25_pass-22cc44)](./src/test-spice/sparse-dense-differential-scenarios.js)
 [![license](https://img.shields.io/badge/license-MIT-blue)](./LICENSE)
 
 Professional web-based circuit simulator — 71+ components, full
@@ -10,6 +11,25 @@ SPICE parser, complete thermal-electrical coupling, AC-MNA analysis,
 interactive multimeter, Bode and Nyquist plotting.
 
 Live at **[voltxampere.com](https://voltxampere.com)**.
+
+## What's New in 11.1
+
+Ten-sprint infrastructure release (Sprints 91 → 99). Key additions:
+
+- **Controlled sources (CCVS / CCCS)** — full SPICE `H` and `F` elements
+  with branch-variable MNA stamps.
+- **JFET model library** — nine presets plus user-defined `.MODEL`
+  directives now bind to the JFET stamp end-to-end.
+- **Sparse solver correctness** — banded LU fill-in bandwidth corrected
+  to `2·bw` (LAPACK GBTRF). Closes a quiet class of wrong answers on
+  larger sparse matrices.
+- **Test harness maturity** — new 25-circuit sparse-vs-dense
+  differential suite (`npm run test:sparse`), preset geometry validator,
+  and a documented probe-writing doctrine after a six-month-old "BJT
+  collapse" turned out to be a test race, not physics.
+
+See [CHANGELOG.md](./CHANGELOG.md#1110--2026-04-18) for the full entry
+including per-sprint narrative.
 
 ## What's New in 11.0
 
@@ -39,23 +59,27 @@ new SPICE tokens (`Isat=`, `Nsat=`, `Hc=`, `Ke=`, `Tcurie=`,
 git clone https://github.com/goksendev/VoltXAmpere.git
 cd VoltXAmpere
 python3 -m http.server 8765
-# Open http://localhost:8765/index.html
+# Landing: http://localhost:8765/
+# Simulator: http://localhost:8765/simulator.html
 ```
 
 ## Testing
 
 ```bash
 npm test               # main harness — 11 reference circuits
-npm run scenarios      # sequential: 8 thermal / saturation probes
+npm run scenarios      # sequential: 14 device / physics / UX probes
+npm run test:sparse    # sparse-vs-dense differential — 25 circuits
 ```
 
-Every commit in the Sprint 77 → 89 series was verified against both
-the main harness and the scenario suite before landing on `main`.
+Every commit in the Sprint 77 → 99 series was verified against the
+three regression fences before landing on `main`. See
+[docs/TESTING.md](./docs/TESTING.md) for the probe-writing doctrine.
 
 ## Build
 
 A single-file build concatenates the modular `src/` tree into
-`index.html` (~29 k lines):
+`simulator.html` (~29 k lines); the landing page (`index.html`) is
+served directly:
 
 ```bash
 npm run build          # or: node build.js

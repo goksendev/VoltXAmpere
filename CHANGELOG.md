@@ -5,6 +5,191 @@ All notable changes to VoltXAmpere are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [11.1.0] — 2026-04-18
+
+Ten-sprint infrastructure release (Sprint 91 → 99). User-visible
+additions on the device-model side (controlled sources, JFET library),
+a solver correctness fix that closes a quiet class of wrong answers on
+large sparse matrices, and a significant maturing of the test harness
+— including one lesson the hard way that a long-standing "physics bug"
+was actually a test probe race condition. All three regression fences
+(`npm test`, `npm run scenarios`, `npm run test:sparse`) are green.
+
+### Added
+
+- **Controlled sources (CCVS / CCCS)** — current-controlled voltage
+  and current sources now resolve through a proper branch-variable
+  MNA pre-pass. Full SPICE `H` and `F` element support, including
+  correct sign conventions for the sensing V-source. *(Sprint 92,
+  `2e2682c`)*
+- **JFET model library + custom `.MODEL` binding** — nine built-in
+  presets (Generic, 2N3819, J310, J111, J113, 2N5457, 2N5458, 2N5459,
+  MMBF4391) plus user-defined `.MODEL` directives now bind correctly
+  to the JFET stamp through the LAMBDA channel-length-modulation
+  parameter. Stamp is backward-compatible with the legacy 9-argument
+  call. *(Sprint 93, `f797bc5`)*
+- **Sparse-vs-dense differential suite** — new `npm run test:sparse`
+  diffs 25 representative circuits through the production `solveLU`
+  dispatcher versus forced-dense, including a synthetic 50-resistor
+  ladder (`36-ladder-50-resistors.cir`) that forces the banded path.
+  Pass criterion: `max |ΔV| ≤ 1e-6` or relative ≤ 1e-4. *(Sprint 95,
+  `8e689b3`)*
+- **Pseudo-Transient Continuation (PTC) infrastructure** — collapse
+  detection + `dt/2` retry with conductance injection `(J + I/τ)` for
+  stubborn operating points. Currently dormant in production (the
+  Sprint 81 collapse that motivated it turned out to be non-physical),
+  but the machinery stays as defense-in-depth against future NR
+  divergence edge cases. *(Sprint 97, `b04fd0a`)*
+- **Probe integrity doctrine** — four documented rules for writing
+  new scenario probes against the simulator, added to `docs/TESTING.md`.
+  *(Sprint 99, `8cb450f`)*
+
+### Changed
+
+- **Banded sparse solver — LAPACK GBTRF bandwidth allocation** — the
+  partial-pivoting elimination inner loop now sweeps `bw → 2·bw` to
+  accommodate the fill-in that GBTRF creates in `U`. The previous
+  allocation truncated fill and produced silently wrong solutions on
+  circuits large enough to enter the banded path. *(Sprint 96,
+  `b79a5a8`)*
+- **Landing page and simulator route split** — `voltxampere.com/`
+  now serves a marketing landing page; the simulator lives at
+  `/simulator.html`. `build.js` was updated to write `simulator.html`
+  as its output, and 16 test probes were updated to the new URL.
+  *(Sprint 91, `48fa7c5`)*
+
+### Fixed
+
+- **Preset library zero-length wires** — 33 degenerate wires (endpoint
+  coincident with itself) removed from `src/components/presets.js`.
+  A new build-time validator (`validatePresetGeometry` in `build.js`)
+  fails the build if anyone reintroduces one. *(Sprint 94, `cc295c8`)*
+- **BJT thermal "runaway collapse" (Sprint 81 phantom)** — a six-month-
+  old test failure that looked like a stamp-level Gummel-Poon bug was
+  root-caused to a test harness race condition: `bjt-thermal-scenarios.js`
+  left `S.sim.running = true` while driving the simulator from Node in
+  `page.evaluate()` chunks, so the browser's `requestAnimationFrame`
+  was calling `VXA.SimV2.solve()` in parallel with the test's manual
+  stepping loop. One-line fix: `S.sim.running = false`. Original
+  Sprint 81 baseline (peak-Tj Δ = 25.9 °C between runaway and safe
+  topologies) restored to the decimal. *(Sprint 98, `f03e38b`)*
+
+### Infrastructure
+
+- **Parity audit document** — `docs/PARITY_AUDIT_2026-04-18.md`
+  captures an 18-row comparison against LTspice reference output
+  across representative circuits, as a baseline for any future
+  ES-modules migration. *(Sprint 91.5, `82ce0a0`)*
+- **`docs/TESTING.md`** — full three-layer regression matrix
+  (harness + scenario probes + sparse differential) now documented,
+  with guidance on when to add a probe at which layer. *(Sprints 95,
+  99)*
+
+### Sprint Narrative
+
+This section is written for the team. One paragraph per sprint, what
+and why, so future decisions have context.
+
+**Sprint 91 — Landing / simulator split.** `voltxampere.com/` used
+to serve the simulator directly. As the simulator grew past a megabyte
+of built JS, first-paint on marketing visits was hurting. Split into a
+lightweight landing page (`index.html`) and the app (`/simulator.html`).
+Updated `build.js` output target, 16 puppeteer probes, `manifest.json`
+`start_url`, and meta / OG / sitemap URLs.
+
+**Sprint 91.5 — Parity audit.** Before any further solver work, we
+locked in an 18-alignment baseline against LTspice on a cross-section
+of representative circuits. The audit doc is the artifact; the gate
+it closes is "don't start an ES-modules refactor on top of an unverified
+baseline."
+
+**Sprint 92 — HATA 13 — CCVS / CCCS branch-variable MNA.** SPICE H
+and F elements need an explicit current variable for the *controlling*
+branch, not just the controlled branch, because the controlling current
+flows through a V-source that the user wires in. The stamp was
+short-circuiting by guessing the current from nodal voltages — wrong
+by construction. Rewrote with a pre-pass that indexes every V-source
+and every `H`/`F`, then stamps the controlled branch into the correct
+extended MNA row. A sign convention for the controlling V-source had
+to be re-derived from first principles (the probe test caught an early
+mistake on the controlled-branch polarity).
+
+**Sprint 93 — HATA 14 — JFET `.MODEL` binding.** The JFET stamp was
+previously hard-coded to a generic IDSS/VTO/LAMBDA. User `.MODEL`
+directives parsed fine but never reached the stamp. Added a JFET model
+registry with nine presets and wired the parser → model-lookup →
+stamp path through. The stamp's LAMBDA argument position was changed;
+the 9-argument legacy signature still works via a runtime shape check
+at the top of `jfet()`.
+
+**Sprint 94 — HATA 15 — Zero-length preset wires.** Audit found 33
+preset-library wires with coincident endpoints (zero geometric length).
+Zombie artifacts from a 6-month-old refactor (S57). They caused subtle
+placement bugs because some code paths treat zero-length wires as
+"point junctions." Removed all 33 from `src/components/presets.js`,
+and added a build-time validator so they can't come back.
+
+**Sprint 95 — HATA 16 — Sparse-vs-dense differential.** Before we
+shipped any further solver changes, we wanted a regression fence that
+would catch a sparse-vs-dense divergence on *any* circuit at commit
+time. Built `sparse-dense-differential-scenarios.js` across 24 harness
+circuits plus a synthetic 50-resistor ladder (the ladder exists
+specifically to force the banded path, which wouldn't otherwise
+activate on our reference suite). Sabotage testing confirmed the
+probe catches wrong results. This suite paid for itself immediately
+in the next sprint.
+
+**Sprint 96 — Banded solver GBTRF fix.** The Sprint 95 suite flagged
+three circuits as diverging between production-banded and forced-
+dense on the diagnostic lane. Root cause: the banded solver was
+allocating only `bw` columns of fill-in for LU, but LAPACK GBTRF's
+partial-pivoting actually produces U with bandwidth up to `2·bw`.
+Our inner elimination loop was truncating the fill and producing
+silently wrong answers on matrices large enough to enter the banded
+path. Fix is surgical: one `bwEff = Math.min(2*bw, n-1)` replacement
+in the elimination and back-sub loops.
+
+**Sprint 97 — PTC infrastructure.** The Sprint 81 "BJT thermal
+runaway collapse at t ≈ 0.26 s" had been our longest-running open
+motor bug — Sprints 85, 86, 97 had chipped at it. Built the full
+machinery we thought we needed: collapse detection (`Ic drops by
+50 % while Tj > 40 °C`), automatic `dt/2` retry with forced PTC,
+conductance injection `G = 1/τ` on every node, min-3-iter rule under
+forced PTC, and SER τ adaptation. Code landed. Tests *still* flagged
+the collapse. The mechanism for rescue was correct, but the collapse
+kept coming back at t ≈ 0.26 s regardless of PTC intervention.
+
+**Sprint 98 — The collapse was never physical.** Sprint 97 told us
+PTC wasn't enough. Sprint 98 was supposed to fix the Gummel-Poon
+stamp at high junction temperatures. Wrote a per-step stamp snapshot
+probe — and found that the stamp was *perfectly behaved* for 600
+consecutive steps around t = 0.26 s. No Is blow-up, no vbe clamp
+triggering, no NR divergence. The collapse the scenario test reported
+was not showing up at the stamp level at all. Root cause: the probe
+itself. `bjt-thermal-scenarios.js` left `S.sim.running = true`, and
+because the probe drove the sim from Node in `page.evaluate()` chunks
+with `await`s between them, the browser's `requestAnimationFrame`
+was firing its own `VXA.SimV2.solve()` calls in parallel with our
+manual steps — two solvers running the same circuit with different
+`dt` values, stomping each other's state. One-line fix:
+`S.sim.running = false`. Peak-Tj separation jumped back to the
+original Sprint 81 value of 25.9 °C. The entire Sprint 81 baseline
+was real, not race-corrupted. Seventeen sprints chasing a ghost.
+
+**Sprint 99 — Probe integrity audit.** One bad probe is a bug; five
+bad probes is a culture problem. Audited the remaining five probes
+with `sim.running = true` (`comprehensive-probe`, `probe-scenarios`,
+`probe-screenshots`, `puppeteer-harness`, `rl-diagnostic`). All five
+use the single-`page.evaluate()` pattern with no inner `await`, so
+they're race-immune by construction (the browser stays in one JS
+task for the whole evaluate; `requestAnimationFrame` can't interrupt).
+No code fixes needed. But the lesson is easy to lose — so the four
+rules that describe how to write a safe probe are now in
+`docs/TESTING.md`. Empirical confirmation: `probe-scenarios` actually
+*requires* `running = true` for the multimeter peak-hold history to
+populate, so we couldn't have flipped the flag globally even if we
+wanted to.
+
 ## [11.0.0] — 2026-04-18
 
 Thirteen-sprint release closing the thermal-electrical feedback loop
@@ -170,4 +355,5 @@ marked completion of the initial SPICE parser, MNA solver with
 Backward-Euler / Trapezoidal companions, sparse LU factorisation,
 thermal-damage engine, and 71+ component library.
 
+[11.1.0]: https://github.com/goksendev/VoltXAmpere/releases/tag/v11.1.0
 [11.0.0]: https://github.com/goksendev/VoltXAmpere/releases/tag/v11.0.0

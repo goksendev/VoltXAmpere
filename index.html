@@ -25,7 +25,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"VoltXAmpere","url":"https://voltxampere.com","description":"Professional browser-based circuit simulator with SPICE parser, thermal-electrical coupling, and AC-MNA analysis.","applicationCategory":"EducationalApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"softwareVersion":"11.0.0","license":"https://opensource.org/licenses/MIT"}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"VoltXAmpere","url":"https://voltxampere.com","description":"Professional browser-based circuit simulator with SPICE parser, thermal-electrical coupling, and AC-MNA analysis.","applicationCategory":"EducationalApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"softwareVersion":"11.1.0","license":"https://opensource.org/licenses/MIT"}</script>
 
 <style>
 :root {
@@ -167,6 +167,14 @@ nav .inner {
   border: 1px solid var(--border-strong);
   background: var(--card);
   margin-bottom: 28px;
+  text-decoration: none;
+  transition: color .18s, border-color .18s, background .18s, transform .18s;
+}
+a.eyebrow:hover {
+  color: var(--text);
+  border-color: rgba(0,224,158,0.35);
+  background: rgba(0,224,158,0.04);
+  transform: translateY(-1px);
 }
 .eyebrow .dot {
   width: 8px; height: 8px; border-radius: 50%;
@@ -174,6 +182,10 @@ nav .inner {
   box-shadow: 0 0 12px var(--accent);
   animation: pulse 2.4s ease-in-out infinite;
 }
+.eyebrow .arrow {
+  font-size: 11px; color: var(--text-3); transition: transform .18s, color .18s;
+}
+a.eyebrow:hover .arrow { color: var(--accent); transform: translateY(2px); }
 @keyframes pulse {
   0%, 100% { opacity: 1; transform: scale(1); }
   50% { opacity: 0.5; transform: scale(0.85); }
@@ -476,6 +488,66 @@ section.tight { padding: 72px 0; }
   display: inline-block; margin-top: 24px;
   font-weight: 500; font-size: 15px;
 }
+.whats-new__subtitle {
+  color: var(--text-2);
+  font-size: 16px;
+  line-height: 1.55;
+  max-width: 620px;
+  margin-bottom: 36px;
+  position: relative;
+  z-index: 1;
+}
+.whats-new__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  position: relative;
+  z-index: 1;
+  margin-bottom: 28px;
+}
+.whats-new__card {
+  padding: 22px;
+  border-radius: 12px;
+  background: rgba(10, 14, 20, 0.55);
+  border: 1px solid var(--border);
+  transition: transform .18s, border-color .18s, background .18s;
+}
+.whats-new__card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(0,224,158,0.28);
+  background: rgba(10, 14, 20, 0.72);
+}
+.whats-new__icon {
+  font-size: 22px;
+  line-height: 1;
+  margin-bottom: 12px;
+  color: var(--accent);
+}
+.whats-new__card h3 {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin-bottom: 8px;
+  color: var(--text);
+}
+.whats-new__card p {
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--text-2);
+  margin: 0;
+}
+.whats-new__card code {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  background: rgba(0,224,158,0.09);
+  color: var(--accent);
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+@media (max-width: 640px) {
+  .whats-new__grid { grid-template-columns: 1fr; }
+  .whats-new { padding: 32px 22px; }
+}
 
 /* ==================== BIG CTA ==================== */
 .big-cta {
@@ -612,10 +684,11 @@ footer {
   <div class="hero-bg"></div>
   <div class="hero-grid"></div>
   <div class="inner container">
-    <div class="eyebrow">
+    <a class="eyebrow" href="#whats-new" aria-label="What's new in v11.1">
       <span class="dot"></span>
-      <span>v11.0.0 released · thermal-electrical coupling complete</span>
-    </div>
+      <span>v11.1.0 released · controlled sources, JFET models, sparse solver hardened</span>
+      <span class="arrow">↓</span>
+    </a>
     <h1>
       Professional circuit simulation.<br>
       <span class="grad">In your browser.</span>
@@ -855,20 +928,61 @@ footer {
 </section>
 
 <!-- ==================== WHAT'S NEW ==================== -->
-<section>
+<section id="whats-new">
   <div class="container">
     <div class="whats-new reveal">
-      <span class="version-tag">v11.0.0 · April 2026</span>
+      <span class="version-tag">v11.1.0 · April 2026</span>
       <h2>What's new.</h2>
-      <ul>
-        <li><strong>Thermal-electrical chain closed.</strong> Every nonlinear active device (BJT, MOSFET Level-1, diode, inductor) reacts to junction temperature. Thermal runaway, Curie-point Isat derating, and core-saturation self-heating are now modelled.</li>
-        <li><strong>AC analysis 155× faster.</strong> Bode and the new Nyquist tab share a single complex-MNA backend — one linear solve per frequency.</li>
-        <li><strong>Professional multimeter probe.</strong> Drag onto pins or wires, automatic AC RMS detection, V/I/R/dB mode selector, MIN/MAX/PEAK hold.</li>
-        <li><strong>Hysteresis and eddy-current losses.</strong> Configurable inductor core-loss model with measurable f¹ (hysteresis) and f² (eddy) scaling.</li>
-        <li><strong>Solver stability matured.</strong> Adaptive NR damping, divergence rollback, deep-saturation convergence to textbook values.</li>
-        <li><strong>Interactive tutorial.</strong> Eight-step event-triggered onboarding — drop a resistor, the tour advances.</li>
-      </ul>
-      <a href="/CHANGELOG.md" class="more">Read the full changelog →</a>
+      <p class="whats-new__subtitle">
+        Ten-sprint infrastructure release: deeper device models, a solver
+        correctness fix on large sparse matrices, and a test harness that
+        learned to stop chasing phantom physics bugs.
+      </p>
+
+      <div class="whats-new__grid">
+        <article class="whats-new__card">
+          <div class="whats-new__icon">⚡</div>
+          <h3>Controlled sources</h3>
+          <p>
+            CCVS and CCCS (SPICE <code>H</code> and <code>F</code> elements)
+            now resolve through a proper branch-variable MNA pre-pass,
+            with correctly signed sensing V-sources.
+          </p>
+        </article>
+
+        <article class="whats-new__card">
+          <div class="whats-new__icon">🎛</div>
+          <h3>JFET model library</h3>
+          <p>
+            Nine built-in presets (2N3819, J310, J113, 2N5457 and more)
+            plus user-defined <code>.MODEL</code> directives now bind
+            end-to-end through the stamp's LAMBDA channel.
+          </p>
+        </article>
+
+        <article class="whats-new__card">
+          <div class="whats-new__icon">🔬</div>
+          <h3>Sparse solver hardened</h3>
+          <p>
+            Banded LU fill-in bandwidth corrected to <code>2·bw</code>
+            per LAPACK GBTRF. Silent wrong answers on larger sparse
+            circuits are now closed — 25-circuit differential suite green.
+          </p>
+        </article>
+
+        <article class="whats-new__card">
+          <div class="whats-new__icon">🧪</div>
+          <h3>Test harness matured</h3>
+          <p>
+            A six-month-old "BJT runaway collapse" turned out to be a
+            test probe race, not a physics bug. Fixed, documented
+            (<code>docs/TESTING.md</code>), and four probe-writing
+            rules to keep it from coming back.
+          </p>
+        </article>
+      </div>
+
+      <a href="./CHANGELOG.md" class="more">Read the full changelog →</a>
     </div>
   </div>
 </section>
@@ -925,7 +1039,7 @@ footer {
     </div>
     <div class="footer-bottom">
       <span>© 2026 goksendev</span>
-      <span class="made">Made with electrons · v11.0.0</span>
+      <span class="made">Made with electrons · v11.1.0</span>
     </div>
   </div>
 </footer>
