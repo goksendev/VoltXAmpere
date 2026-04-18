@@ -6,27 +6,27 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>VoltXAmpere v12.0.0-alpha.10 — Professional Circuit Simulator</title>
+<title>VoltXAmpere v12.0.0-alpha.11 — Professional Circuit Simulator</title>
 <meta name="description" content="Professional browser-based circuit simulator. 71+ components, full SPICE parser, complete thermal-electrical coupling, AC-MNA analysis (Bode + Nyquist), professional multimeter probe. MIT licensed.">
 <meta name="keywords" content="circuit simulator, SPICE, devre simülatörü, electronics, voltxampere, free, online, oscilloscope, Bode, Nyquist, thermal, Newton-Raphson, MNA, Gummel-Poon">
 <meta name="author" content="goksendev">
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="https://voltxampere.com/simulator.html">
-<meta property="og:title" content="VoltXAmpere v12.0.0-alpha.10 — Professional Circuit Simulator">
+<meta property="og:title" content="VoltXAmpere v12.0.0-alpha.11 — Professional Circuit Simulator">
 <meta property="og:description" content="71+ components. Full SPICE parser. Thermal-electrical coupling. AC-MNA analysis. Professional multimeter. Free and open source.">
 <meta property="og:url" content="https://voltxampere.com/simulator.html">
 <meta property="og:type" content="website">
 <meta property="og:locale" content="en_US">
 <meta property="og:locale:alternate" content="tr_TR">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="VoltXAmpere v12.0.0-alpha.10 — Circuit Simulator">
+<meta name="twitter:title" content="VoltXAmpere v12.0.0-alpha.11 — Circuit Simulator">
 <meta name="twitter:description" content="71+ components. Full SPICE parser. Thermal-electrical coupling. Free and open source.">
 <meta name="theme-color" content="#0a0e14">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="VoltXAmpere">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='28' font-size='28'%3E%E2%9A%A1%3C/text%3E%3C/svg%3E">
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"VoltXAmpere","url":"https://voltxampere.com/simulator.html","description":"Professional browser-based circuit simulator with full SPICE parser, thermal-electrical coupling, and AC-MNA analysis","applicationCategory":"EducationalApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"softwareVersion":"12.0.0-alpha.10","license":"https://opensource.org/licenses/MIT","featureList":"71 components, Full SPICE parser, Thermal-electrical coupling, BSIM3 MOSFET, Gummel-Poon BJT, AC-MNA Bode and Nyquist, Professional multimeter probe, Inductor saturation, Hysteresis and eddy-current losses, Curie-point derating, Adaptive Newton-Raphson solver"}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"VoltXAmpere","url":"https://voltxampere.com/simulator.html","description":"Professional browser-based circuit simulator with full SPICE parser, thermal-electrical coupling, and AC-MNA analysis","applicationCategory":"EducationalApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"softwareVersion":"12.0.0-alpha.11","license":"https://opensource.org/licenses/MIT","featureList":"71 components, Full SPICE parser, Thermal-electrical coupling, BSIM3 MOSFET, Gummel-Poon BJT, AC-MNA Bode and Nyquist, Professional multimeter probe, Inductor saturation, Hysteresis and eddy-current losses, Curie-point derating, Adaptive Newton-Raphson solver"}</script>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
@@ -68,7 +68,29 @@ input:focus{border-color:var(--accent)}
  * ResizeObserver on #canvas-wrap — no manual resize event needed. */
 #app{display:grid;grid-template-rows:44px 1fr 180px 26px;grid-template-columns:var(--sidebar-w,290px) 1fr 260px;height:100vh;width:100vw;position:relative}
 #topbar{grid-column:1/-1;display:flex;align-items:center;padding:0 12px;gap:8px;background:var(--surface);border-bottom:1px solid var(--border)}
-#left{grid-row:2;overflow-y:auto;background:var(--surface);border-right:1px solid var(--border);padding:8px;position:relative}
+/* Sprint 104.3.7 — #left is now a flex column so the search box stays
+ * pinned at the top and only the palette body scrolls. Before this fix the
+ * whole sidebar scrolled as one unit, which meant tall categories like
+ * Pasif + Kaynaklar pushed the remaining 6 categories below the fold — they
+ * rendered fine but most users never noticed there was a scrollbar to
+ * drag. Moving the scroll surface inside a dedicated child keeps #left at
+ * 100vh without padding cancelling its height, and the scrollbar styling
+ * below makes the track visible (6px thumb @ 12% white). */
+#left{grid-row:2;display:flex;flex-direction:column;min-height:0;overflow:hidden;background:var(--surface);border-right:1px solid var(--border);padding:0;position:relative}
+#comp-search-box{flex:0 0 auto;padding:8px}
+#comp-panel-body{
+  flex:1 1 auto;
+  min-height:0;
+  overflow-y:auto;
+  overflow-x:hidden;
+  padding:8px;
+  scrollbar-width:thin;
+  scrollbar-color:rgba(255,255,255,0.12) transparent;
+}
+#comp-panel-body::-webkit-scrollbar{width:6px;height:6px}
+#comp-panel-body::-webkit-scrollbar-track{background:transparent}
+#comp-panel-body::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.12);border-radius:3px;transition:background .15s ease}
+#comp-panel-body::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,0.22)}
 /* Sprint 104.3.1 — drag handle on the right edge of the sidebar. Sits above
  * the canvas-wrap edge so it captures pointer events. Invisible by default,
  * lights up on hover/drag. Double-click resets to 290px (JS handles that). */
@@ -477,7 +499,10 @@ body.sidebar-resizing *{user-select:none!important}
    * ResizeObserver), so we only nudge padding/fonts here. Column count stays
    * dynamic. */
   #app{grid-template-columns:var(--sidebar-w,240px) 1fr 200px}
-  #left{padding:4px;overflow-y:auto;-webkit-overflow-scrolling:touch}
+  /* Sprint 104.3.7 — keep #left a flex column here too; scroll happens inside
+   * #comp-panel-body. Touch smoothing moved to that child. */
+  #left{padding:0}
+  #comp-panel-body{-webkit-overflow-scrolling:touch;padding:4px}
   #right{padding:6px;overflow-y:auto;-webkit-overflow-scrolling:touch}
   #topbar{overflow-x:auto;-webkit-overflow-scrolling:touch;gap:4px;padding:0 8px}
   .tb-btn{padding:8px 12px;font-size:12px;min-height:44px}
@@ -865,7 +890,7 @@ body.sidebar-resizing *{user-select:none!important}
     <span id="sb-temp" style="color:var(--text-3)"></span>
     <span id="sb-engine" style="color:var(--text-4)"></span>
     <span id="sb-extra" style="color:var(--text-3)"></span>
-    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v12.0.0-alpha.10 — Build: 2026-04-18 23:25 — © 2026</span>
+    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v12.0.0-alpha.11 — Build: 2026-04-18 23:47 — © 2026</span>
   </div>
 </div>
 
@@ -18615,7 +18640,7 @@ function setAriaLabels() {
 setAriaLabels();
 
 // Console banner
-console.log('%c\u26A1 VoltXAmpere v12.0.0-alpha.10', 'color:#00e09e;font-size:18px;font-weight:bold');
+console.log('%c\u26A1 VoltXAmpere v12.0.0-alpha.11', 'color:#00e09e;font-size:18px;font-weight:bold');
 console.log('%cProfessional Circuit Simulator \u2014 voltxampere.com', 'color:#8899aa;font-size:12px');
 console.log('%c' + t('scriptApi'), 'color:#f59e0b;font-size:11px');
 
@@ -19258,10 +19283,14 @@ function rebuildPalette() {
   var el = document.getElementById('comp-panel-body') || document.getElementById('left');
   el.innerHTML = '';
   var cats = { Passive:t('catPassive'), Sources:t('catSources'), Semi:t('catSemi'), ICs:t('catICs'), Logic:t('catLogic'), Mixed:t('catMixed'), Control:t('catControl'), Blocks:t('catBlocks'), Basic:t('catBasic') };
+  var renderedCats = 0;
+  var renderedComps = 0;
   for (var ck in cats) {
     var cl = cats[ck];
     var items = Object.entries(COMP).filter(function(e){ return e[1].cat === ck; });
     if (!items.length) continue;
+    renderedCats++;
+    renderedComps += items.length;
     var hdr = document.createElement('div'); hdr.className = 'cat-header open';
     hdr.style.setProperty('--cat-color', _catColor(ck));
     hdr.innerHTML = '<span>'+cl+'</span><span class="arrow">&#9654;</span>';
@@ -19275,6 +19304,10 @@ function rebuildPalette() {
     hdr.addEventListener('click', function(){ this.classList.toggle('open'); this.nextSibling.classList.toggle('closed'); });
     el.appendChild(hdr); el.appendChild(body);
   }
+  // Sprint 104.3.7 — telemetry so a quick devtools glance confirms every
+  // category rendered. If either number doesn't match the operator's COMP
+  // count, the early-continue above probably needs a new cat key.
+  try { console.log('Sidebar: ' + renderedCats + ' categories, ' + renderedComps + ' components'); } catch (e) {}
   var psec = document.createElement('div');
   psec.innerHTML = '<div style="margin-top:16px;padding:8px;font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:1px;border-top:2px solid var(--accent)">'+t('presets')+'</div>';
   el.appendChild(psec);
@@ -30588,7 +30621,7 @@ function runQuickDemo() {
 function showAbout() {
   var box = document.getElementById('about-box');
   var tr = currentLang === 'tr';
-  box.innerHTML = '<div style="font:800 24px var(--font-ui);margin-bottom:4px"><span style="color:var(--accent)">\u26A1 Volt</span><span style="color:var(--orange)">X</span><span style="color:var(--blue)">Ampere</span> <span style="font:500 14px var(--font-mono);color:var(--text-3)">v12.0.0-alpha.10</span></div>'
+  box.innerHTML = '<div style="font:800 24px var(--font-ui);margin-bottom:4px"><span style="color:var(--accent)">\u26A1 Volt</span><span style="color:var(--orange)">X</span><span style="color:var(--blue)">Ampere</span> <span style="font:500 14px var(--font-mono);color:var(--text-3)">v12.0.0-alpha.11</span></div>'
     + '<div style="font:13px var(--font-ui);color:var(--text-2);margin-bottom:16px">' + (tr?'D\u00fcnyan\u0131n En Geli\u015fmi\u015f \u00dccretsiz Devre Sim\u00fclat\u00f6r\u00fc':'World\'s Most Advanced Free Circuit Simulator') + '</div>'
     + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;text-align:left;font-size:11px;color:var(--text-2);margin-bottom:12px">'
     + '<div>\u2705 71+ ' + (tr?'Bile\u015fen':'Components') + '</div>'

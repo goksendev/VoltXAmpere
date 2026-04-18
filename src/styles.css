@@ -37,7 +37,29 @@ input:focus{border-color:var(--accent)}
  * ResizeObserver on #canvas-wrap — no manual resize event needed. */
 #app{display:grid;grid-template-rows:44px 1fr 180px 26px;grid-template-columns:var(--sidebar-w,290px) 1fr 260px;height:100vh;width:100vw;position:relative}
 #topbar{grid-column:1/-1;display:flex;align-items:center;padding:0 12px;gap:8px;background:var(--surface);border-bottom:1px solid var(--border)}
-#left{grid-row:2;overflow-y:auto;background:var(--surface);border-right:1px solid var(--border);padding:8px;position:relative}
+/* Sprint 104.3.7 — #left is now a flex column so the search box stays
+ * pinned at the top and only the palette body scrolls. Before this fix the
+ * whole sidebar scrolled as one unit, which meant tall categories like
+ * Pasif + Kaynaklar pushed the remaining 6 categories below the fold — they
+ * rendered fine but most users never noticed there was a scrollbar to
+ * drag. Moving the scroll surface inside a dedicated child keeps #left at
+ * 100vh without padding cancelling its height, and the scrollbar styling
+ * below makes the track visible (6px thumb @ 12% white). */
+#left{grid-row:2;display:flex;flex-direction:column;min-height:0;overflow:hidden;background:var(--surface);border-right:1px solid var(--border);padding:0;position:relative}
+#comp-search-box{flex:0 0 auto;padding:8px}
+#comp-panel-body{
+  flex:1 1 auto;
+  min-height:0;
+  overflow-y:auto;
+  overflow-x:hidden;
+  padding:8px;
+  scrollbar-width:thin;
+  scrollbar-color:rgba(255,255,255,0.12) transparent;
+}
+#comp-panel-body::-webkit-scrollbar{width:6px;height:6px}
+#comp-panel-body::-webkit-scrollbar-track{background:transparent}
+#comp-panel-body::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.12);border-radius:3px;transition:background .15s ease}
+#comp-panel-body::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,0.22)}
 /* Sprint 104.3.1 — drag handle on the right edge of the sidebar. Sits above
  * the canvas-wrap edge so it captures pointer events. Invisible by default,
  * lights up on hover/drag. Double-click resets to 290px (JS handles that). */
@@ -446,7 +468,10 @@ body.sidebar-resizing *{user-select:none!important}
    * ResizeObserver), so we only nudge padding/fonts here. Column count stays
    * dynamic. */
   #app{grid-template-columns:var(--sidebar-w,240px) 1fr 200px}
-  #left{padding:4px;overflow-y:auto;-webkit-overflow-scrolling:touch}
+  /* Sprint 104.3.7 — keep #left a flex column here too; scroll happens inside
+   * #comp-panel-body. Touch smoothing moved to that child. */
+  #left{padding:0}
+  #comp-panel-body{-webkit-overflow-scrolling:touch;padding:4px}
   #right{padding:6px;overflow-y:auto;-webkit-overflow-scrolling:touch}
   #topbar{overflow-x:auto;-webkit-overflow-scrolling:touch;gap:4px;padding:0 8px}
   .tb-btn{padding:8px 12px;font-size:12px;min-height:44px}

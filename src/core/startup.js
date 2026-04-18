@@ -57,7 +57,7 @@ function setAriaLabels() {
 setAriaLabels();
 
 // Console banner
-console.log('%c\u26A1 VoltXAmpere v12.0.0-alpha.10', 'color:#00e09e;font-size:18px;font-weight:bold');
+console.log('%c\u26A1 VoltXAmpere v12.0.0-alpha.11', 'color:#00e09e;font-size:18px;font-weight:bold');
 console.log('%cProfessional Circuit Simulator \u2014 voltxampere.com', 'color:#8899aa;font-size:12px');
 console.log('%c' + t('scriptApi'), 'color:#f59e0b;font-size:11px');
 
@@ -700,10 +700,14 @@ function rebuildPalette() {
   var el = document.getElementById('comp-panel-body') || document.getElementById('left');
   el.innerHTML = '';
   var cats = { Passive:t('catPassive'), Sources:t('catSources'), Semi:t('catSemi'), ICs:t('catICs'), Logic:t('catLogic'), Mixed:t('catMixed'), Control:t('catControl'), Blocks:t('catBlocks'), Basic:t('catBasic') };
+  var renderedCats = 0;
+  var renderedComps = 0;
   for (var ck in cats) {
     var cl = cats[ck];
     var items = Object.entries(COMP).filter(function(e){ return e[1].cat === ck; });
     if (!items.length) continue;
+    renderedCats++;
+    renderedComps += items.length;
     var hdr = document.createElement('div'); hdr.className = 'cat-header open';
     hdr.style.setProperty('--cat-color', _catColor(ck));
     hdr.innerHTML = '<span>'+cl+'</span><span class="arrow">&#9654;</span>';
@@ -717,6 +721,10 @@ function rebuildPalette() {
     hdr.addEventListener('click', function(){ this.classList.toggle('open'); this.nextSibling.classList.toggle('closed'); });
     el.appendChild(hdr); el.appendChild(body);
   }
+  // Sprint 104.3.7 — telemetry so a quick devtools glance confirms every
+  // category rendered. If either number doesn't match the operator's COMP
+  // count, the early-continue above probably needs a new cat key.
+  try { console.log('Sidebar: ' + renderedCats + ' categories, ' + renderedComps + ' components'); } catch (e) {}
   var psec = document.createElement('div');
   psec.innerHTML = '<div style="margin-top:16px;padding:8px;font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:1px;border-top:2px solid var(--accent)">'+t('presets')+'</div>';
   el.appendChild(psec);
