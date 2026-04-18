@@ -1,0 +1,11 @@
+* Sprint 97: harder BJT thermal runaway than 17-bjt-runaway-demo.
+* V1 = 20 V instead of 15 V, R_collector = 50 Ω instead of 100 Ω,
+* base drive stronger at 0.80 V. Without PTC's collapse detection
+* and rollback, classic NR hits the Ic = 0 equilibrium very early
+* in this topology — this circuit is the regression anchor for
+* the Sprint 97 retry machinery.
+V1 1 0 DC 20
+R1 1 2 50
+Q1 2 3 0 Q2N3904
+V2 3 0 DC 0.80
+.END

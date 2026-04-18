@@ -720,7 +720,7 @@ input:focus{border-color:var(--accent)}
     <span id="sb-temp" style="color:var(--text-3)"></span>
     <span id="sb-engine" style="color:var(--text-4)"></span>
     <span id="sb-extra" style="color:var(--text-3)"></span>
-    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v11.0 — Build: 2026-04-18 11:46 — © 2026</span>
+    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v11.0 — Build: 2026-04-18 12:13 — © 2026</span>
   </div>
 </div>
 
@@ -6269,6 +6269,7 @@ VXA.SimV2 = (function() {
   var _lastNodeCount = 0;
   var _lastBandwidth = 0;
   var _lastMaxDamping = 1;     // diagnostic: smallest damping used last step
+  var _lastPTCActivatedAtIter = -1;  // Sprint 97 diagnostic: -1 = PTC stayed dormant
   var _simMethod = 'trap'; // 'trap' or 'be'
   var _currentGMIN = 1e-12;
   var _dtJustChanged = false;
@@ -6281,6 +6282,7 @@ VXA.SimV2 = (function() {
 
   function getNRIter() { return _lastNRIter; }
   function getConverged() { return _lastConverged; }
+  function getPTCActivatedAt() { return _lastPTCActivatedAtIter; }
   function getNodeCount() { return _lastNodeCount; }
   function getBandwidth() { return _lastBandwidth; }
   function getSimMethod() { return _simMethod; }
@@ -6344,11 +6346,77 @@ VXA.SimV2 = (function() {
       snapshot.set(S._nodeVoltages);
     }
 
+    // Sprint 97: snapshot BJT / MOS collector/drain currents so we can
+    // detect a post-step collapse (pre-step |Ic| > 10 mA, post-step
+    // |Ic| < 10 µA while the thermal sink is still hot). That's the
+    // Sprint 81 failure mode: NR appears to converge in a single
+    // iteration but jumps to the Ic = 0 trivial equilibrium because
+    // the Jacobian flips condition. The only reliable trigger is to
+    // check for the implausible current drop AFTER the step.
+    var runawayPrev = null;
+    if (SIM && SIM.comps) {
+      runawayPrev = [];
+      for (var _rpj = 0; _rpj < SIM.comps.length; _rpj++) {
+        var _rpck = SIM.comps[_rpj];
+        if (_rpck.type === 'BJT' || _rpck.type === 'MOS') {
+          runawayPrev.push({
+            comp: _rpck,
+            iPrev: Math.abs((_rpck.part && _rpck.part._i) || 0),
+            TjPrev: (_rpck.part && _rpck.part._thermal && _rpck.part._thermal.T) || 25
+          });
+        }
+      }
+    }
+
     _solveStep(dt);
 
+    // Collapse detection: if any runaway-prone device was passing
+    // double-digit milliamps and is now effectively off despite the
+    // junction still hot, reject the step. The retry loop below
+    // halves dt and enables PTC from iteration 0 to steer Newton
+    // back onto the physical runaway branch.
+    function _ptcCollapseDetected() {
+      if (!runawayPrev) return false;
+      for (var _rpk = 0; _rpk < runawayPrev.length; _rpk++) {
+        var _prev = runawayPrev[_rpk];
+        var _iNow = Math.abs((_prev.comp.part && _prev.comp.part._i) || 0);
+        if (_prev.iPrev > 10e-3 && _iNow < 10e-6 && _prev.TjPrev > 40) {
+          return true;
+        }
+      }
+      return false;
+    }
+    // Sprint 97: collapse detection runs regardless of whether the
+    // existing divergence guard already set sim.error, because a
+    // "clean" post-step where NR reports converged in a single
+    // iteration can still hide a non-physical Ic = 0 collapse. The
+    // retry loop below uses _ptcCollapseFlag to decide whether to
+    // force PTC on the replay. Diagnostic telemetry is opt-in — set
+    // `window.__ptcDebugEnabled = true` before running a sim to
+    // start filling window.__ptcDebug with per-step records.
+    var _ptcDbg = (typeof window !== 'undefined' && window.__ptcDebugEnabled);
+    if (_ptcDbg) {
+      window.__ptcDebug = window.__ptcDebug || [];
+      window.__ptcDebug.push({ event: 'post-step', t: S && S.sim ? S.sim.t : 0,
+        dt: dt, hasErr: !!(S && S.sim && S.sim.error),
+        hasSnap: !!snapshot, collapse: _ptcCollapseDetected(),
+        prev: runawayPrev ? runawayPrev.map(function(p) {
+          return { iPrev: p.iPrev, iNow: Math.abs((p.comp.part && p.comp.part._i) || 0), TjPrev: p.TjPrev };
+        }) : [] });
+    }
+    var _ptcCollapseFlag = false;
+    if (_ptcCollapseDetected() && snapshot) {
+      _ptcCollapseFlag = true;
+      if (S.sim) S.sim.error = 'ptc-collapse';
+      if (_ptcDbg) {
+        window.__ptcDebug.push({ event: 'detect', t: S.sim.t, dt: dt });
+      }
+    }
+
     // If the guard fired, S.sim.error is set. Retry with a smaller
-    // step from the snapshot.
-    var retryLeft = 2;
+    // step from the snapshot, arming PTC when the cause was a
+    // thermal-runaway collapse.
+    var retryLeft = 3;
     while (S.sim && S.sim.error && snapshot && retryLeft > 0) {
       S.sim.error = '';                      // clear so next attempt can run
       S._nodeVoltages = snapshot;
@@ -6358,7 +6426,15 @@ VXA.SimV2 = (function() {
       // enough for the dominant transient channels.
       dt = dt / 2;
       retryLeft--;
-      _solveStep(dt);
+      _solveStep(dt, _ptcCollapseFlag /* force PTC on collapse retry */);
+      if (_ptcCollapseFlag) {
+        var _stillCollapsed = _ptcCollapseDetected();
+        if (_ptcDbg) {
+          window.__ptcDebug.push({ event: 'retry', t: S.sim.t, dt: dt, stillCollapsed: _stillCollapsed, retryLeft: retryLeft });
+        }
+        if (!_stillCollapsed) break;
+        if (retryLeft > 0 && S.sim) S.sim.error = 'ptc-collapse';
+      }
     }
     // If still failing after retries, the guard's zero-clamp runs
     // (already done inside _solveStep) and S.sim.error stays set.
@@ -6371,7 +6447,7 @@ VXA.SimV2 = (function() {
       _lastGoodV.set(S._nodeVoltages);
     }
   }
-  function _solveStep(dt) {
+  function _solveStep(dt, ptcForced) {
     if (!SIM || SIM.N <= 1) return;
     var N = SIM.N, nv = SIM.vSrc.length;
 
@@ -6410,6 +6486,57 @@ VXA.SimV2 = (function() {
     var _stallCount = 0;
     _lastMaxDamping = 1.0;
 
+    // Sprint 97 — pseudo-transient continuation (PTC) for thermal-
+    // runaway circuits. The Sprint 81 BJT runaway collapse at
+    // t ≈ 0.1 s is the classic NR failure mode: the Jacobian is ill-
+    // conditioned once positive thermal feedback pushes Ic past the
+    // stable branch, and pure NR lands on the trivial Ic = 0 equi-
+    // librium instead of the physical runaway trajectory. PTC augments
+    // the linear solve with a diagonal 1/τ pullback toward the current
+    // iterate, bounded step size without changing the fixed point:
+    //
+    //   (J + I/τ) · x_new = rhs + x/τ
+    //
+    // At convergence x_new = x so the 1/τ term cancels — the physical
+    // operating point is preserved. When NR wants a too-large step
+    // (collapse to Ic = 0 from Ic = 100 mA in one iteration) the
+    // pullback keeps x_new close to x, giving the thermally-coupled
+    // solver a chance to find the non-trivial equilibrium.
+    //
+    // Gated: stays off for the first PTC_KICK_IN iterations so
+    // well-conditioned circuits pay no overhead. τ adapts per SER
+    // (Switched Evolution Relaxation) — shrink on stall, grow on
+    // progress. Never grows past a cap so PTC stays in control
+    // even after a few successful iterations.
+    // PTC is restricted to runaway-prone topologies — Sprint 81-class
+    // thermal coupling only matters when there's a BJT, MOSFET or
+    // diode in the netlist to drive positive feedback. Pure resistive
+    // / RLC circuits stay on classic one-shot NR so harness runtime
+    // doesn't regress.
+    var _hasRunawayProne = false;
+    for (var _rpi = 0; _rpi < SIM.comps.length; _rpi++) {
+      var _rpc = SIM.comps[_rpi].type;
+      if (_rpc === 'BJT' || _rpc === 'MOS' || _rpc === 'D') {
+        _hasRunawayProne = true;
+        break;
+      }
+    }
+    var _usePTC = !!ptcForced && _hasRunawayProne;
+    // Sprint 97 tune: on forced-PTC retries, τ starts 100× smaller
+    // than the real-time step so the diagonal 1/τ dominates even the
+    // Gummel-Poon transconductance (which hits ~10 S per milliamp at
+    // high temperature). SER can grow it back toward dt as iterations
+    // succeed.
+    var _ptcTau = _usePTC ? Math.max(dt * 0.01, 1e-9) : Infinity;
+    var _ptcTau0 = Math.max(dt * 0.01, 1e-9);
+    var _ptcResPrev = Infinity;
+    var _ptcActivatedAtIter = _usePTC ? 0 : -1;
+    var PTC_KICK_IN = 5;
+    if (_usePTC && typeof window !== 'undefined' && window.__ptcDebugEnabled) {
+      window.__ptcDebug = window.__ptcDebug || [];
+      window.__ptcDebug.push({ event: 'ptc-start', dt: dt, tau: _ptcTau });
+    }
+
     // N-R loop
     while (!converged && iter < NR_MAX_ITER) {
       var matrix = Sp.create(sz);
@@ -6418,6 +6545,18 @@ VXA.SimV2 = (function() {
       // GMIN on every node
       for (var gi = 0; gi < N - 1; gi++) {
         Sp.stamp(matrix, gi, gi, _currentGMIN);
+      }
+
+      // Sprint 97: PTC diagonal pullback. Only after 5 iterations of
+      // classic NR have failed to converge. Applied ONLY to node rows
+      // (0 … N-2) — branch-variable rows (V source, CCVS) are linear
+      // and don't need pseudo-time damping.
+      if (_usePTC) {
+        var _ptcG = 1.0 / _ptcTau;
+        for (var _pj = 0; _pj < N - 1; _pj++) {
+          Sp.stamp(matrix, _pj, _pj, _ptcG);
+          rhs[_pj] += (nodeV[_pj + 1] || 0) * _ptcG;
+        }
       }
 
       for (var ci = 0; ci < SIM.comps.length; ci++) {
@@ -7016,10 +7155,41 @@ VXA.SimV2 = (function() {
       }
       S._nodeVoltages = nodeV;
 
+      // Sprint 97: when PTC is forced on for collapse recovery, the
+      // first iteration's small delta is usually the pullback pinning
+      // x_new ≈ x_snap — not a real convergence. Require at least 3
+      // PTC iterations so τ can grow (SER) and the solver gets a
+      // chance to evolve out of the previous state into the correct
+      // runaway branch. Classic NR path (unforced) is unchanged.
+      var _allowExit = true;
+      if (_usePTC && ptcForced && iter < 2) _allowExit = false;
+
       // If no nonlinear components, one iteration is enough
-      if (SIM.comps.every(function(c) { return c.type !== 'D' && c.type !== 'BJT' && c.type !== 'MOS' && c.type !== 'Z' && c.type !== 'JFET'; }) || converged) break;
+      if (SIM.comps.every(function(c) { return c.type !== 'D' && c.type !== 'BJT' && c.type !== 'MOS' && c.type !== 'Z' && c.type !== 'JFET'; }) || (converged && _allowExit)) break;
+
+      // Sprint 97: PTC activation + SER τ adaptation.
+      // Kick in after PTC_KICK_IN iterations of classic NR couldn't
+      // converge. From then on, use _maxDelta as the residual proxy:
+      // shrinking → grow τ (approach classic NR), growing → shrink τ
+      // (more aggressive pullback). Bounded in [1e-10, 1e3] so the
+      // diagonal boost never goes off the edge in either direction.
+      if (!_usePTC && _hasRunawayProne && iter + 1 >= PTC_KICK_IN) {
+        _usePTC = true;
+        _ptcTau = _ptcTau0;
+        _ptcResPrev = _maxDelta;
+        _ptcActivatedAtIter = iter + 1;
+      } else if (_usePTC) {
+        if (_maxDelta < _ptcResPrev * 0.7) {
+          _ptcTau = Math.min(_ptcTau * 1.5, 1e3);
+        } else if (_maxDelta > _ptcResPrev * 1.1) {
+          _ptcTau = Math.max(_ptcTau * 0.5, 1e-10);
+        }
+        _ptcResPrev = _maxDelta;
+      }
+
       iter++;
     }
+    _lastPTCActivatedAtIter = _ptcActivatedAtIter;
 
     _lastNRIter = iter + 1;
     _lastConverged = converged;
@@ -7582,7 +7752,8 @@ VXA.SimV2 = (function() {
     solve: solve, findDCOperatingPoint: findDCOperatingPoint,
     getNRIter: getNRIter, getConverged: getConverged, getNodeCount: getNodeCount,
     getBandwidth: getBandwidth, getSimMethod: getSimMethod, setSimMethod: setSimMethod,
-    getCurrentGMIN: getCurrentGMIN
+    getCurrentGMIN: getCurrentGMIN,
+    getPTCActivatedAt: getPTCActivatedAt
   };
 })();
 

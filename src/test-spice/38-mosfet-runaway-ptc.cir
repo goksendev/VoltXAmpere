@@ -1,0 +1,9 @@
+* Sprint 97: MOSFET thermal runaway smoke test. Ensures PTC's
+* runaway-prone gating applies to MOSFET and not just BJT. Uses
+* the Sprint 83 runaway topology: strong V_GS with no source
+* degeneration so Id rises with temperature via the Vth(T) slope.
+V1 1 0 DC 12
+R1 1 2 20
+M1 2 3 0 0 NMOS_180nm
+V2 3 0 DC 2.5
+.END
