@@ -366,6 +366,24 @@ function buildCircuitFromCanvas() {
     w._n1 = canonMap.get(uf.find(pinMap.get(k1)||0)) || 0;
     w._n2 = canonMap.get(uf.find(pinMap.get(k2)||0)) || 0;
   }
+  // Sprint 92: resolve CCVS/CCCS sense V source references by matching
+  // (ncP, ncN) against V sources' (n1, n2). SPICE import places the sense
+  // V source exactly across these two nodes; if a user-drawn circuit has
+  // no V source spanning the sense pins, stamping falls back to the
+  // legacy parasitic approximation.
+  for (var _csi = 0; _csi < comps.length; _csi++) {
+    var _cs = comps[_csi];
+    if (_cs.type === 'CCCS' || _cs.type === 'CCVS') {
+      _cs._senseV = null;
+      for (var _vsi = 0; _vsi < comps.length; _vsi++) {
+        var _vs = comps[_vsi];
+        if (_vs.type === 'V' && _vs.n1 === _cs.ncP && _vs.n2 === _cs.ncN) {
+          _cs._senseV = _vs;
+          break;
+        }
+      }
+    }
+  }
   SIM = { N, comps, vSrc: comps.filter(c=>c.type==='V') };
 }
 

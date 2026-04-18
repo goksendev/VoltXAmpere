@@ -1,0 +1,16 @@
+* Sprint 92: CCCS sign convention — negative V1 value flips I(V1),
+* which must flip V(3) polarity in the CCCS output.
+*
+* With V1 1 0 DC -1 the node 1 voltage settles at −1 V.  Current in
+* R1 flows 0 → 1 (10 mA entering node 1), so I(V1) (current into +
+* terminal from external) = +10 mA, i.e. *positive* by SPICE
+* convention — V1 is acting as a sink, not a source.
+*
+*   I(V1) = +10 mA
+*   I(F1) = 2 · I(V1) = +20 mA flowing noP → noN through the source
+*   V(3)  = −20 mA · 500 Ω = −10 V   (R2 pulls node 3 down)
+V1 1 0 DC -1
+R1 1 0 100
+F1 3 0 V1 2
+R2 3 0 500
+.END

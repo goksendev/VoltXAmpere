@@ -1,0 +1,14 @@
+* Sprint 92: CCVS (SPICE H) branch-variable MNA verification
+*
+* Same control stage as 30: V1 1 0 DC 1 with R1 = 100 Ω gives
+* I(V1) = −10 mA per SPICE convention.  H1 converts that current
+* to a voltage with rm = 1 kΩ:
+*
+*   V(H1) = rm · I(V1) = 1000 Ω · (−10 mA) = −10 V
+*   V(3)  = V(H1) = −10 V  (CCVS output is a stiff voltage source)
+*   I(R2) = V(3) / R2 = −10 mA  (sign follows V(3))
+V1 1 0 DC 1
+R1 1 0 100
+H1 3 0 V1 1000
+R2 3 0 1k
+.END

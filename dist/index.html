@@ -720,7 +720,7 @@ input:focus{border-color:var(--accent)}
     <span id="sb-temp" style="color:var(--text-3)"></span>
     <span id="sb-engine" style="color:var(--text-4)"></span>
     <span id="sb-extra" style="color:var(--text-3)"></span>
-    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v11.0 — Build: 2026-04-18 10:11 — © 2026</span>
+    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v11.0 — Build: 2026-04-18 10:37 — © 2026</span>
   </div>
 </div>
 
@@ -6384,7 +6384,29 @@ VXA.SimV2 = (function() {
   function _solveStep(dt) {
     if (!SIM || SIM.N <= 1) return;
     var N = SIM.N, nv = SIM.vSrc.length;
-    var sz = N - 1 + nv;
+
+    // Sprint 92: pre-pass indexing for branch-variable MNA stamps.
+    // Every V source claims a row at (N-1 + _vsIdx). Every CCVS claims
+    // its own row at (N-1 + nv + _ccvsBranchOfs) because its output is a
+    // voltage constraint that needs an auxiliary equation. CCCS does not
+    // get its own branch row (its output is a current, injected via the
+    // sense V source's branch variable). Done once per _solveStep and
+    // reused across every Newton-Raphson iteration — _vsIdx can't change
+    // between iterations on a fixed netlist.
+    var _vsCount = 0, _ccvsCount = 0;
+    for (var _pi = 0; _pi < SIM.comps.length; _pi++) {
+      var _pc = SIM.comps[_pi];
+      if (_pc.type === 'V') { _pc._vsIdx = _vsCount++; }
+    }
+    for (var _pi2 = 0; _pi2 < SIM.comps.length; _pi2++) {
+      var _pc2 = SIM.comps[_pi2];
+      if (_pc2.type === 'CCVS') {
+        _pc2._ccvsBranch = N - 1 + _vsCount + _ccvsCount;
+        _ccvsCount++;
+      }
+    }
+
+    var sz = N - 1 + nv + _ccvsCount;
     _lastNodeCount = sz;
 
     var nodeV = S._nodeVoltages || new Float64Array(N);
@@ -6407,8 +6429,6 @@ VXA.SimV2 = (function() {
       for (var gi = 0; gi < N - 1; gi++) {
         Sp.stamp(matrix, gi, gi, _currentGMIN);
       }
-
-      var vsIdx = 0;
 
       for (var ci = 0; ci < SIM.comps.length; ci++) {
         var c = SIM.comps[ci];
@@ -6493,7 +6513,9 @@ VXA.SimV2 = (function() {
           if (c.isAC) current = c.val * Math.sin(2 * Math.PI * c.freq * S.sim.t);
           St.currentSource(rhs, c.n1, c.n2, current);
         } else if (c.type === 'V') {
-          var row = N - 1 + vsIdx;
+          // Sprint 92: branch row now lives in _vsIdx (set by the
+          // _solveStep pre-pass). CCVS/CCCS reference this directly.
+          var row = N - 1 + c._vsIdx;
           var voltage = c.val;
           if (c.isAC) voltage = c.val * Math.sin(2 * Math.PI * c.freq * S.sim.t);
           if (c.isPulse) {
@@ -6526,8 +6548,6 @@ VXA.SimV2 = (function() {
           if (c.isNoise) voltage = (Math.random() - 0.5) * 2 * c.amp;
           // MNA voltage source stamp (branch variable)
           St.voltageSource(matrix, rhs, c.n1, c.n2, voltage, row);
-          c._vsIdx = vsIdx;
-          vsIdx++;
         } else if (c.type === 'D') {
           var vd = (nodeV[c.n1] || 0) - (nodeV[c.n2] || 0);
           var dModel = c.part && c.part.model ? VXA.Models.getModel(c.part.type, c.part.model) : null;
@@ -6672,19 +6692,56 @@ VXA.SimV2 = (function() {
           if (c.noN > 0 && c.ncP > 0) Sp.stamp(matrix, c.noN - 1, c.ncP - 1, -gm);
           if (c.noN > 0 && c.ncN > 0) Sp.stamp(matrix, c.noN - 1, c.ncN - 1, gm);
         } else if (c.type === 'CCVS') {
-          var rm = c.rm || 1000, gMeas = 0.1;
-          St.stampG(matrix, c.ncP, c.ncN, gMeas);
-          var gOut = 0.1;
-          St.stampG(matrix, c.noP, c.noN, gOut);
-          var vCtrl = (nodeV[c.ncP] || 0) - (nodeV[c.ncN] || 0);
-          var iCtrl = vCtrl * gMeas, vTarget = rm * iCtrl;
-          St.stampI(rhs, c.noP, gOut * vTarget); St.stampI(rhs, c.noN, -gOut * vTarget);
+          // Sprint 92: real branch-variable MNA for SPICE H element.
+          // CCVS output is itself a voltage source, so it needs its own
+          // branch row (claimed in the pre-pass via c._ccvsBranch). The
+          // constraint is V(noP) − V(noN) − rm·I(sense) = 0, where the
+          // sense current is read from the linked V source's branch var.
+          // When no V source spans the sense pins we fall back to the
+          // pre-Sprint-92 parasitic approximation.
+          var rm = c.rm || 1000;
+          if (c._senseV && typeof c._senseV._vsIdx === 'number') {
+            var senseRow = N - 1 + c._senseV._vsIdx;
+            var ccvsRow = c._ccvsBranch;
+            if (c.noP > 0) {
+              Sp.stamp(matrix, c.noP - 1, ccvsRow, 1);
+              Sp.stamp(matrix, ccvsRow, c.noP - 1, 1);
+            }
+            if (c.noN > 0) {
+              Sp.stamp(matrix, c.noN - 1, ccvsRow, -1);
+              Sp.stamp(matrix, ccvsRow, c.noN - 1, -1);
+            }
+            Sp.stamp(matrix, ccvsRow, senseRow, -rm);
+          } else {
+            var _gMeasH = 0.1, _gOutH = 0.1;
+            St.stampG(matrix, c.ncP, c.ncN, _gMeasH);
+            St.stampG(matrix, c.noP, c.noN, _gOutH);
+            var _vCtrlH = (nodeV[c.ncP] || 0) - (nodeV[c.ncN] || 0);
+            var _iCtrlH = _vCtrlH * _gMeasH, _vTargetH = rm * _iCtrlH;
+            St.stampI(rhs, c.noP, _gOutH * _vTargetH);
+            St.stampI(rhs, c.noN, -_gOutH * _vTargetH);
+          }
         } else if (c.type === 'CCCS') {
-          var alpha = c.alpha || 10, gMeas = 0.1;
-          St.stampG(matrix, c.ncP, c.ncN, gMeas);
-          var vCtrl = (nodeV[c.ncP] || 0) - (nodeV[c.ncN] || 0);
-          var iOut = alpha * vCtrl * gMeas;
-          St.stampI(rhs, c.noP, -iOut); St.stampI(rhs, c.noN, iOut);
+          // Sprint 92: real branch-variable MNA for SPICE F element.
+          // I_out = gain · I(sense). In the code's "Σ currents leaving
+          // node = 0" convention (same one used by the V source stamp
+          // — Matrix[n1-1][bi] = +1 is the + terminal), the + output
+          // terminal sees +gain · I_sense worth of current leaving. The
+          // − output terminal sees the opposite. Fallback to the
+          // pre-Sprint-92 parasitic path when no sense V is linked.
+          var alpha = c.alpha || 10;
+          if (c._senseV && typeof c._senseV._vsIdx === 'number') {
+            var _senseRowF = N - 1 + c._senseV._vsIdx;
+            if (c.noP > 0) Sp.stamp(matrix, c.noP - 1, _senseRowF, alpha);
+            if (c.noN > 0) Sp.stamp(matrix, c.noN - 1, _senseRowF, -alpha);
+          } else {
+            var _gMeasF = 0.1;
+            St.stampG(matrix, c.ncP, c.ncN, _gMeasF);
+            var _vCtrlF = (nodeV[c.ncP] || 0) - (nodeV[c.ncN] || 0);
+            var _iOutF = alpha * _vCtrlF * _gMeasF;
+            St.stampI(rhs, c.noP, -_iOutF);
+            St.stampI(rhs, c.noN, _iOutF);
+          }
         } else if (c.type === 'SCR') {
           var vAK = (nodeV[c.nA] || 0) - (nodeV[c.nK] || 0);
           var vGK = (nodeV[c.nG] || 0) - (nodeV[c.nK] || 0);
@@ -11166,6 +11223,24 @@ function buildCircuitFromCanvas() {
     const k1 = Math.round(w.x1)+','+Math.round(w.y1), k2 = Math.round(w.x2)+','+Math.round(w.y2);
     w._n1 = canonMap.get(uf.find(pinMap.get(k1)||0)) || 0;
     w._n2 = canonMap.get(uf.find(pinMap.get(k2)||0)) || 0;
+  }
+  // Sprint 92: resolve CCVS/CCCS sense V source references by matching
+  // (ncP, ncN) against V sources' (n1, n2). SPICE import places the sense
+  // V source exactly across these two nodes; if a user-drawn circuit has
+  // no V source spanning the sense pins, stamping falls back to the
+  // legacy parasitic approximation.
+  for (var _csi = 0; _csi < comps.length; _csi++) {
+    var _cs = comps[_csi];
+    if (_cs.type === 'CCCS' || _cs.type === 'CCVS') {
+      _cs._senseV = null;
+      for (var _vsi = 0; _vsi < comps.length; _vsi++) {
+        var _vs = comps[_vsi];
+        if (_vs.type === 'V' && _vs.n1 === _cs.ncP && _vs.n2 === _cs.ncN) {
+          _cs._senseV = _vs;
+          break;
+        }
+      }
+    }
   }
   SIM = { N, comps, vSrc: comps.filter(c=>c.type==='V') };
 }
