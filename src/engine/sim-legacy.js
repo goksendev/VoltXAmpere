@@ -85,10 +85,24 @@ function buildCircuitFromCanvas() {
       }
     }
   }
-  // 3. Ground detection — find ground node root
+  // 3. Ground detection — union ALL ground/gndLabel pins into a single root.
+  // Sprint 102 (F-001 fix): the prior implementation `break`ed on the first
+  // ground symbol, assuming all grounds were already in the same UF set.
+  // That held only for schematics whose grounds shared a rail wire; multi-
+  // ground presets with locally-wired grounds (23/24 in the shipped
+  // library) produced split nets and silently wrong DC OPs. The idempotent
+  // union guard below is a no-op for already-unified grounds and a correct
+  // merge otherwise.
   let groundRoot = -1;
   for (let i = 0; i < S.parts.length; i++) {
-    if (S.parts[i].type === 'ground' || S.parts[i].type === 'gndLabel') { groundRoot = uf.find(partPinNodes[i][0]); break; }
+    if (S.parts[i].type !== 'ground' && S.parts[i].type !== 'gndLabel') continue;
+    var _gn = uf.find(partPinNodes[i][0]);
+    if (groundRoot === -1) {
+      groundRoot = _gn;
+    } else if (_gn !== groundRoot) {
+      uf.union(groundRoot, _gn);
+      groundRoot = uf.find(groundRoot); // root may have moved after union
+    }
   }
   if (groundRoot === -1 && nodeCount > 0) groundRoot = uf.find(0); // fallback: node 0 is ground
   // 4. Remap canonical nodes (ground → 0)

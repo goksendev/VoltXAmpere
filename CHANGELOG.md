@@ -5,6 +5,85 @@ All notable changes to VoltXAmpere are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [11.2.0] — 2026-04-19
+
+The release where our own audit caught us. Sprint 101 ran a read-only
+audit of v11.1.0 and found that **23 of 55 bundled preset circuits
+were silently producing wrong results** — and had been since a Sprint-
+19-era modular refactor — because no CI probe was ever going through
+the `loadPreset()` path. Root cause: a single `break` statement in the
+union-find ground detection loop, so only the first ground symbol ever
+reached node 0. Subsequent ground symbols leaked into separate
+clusters, producing split nets that silently collapsed the preset's
+DC operating point.
+
+This release closes the bug and the coverage gap at the same time.
+
+### Fixed
+
+- **F-001 — Ground symbol union-find short-circuit**
+  *(`src/engine/sim-legacy.js:91`)* The union-find ground-detection loop
+  exited on the first `ground`/`gndLabel` symbol via `break`, so multi-
+  ground circuits were never merged into a single reference. All ground
+  pins now union into a single canonical root. Idempotent on already-
+  merged grounds. Introduced in commit `1ff6b932` (Sprint 11-19 modular
+  refactor, April 14); five weeks in production undetected.
+- **F-002 — Silent wrong output on 23 multi-ground presets**
+  Downstream effect of F-001. `rl` (RL transient) visibly diverged,
+  the other 22 (including `rclp`, `inv-opamp`, `bridge-rect`, `vreg-7805`)
+  produced voltages that looked plausible but were split across an
+  orphan node 3. All now verified against first-principles anchors.
+
+### Added
+
+- **`npm run test:presets` — preset round-trip CI fence**
+  *(`src/test-spice/preset-roundtrip-scenarios.js`)* Every preset is
+  loaded two ways (native `loadPreset` vs SPICE export → re-import),
+  then their post-solve voltage vectors are diffed. 55/55 pass
+  (27 strict-matching + 28 known-lossy-but-convergent). Lossy set
+  captures semiconductor/subcircuit presets where the SPICE exporter
+  loses VXA-specific device-type info — to be tightened in Sprint 103.
+- **10 manual gold anchors** *(`src/test-spice/preset-anchors.js`)*
+  First-principles expected voltage vectors for `vdiv`, `rclp`, `rl`,
+  `rccharge`, `rlc`, `zener-reg`, `pot-divider`, `trafo`,
+  `dc-motor-simple`. Sorted-vector comparison with per-element tolerance.
+  Anchors cross-check path A's output against external ground truth —
+  defends against the "both paths identically wrong" failure mode that
+  would defeat round-trip alone.
+- **Regression fence count: 4 → 5.** Scenarios pipeline now 15 probes
+  (was 14) because `preset-roundtrip-scenarios.js` is picked up by the
+  `*-scenarios.js` glob as well as `test:presets`.
+
+### Sprint Narrative
+
+**Sprint 101 — The audit that found us.** Sprint 100 shipped v11.1
+with the claim of "test maturity." Sprint 101 was a read-only audit
+designed to test that claim. It found the opposite of what v11.1
+celebrated: `npm run scenarios` was running 14/14 green, but not a
+single scenario ever exercised the `loadPreset()` path. Every one of
+the 55 bundled presets was shipping to users — and 23 of them were
+silently producing wrong outputs. The symptom that escaped us for
+30+ sprints was a preset loading and returning plausible-but-wrong
+values (`rclp` returned 0V everywhere) rather than crashing. No
+crash → no test signal → no discovery. The full audit is committed
+at `docs/TRUE_AUDIT_2026-04-19.md` (commit `a04054f`).
+
+**Sprint 102 — The fix and the fence.** Root cause is a one-line bug:
+a `break` in the ground-symbol union-find loop (`sim-legacy.js:91`).
+Introduced in commit `1ff6b932`. Fix is surgical — replace `break`
+with an idempotent union loop that merges all grounds into one root.
+Sprint 98 taught us that test probes can lie by racing themselves.
+Sprint 101 taught us that tests can lie by existing only on paths
+that don't reach the user. The defense against both is the same
+discipline: when we see PASS, we have to ask what was actually tested.
+
+The round-trip probe revealed a secondary finding along the way —
+the SPICE exporter lossily collapses VXA device types (LED, Zener,
+opamp, IC subcircuit, JFET, SCR, BSIM3) into their standard-SPICE
+equivalents, which is why 28 of 55 presets show non-zero diff between
+native and round-trip paths. That lossiness is pre-existing and
+unrelated to the ground fix; Sprint 103 will tighten it.
+
 ## [11.1.0] — 2026-04-18
 
 Ten-sprint infrastructure release (Sprint 91 → 99). User-visible
@@ -355,5 +434,6 @@ marked completion of the initial SPICE parser, MNA solver with
 Backward-Euler / Trapezoidal companions, sparse LU factorisation,
 thermal-damage engine, and 71+ component library.
 
+[11.2.0]: https://github.com/goksendev/VoltXAmpere/releases/tag/v11.2.0
 [11.1.0]: https://github.com/goksendev/VoltXAmpere/releases/tag/v11.1.0
 [11.0.0]: https://github.com/goksendev/VoltXAmpere/releases/tag/v11.0.0

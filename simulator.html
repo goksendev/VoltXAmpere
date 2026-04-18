@@ -6,27 +6,27 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>VoltXAmpere v11.1 — Professional Circuit Simulator</title>
+<title>VoltXAmpere v11.2 — Professional Circuit Simulator</title>
 <meta name="description" content="Professional browser-based circuit simulator. 71+ components, full SPICE parser, complete thermal-electrical coupling, AC-MNA analysis (Bode + Nyquist), professional multimeter probe. MIT licensed.">
 <meta name="keywords" content="circuit simulator, SPICE, devre simülatörü, electronics, voltxampere, free, online, oscilloscope, Bode, Nyquist, thermal, Newton-Raphson, MNA, Gummel-Poon">
 <meta name="author" content="goksendev">
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="https://voltxampere.com/simulator.html">
-<meta property="og:title" content="VoltXAmpere v11.1 — Professional Circuit Simulator">
+<meta property="og:title" content="VoltXAmpere v11.2 — Professional Circuit Simulator">
 <meta property="og:description" content="71+ components. Full SPICE parser. Thermal-electrical coupling. AC-MNA analysis. Professional multimeter. Free and open source.">
 <meta property="og:url" content="https://voltxampere.com/simulator.html">
 <meta property="og:type" content="website">
 <meta property="og:locale" content="en_US">
 <meta property="og:locale:alternate" content="tr_TR">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="VoltXAmpere v11.1 — Circuit Simulator">
+<meta name="twitter:title" content="VoltXAmpere v11.2 — Circuit Simulator">
 <meta name="twitter:description" content="71+ components. Full SPICE parser. Thermal-electrical coupling. Free and open source.">
 <meta name="theme-color" content="#0a0e14">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="VoltXAmpere">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='28' font-size='28'%3E%E2%9A%A1%3C/text%3E%3C/svg%3E">
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"VoltXAmpere","url":"https://voltxampere.com/simulator.html","description":"Professional browser-based circuit simulator with full SPICE parser, thermal-electrical coupling, and AC-MNA analysis","applicationCategory":"EducationalApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"softwareVersion":"11.1.0","license":"https://opensource.org/licenses/MIT","featureList":"71 components, Full SPICE parser, Thermal-electrical coupling, BSIM3 MOSFET, Gummel-Poon BJT, AC-MNA Bode and Nyquist, Professional multimeter probe, Inductor saturation, Hysteresis and eddy-current losses, Curie-point derating, Adaptive Newton-Raphson solver"}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"VoltXAmpere","url":"https://voltxampere.com/simulator.html","description":"Professional browser-based circuit simulator with full SPICE parser, thermal-electrical coupling, and AC-MNA analysis","applicationCategory":"EducationalApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"softwareVersion":"11.2.0","license":"https://opensource.org/licenses/MIT","featureList":"71 components, Full SPICE parser, Thermal-electrical coupling, BSIM3 MOSFET, Gummel-Poon BJT, AC-MNA Bode and Nyquist, Professional multimeter probe, Inductor saturation, Hysteresis and eddy-current losses, Curie-point derating, Adaptive Newton-Raphson solver"}</script>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
@@ -720,7 +720,7 @@ input:focus{border-color:var(--accent)}
     <span id="sb-temp" style="color:var(--text-3)"></span>
     <span id="sb-engine" style="color:var(--text-4)"></span>
     <span id="sb-extra" style="color:var(--text-3)"></span>
-    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v11.1 — Build: 2026-04-18 14:58 — © 2026</span>
+    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v11.2 — Build: 2026-04-18 16:24 — © 2026</span>
   </div>
 </div>
 
@@ -11134,10 +11134,24 @@ function buildCircuitFromCanvas() {
       }
     }
   }
-  // 3. Ground detection — find ground node root
+  // 3. Ground detection — union ALL ground/gndLabel pins into a single root.
+  // Sprint 102 (F-001 fix): the prior implementation `break`ed on the first
+  // ground symbol, assuming all grounds were already in the same UF set.
+  // That held only for schematics whose grounds shared a rail wire; multi-
+  // ground presets with locally-wired grounds (23/24 in the shipped
+  // library) produced split nets and silently wrong DC OPs. The idempotent
+  // union guard below is a no-op for already-unified grounds and a correct
+  // merge otherwise.
   let groundRoot = -1;
   for (let i = 0; i < S.parts.length; i++) {
-    if (S.parts[i].type === 'ground' || S.parts[i].type === 'gndLabel') { groundRoot = uf.find(partPinNodes[i][0]); break; }
+    if (S.parts[i].type !== 'ground' && S.parts[i].type !== 'gndLabel') continue;
+    var _gn = uf.find(partPinNodes[i][0]);
+    if (groundRoot === -1) {
+      groundRoot = _gn;
+    } else if (_gn !== groundRoot) {
+      uf.union(groundRoot, _gn);
+      groundRoot = uf.find(groundRoot); // root may have moved after union
+    }
   }
   if (groundRoot === -1 && nodeCount > 0) groundRoot = uf.find(0); // fallback: node 0 is ground
   // 4. Remap canonical nodes (ground → 0)
@@ -16966,7 +16980,7 @@ function setAriaLabels() {
 setAriaLabels();
 
 // Console banner
-console.log('%c\u26A1 VoltXAmpere v11.1', 'color:#00e09e;font-size:18px;font-weight:bold');
+console.log('%c\u26A1 VoltXAmpere v11.2', 'color:#00e09e;font-size:18px;font-weight:bold');
 console.log('%cProfessional Circuit Simulator \u2014 voltxampere.com', 'color:#8899aa;font-size:12px');
 console.log('%c' + t('scriptApi'), 'color:#f59e0b;font-size:11px');
 
@@ -28597,7 +28611,7 @@ function runQuickDemo() {
 function showAbout() {
   var box = document.getElementById('about-box');
   var tr = currentLang === 'tr';
-  box.innerHTML = '<div style="font:800 24px var(--font-ui);margin-bottom:4px"><span style="color:var(--accent)">\u26A1 Volt</span><span style="color:var(--orange)">X</span><span style="color:var(--blue)">Ampere</span> <span style="font:500 14px var(--font-mono);color:var(--text-3)">v11.1.0</span></div>'
+  box.innerHTML = '<div style="font:800 24px var(--font-ui);margin-bottom:4px"><span style="color:var(--accent)">\u26A1 Volt</span><span style="color:var(--orange)">X</span><span style="color:var(--blue)">Ampere</span> <span style="font:500 14px var(--font-mono);color:var(--text-3)">v11.2.0</span></div>'
     + '<div style="font:13px var(--font-ui);color:var(--text-2);margin-bottom:16px">' + (tr?'D\u00fcnyan\u0131n En Geli\u015fmi\u015f \u00dccretsiz Devre Sim\u00fclat\u00f6r\u00fc':'World\'s Most Advanced Free Circuit Simulator') + '</div>'
     + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;text-align:left;font-size:11px;color:var(--text-2);margin-bottom:12px">'
     + '<div>\u2705 71+ ' + (tr?'Bile\u015fen':'Components') + '</div>'

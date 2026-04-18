@@ -1,9 +1,10 @@
 # VoltXAmpere
 
-[![version](https://img.shields.io/badge/version-11.1.0-00e09e)](./CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-11.2.0-00e09e)](./CHANGELOG.md)
 [![harness](https://img.shields.io/badge/harness-11%2F11_pass-22cc44)](./src/test-spice/puppeteer-harness.js)
-[![scenarios](https://img.shields.io/badge/scenarios-14%2F14_pass-22cc44)](./src/test-spice)
+[![scenarios](https://img.shields.io/badge/scenarios-15%2F15_pass-22cc44)](./src/test-spice)
 [![sparse](https://img.shields.io/badge/sparse-25%2F25_pass-22cc44)](./src/test-spice/sparse-dense-differential-scenarios.js)
+[![presets](https://img.shields.io/badge/presets-55%2F55_pass-22cc44)](./src/test-spice/preset-roundtrip-scenarios.js)
 [![license](https://img.shields.io/badge/license-MIT-blue)](./LICENSE)
 
 Professional web-based circuit simulator — 71+ components, full
@@ -11,6 +12,28 @@ SPICE parser, complete thermal-electrical coupling, AC-MNA analysis,
 interactive multimeter, Bode and Nyquist plotting.
 
 Live at **[voltxampere.com](https://voltxampere.com)**.
+
+## What's New in 11.2
+
+Audit-driven release. Sprint 101's read-only audit of v11.1 found a
+one-line bug in the ground union-find loop that had been silently
+breaking 23 of 55 bundled preset circuits for 30+ sprints. No scenario
+probe had ever gone through the `loadPreset()` path, so the bug hid in
+plain sight. This release fixes the bug (`sim-legacy.js:91`) and adds
+the missing fence.
+
+- **Ground union-find fix** — all `ground`/`gndLabel` symbols now merge
+  into a single node 0. Multi-ground circuits that used to silently
+  return wrong voltages (or diverge, in the case of `rl`) now solve
+  correctly.
+- **`npm run test:presets`** — new 55-preset round-trip CI probe.
+  Loads every preset two ways (native + SPICE round-trip) and
+  cross-checks against 10 manual first-principles gold anchors.
+  Defends against both the bug type that hid this one and the
+  "both paths identically wrong" failure mode.
+
+See [CHANGELOG.md](./CHANGELOG.md#1120--2026-04-19) for the full entry
+including Sprint Narrative and the Sprint 101 audit link.
 
 ## What's New in 11.1
 
@@ -67,8 +90,9 @@ python3 -m http.server 8765
 
 ```bash
 npm test               # main harness — 11 reference circuits
-npm run scenarios      # sequential: 14 device / physics / UX probes
+npm run scenarios      # sequential: 15 device / physics / UX probes
 npm run test:sparse    # sparse-vs-dense differential — 25 circuits
+npm run test:presets   # preset round-trip + 10 gold anchors — 55 presets
 ```
 
 Every commit in the Sprint 77 → 99 series was verified against the
