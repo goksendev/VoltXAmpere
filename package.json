@@ -30,7 +30,8 @@
     "build": "node build.js",
     "test": "node src/test-spice/puppeteer-harness.js",
     "dev": "python3 -m http.server 8765",
-    "scenarios": "for f in src/test-spice/*-scenarios.js; do echo \"— $f —\"; node \"$f\" || exit 1; done"
+    "scenarios": "for f in src/test-spice/*-scenarios.js; do echo \"— $f —\"; node \"$f\" || exit 1; done",
+    "test:sparse": "node src/test-spice/sparse-dense-differential-scenarios.js"
   },
   "dependencies": {
     "puppeteer": "^24.40.0"
