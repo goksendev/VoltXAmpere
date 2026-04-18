@@ -129,28 +129,8 @@ function _hitTestWire(wx, wy) {
   return null;
 }
 
-// ──────── 3.4: RECENT COMPONENTS IN LEFT PANEL ────────
-function _buildRecentSection(container) {
-  // Remove existing recent section
-  var existing = container.querySelector('.recent-section');
-  if (existing) existing.remove();
-
-  if (!S.recentComponents.length) return;
-
-  var sec = document.createElement('div'); sec.className = 'recent-section';
-  var hdr = document.createElement('div'); hdr.className = 'recent-header';
-  hdr.textContent = '⏱ ' + (currentLang === 'tr' ? 'Son Kullanılanlar' : 'Recent');
-  sec.appendChild(hdr);
-
-  S.recentComponents.forEach(function(type) {
-    var def = COMP[type]; if (!def) return;
-    var d = document.createElement('div'); d.className = 'comp-item';
-    d.innerHTML = '<span style="display:flex;align-items:center"><span class="dot" style="background:' + def.color + '"></span>' + def.name + '</span>' + (def.key ? '<span class="key">' + def.key + '</span>' : '');
-    d.addEventListener('click', function() { startPlace(type); });
-    sec.appendChild(d);
-  });
-
-  // Insert after search or at top
-  var firstChild = container.firstChild;
-  container.insertBefore(sec, firstChild);
-}
+// Sprint 104.3.1 — _buildRecentSection was the sidebar-only renderer and is
+// gone now. S.recentComponents + _trackRecent are kept because the right-click
+// "Quick Add" menu still surfaces them. A real recents/favorites UI lands in
+// Sprint 104.8; until then the sidebar starts with the search box and jumps
+// straight into categories.

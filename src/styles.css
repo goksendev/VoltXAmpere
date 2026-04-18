@@ -30,11 +30,22 @@ input:focus{border-color:var(--accent)}
 
 /* LAYOUT */
 /* Sprint 104.3 — sidebar widened 240→290 to fit the new 3-column grid cards.
- * Canvas re-lays out but breakpoints are unchanged (mobile+compact rules still
- * fire at ≤1100px / ≤768px via the media queries below). */
-#app{display:grid;grid-template-rows:44px 1fr 180px 26px;grid-template-columns:290px 1fr 260px;height:100vh;width:100vw}
+ * Sprint 104.3.1 — width is now driven by --sidebar-w (user resizable via the
+ *   drag handle, min 200 / max 480 / default 290). position:relative so the
+ *   absolutely-positioned handle can sit right at the sidebar edge.
+ * Canvas re-lays out automatically because canvas-setup.js registers a
+ * ResizeObserver on #canvas-wrap — no manual resize event needed. */
+#app{display:grid;grid-template-rows:44px 1fr 180px 26px;grid-template-columns:var(--sidebar-w,290px) 1fr 260px;height:100vh;width:100vw;position:relative}
 #topbar{grid-column:1/-1;display:flex;align-items:center;padding:0 12px;gap:8px;background:var(--surface);border-bottom:1px solid var(--border)}
-#left{grid-row:2;overflow-y:auto;background:var(--surface);border-right:1px solid var(--border);padding:8px}
+#left{grid-row:2;overflow-y:auto;background:var(--surface);border-right:1px solid var(--border);padding:8px;position:relative}
+/* Sprint 104.3.1 — drag handle on the right edge of the sidebar. Sits above
+ * the canvas-wrap edge so it captures pointer events. Invisible by default,
+ * lights up on hover/drag. Double-click resets to 290px (JS handles that). */
+.sidebar-handle{position:absolute;top:44px;bottom:26px;left:calc(var(--sidebar-w,290px) - 2px);width:4px;cursor:col-resize;background:transparent;z-index:20;transition:background .15s ease;touch-action:none;user-select:none}
+.sidebar-handle:hover{background:#ffffff1a}
+.sidebar-handle.dragging{background:#ffffff33}
+body.sidebar-resizing{cursor:col-resize}
+body.sidebar-resizing *{user-select:none!important}
 #canvas-wrap{grid-row:2;position:relative;overflow:hidden;background:var(--bg)}
 #canvas-wrap canvas{position:absolute;top:0;left:0;width:100%;height:100%}
 #right{grid-row:2;overflow-y:auto;background:var(--surface);border-left:1px solid var(--border);padding:10px}
@@ -64,27 +75,30 @@ input:focus{border-color:var(--accent)}
 .cat-header:hover{background:var(--surface-2);color:var(--text)}
 .cat-header .arrow{transition:transform .2s;font-size:10px;color:var(--text-4)}
 .cat-header.open .arrow{transform:rotate(90deg)}
-/* Sprint 104.3 — cat-body is now the 3-column grid container. Accordion
- * close state uses display:none (max-height was only needed for the
- * previous vertical list animation). */
+/* Sprint 104.3 / 104.3.1 — cat-body is the grid container. Column count comes
+ * from the .cols-2 / .cols-3 / .cols-4 class set on #left by the sidebar
+ * ResizeObserver (JS). Default is 3 cols so the first paint looks right
+ * before the observer fires. */
 .cat-body{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:8px 0;transition:opacity .15s ease}
+#left.cols-2 .cat-body{grid-template-columns:repeat(2,1fr)}
+#left.cols-3 .cat-body{grid-template-columns:repeat(3,1fr)}
+#left.cols-4 .cat-body{grid-template-columns:repeat(4,1fr)}
 .cat-body.closed{display:none}
-/* Sprint 104.3 — grid card. Replaces the old single-row list item.
- * Structure (rendered by rebuildPalette):
- *   .comp-symbol canvas  — 34px icon, centred
- *   .comp-name-tr        — 12px/600 #fff, 2-line clamp
- *   .comp-name-en        — 10px/400 opacity .45, 1-line ellipsis
- *   .comp-shortcuts      — row of .pill chips (only rendered if present) */
-.comp-item{display:flex;flex-direction:column;align-items:center;gap:4px;padding:6px 4px;min-height:90px;cursor:pointer;border-radius:8px;background:rgba(255,255,255,0.03);border:1px solid transparent;transition:transform .12s ease-out,background .12s ease-out,border-color .12s ease-out,box-shadow .12s ease-out;user-select:none;color:var(--text-2);overflow:hidden}
+/* Sprint 104.3.1 — compact card.
+ *   .comp-symbol canvas — 38px icon, centred (was 34)
+ *   .comp-name-tr       — 12px/600 #fff, 2-line clamp
+ *   .comp-badge         — top-right letter shortcut only (digits dropped),
+ *                         tinted with the category neon.
+ * The EN label + horizontal pill row from 104.3 are gone — EN is still in the
+ * title attr so hover tooltip reveals it, and search still matches both. */
+.comp-item{position:relative;display:flex;flex-direction:column;align-items:center;gap:4px;padding:6px;min-height:72px;cursor:pointer;border-radius:8px;background:rgba(255,255,255,0.03);border:1px solid transparent;transition:transform .12s ease-out,background .12s ease-out,border-color .12s ease-out,box-shadow .12s ease-out;user-select:none;color:var(--text-2);overflow:hidden}
 .comp-item:hover{background:rgba(255,255,255,0.06);color:var(--text);transform:translateY(-2px);border-color:color-mix(in srgb,var(--cat-color,var(--cat-temel)) 33%,transparent);box-shadow:0 0 0 1px color-mix(in srgb,var(--cat-color,var(--cat-temel)) 33%,transparent),0 4px 12px color-mix(in srgb,var(--cat-color,var(--cat-temel)) 20%,transparent)}
 .comp-item:active{transform:scale(.96);transition-duration:80ms}
 .comp-item.selected{border:1.5px solid var(--cat-color,var(--cat-temel));background:color-mix(in srgb,var(--cat-color,var(--cat-temel)) 8%,transparent);color:var(--text)}
-.comp-item .comp-symbol{display:flex;align-items:center;justify-content:center;width:34px;height:34px;flex-shrink:0}
+.comp-item .comp-symbol{display:flex;align-items:center;justify-content:center;width:38px;height:38px;flex-shrink:0}
 .comp-item .comp-symbol canvas{display:block}
 .comp-item .comp-name-tr{font-size:12px;font-weight:600;color:#fff;text-align:center;line-height:1.15;max-width:100%;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;text-overflow:ellipsis;word-break:break-word}
-.comp-item .comp-name-en{font-size:10px;font-weight:400;opacity:.45;color:#fff;text-align:center;line-height:1.1;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.comp-item .comp-shortcuts{display:flex;gap:4px;flex-wrap:nowrap;align-items:center;justify-content:center;margin-top:auto}
-.comp-item .comp-shortcuts .pill{font-family:var(--font-mono);font-size:10px;padding:1px 4px;border-radius:3px;background:rgba(255,255,255,0.08);color:var(--text);letter-spacing:.2px}
+.comp-item .comp-badge{position:absolute;top:4px;right:4px;font-family:var(--font-mono);font-size:9px;line-height:1;padding:1px 4px;border-radius:3px;background:color-mix(in srgb,var(--cat-color,var(--cat-temel)) 22%,transparent);color:var(--cat-color,var(--cat-temel));pointer-events:none;letter-spacing:.2px}
 /* Legacy helpers retained for non-card contexts (e.g. preset list fallback) */
 .comp-item .dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
 .comp-item .key{font-family:var(--font-mono);font-size:9px;padding:1px 5px;border-radius:3px;background:var(--surface-3);color:var(--text-4)}
@@ -162,9 +176,8 @@ input:focus{border-color:var(--accent)}
 .insp-bands{display:flex;gap:3px;align-items:center;margin:6px 0}
 .insp-band{width:10px;height:22px;border-radius:2px;border:1px solid rgba(255,255,255,0.1)}
 
-/* RECENT COMPONENTS */
-.recent-section{margin-bottom:8px;border-bottom:1px solid var(--border);padding-bottom:6px}
-.recent-section .recent-header{font:600 10px var(--font-ui);color:var(--text-4);text-transform:uppercase;letter-spacing:.5px;padding:4px 8px;display:flex;align-items:center;gap:4px}
+/* Sprint 104.3.1 — .recent-section is gone. Sidebar shows search + categories
+ * only; real recents/favorites UI comes in 104.8. */
 
 /* LIGHT THEME */
 [data-theme="light"]{--bg:#f8f9fa;--surface:#ffffff;--surface-2:#f1f3f5;--surface-3:#e9ecef;--border:#dee2e6;--border-2:#ced4da;--text:#212529;--text-2:#495057;--text-3:#868e96;--text-4:#adb5bd;--accent-dim:rgba(0,224,158,.12);--accent-glow:rgba(0,224,158,.25)}
@@ -417,18 +430,18 @@ input:focus{border-color:var(--accent)}
   #ai-panel{width:calc(100vw - 32px);right:8px;bottom:56px}
 }
 @media (min-width:769px) and (max-width:1100px) {
-  /* Sprint 104.3 — compact desktop still runs the 3-column grid but the panel
-   * shrinks slightly and the cards drop one line of vertical padding. */
-  #app{grid-template-columns:240px 1fr 200px}
+  /* Sprint 104.3.1 — compact desktop uses the adaptive grid (#left.cols-N via
+   * ResizeObserver), so we only nudge padding/fonts here. Column count stays
+   * dynamic. */
+  #app{grid-template-columns:var(--sidebar-w,240px) 1fr 200px}
   #left{padding:4px;overflow-y:auto;-webkit-overflow-scrolling:touch}
   #right{padding:6px;overflow-y:auto;-webkit-overflow-scrolling:touch}
   #topbar{overflow-x:auto;-webkit-overflow-scrolling:touch;gap:4px;padding:0 8px}
   .tb-btn{padding:8px 12px;font-size:12px;min-height:44px}
   #analysis-tabs,.tab-bar{overflow-x:auto;-webkit-overflow-scrolling:touch}
   .btab{padding:8px 14px;font-size:12px;min-height:40px;white-space:nowrap}
-  .comp-item{padding:6px 3px;min-height:88px}
+  .comp-item{padding:5px;min-height:70px}
   .comp-item .comp-name-tr{font-size:11px}
-  .comp-item .comp-name-en{font-size:9px}
   .cat-header{padding:12px 14px;min-height:44px}
   .cat-body{gap:6px;padding:6px 0}
 }

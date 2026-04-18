@@ -42,12 +42,12 @@ function cycleBgBtn() {
 }
 
 // ──────── 3.10: PATCH startPlace for recent tracking ────────
+// Sprint 104.3.1 — tracking stays (context-menu Quick Add uses it), but the
+// sidebar no longer surfaces a Recents section. Real recents UI = Sprint 104.8.
 var _origStartPlace = startPlace;
 startPlace = function(type) {
   _trackRecent(type);
   _origStartPlace(type);
-  // Rebuild recent in left panel
-  _buildRecentSection(document.getElementById('left'));
 };
 
 // ──────── LOAD SETTINGS ON INIT ────────

@@ -57,7 +57,7 @@ function setAriaLabels() {
 setAriaLabels();
 
 // Console banner
-console.log('%c\u26A1 VoltXAmpere v12.0.0-alpha.4', 'color:#00e09e;font-size:18px;font-weight:bold');
+console.log('%c\u26A1 VoltXAmpere v12.0.0-alpha.5', 'color:#00e09e;font-size:18px;font-weight:bold');
 console.log('%cProfessional Circuit Simulator \u2014 voltxampere.com', 'color:#8899aa;font-size:12px');
 console.log('%c' + t('scriptApi'), 'color:#f59e0b;font-size:11px');
 
@@ -552,21 +552,21 @@ function _compNames(compKey, def) {
   return { tr: tr, en: en };
 }
 
-// Renders the 34px symbol canvas on top of each card. Extracted so the search
-// renderer and the category renderer use exactly the same pixel pipeline.
+// Sprint 104.3.1 — 38px icon (was 34). Still uses requestAnimationFrame so the
+// initial paint doesn't block layout; devicePixelRatio keeps retina crisp.
 function _renderCardSymbol(compDef) {
   var mc = document.createElement('canvas');
   var dpr = (typeof window !== 'undefined' && window.devicePixelRatio) ? window.devicePixelRatio : 1;
-  mc.width = 34 * dpr; mc.height = 34 * dpr;
-  mc.style.cssText = 'width:34px;height:34px;display:block';
+  mc.width = 38 * dpr; mc.height = 38 * dpr;
+  mc.style.cssText = 'width:38px;height:38px;display:block';
   (function(canvas, drawFn) {
     requestAnimationFrame(function() {
       try {
         var ctx2 = canvas.getContext('2d');
         ctx2.save();
         ctx2.scale(dpr, dpr);
-        ctx2.translate(17, 17);
-        ctx2.scale(0.40, 0.40);
+        ctx2.translate(19, 19);
+        ctx2.scale(0.45, 0.45);
         ctx2.lineWidth = 5;
         drawFn(ctx2, 20, { val: 0, type: '' });
         ctx2.restore();
@@ -576,6 +576,9 @@ function _renderCardSymbol(compDef) {
   return mc;
 }
 
+// Sprint 104.3.1 — compact card. Structure: symbol, TR name, optional badge
+// (top-right absolute, letter-only). EN name is no longer painted; it lives
+// in the title attr so tooltips reveal it and _matchComp still searches it.
 function _renderCompCard(compKey, compDef, catKey) {
   var names = _compNames(compKey, compDef);
   var d = document.createElement('div');
@@ -583,7 +586,7 @@ function _renderCompCard(compKey, compDef, catKey) {
   d.dataset.comp = compKey;
   d.dataset.cat = catKey || compDef.cat || '';
   d.style.setProperty('--cat-color', _catColor(catKey || compDef.cat));
-  d.title = names.tr + ' / ' + names.en;
+  d.title = names.tr + ' · ' + names.en;
   d.setAttribute('role', 'button');
   d.setAttribute('tabindex', '0');
 
@@ -597,28 +600,14 @@ function _renderCompCard(compKey, compDef, catKey) {
   trEl.textContent = names.tr;
   d.appendChild(trEl);
 
-  var enEl = document.createElement('div');
-  enEl.className = 'comp-name-en';
-  enEl.textContent = names.en;
-  d.appendChild(enEl);
-
+  // Letter-only badge top-right. Digit shortcuts are dropped from the card
+  // face — they're still declared in SHORTCUT_PILLS for 104.4's binding work.
   var sc = SHORTCUT_PILLS[compKey];
-  if (sc && (sc.letter || sc.digit)) {
-    var row = document.createElement('div');
-    row.className = 'comp-shortcuts';
-    if (sc.letter) {
-      var pL = document.createElement('span');
-      pL.className = 'pill';
-      pL.textContent = sc.letter;
-      row.appendChild(pL);
-    }
-    if (sc.digit) {
-      var pD = document.createElement('span');
-      pD.className = 'pill';
-      pD.textContent = sc.digit;
-      row.appendChild(pD);
-    }
-    d.appendChild(row);
+  if (sc && sc.letter) {
+    var badge = document.createElement('span');
+    badge.className = 'comp-badge';
+    badge.textContent = sc.letter;
+    d.appendChild(badge);
   }
 
   d.addEventListener('click', function(){ startPlace(compKey); });
@@ -660,6 +649,118 @@ function rebuildPalette() {
     el.appendChild(d);
   });
 }
+
+// ──────── SPRINT 104.3.1 — RESIZABLE SIDEBAR + ADAPTIVE GRID ────────
+// The sidebar is user-resizable via a 4px drag handle on its right edge.
+// Width is persisted in localStorage (vxa.sidebar.width) and clamped to
+// [200, 480]. Double-clicking the handle snaps back to 290. A ResizeObserver
+// on #left flips between 2 / 3 / 4 column card grids at 260px and 360px
+// breakpoints. Canvas re-layout is handled by the existing canvas-setup.js
+// ResizeObserver on #canvas-wrap, so there's nothing extra to wire here.
+var SIDEBAR_MIN = 200;
+var SIDEBAR_MAX = 480;
+var SIDEBAR_DEFAULT = 290;
+var SIDEBAR_LS_KEY = 'vxa.sidebar.width';
+
+function _applySidebarWidth(px) {
+  var w = Math.max(SIDEBAR_MIN, Math.min(SIDEBAR_MAX, Math.round(px)));
+  document.documentElement.style.setProperty('--sidebar-w', w + 'px');
+  try { localStorage.setItem(SIDEBAR_LS_KEY, String(w)); } catch (e) {}
+  _updateSidebarCols(w);
+  return w;
+}
+
+function _updateSidebarCols(w) {
+  var left = document.getElementById('left');
+  if (!left) return;
+  var cols = 3;
+  if (w < 260) cols = 2;
+  else if (w > 360) cols = 4;
+  left.classList.toggle('cols-2', cols === 2);
+  left.classList.toggle('cols-3', cols === 3);
+  left.classList.toggle('cols-4', cols === 4);
+}
+
+(function _setupSidebarResize() {
+  if (typeof document === 'undefined') return;
+  // Restore persisted width (or default) before first paint of the palette.
+  var saved = null;
+  try { saved = localStorage.getItem(SIDEBAR_LS_KEY); } catch (e) {}
+  var initial = SIDEBAR_DEFAULT;
+  if (saved !== null) {
+    var n = parseFloat(saved);
+    if (isFinite(n)) initial = n;
+  }
+  _applySidebarWidth(initial);
+
+  // Drag handle. Created once the left panel exists in the DOM.
+  function _mount() {
+    var app = document.getElementById('app');
+    var left = document.getElementById('left');
+    if (!app || !left) return;
+    if (document.getElementById('sidebar-handle')) return;
+
+    var handle = document.createElement('div');
+    handle.id = 'sidebar-handle';
+    handle.className = 'sidebar-handle';
+    handle.setAttribute('role', 'separator');
+    handle.setAttribute('aria-orientation', 'vertical');
+    handle.setAttribute('aria-label', 'Resize sidebar');
+    handle.title = 'Drag to resize · double-click to reset';
+    app.appendChild(handle);
+
+    // Drag state
+    var dragging = false;
+    var startX = 0;
+    var startW = 0;
+    function _onMove(e) {
+      if (!dragging) return;
+      var x = (e.touches && e.touches[0]) ? e.touches[0].clientX : e.clientX;
+      _applySidebarWidth(startW + (x - startX));
+      if (e.cancelable) e.preventDefault();
+    }
+    function _onUp() {
+      if (!dragging) return;
+      dragging = false;
+      handle.classList.remove('dragging');
+      document.body.classList.remove('sidebar-resizing');
+      window.removeEventListener('mousemove', _onMove);
+      window.removeEventListener('mouseup', _onUp);
+      window.removeEventListener('touchmove', _onMove);
+      window.removeEventListener('touchend', _onUp);
+    }
+    function _onDown(e) {
+      dragging = true;
+      startX = (e.touches && e.touches[0]) ? e.touches[0].clientX : e.clientX;
+      startW = left.getBoundingClientRect().width;
+      handle.classList.add('dragging');
+      document.body.classList.add('sidebar-resizing');
+      window.addEventListener('mousemove', _onMove);
+      window.addEventListener('mouseup', _onUp);
+      window.addEventListener('touchmove', _onMove, { passive: false });
+      window.addEventListener('touchend', _onUp);
+      if (e.cancelable) e.preventDefault();
+    }
+    handle.addEventListener('mousedown', _onDown);
+    handle.addEventListener('touchstart', _onDown, { passive: false });
+    handle.addEventListener('dblclick', function() { _applySidebarWidth(SIDEBAR_DEFAULT); });
+
+    // Observe sidebar width for cols toggling. The handle updates
+    // --sidebar-w explicitly but this observer also catches layout-driven
+    // changes (mobile rotate, devtools dock, etc).
+    if (typeof ResizeObserver === 'function') {
+      new ResizeObserver(function(entries) {
+        var w = entries[0] && entries[0].contentRect ? entries[0].contentRect.width : left.getBoundingClientRect().width;
+        _updateSidebarCols(w);
+      }).observe(left);
+    }
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', _mount);
+  } else {
+    _mount();
+  }
+})();
 
 // ──────── TIME CONTROL ────────
 var simBookmarkState = null;
@@ -734,6 +835,15 @@ function _matchComp(compKey, def, query) {
   if (compKey.toLowerCase().indexOf(q) >= 0) return true;
   if (def.name && def.name.toLowerCase().indexOf(q) >= 0) return true;
   if (def.en && def.en.toLowerCase().indexOf(q) >= 0) return true;
+  // Sprint 104.3.1 — the card face dropped the visible EN label, so the
+  // SIDEBAR_I18N TR/EN pair is now the authoritative source for search.
+  // We check it here so "direnç", "resistor", and "rez..." all hit the same
+  // component without relying on the old visible labels.
+  if (typeof SIDEBAR_I18N !== 'undefined' && SIDEBAR_I18N[compKey]) {
+    var i18n = SIDEBAR_I18N[compKey];
+    if (i18n.tr && i18n.tr.toLowerCase().indexOf(q) >= 0) return true;
+    if (i18n.en && i18n.en.toLowerCase().indexOf(q) >= 0) return true;
+  }
   var aliases = COMP_SEARCH_ALIASES[compKey] || [];
   for (var i = 0; i < aliases.length; i++) {
     if (aliases[i].indexOf(q) >= 0) return true;
