@@ -372,8 +372,42 @@ const JS_FILES = [
   'src/app.js',
 ];
 
+// Sprint 94: preset geometry validator. Every preset wire must have a
+// non-zero length — identical endpoints leave ghost points in the
+// render buffer and used to confuse interaction tests (Sprint 69 audit
+// documented 33 of these in the shipped presets; Sprint 94 cleaned them
+// all out). Running this at build time stops anyone from sneaking a new
+// one in during a preset edit.
+function validatePresetGeometry(presetsContent) {
+  const wireRe = /x1:\s*(-?\d+)\s*,\s*y1:\s*(-?\d+)\s*,\s*x2:\s*(-?\d+)\s*,\s*y2:\s*(-?\d+)/g;
+  const issues = [];
+  let m;
+  while ((m = wireRe.exec(presetsContent)) !== null) {
+    const x1 = +m[1], y1 = +m[2], x2 = +m[3], y2 = +m[4];
+    if (x1 === x2 && y1 === y2) {
+      const before = presetsContent.slice(0, m.index);
+      const line = before.split('\n').length;
+      issues.push({ line, coords: `(${x1},${y1}) → (${x2},${y2})` });
+    }
+  }
+  return issues;
+}
+
 function build() {
   const startTime = Date.now();
+
+  // 0. Preset geometry audit (Sprint 94 — HATA 15 regression guard)
+  const presetsPath = 'src/components/presets.js';
+  if (fs.existsSync(presetsPath)) {
+    const presetsContent = fs.readFileSync(presetsPath, 'utf8');
+    const presetIssues = validatePresetGeometry(presetsContent);
+    if (presetIssues.length > 0) {
+      console.error(`❌ ${presetIssues.length} zero-length wire(s) in presets.js:`);
+      presetIssues.forEach(i => console.error(`   line ${i.line}: ${i.coords}`));
+      console.error('   Degenerate wires render as ghost points. Remove them.');
+      process.exit(1);
+    }
+  }
 
   // 1. Read CSS
   const css = fs.readFileSync('src/styles.css', 'utf8');
