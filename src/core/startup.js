@@ -57,8 +57,8 @@ function setAriaLabels() {
 setAriaLabels();
 
 // Console banner
-console.log('%c\u26A1 VoltXAmpere v9.0', 'color:#00e09e;font-size:18px;font-weight:bold');
-console.log('%cFree Circuit Simulator with AI \u2014 voltxampere.com', 'color:#8899aa;font-size:12px');
+console.log('%c\u26A1 VoltXAmpere v11.0', 'color:#00e09e;font-size:18px;font-weight:bold');
+console.log('%cProfessional Circuit Simulator \u2014 voltxampere.com', 'color:#8899aa;font-size:12px');
 console.log('%c' + t('scriptApi'), 'color:#f59e0b;font-size:11px');
 
 // ──────── AI ASSISTANT ────────

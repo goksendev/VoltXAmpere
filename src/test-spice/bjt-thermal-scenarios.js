@@ -10,7 +10,7 @@ const puppeteer = require('puppeteer');
 const fs = require('fs');
 const path = require('path');
 
-const url = process.env.VXA_URL || 'http://localhost:8765/index.html';
+const url = process.env.VXA_URL || 'http://localhost:8765/simulator.html';
 const CIR_RUN  = fs.readFileSync(path.join(__dirname, '17-bjt-runaway-demo.cir'), 'utf8');
 const CIR_SAFE = fs.readFileSync(path.join(__dirname, '18-bjt-safe.cir'),         'utf8');
 

@@ -15,7 +15,7 @@ const puppeteer = require('puppeteer');
 const fs = require('fs');
 const path = require('path');
 
-const url = process.env.VXA_URL || 'http://localhost:8765/index.html';
+const url = process.env.VXA_URL || 'http://localhost:8765/simulator.html';
 const CIR_H = fs.readFileSync(path.join(__dirname, '26-hysteresis-square-wave.cir'), 'utf8');
 const CIR_I = fs.readFileSync(path.join(__dirname, '27-hysteresis-ideal.cir'),       'utf8');
 

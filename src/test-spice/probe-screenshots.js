@@ -4,7 +4,7 @@ const puppeteer = require('puppeteer');
 const fs = require('fs');
 const path = require('path');
 
-const url = process.env.VXA_URL || 'http://localhost:8765/index.html';
+const url = process.env.VXA_URL || 'http://localhost:8765/simulator.html';
 const CIR_PAR = fs.readFileSync(path.join(__dirname, '02-parallel-r.cir'), 'utf8');
 const CIR_RC  = fs.readFileSync(path.join(__dirname, '16-rc-lowpass.cir'), 'utf8');
 const outDir  = path.join(__dirname, 'screenshots');

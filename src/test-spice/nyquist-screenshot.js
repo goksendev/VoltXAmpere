@@ -7,7 +7,7 @@ const path = require('path');
 
 (async () => {
   const CIR = fs.readFileSync(path.join(__dirname, '16-rc-lowpass.cir'), 'utf8');
-  const url = process.env.VXA_URL || 'http://localhost:8765/index.html';
+  const url = process.env.VXA_URL || 'http://localhost:8765/simulator.html';
   const outDir = path.join(__dirname, 'screenshots');
   if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
 

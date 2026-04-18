@@ -11,7 +11,7 @@ const puppeteer = require('puppeteer');
 const fs = require('fs');
 const path = require('path');
 
-const url = process.env.VXA_URL || 'http://localhost:8765/index.html';
+const url = process.env.VXA_URL || 'http://localhost:8765/simulator.html';
 const CIR = fs.readFileSync(path.join(__dirname, '23-diode-temp-coefficient.cir'), 'utf8');
 
 const TEMPS_C = [25, 50, 75, 100];

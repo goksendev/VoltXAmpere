@@ -17,7 +17,7 @@ const fs = require('fs');
 const path = require('path');
 
 const CIR = fs.readFileSync(path.join(__dirname, '14-rl-decay.cir'), 'utf8');
-const url = process.env.VXA_URL || 'http://localhost:8765/index.html';
+const url = process.env.VXA_URL || 'http://localhost:8765/simulator.html';
 
 // Sample times (seconds).  τ = 1µs.
 const SAMPLES_S = [1e-6, 5e-6, 1e-5, 5e-5, 1e-4];

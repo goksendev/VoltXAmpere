@@ -8,7 +8,7 @@ const fs = require('fs');
 const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..', '..');
-const HTML_PATH = path.join(ROOT, 'index.html');
+const HTML_PATH = path.join(ROOT, 'simulator.html');
 const TEST_DIR = __dirname;
 const OUT_DIR = path.join(TEST_DIR, 'screenshots');
 if (!fs.existsSync(OUT_DIR)) fs.mkdirSync(OUT_DIR, { recursive: true });
@@ -35,7 +35,7 @@ const CIRCUITS = [
   page.on('pageerror', err => pageErrors.push(err.message));
   page.on('console', msg => { if (msg.type() === 'error') pageErrors.push('[console] ' + msg.text()); });
 
-  const url = process.env.VXA_URL || 'http://localhost:8765/index.html';
+  const url = process.env.VXA_URL || 'http://localhost:8765/simulator.html';
   await page.goto(url, { waitUntil: 'load', timeout: 30000 });
 
   // Diagnostic: dump initial globals to catch init failures

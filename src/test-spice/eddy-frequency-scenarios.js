@@ -17,7 +17,7 @@ const puppeteer = require('puppeteer');
 const fs = require('fs');
 const path = require('path');
 
-const url = process.env.VXA_URL || 'http://localhost:8765/index.html';
+const url = process.env.VXA_URL || 'http://localhost:8765/simulator.html';
 
 async function simulate(page, cir, dt, totalSteps, chunkSize, sampleEvery) {
   await page.evaluate(({ c }) => {

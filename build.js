@@ -446,9 +446,9 @@ function build() {
   console.log(`   Output:      dist/index.html (${distSize} KB)`);
   console.log(`   Time:        ${elapsed}ms`);
 
-  // Auto-copy to root index.html (for Vercel deploy)
-  fs.copyFileSync('dist/index.html', 'index.html');
-  console.log(`   Root index.html updated ✅`);
+  // Auto-copy to root simulator.html (for Vercel deploy — / is the landing page)
+  fs.copyFileSync('dist/index.html', 'simulator.html');
+  console.log(`   Root simulator.html updated ✅`);
 }
 
 build();

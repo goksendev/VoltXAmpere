@@ -15,7 +15,7 @@ const puppeteer = require('puppeteer');
 const fs = require('fs');
 const path = require('path');
 
-const url = process.env.VXA_URL || 'http://localhost:8765/index.html';
+const url = process.env.VXA_URL || 'http://localhost:8765/simulator.html';
 const CIR = fs.readFileSync(path.join(__dirname, '25-bjt-deep-saturation.cir'), 'utf8');
 
 async function simulate(page, cir, totalSteps, chunkSize, sampleEvery) {

@@ -118,7 +118,7 @@ async function probeOne(page, circuitFile) {
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));
   page.on('console', m => { if (m.type() === 'error') errors.push('[console] ' + m.text()); });
-  await page.goto('http://localhost:8765/index.html', { waitUntil: 'load' });
+  await page.goto('http://localhost:8765/simulator.html', { waitUntil: 'load' });
   await page.waitForFunction(() => typeof VXA !== 'undefined' && VXA.SpiceImport && typeof buildCircuitFromCanvas === 'function');
 
   const dir = path.join(path.dirname(process.argv[1]), '.');

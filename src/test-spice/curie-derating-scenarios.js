@@ -15,7 +15,7 @@ const puppeteer = require('puppeteer');
 const fs = require('fs');
 const path = require('path');
 
-const url = process.env.VXA_URL || 'http://localhost:8765/index.html';
+const url = process.env.VXA_URL || 'http://localhost:8765/simulator.html';
 const CIR = fs.readFileSync(path.join(__dirname, '28-inductor-tcurie.cir'), 'utf8');
 
 async function runAtTemp(page, Tc_celsius, totalSteps, chunkSize, sampleEvery) {
