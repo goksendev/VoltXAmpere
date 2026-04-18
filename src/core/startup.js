@@ -57,7 +57,7 @@ function setAriaLabels() {
 setAriaLabels();
 
 // Console banner
-console.log('%c\u26A1 VoltXAmpere v12.0.0-alpha.9', 'color:#00e09e;font-size:18px;font-weight:bold');
+console.log('%c\u26A1 VoltXAmpere v12.0.0-alpha.10', 'color:#00e09e;font-size:18px;font-weight:bold');
 console.log('%cProfessional Circuit Simulator \u2014 voltxampere.com', 'color:#8899aa;font-size:12px');
 console.log('%c' + t('scriptApi'), 'color:#f59e0b;font-size:11px');
 
@@ -684,6 +684,14 @@ function _renderCompCard(compKey, compDef, catKey) {
   d.addEventListener('keydown', function(e) {
     if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); startPlace(compKey); }
   });
+
+  // Sprint 104.3.6 — attach the datasheet hover panel. Guarded so the
+  // palette still renders if the panel module is missing (e.g. during a
+  // dev build that hasn't regenerated simulator.html).
+  if (typeof DatasheetPanel !== 'undefined' && DatasheetPanel.attach) {
+    DatasheetPanel.attach(d, compKey, catKey || compDef.cat);
+  }
+
   return d;
 }
 

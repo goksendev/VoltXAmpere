@@ -237,6 +237,12 @@ const JS_FILES = [
   // IO: PWA
   'src/io/pwa.js',
 
+  // Datasheet panel (must load BEFORE startup so _renderCompCard can attach
+  // hover handlers). Order: content → chart renderer → panel orchestrator.
+  'src/ui/datasheets.js',
+  'src/ui/datasheet-chart.js',
+  'src/ui/datasheet-panel.js',
+
   // Core: startup (DOMContentLoaded, buildLeftPanel, loadPreset, API)
   'src/core/startup.js',
 
