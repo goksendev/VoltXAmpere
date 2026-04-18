@@ -57,7 +57,7 @@ function setAriaLabels() {
 setAriaLabels();
 
 // Console banner
-console.log('%c\u26A1 VoltXAmpere v12.0.0-alpha.6', 'color:#00e09e;font-size:18px;font-weight:bold');
+console.log('%c\u26A1 VoltXAmpere v12.0.0-alpha.7', 'color:#00e09e;font-size:18px;font-weight:bold');
 console.log('%cProfessional Circuit Simulator \u2014 voltxampere.com', 'color:#8899aa;font-size:12px');
 console.log('%c' + t('scriptApi'), 'color:#f59e0b;font-size:11px');
 
@@ -431,27 +431,29 @@ function ctxSaveBlock() {
 //
 // Schema (forward-compatible so 104.5+ can add Arduino / ESP32 / 74HCxx
 // variants without migrating the map again):
-//   tr:      Turkish name (display default)
-//   en:      English name (shown in tooltip + searchable)
-//   h:       (optional) TR with soft-hyphens U+00AD for manual line-break
-//            positions. Only set when auto-inject would produce a bad cut.
-//   display: (optional) TR override if the card should show something other
-//            than `tr` — currently unused, reserved for 104.5+.
-//   letter:  (optional) redundant with SHORTCUT_PILLS[key].letter, kept here
-//            for future schemas that merge the two maps.
-//   digit:   (optional) same, for the digit shortcut.
-//   tags:    (optional) extra search terms — "arduino", "microcontroller",
-//            "uno" etc. Consumed by _matchComp (104.5+).
+//   tr:           Turkish name (display default)
+//   en:           English name (on-card sub-label + tooltip + searchable)
+//   h:            (optional) TR with soft-hyphens U+00AD for manual
+//                 line-break positions. Only set when auto-inject would
+//                 produce a bad cut.
+//   primaryUnit:  (optional) physical unit chip — Ω, F, H, V, A, Hz etc.
+//                 Omit for modelled / digital parts that don't carry a
+//                 single scalar unit (BJTs, op-amps, gates, MCUs…).
+//   display:      (optional) TR override — reserved for 104.5+.
+//   letter/digit: (optional) redundant with SHORTCUT_PILLS — reserved for
+//                 a future merged map.
+//   tags:         (optional) extra search terms — "arduino", "uno" etc.
+//                 Consumed by _matchComp (104.5+).
 var SIDEBAR_I18N = {
-  resistor:      { tr: 'Direnç',              en: 'Resistor' },
-  capacitor:     { tr: 'Kapasitör',           en: 'Capacitor' },
-  inductor:      { tr: 'Bobin',               en: 'Inductor' },
-  vdc:           { tr: 'DC Kaynak',           en: 'DC Source' },
-  vac:           { tr: 'AC Kaynak',           en: 'AC Source' },
-  pulse:         { tr: 'Darbe Kaynağı',       en: 'Pulse Source' },
-  pwl:           { tr: 'PWL Kaynağı',         en: 'PWL Source' },
-  iac:           { tr: 'AC Akım Kaynağı',     en: 'AC Current' },
-  noise:         { tr: 'Gürültü Kaynağı',     en: 'Noise Source' },
+  resistor:      { tr: 'Direnç',              en: 'Resistor',        primaryUnit: 'Ω' },
+  capacitor:     { tr: 'Kapasitör',           en: 'Capacitor',       primaryUnit: 'F' },
+  inductor:      { tr: 'Bobin',               en: 'Inductor',        primaryUnit: 'H' },
+  vdc:           { tr: 'DC Kaynak',           en: 'DC Source',       primaryUnit: 'V' },
+  vac:           { tr: 'AC Kaynak',           en: 'AC Source',       primaryUnit: 'V' },
+  pulse:         { tr: 'Darbe Kaynağı',       en: 'Pulse Source',    primaryUnit: 'V' },
+  pwl:           { tr: 'PWL Kaynağı',         en: 'PWL Source',      primaryUnit: 'V' },
+  iac:           { tr: 'AC Akım Kaynağı',     en: 'AC Current',      primaryUnit: 'A' },
+  noise:         { tr: 'Gürültü Kaynağı',     en: 'Noise Source',    primaryUnit: 'V' },
   vcvs:          { tr: 'VCVS (E)',            en: 'VCVS (E)' },
   vccs:          { tr: 'VCCS (G)',            en: 'VCCS (G)' },
   ccvs:          { tr: 'CCVS (H)',            en: 'CCVS (H)' },
@@ -462,8 +464,8 @@ var SIDEBAR_I18N = {
   switch:        { tr: 'Anahtar',             en: 'Switch' },
   pushButton:    { tr: 'Buton',               en: 'Push Button' },
   timer555:      { tr: '555 Zamanlayıcı',     en: '555 Timer' },
-  speaker:       { tr: 'Hoparlör',            en: 'Speaker' },
-  buzzer:        { tr: 'Buzzer',              en: 'Buzzer' },
+  speaker:       { tr: 'Hoparlör',            en: 'Speaker',         primaryUnit: 'Ω' },
+  buzzer:        { tr: 'Buzzer',              en: 'Buzzer',          primaryUnit: 'Hz' },
   npn:           { tr: 'NPN Transistör',      en: 'NPN BJT' },
   pnp:           { tr: 'PNP Transistör',      en: 'PNP BJT' },
   nmos:          { tr: 'N-MOSFET',            en: 'NMOS' },
@@ -481,7 +483,7 @@ var SIDEBAR_I18N = {
   xor:           { tr: 'ÖZEL VEYA',           en: 'XOR Gate' },
   transformer:   { tr: 'Trafo',               en: 'Transformer' },
   relay:         { tr: 'Röle',                en: 'Relay' },
-  fuse:          { tr: 'Sigorta',             en: 'Fuse' },
+  fuse:          { tr: 'Sigorta',             en: 'Fuse',            primaryUnit: 'A' },
   ammeter:       { tr: 'Ampermetre',          en: 'Ammeter' },
   voltmeter:     { tr: 'Voltmetre',           en: 'Voltmeter' },
   schottky:      { tr: 'Schottky Diyot',      en: 'Schottky Diode' },
@@ -498,22 +500,22 @@ var SIDEBAR_I18N = {
   wattmeter:     { tr: 'Wattmetre',           en: 'Wattmeter' },
   diffProbe:     { tr: 'Dif. Probu',          en: 'Diff Probe' },
   iProbe:        { tr: 'Akım Probu',          en: 'Current Probe' },
-  potentiometer: { tr: 'Potansiyometre',      en: 'Potentiometer', h: 'Potansiyo\u00ADmetre' },
-  ntc:           { tr: 'NTC Termistör',       en: 'NTC Thermistor' },
-  ptc:           { tr: 'PTC Termistör',       en: 'PTC Thermistor' },
-  ldr:           { tr: 'LDR',                 en: 'Photoresistor' },
-  mov:           { tr: 'Varistör (MOV)',      en: 'Varistor' },
-  comparator:    { tr: 'Komparatör',          en: 'Comparator',    h: 'Kompa\u00ADratör' },
-  crystal:       { tr: 'Kristal',             en: 'Crystal' },
-  coupledL:      { tr: 'Bağlı Bobin',         en: 'Coupled Inductor' },
+  potentiometer: { tr: 'Potansiyometre',      en: 'Potentiometer',   primaryUnit: 'Ω', h: 'Potansiyo\u00ADmetre' },
+  ntc:           { tr: 'NTC Termistör',       en: 'NTC Thermistor',  primaryUnit: 'Ω' },
+  ptc:           { tr: 'PTC Termistör',       en: 'PTC Thermistor',  primaryUnit: 'Ω' },
+  ldr:           { tr: 'LDR',                 en: 'Photoresistor',   primaryUnit: 'Ω' },
+  mov:           { tr: 'Varistör (MOV)',      en: 'Varistor',        primaryUnit: 'Ω' },
+  comparator:    { tr: 'Komparatör',          en: 'Comparator',      h: 'Kompa\u00ADratör' },
+  crystal:       { tr: 'Kristal',             en: 'Crystal',         primaryUnit: 'Hz' },
+  coupledL:      { tr: 'Bağlı Bobin',         en: 'Coupled Inductor', primaryUnit: 'H' },
   dcmotor:       { tr: 'DC Motor',            en: 'DC Motor' },
-  tline:         { tr: 'İletim Hattı',        en: 'Transmission Line' },
+  tline:         { tr: 'İletim Hattı',        en: 'Transmission Line', primaryUnit: 'Ω' },
   netLabel:      { tr: 'Net Etiketi',         en: 'Net Label' },
-  vcc:           { tr: 'VCC',                 en: 'VCC' },
+  vcc:           { tr: 'VCC',                 en: 'VCC',             primaryUnit: 'V' },
   gndLabel:      { tr: 'GND Etiketi',         en: 'GND Label' },
   adc:           { tr: 'ADC (8-bit)',         en: 'ADC 8-bit' },
   dac:           { tr: 'DAC (8-bit)',         en: 'DAC 8-bit' },
-  pwm:           { tr: 'PWM Üreteci',         en: 'PWM Generator' }
+  pwm:           { tr: 'PWM Üreteci',         en: 'PWM Generator',   primaryUnit: 'Hz' }
 };
 
 // Sprint 104.3.2 — derive the visible TR label. Explicit `h` wins. Otherwise
@@ -582,21 +584,23 @@ function _compNames(compKey, def) {
   return { tr: tr, en: en };
 }
 
-// Sprint 104.3.1 — 38px icon (was 34). Still uses requestAnimationFrame so the
-// initial paint doesn't block layout; devicePixelRatio keeps retina crisp.
+// Sprint 104.3.3 — 32px icon (was 38), hard-locked in CSS so wider cards
+// don't scale it up. Canvas content scale tweaked to match: symbol still
+// renders centred with the same density it had at 38px (0.45 × 32/38 ≈
+// 0.38). devicePixelRatio keeps retina crisp.
 function _renderCardSymbol(compDef) {
   var mc = document.createElement('canvas');
   var dpr = (typeof window !== 'undefined' && window.devicePixelRatio) ? window.devicePixelRatio : 1;
-  mc.width = 38 * dpr; mc.height = 38 * dpr;
-  mc.style.cssText = 'width:38px;height:38px;display:block';
+  mc.width = 32 * dpr; mc.height = 32 * dpr;
+  mc.style.cssText = 'width:32px;height:32px;display:block';
   (function(canvas, drawFn) {
     requestAnimationFrame(function() {
       try {
         var ctx2 = canvas.getContext('2d');
         ctx2.save();
         ctx2.scale(dpr, dpr);
-        ctx2.translate(19, 19);
-        ctx2.scale(0.45, 0.45);
+        ctx2.translate(16, 16);
+        ctx2.scale(0.38, 0.38);
         ctx2.lineWidth = 5;
         drawFn(ctx2, 20, { val: 0, type: '' });
         ctx2.restore();
@@ -606,19 +610,23 @@ function _renderCardSymbol(compDef) {
   return mc;
 }
 
-// Sprint 104.3.1 / 104.3.2 — compact card. Structure: symbol, TR name
-// (hyphenated for narrow columns), optional badge (top-right absolute,
-// letter-only, category-agnostic surface). EN name is not painted; it lives
-// in the title attr so tooltips reveal it and _matchComp still searches it.
+// Sprint 104.3.1 / 104.3.2 / 104.3.3 — compact card. Painted structure:
+//   .comp-symbol  32px icon (hard-locked)
+//   .comp-name-tr 12px hyphenated Turkish name
+//   .comp-name-en 10px faint English name (only if present — older registry
+//                 rows with no `en` field just drop this row)
+//   .comp-unit    optional Ω/F/H/V/A/Hz chip, driven by primaryUnit
+//   .comp-badge   top-right shortcut letter (category-agnostic surface)
+// title attr carries the clean "TR · EN" pair so tooltips and copy-paste are
+// unaffected by soft hyphens.
 function _renderCompCard(compKey, compDef, catKey) {
   var names = _compNames(compKey, compDef);
+  var entry = SIDEBAR_I18N[compKey] || {};
   var d = document.createElement('div');
   d.className = 'comp-item';
   d.dataset.comp = compKey;
   d.dataset.cat = catKey || compDef.cat || '';
   d.style.setProperty('--cat-color', _catColor(catKey || compDef.cat));
-  // title stays clean — no soft hyphens — so tooltip + copy-paste show the
-  // original text. Card text uses the hyphenated form.
   d.title = names.tr + ' · ' + names.en;
   d.setAttribute('role', 'button');
   d.setAttribute('tabindex', '0');
@@ -633,8 +641,24 @@ function _renderCompCard(compKey, compDef, catKey) {
   trEl.textContent = _hyphenatedName(compKey, names.tr);
   d.appendChild(trEl);
 
-  // Letter-only badge top-right. Digit shortcuts stay registered in
-  // SHORTCUT_PILLS for 104.4's binding work but don't paint on the card.
+  // EN sub-label. Only rendered when we actually have an EN string and it
+  // differs from the TR line — avoids a redundant "LED / LED" double row.
+  if (names.en && names.en !== names.tr) {
+    var enEl = document.createElement('div');
+    enEl.className = 'comp-name-en';
+    enEl.textContent = names.en;
+    d.appendChild(enEl);
+  }
+
+  // Optional unit chip. Modelled/digital parts (BJTs, op-amps, gates, …)
+  // have no `primaryUnit` and skip rendering entirely.
+  if (entry.primaryUnit) {
+    var unit = document.createElement('span');
+    unit.className = 'comp-unit';
+    unit.textContent = entry.primaryUnit;
+    d.appendChild(unit);
+  }
+
   var sc = SHORTCUT_PILLS[compKey];
   if (sc && sc.letter) {
     var badge = document.createElement('span');
