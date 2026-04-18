@@ -1,0 +1,9 @@
+* Sprint 89 — Eddy-current loss, 1 kHz sinusoidal drive.
+* R = 1 kΩ, L = 1 mH → corner f_c = R/(2πL) ≈ 159 kHz, keeps all
+* three test frequencies comfortably in the resistive-dominated
+* regime so I_amp ≈ V/R is frequency-insensitive and the f²
+* scaling of P_eddy (= Ke · (di/dt)² · L) shows clearly.
+V1 1 0 SIN(0 1 1000)
+R1 1 2 1k
+L1 2 0 1m Ke=1e-4
+.END

@@ -1,0 +1,5 @@
+* Sprint 89 — Eddy-current loss, 100 kHz sinusoidal drive (100×).
+V1 1 0 SIN(0 1 100000)
+R1 1 2 1k
+L1 2 0 1m Ke=1e-4
+.END

@@ -136,6 +136,10 @@ VXA.SpiceImport = (function() {
           } else if (_ltk.indexOf('curieexp=') === 0) {
             var _ce = parseFloat(_ltk.slice(9));
             if (isFinite(_ce) && _ce >= 1) lPart.curie_exp = _ce;
+          } else if (_ltk.indexOf('ke=') === 0) {
+            // Sprint 89: eddy-current coefficient (W·s²/(A²·H)).
+            var _ke = pv(_ltk.slice(3));
+            if (isFinite(_ke) && _ke > 0) lPart.Ke = _ke;
           }
         }
         circuit.parts.push(lPart);
@@ -322,6 +326,8 @@ VXA.SpiceImport = (function() {
         // Sprint 88: Curie-point Isat derating.
         if (cp.T_curie != null)   p.T_curie   = cp.T_curie;
         if (cp.curie_exp != null) p.curie_exp = cp.curie_exp;
+        // Sprint 89: eddy-current coefficient.
+        if (cp.Ke != null)        p.Ke        = cp.Ke;
         if (cp.type === 'subcircuit' && cp.subcktName) {
           p.subcktName = cp.subcktName;
           var sc = (typeof VXA !== 'undefined' && VXA.Subcircuit) ? VXA.Subcircuit.getSubcircuit(cp.subcktName) : null;
@@ -352,6 +358,7 @@ VXA.SpiceImport = (function() {
         if (cp.Hc != null)     p.Hc     = cp.Hc;
         if (cp.T_curie != null)   p.T_curie   = cp.T_curie;
         if (cp.curie_exp != null) p.curie_exp = cp.curie_exp;
+        if (cp.Ke != null)        p.Ke        = cp.Ke;
         S.parts.push(p);
         idMap[idx] = p;
       });
