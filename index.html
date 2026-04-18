@@ -25,7 +25,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"VoltXAmpere","url":"https://voltxampere.com","description":"Professional browser-based circuit simulator with SPICE parser, thermal-electrical coupling, and AC-MNA analysis.","applicationCategory":"EducationalApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"softwareVersion":"11.2.1","license":"https://opensource.org/licenses/MIT"}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"VoltXAmpere","url":"https://voltxampere.com","description":"Professional browser-based circuit simulator with SPICE parser, thermal-electrical coupling, and AC-MNA analysis.","applicationCategory":"EducationalApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"softwareVersion":"12.0.0-alpha.1","license":"https://opensource.org/licenses/MIT"}</script>
 
 <style>
 :root {
@@ -686,7 +686,7 @@ footer {
   <div class="inner container">
     <a class="eyebrow" href="#whats-new" aria-label="What's new in v11.1">
       <span class="dot"></span>
-      <span>v11.2.1 released · emergency patch — 3 critical preset bugs fixed</span>
+      <span>v12.0.0-alpha.1 · Great Reset · rebuilding from first principles</span>
       <span class="arrow">↓</span>
     </a>
     <h1>
@@ -931,57 +931,60 @@ footer {
 <section id="whats-new">
   <div class="container">
     <div class="whats-new reveal">
-      <span class="version-tag">v11.2.1 · April 2026</span>
-      <h2>What's new.</h2>
+      <span class="version-tag">v12.0.0-alpha.1 · April 2026</span>
+      <h2>The Great Reset.</h2>
       <p class="whats-new__subtitle">
-        Emergency patch. v11.2.0 shipped 55/55 "PASS" but operator manual
-        verification found three critical user-visible bugs the probe had
-        reported as green. Convergence alone is not correctness — this
-        patch closes the bugs and the gap that hid them.
+        All 55 bundled preset circuits removed. Preset-based testing
+        abandoned. The foundation will be rebuilt feature-by-feature —
+        each component, source, model, and analysis verified against
+        analytic or LTspice reference before any preset returns.
       </p>
 
       <div class="whats-new__grid">
         <article class="whats-new__card">
-          <div class="whats-new__icon">🔧</div>
-          <h3>Integrity gate added</h3>
+          <div class="whats-new__icon">🪦</div>
+          <h3>55 presets archived</h3>
           <p>
-            Round-trip probe now fails on any preset with unconnected
-            pins, regardless of convergence. New
-            <code>npm run test:integrity</code> standalone probe using
-            the app's own <code>ConnectionCheck</code>.
+            <code>PRESETS</code> is now the empty array. Four preset-
+            dependent test files removed: <code>preset-roundtrip</code>,
+            <code>preset-integrity</code>, <code>preset-anchors</code>,
+            <code>preset-geometry</code>. The gallery panel is empty
+            until presets re-earn their place.
           </p>
         </article>
 
         <article class="whats-new__card">
-          <div class="whats-new__icon">🪛</div>
-          <h3>Two critical preset fixes</h3>
+          <div class="whats-new__icon">🧭</div>
+          <h3>Feature-first test discipline</h3>
           <p>
-            <code>bridge-rect</code> shipped with 4 unconnected pins
-            causing 0V output. <code>cmos-inv</code> had a Vin-to-VCC
-            short. Both rewired with correct pin coordinates and
-            verified electrically.
+            New <code>src/test-spice/feature-tests/</code> directory.
+            One folder per component / source / model / analysis. Each
+            carries an LTspice-verified netlist, a puppeteer probe that
+            loads it via <code>SpiceImport</code> (never
+            <code>loadPreset</code>), and a short <code>expected.md</code>.
           </p>
         </article>
 
         <article class="whats-new__card">
-          <div class="whats-new__icon">⏱️</div>
-          <h3>DC OP timeout</h3>
+          <div class="whats-new__icon">⚖️</div>
+          <h3>Five fences → three</h3>
           <p>
-            <code>findDCOperatingPoint</code> now aborts after 5 seconds
-            or 500 outer iterations instead of hanging the browser.
-            <code>npn-sw</code> preset no longer freezes Chrome on
-            Find DC OP.
+            <code>npm run test:presets</code> and
+            <code>npm run test:integrity</code> removed. Remaining CI
+            surface is tight and honest: harness 11/11, scenarios
+            (13 files), and <code>test:sparse</code> 25/25. No green
+            checks for things that weren't really tested.
           </p>
         </article>
 
         <article class="whats-new__card">
-          <div class="whats-new__icon">📋</div>
-          <h3>Manual verification paid</h3>
+          <div class="whats-new__icon">🧱</div>
+          <h3>Four-iteration lesson, settled</h3>
           <p>
-            Sprint 98 (probes race), 101 (tests lie by omission), 102
-            (round-trip shares bug with code), 103 (convergence lies
-            about topology) — same lesson, four faces. Each iteration
-            tightens the fence.
+            Sprints 98, 101, 102, 103 each caught a different way tests
+            can lie: race conditions, missing coverage, shared-bug
+            round-trips, false-convergence. This release accepts the
+            lesson by rebuilding from the fence up.
           </p>
         </article>
       </div>
@@ -1043,7 +1046,7 @@ footer {
     </div>
     <div class="footer-bottom">
       <span>© 2026 goksendev</span>
-      <span class="made">Made with electrons · v11.2.1</span>
+      <span class="made">Made with electrons · v12.0.0-alpha.1</span>
     </div>
   </div>
 </footer>

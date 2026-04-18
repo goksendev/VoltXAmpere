@@ -5,6 +5,89 @@ All notable changes to VoltXAmpere are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [12.0.0-alpha.1] — 2026-04-19
+
+### The Great Reset
+
+All 55 presets removed. Preset-based testing abandoned. The foundation
+will be rebuilt feature-by-feature: each component, source, model,
+and analysis verified against analytic or LTspice reference before
+any preset returns.
+
+The v11.x line had accumulated **four consecutive audit findings**
+rooted in the same problem — the preset library was the de-facto CI
+surface, and presets hide bugs behind plausible-looking voltages that
+every test family we had tried (round-trip, anchors, ConnectionCheck
+integrity) eventually admitted was insufficient.
+
+- **Sprint 98:** test probes can lie by racing themselves
+- **Sprint 101:** tests can lie by existing only on paths that don't
+  reach users
+- **Sprint 102:** round-trip can lie when both paths share the same bug
+- **Sprint 103:** convergence can lie when the topology is broken
+
+v11.2.1 added the integrity fence. v11.2.2 would have added the
+next one. At some point the honest move is to stop layering fences
+around an unreliable subject and rebuild the subject itself. That
+is v12.0.0-alpha.1.
+
+### Removed
+
+- **`src/components/presets.js`** — `PRESETS` array emptied. The
+  gallery panel now renders empty until any preset earns its way back
+  via the feature-tests discipline described below.
+- **`src/test-spice/preset-roundtrip-scenarios.js`** — the Sprint 102
+  round-trip fence. Deleted.
+- **`src/test-spice/preset-integrity-scenarios.js`** — the Sprint 103
+  ConnectionCheck fence. Deleted.
+- **`src/test-spice/preset-anchors.js`** — the Sprint 102 gold-anchor
+  module. Deleted.
+- **`src/test-spice/preset-geometry-scenarios.js`** — the Sprint 94
+  zero-length wire probe. Deleted (would hang on empty `PRESETS`).
+- **`npm run test:presets`** — script removed from `package.json`.
+- **`npm run test:integrity`** — script removed from `package.json`.
+
+### Added
+
+- **`src/test-spice/feature-tests/`** — empty scaffolding with a
+  `README.md` that documents the new discipline: one folder per
+  feature, LTspice-verified netlist, puppeteer probe that loads via
+  `VXA.SpiceImport.parse()` (never `loadPreset`), and a short
+  `expected.md` with reference numbers and their source. A preset can
+  return to the simulator only after every component it uses has its
+  own passing feature test here.
+
+### Changed
+
+- **Regression fence count: 5 → 3.** The remaining gates are
+  `npm test` (11/11 harness), `npm run scenarios` (13 device/physics/UX
+  probes after the 3 preset-dependent files were removed), and
+  `npm run test:sparse` (25/25 sparse-vs-dense differential). Each one
+  tests a specific solver path or device model against a specific
+  reference, not against "this preset shipped to users and
+  converged."
+- **`CLAUDE.md` §5 updated** from four-gate to three-gate discipline
+  to match the new reality. No gate ever got greener by being
+  removed — only by being wrong in a way we couldn't see, which is
+  exactly what the preset tests were doing.
+
+### Notes for Sprint 105+
+
+The immediate rebuild order (to be confirmed by the operator):
+
+1. `feature-tests/resistor/` — analytic V=IR + tolerance + TC
+2. `feature-tests/capacitor/` — τ=RC charge/discharge
+3. `feature-tests/inductor/` — L·di/dt, saturation knee
+4. `feature-tests/diode/` — Shockley I-V, Vf(T), reverse breakdown
+5. `feature-tests/bjt/` — Gummel-Poon Ic(Vbe), β(Ic)
+6. `feature-tests/mosfet/` — Level-1 Id(Vgs, Vds), Vth(T)
+7. ... (one per feature, verified by external reference)
+
+Presets return only after their constituent components are each green
+in `feature-tests/`. No preset is added to the simulator until the
+underlying devices are verified against something outside the
+simulator itself.
+
 ## [11.2.1] — 2026-04-19
 
 Emergency patch. The operator's manual verification of v11.2.0 found
@@ -540,6 +623,7 @@ marked completion of the initial SPICE parser, MNA solver with
 Backward-Euler / Trapezoidal companions, sparse LU factorisation,
 thermal-damage engine, and 71+ component library.
 
+[12.0.0-alpha.1]: https://github.com/goksendev/VoltXAmpere/releases/tag/v12.0.0-alpha.1
 [11.2.1]: https://github.com/goksendev/VoltXAmpere/releases/tag/v11.2.1
 [11.2.0]: https://github.com/goksendev/VoltXAmpere/releases/tag/v11.2.0
 [11.1.0]: https://github.com/goksendev/VoltXAmpere/releases/tag/v11.1.0

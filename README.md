@@ -1,11 +1,9 @@
 # VoltXAmpere
 
-[![version](https://img.shields.io/badge/version-11.2.1-00e09e)](./CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-12.0.0--alpha.1-ff9b54)](./CHANGELOG.md)
 [![harness](https://img.shields.io/badge/harness-11%2F11_pass-22cc44)](./src/test-spice/puppeteer-harness.js)
-[![scenarios](https://img.shields.io/badge/scenarios-16%2F16_pass-22cc44)](./src/test-spice)
+[![scenarios](https://img.shields.io/badge/scenarios-13_files-22cc44)](./src/test-spice)
 [![sparse](https://img.shields.io/badge/sparse-25%2F25_pass-22cc44)](./src/test-spice/sparse-dense-differential-scenarios.js)
-[![presets](https://img.shields.io/badge/presets-55%2F55_pass-22cc44)](./src/test-spice/preset-roundtrip-scenarios.js)
-[![integrity](https://img.shields.io/badge/integrity-55%2F55_pass-22cc44)](./src/test-spice/preset-integrity-scenarios.js)
 [![license](https://img.shields.io/badge/license-MIT-blue)](./LICENSE)
 
 Professional web-based circuit simulator — 71+ components, full
@@ -13,6 +11,27 @@ SPICE parser, complete thermal-electrical coupling, AC-MNA analysis,
 interactive multimeter, Bode and Nyquist plotting.
 
 Live at **[voltxampere.com](https://voltxampere.com)**.
+
+## v12.0.0-alpha.1 — The Great Reset
+
+All 55 bundled preset circuits have been removed and preset-based
+testing abandoned. The v11.x line accumulated four consecutive audit
+findings rooted in the same problem — the preset library was the
+de-facto CI surface, and every test family eventually admitted it was
+insufficient to guard what presets ship to users.
+
+The foundation is being rebuilt feature-by-feature under
+`src/test-spice/feature-tests/`. A preset returns to the simulator
+only after every component it uses has its own passing test there,
+verified against analytic or LTspice reference.
+
+Three regression fences remain: `npm test` (11/11 harness),
+`npm run scenarios` (13 device/physics/UX probes), and
+`npm run test:sparse` (25/25 sparse-vs-dense). Each tests a specific
+solver path or device model against a specific external reference.
+
+See [CHANGELOG.md](./CHANGELOG.md#1200-alpha1--2026-04-19) for the
+full rationale and the planned rebuild order.
 
 ## What's New in 11.2.1
 
@@ -112,10 +131,8 @@ python3 -m http.server 8765
 
 ```bash
 npm test               # main harness — 11 reference circuits
-npm run scenarios      # sequential: 16 device / physics / UX probes
+npm run scenarios      # sequential: 13 device / physics / UX probes
 npm run test:sparse    # sparse-vs-dense differential — 25 circuits
-npm run test:presets   # preset round-trip + 10 gold anchors — 55 presets
-npm run test:integrity # preset Connection-Check integrity — 55 presets
 ```
 
 Every commit in the Sprint 77 → 99 series was verified against the

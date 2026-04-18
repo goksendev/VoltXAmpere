@@ -82,17 +82,23 @@ or "cleaner architecture." The priority order is:
 Sprint 103+ scheduling follows this order unless the operator
 explicitly overrides it.
 
-### 5. Every sprint ends with four gates
+### 5. Every sprint ends with three gates (post-Sprint-104 Great Reset)
 
 Before commit, every sprint must show:
 
 1. `npm test` green (harness, currently 11/11)
-2. `npm run scenarios` green (currently 15/15)
+2. `npm run scenarios` green (currently 13 probes)
 3. `npm run test:sparse` green (currently 25/25)
-4. `npm run test:presets` green (currently 55/55 + 10/10 anchors)
 
 If any gate is red, the sprint is not done. Don't commit. Don't push.
 Don't tag. Report the failure and stop.
+
+Sprint 104 removed the preset-based fences (`test:presets`,
+`test:integrity`) — see CHANGELOG [12.0.0-alpha.1] "The Great Reset"
+for the rationale. New feature-level tests live under
+`src/test-spice/feature-tests/`; they grow back one at a time as
+each component / source / model / analysis earns analytic or LTspice
+verification.
 
 ### 6. Fix-baseline-regression discipline
 
