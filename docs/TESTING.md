@@ -114,3 +114,68 @@ banded path in production (the dispatcher restricts banded to
   appending a circuit file name to the `CIRCUITS` list.  Large
   matrices (`n > 30`) are the most valuable additions — they
   actually exercise the banded path.
+
+## Probe writing guidelines
+
+Sprint 98 traced a six-month-old "BJT thermal runaway collapse" to
+a race between the browser's render loop and the test probe's
+stepping loop. Sprint 99 audited every remaining probe that
+touches `S.sim.running` and confirmed none of them have the same
+bug, but the lesson stays: follow the rules below when writing
+new probes and this entire class of false-positive "physics bug"
+cannot come back.
+
+### Rule 1 — do your stepping inside a single `page.evaluate()`.
+
+If you drive the simulation from Node.js in chunks like
+
+```js
+for (let step = 0; step < N; step += CHUNK) {
+  await page.evaluate(({start, end}) => {
+    for (let i = start; i < end; i++) VXA.SimV2.solve(dt);
+  }, { start: step, end: Math.min(step + CHUNK, N) });
+}
+```
+
+and you have `S.sim.running = true`, the browser's
+`requestAnimationFrame` fires **between** your chunked evaluate
+calls. Each frame calls `simulationStep()` which calls
+`VXA.SimV2.solve()` with an auto-detected dt — different from
+yours — and races with your next chunk.
+
+If your probe absolutely must chunk (long-running sim, progress
+indication, Puppeteer protocol-timeout considerations), set
+`S.sim.running = false` before the first chunk and drive the
+simulation exclusively yourself.
+
+### Rule 2 — synchronous inside a single `page.evaluate()` is safe.
+
+Every probe in `src/test-spice/` except the Sprint-98-era version
+of `bjt-thermal-scenarios.js` follows this pattern: one large
+`page.evaluate(...)` call, no `await`s inside it, all stepping
+local. The browser stays in a single JS task for the whole
+evaluate, so `requestAnimationFrame` cannot interrupt — it's
+safe to leave `S.sim.running = true` inside such an evaluate.
+
+In fact some probes **need** `running = true` for their
+assertions — `probe-scenarios.js` relies on the multimeter
+peak-hold history, which `VXA.Probes` only updates when
+`sim.running` is truthy. Those probes were audited in Sprint 99,
+confirmed race-free, and left untouched.
+
+### Rule 3 — test assertions against trend, not absolute values,
+when the underlying simulation is chaotic.
+
+Thermal runaway, oscillator circuits, and any system with
+multiple stable equilibria can land on different absolute values
+from run to run depending on sub-µs timing. Prefer assertions
+like "peak Tj > 50 °C" over "peak Tj == 57.1 °C", or "Ic
+monotonic over t ∈ [0, 0.3] s" over "Ic(0.3) == 138 mA".
+
+### Rule 4 — use `VXA.SimV2.findDCOperatingPoint()` for DC, not
+100-step transients from zero.
+
+The DC-OP solver runs a GMIN / source-stepping ramp that is
+deterministic and far more reliable than letting a transient
+settle. Use it anywhere you need a steady-state starting point
+for a subsequent transient measurement.
