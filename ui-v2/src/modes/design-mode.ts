@@ -393,6 +393,11 @@ export class VxaDesignMode extends LitElement {
           .layout=${RC_LOWPASS_LAYOUT}
           .solve=${solve}
           .selectionId=${this.selection.type === 'component' ? this.selection.id : undefined}
+          chromeTitle="DENEY"
+          chromeSubtitle="Alçak Geçiren RC Süzgeç · f_c ≈ 15.9 kHz"
+          .isPlaying=${true}
+          simTime="100.00 µs"
+          .zoom=${100}
         ></vxa-canvas>
       </section>
 

@@ -16,6 +16,7 @@ import {
   drawCircuit,
   type CircuitLayout,
 } from '../render/circuit-renderer.ts';
+import './canvas-chrome.ts';
 
 // ─── Grid sabitleri ──────────────────────────────────────────────────────────
 // Küçük grid adımı: 16 CSS piksel. Devre bacakları ve wire snap için ideal bir
@@ -63,6 +64,14 @@ export class VxaCanvas extends LitElement {
    * --accent renginde çizer ve etrafına dashed frame ekler. Sprint 0.7'de
    * canvas click event'i bu prop'u güncelleyecek. */
   @property({ attribute: false }) selectionId?: string;
+
+  // ─── Chrome prop'ları (Sprint 0.10) ────────────────────────────────────
+  // <vxa-canvas-chrome>'a pass-through; canvas draw'ını etkilemez.
+  @property() chromeTitle = 'DENEY';
+  @property() chromeSubtitle = '';
+  @property({ type: Boolean }) isPlaying = false;
+  @property() simTime = '—';
+  @property({ type: Number }) zoom = 100;
 
   // ─── Internal ───────────────────────────────────────────────────────────
   private readonly canvasRef: Ref<HTMLCanvasElement> = createRef();
@@ -190,7 +199,16 @@ export class VxaCanvas extends LitElement {
   }
 
   override render() {
-    return html`<canvas ${ref(this.canvasRef)} aria-label="devre canvas"></canvas>`;
+    return html`
+      <canvas ${ref(this.canvasRef)} aria-label="devre canvas"></canvas>
+      <vxa-canvas-chrome
+        .expTitle=${this.chromeTitle}
+        .subtitle=${this.chromeSubtitle}
+        .isPlaying=${this.isPlaying}
+        .simTime=${this.simTime}
+        .zoom=${this.zoom}
+      ></vxa-canvas-chrome>
+    `;
   }
 }
 
