@@ -57,7 +57,7 @@ function setAriaLabels() {
 setAriaLabels();
 
 // Console banner
-console.log('%c\u26A1 VoltXAmpere v12.0.0-alpha.13', 'color:#00e09e;font-size:18px;font-weight:bold');
+console.log('%c\u26A1 VoltXAmpere v12.0.0-alpha.14', 'color:#00e09e;font-size:18px;font-weight:bold');
 console.log('%cProfessional Circuit Simulator \u2014 voltxampere.com', 'color:#8899aa;font-size:12px');
 console.log('%c' + t('scriptApi'), 'color:#f59e0b;font-size:11px');
 
@@ -736,15 +736,15 @@ function rebuildPalette() {
   });
 }
 
-// ──────── SPRINT 104.3.1 / 104.3.2 — RESIZABLE SIDEBAR + ADAPTIVE GRID ────────
+// ──────── SPRINT 104.3.1 / 104.3.2 / 104.3.10 — RESIZABLE SIDEBAR + ADAPTIVE GRID ────────
 // The sidebar is user-resizable via a 4px drag handle on its right edge.
 // Width is persisted in localStorage (vxa.sidebar.width) and clamped to
-// [140, 520]. Double-clicking the handle snaps back to 290. A ResizeObserver
+// [110, 520]. Double-clicking the handle snaps back to 290. A ResizeObserver
 // on #left flips between 1 / 2 / 3 / 4 / 5 / 6 column card grids at
-// 180 / 260 / 340 / 420 / 480px breakpoints. Canvas re-layout is handled by
-// the existing canvas-setup.js ResizeObserver on #canvas-wrap, so there's
-// nothing extra to wire here.
-var SIDEBAR_MIN = 140;
+// 200 / 280 / 360 / 440 / 500px breakpoints. Canvas re-layout is handled
+// by the existing canvas-setup.js ResizeObserver on #canvas-wrap, so
+// there's nothing extra to wire here.
+var SIDEBAR_MIN = 110;
 var SIDEBAR_MAX = 520;
 var SIDEBAR_DEFAULT = 290;
 var SIDEBAR_LS_KEY = 'vxa.sidebar.width';
@@ -760,16 +760,16 @@ function _applySidebarWidth(px) {
 function _updateSidebarCols(w) {
   var left = document.getElementById('left');
   if (!left) return;
-  // Breakpoints chosen so each card stays readable: 1-col mode starts at
-  // 140px (hyphenation kicks in for long names), 6-col mode above 480px
-  // keeps cards close to the ~75px minimum where the 38px icon + 2 lines
-  // of name still fit.
+  // Sprint 104.3.10 — new breakpoint table. 1-col mode runs 110–200px, using
+  // the .cols-1 compact CSS modifier (slightly smaller TR/EN fonts + tighter
+  // card padding). 2-col at 200–280, 3-col at 280–360, 4-col at 360–440,
+  // 5-col at 440–500, 6-col above 500.
   var cols;
-  if (w < 180)       cols = 1;
-  else if (w < 260)  cols = 2;
-  else if (w < 340)  cols = 3;
-  else if (w < 420)  cols = 4;
-  else if (w < 480)  cols = 5;
+  if (w < 200)       cols = 1;
+  else if (w < 280)  cols = 2;
+  else if (w < 360)  cols = 3;
+  else if (w < 440)  cols = 4;
+  else if (w < 500)  cols = 5;
   else               cols = 6;
   for (var i = 1; i <= 6; i++) left.classList.toggle('cols-' + i, cols === i);
 }

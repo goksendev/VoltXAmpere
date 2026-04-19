@@ -108,6 +108,13 @@ body.sidebar-resizing *{user-select:none!important}
 #left.cols-4 .cat-body{grid-template-columns:repeat(4,1fr)}
 #left.cols-5 .cat-body{grid-template-columns:repeat(5,1fr)}
 #left.cols-6 .cat-body{grid-template-columns:repeat(6,1fr)}
+/* Sprint 104.3.10 — 1-col compact modifier. Sidebar can now shrink to 110px;
+ * at that width the 44px icon + 2 text rows would feel cramped with the
+ * regular 8 px padding. Tighten padding, shrink TR/EN font half a pt, drop
+ * the gap. Icon stays 44px locked and the shortcut badge is untouched. */
+#left.cols-1 .comp-item{padding:5px 4px;gap:3px}
+#left.cols-1 .comp-item .comp-name-tr{font-size:11.5px}
+#left.cols-1 .comp-item .comp-name-en{font-size:9.5px}
 .cat-body.closed{display:none}
 /* Sprint 104.3.2 / 104.3.3 / 104.3.5 — compact card, unified surface.
  *   .comp-symbol    — 44px hard-locked (all six of width/height/min/max +
@@ -120,7 +127,7 @@ body.sidebar-resizing *{user-select:none!important}
  * Card padding-top 8 so the bigger icon has a bit more breathing room;
  * min-height 98 so two-line TR + EN still fits comfortably. Unit-less cards
  * absorb the space via flex-column so grid rows stay aligned. */
-.comp-item{position:relative;display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 6px 6px;min-height:98px;cursor:pointer;border-radius:8px;background:rgba(255,255,255,0.03);border:1px solid transparent;transition:transform .12s ease-out,background .12s ease-out,border-color .12s ease-out,box-shadow .12s ease-out;user-select:none;color:var(--text-2);overflow:hidden}
+.comp-item{position:relative;display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 6px 6px;min-height:98px;min-width:0;cursor:pointer;border-radius:8px;background:rgba(255,255,255,0.03);border:1px solid transparent;transition:transform .12s ease-out,background .12s ease-out,border-color .12s ease-out,box-shadow .12s ease-out;user-select:none;color:var(--text-2);overflow:hidden}
 .comp-item:hover{background:rgba(255,255,255,0.06);color:var(--text);transform:translateY(-2px);border-color:color-mix(in srgb,var(--cat-color,var(--cat-temel)) 33%,transparent);box-shadow:0 0 0 1px color-mix(in srgb,var(--cat-color,var(--cat-temel)) 33%,transparent),0 4px 12px color-mix(in srgb,var(--cat-color,var(--cat-temel)) 20%,transparent)}
 .comp-item:active{transform:scale(.96);transition-duration:80ms}
 .comp-item.selected{border:1.5px solid var(--cat-color,var(--cat-temel));background:color-mix(in srgb,var(--cat-color,var(--cat-temel)) 8%,transparent);color:var(--text)}
@@ -128,8 +135,8 @@ body.sidebar-resizing *{user-select:none!important}
 .comp-item .comp-symbol canvas{display:block;width:44px;height:44px}
 .comp-item .comp-symbol svg{width:44px;height:44px;display:block}
 .comp-item .comp-symbol svg *{vector-effect:non-scaling-stroke}
-.comp-item .comp-name-tr{font-size:12px;font-weight:600;line-height:1.15;color:#fff;text-align:center;max-width:100%;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;text-overflow:ellipsis;word-break:normal;overflow-wrap:break-word;hyphens:manual;-webkit-hyphens:manual}
-.comp-item .comp-name-en{font-size:10px;font-weight:400;line-height:1.2;color:rgba(255,255,255,0.42);text-align:center;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:2px}
+.comp-item .comp-name-tr{font-size:12px;font-weight:600;line-height:1.15;color:#fff;text-align:center;min-width:0;max-width:100%;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;text-overflow:ellipsis;word-break:break-word;overflow-wrap:break-word;hyphens:manual;-webkit-hyphens:manual}
+.comp-item .comp-name-en{font-size:10px;font-weight:400;line-height:1.2;color:rgba(255,255,255,0.42);text-align:center;min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:2px}
 .comp-item .comp-name-en .sep{color:rgba(255,255,255,0.25);margin:0 1px}
 .comp-item .comp-name-en .unit{color:rgba(255,255,255,0.55);font-weight:500;margin-left:2px}
 .comp-item .comp-badge{position:absolute;top:4px;right:4px;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:9px;font-weight:600;line-height:1;padding:2px 5px;border-radius:3px;background:rgba(255,255,255,0.09);color:rgba(255,255,255,0.72);letter-spacing:.02em;pointer-events:none}
