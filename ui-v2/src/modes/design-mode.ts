@@ -1,12 +1,36 @@
 // VoltXAmpere v2 — Tasarla modu grid iskeleti.
-// Sprint 0.2: 5-bölgeli CSS Grid layout (topbar / sidebar / canvas-area /
-// inspector / dashboard), tüm bölgeler placeholder.
-// Sprint 0.3: canvas bölgesine gerçek <vxa-canvas> mount edildi; diğer 4 bölge
-// hâlâ dashed-kenarlı placeholder. Canvas zone artık .zone base class'ından
-// ayrı (border/padding inherit etmesin diye).
-import { LitElement, html, css } from 'lit';
-import { customElement } from 'lit/decorators.js';
+// Sprint 0.2: 5-bölgeli CSS Grid layout, tüm bölgeler placeholder.
+// Sprint 0.3: canvas bölgesine <vxa-canvas> mount edildi; dashboard dahil
+//             diğer 4 bölge hâlâ dashed-kenarlı placeholder.
+// Sprint 0.4: dashboard artık canlı — engine bridge üzerinden RC low-pass'in
+//             DC operating point'ini okuyup 3 slot (V_ÇIKIŞ / V_GİRİŞ / I(R1))
+//             halinde gösteriyor. Topbar / sidebar / inspector hâlâ placeholder.
+import { LitElement, html, css, nothing } from 'lit';
+import { customElement, state } from 'lit/decorators.js';
 import '../canvas/canvas.ts';
+import { solveCircuit, type SolveResult } from '../bridge/engine.ts';
+import { RC_LOWPASS } from '../circuits/rc-lowpass.ts';
+
+type DashboardState =
+  | { kind: 'loading' }
+  | { kind: 'ok'; result: SolveResult }
+  | { kind: 'err'; message: string };
+
+/** Voltaj formatı: "5.00 V". İleride (Sprint 0.7) SI otomatik ölçek eklenecek. */
+function formatVolt(v: number): string {
+  return `${v.toFixed(2)} V`;
+}
+
+/** Akım formatı: SI otomatik ölçek (pA / nA / µA / mA / A).
+ * RC DC steady-state'te |I(R1)| ≈ 0 — solver hassasiyetinde pA/nA gözükebilir. */
+function formatAmp(i: number): string {
+  const a = Math.abs(i);
+  if (a < 1e-9) return `${(i * 1e12).toFixed(2)} pA`;
+  if (a < 1e-6) return `${(i * 1e9).toFixed(2)} nA`;
+  if (a < 1e-3) return `${(i * 1e6).toFixed(2)} µA`;
+  if (a < 1) return `${(i * 1e3).toFixed(2)} mA`;
+  return `${i.toFixed(2)} A`;
+}
 
 @customElement('vxa-design-mode')
 export class VxaDesignMode extends LitElement {
@@ -34,8 +58,9 @@ export class VxaDesignMode extends LitElement {
       overflow: hidden;
     }
 
-    /* Placeholder bölge stili — kesikli kenar, mono etiket, hizalama.
-       Canvas bölgesi bu class'ı KULLANMIYOR (Sprint 0.3'ten beri gerçek canvas). */
+    /* Placeholder bölge stili — kesikli kenar, mono etiket, sol-üst hizalama.
+       Canvas ve dashboard bu class'ı KULLANMIYOR (Sprint 0.3-0.4'ten beri
+       gerçek içerik). */
     .zone {
       border: 1px dashed var(--line-str);
       padding: var(--sp-3);
@@ -63,8 +88,7 @@ export class VxaDesignMode extends LitElement {
     }
 
     /* Canvas bölgesi: placeholder değil — <vxa-canvas> tam olarak kaplar.
-       .zone base class UYGULANMAZ (dashed kenar ve padding inherit etmesin
-       diye kasıtlı olarak ayrı tutuldu). */
+       .zone base class uygulanmıyor (Sprint 0.3). */
     .canvas-zone {
       grid-area: canvas-area;
       background: var(--canvas);
@@ -77,10 +101,106 @@ export class VxaDesignMode extends LitElement {
       border-left: 1px solid var(--line);
     }
 
-    .zone.dashboard {
+    /* ─── Dashboard (Sprint 0.4) ──────────────────────────────────────────
+       Canlı DC operating point verisi. .zone base class UYGULANMIYOR —
+       dashed kenar + merkez-hizalı placeholder kuralları gerek yok artık. */
+    .dashboard-zone {
       grid-area: dashboard;
       background: var(--bg-1);
       border-top: 1px solid var(--line);
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      overflow: hidden;
+    }
+
+    .slot {
+      padding: var(--sp-3) var(--sp-4);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: var(--sp-2);
+      border-right: 1px solid var(--line);
+    }
+    .slot:last-child {
+      border-right: 0;
+    }
+
+    .slot-title {
+      font-family: var(--mono);
+      font-size: var(--fs-xs);
+      color: var(--fg-3);
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+    }
+
+    .slot-value {
+      font-family: var(--sans);
+      font-size: var(--fs-xl);
+      font-weight: 500;
+      color: var(--fg);
+      letter-spacing: -0.01em;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .slot-value--accent {
+      color: var(--accent);
+    }
+
+    .slot-value--current {
+      color: var(--current);
+    }
+
+    .slot-sub {
+      font-family: var(--mono);
+      font-size: var(--fs-xs);
+      color: var(--fg-4);
+      letter-spacing: 0.05em;
+      text-transform: lowercase;
+    }
+
+    /* Loading: grid iskelet ve renk duruyor, içerik boş — 3 slot kutusu
+       sadece sınırlarıyla görünür. Plan "placeholder değer yok" diyor:
+       tek bekleme göstergesi slot sınırlarıdır, sahte rakam yok. */
+    .dashboard-zone--loading .slot {
+      opacity: 0.35;
+    }
+    .slot-placeholder {
+      /* Değer alanı boş kalsın ama yükseklik korunsun (layout zıplaması yok) */
+      min-height: var(--fs-xl);
+    }
+
+    /* Hata durumu: tek merkez kutu, --err aksanı. */
+    .dashboard-zone--error {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: var(--sp-3) var(--sp-4);
+    }
+
+    .err-box {
+      display: flex;
+      flex-direction: column;
+      gap: var(--sp-2);
+      padding: var(--sp-3) var(--sp-4);
+      border: 1px solid var(--err);
+      border-radius: var(--r-2);
+      color: var(--fg);
+      max-width: 520px;
+    }
+
+    .err-title {
+      font-family: var(--mono);
+      font-size: var(--fs-sm);
+      color: var(--err);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    .err-msg {
+      font-family: var(--mono);
+      font-size: var(--fs-xs);
+      color: var(--fg-2);
+      word-break: break-word;
     }
 
     /* Sol alt köşe sprint etiketi — sabit, shadow DOM içinde position:fixed
@@ -98,6 +218,93 @@ export class VxaDesignMode extends LitElement {
       z-index: 2;
     }
   `;
+
+  @state() private dashboard: DashboardState = { kind: 'loading' };
+
+  override async firstUpdated(): Promise<void> {
+    // Sprint 0.4: sayfa yüklenirken RC low-pass'in DC operating point'ini
+    // solver worker'ına sorup state'e yazıyoruz. Hata durumunda dashboard
+    // tek hata kutusu gösterir — sahte değer yok.
+    try {
+      const result = await solveCircuit(RC_LOWPASS);
+      if (result.success) {
+        this.dashboard = { kind: 'ok', result };
+      } else {
+        this.dashboard = {
+          kind: 'err',
+          message: result.errorMessage ?? 'Bilinmeyen hata',
+        };
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this.dashboard = { kind: 'err', message: msg };
+    }
+  }
+
+  private renderDashboard() {
+    if (this.dashboard.kind === 'loading') {
+      // Layout iskeleti hazır, değer alanı boş. Opacity azaltılmış.
+      return html`
+        <section class="dashboard-zone dashboard-zone--loading" aria-label="dashboard">
+          <div class="slot">
+            <span class="slot-title">V_ÇIKIŞ</span>
+            <span class="slot-value slot-placeholder">${nothing}</span>
+            <span class="slot-sub">DC operating point</span>
+          </div>
+          <div class="slot">
+            <span class="slot-title">V_GİRİŞ</span>
+            <span class="slot-value slot-placeholder">${nothing}</span>
+            <span class="slot-sub">DC operating point</span>
+          </div>
+          <div class="slot">
+            <span class="slot-title">I(R1)</span>
+            <span class="slot-value slot-placeholder">${nothing}</span>
+            <span class="slot-sub">DC operating point</span>
+          </div>
+        </section>
+      `;
+    }
+
+    if (this.dashboard.kind === 'err') {
+      return html`
+        <section
+          class="dashboard-zone dashboard-zone--error"
+          aria-label="dashboard hata"
+          role="alert"
+        >
+          <div class="err-box">
+            <span class="err-title">⚠ Solver başlatılamadı</span>
+            <span class="err-msg">${this.dashboard.message}</span>
+          </div>
+        </section>
+      `;
+    }
+
+    const { nodeVoltages, branchCurrents } = this.dashboard.result;
+    const vOut = nodeVoltages['out'] ?? 0;
+    const vIn = nodeVoltages['in'] ?? 0;
+    const iR1 = branchCurrents['R1'] ?? 0;
+
+    return html`
+      <section class="dashboard-zone" aria-label="dashboard">
+        <div class="slot">
+          <span class="slot-title">V_ÇIKIŞ</span>
+          <span class="slot-value slot-value--accent">${formatVolt(vOut)}</span>
+          <span class="slot-sub">DC operating point</span>
+        </div>
+        <div class="slot">
+          <span class="slot-title">V_GİRİŞ</span>
+          <span class="slot-value">${formatVolt(vIn)}</span>
+          <span class="slot-sub">DC operating point</span>
+        </div>
+        <div class="slot">
+          <span class="slot-title">I(R1)</span>
+          <span class="slot-value slot-value--current">${formatAmp(iR1)}</span>
+          <span class="slot-sub">DC operating point</span>
+        </div>
+      </section>
+    `;
+  }
 
   override render() {
     return html`
@@ -117,12 +324,10 @@ export class VxaDesignMode extends LitElement {
         inspector · 216px · sprint 0.6'da bileşen özellikleri
       </section>
 
-      <section class="zone dashboard" aria-label="dashboard">
-        dashboard · 140px · sprint 0.7'de analiz defteri
-      </section>
+      ${this.renderDashboard()}
 
       <span class="dev-marker" aria-hidden="true"
-        >sprint 0.3 · canvas 2d + noktalı grid · v2</span
+        >sprint 0.4 · backend bridge + dc op · v2</span
       >
     `;
   }
