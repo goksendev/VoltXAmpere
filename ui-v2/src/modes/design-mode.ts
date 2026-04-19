@@ -4,13 +4,19 @@
 //             diğer 4 bölge hâlâ dashed-kenarlı placeholder.
 // Sprint 0.4: dashboard artık canlı — engine bridge üzerinden RC low-pass'in
 //             DC operating point'ini okuyup 3 slot (V_ÇIKIŞ / V_GİRİŞ / I(R1))
-//             halinde gösteriyor. Topbar / sidebar / inspector hâlâ placeholder.
+//             halinde gösteriyor.
+// Sprint 0.5: canvas'ta RC devresi + probe etiketleri.
+// Sprint 0.6: inspector canlı — seçili bileşen (hard-coded R1) için elektriksel/
+//             konum/canlı sections. Canvas'ta seçili bileşen --accent + dashed
+//             frame. Topbar ve sidebar hâlâ placeholder.
 import { LitElement, html, css, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import '../canvas/canvas.ts';
+import '../inspector/inspector.ts';
 import { solveCircuit, type SolveResult } from '../bridge/engine.ts';
 import { RC_LOWPASS, RC_LOWPASS_LAYOUT } from '../circuits/rc-lowpass.ts';
-import { formatVolt, formatAmp } from '../util/format.ts';
+import { formatVoltage, formatCurrent } from '../util/format.ts';
+import { INITIAL_SELECTION, type Selection } from '../state/selection.ts';
 
 type DashboardState =
   | { kind: 'loading' }
@@ -80,10 +86,18 @@ export class VxaDesignMode extends LitElement {
       overflow: hidden;
     }
 
-    .zone.inspector {
+    /* Inspector bölgesi: placeholder değil — <vxa-inspector> tam kaplar.
+       .zone base class uygulanmıyor (Sprint 0.6). */
+    .inspector-zone {
       grid-area: inspector;
       background: var(--bg-1);
       border-left: 1px solid var(--line);
+      overflow: hidden;
+      display: flex;
+    }
+    .inspector-zone > vxa-inspector {
+      flex: 1 1 auto;
+      min-width: 0;
     }
 
     /* ─── Dashboard (Sprint 0.4) ──────────────────────────────────────────
@@ -208,6 +222,10 @@ export class VxaDesignMode extends LitElement {
 
   @state() private dashboard: DashboardState = { kind: 'loading' };
 
+  // Sprint 0.6: selection state. Şimdilik sabit R1, canvas click event'i
+  // Sprint 0.7'de bu state'i güncelleyecek.
+  @state() private selection: Selection = INITIAL_SELECTION;
+
   override async firstUpdated(): Promise<void> {
     // Sprint 0.4: sayfa yüklenirken RC low-pass'in DC operating point'ini
     // solver worker'ına sorup state'e yazıyoruz. Hata durumunda dashboard
@@ -276,17 +294,17 @@ export class VxaDesignMode extends LitElement {
       <section class="dashboard-zone" aria-label="dashboard">
         <div class="slot">
           <span class="slot-title">V_ÇIKIŞ</span>
-          <span class="slot-value slot-value--accent">${formatVolt(vOut)}</span>
+          <span class="slot-value slot-value--accent">${formatVoltage(vOut)}</span>
           <span class="slot-sub">DC operating point</span>
         </div>
         <div class="slot">
           <span class="slot-title">V_GİRİŞ</span>
-          <span class="slot-value">${formatVolt(vIn)}</span>
+          <span class="slot-value">${formatVoltage(vIn)}</span>
           <span class="slot-sub">DC operating point</span>
         </div>
         <div class="slot">
           <span class="slot-title">I(R1)</span>
-          <span class="slot-value slot-value--current">${formatAmp(iR1)}</span>
+          <span class="slot-value slot-value--current">${formatCurrent(iR1)}</span>
           <span class="slot-sub">DC operating point</span>
         </div>
       </section>
@@ -308,17 +326,23 @@ export class VxaDesignMode extends LitElement {
           .circuit=${RC_LOWPASS}
           .layout=${RC_LOWPASS_LAYOUT}
           .solve=${this.dashboard.kind === 'ok' ? this.dashboard.result : null}
+          .selectionId=${this.selection.type === 'component' ? this.selection.id : undefined}
         ></vxa-canvas>
       </section>
 
-      <section class="zone inspector" aria-label="inspector">
-        inspector · 216px · sprint 0.6'da bileşen özellikleri
+      <section class="inspector-zone" aria-label="inspector">
+        <vxa-inspector
+          .selection=${this.selection}
+          .circuit=${RC_LOWPASS}
+          .layout=${RC_LOWPASS_LAYOUT}
+          .solveResult=${this.dashboard.kind === 'ok' ? this.dashboard.result : null}
+        ></vxa-inspector>
       </section>
 
       ${this.renderDashboard()}
 
       <span class="dev-marker" aria-hidden="true"
-        >sprint 0.5 · devre render + probe · v2</span
+        >sprint 0.6 · inspector + seçim · v2</span
       >
     `;
   }

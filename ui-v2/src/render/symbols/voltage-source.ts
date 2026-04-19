@@ -24,12 +24,14 @@ const LABEL_GAP = 14;
 export function drawVoltageSource(
   ctx: CanvasRenderingContext2D,
   colors: RenderColors,
+  isSelected = false,
 ): void {
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
 
+  const bodyColor = isSelected ? colors.accent : colors.wire;
   // Lead telleri — pin'den daire kenarına. 1.5 stroke (wire).
-  ctx.strokeStyle = colors.wire;
+  ctx.strokeStyle = bodyColor;
   ctx.lineWidth = 1.5;
   ctx.beginPath();
   ctx.moveTo(-RADIUS - LEAD, 0);
@@ -38,12 +40,12 @@ export function drawVoltageSource(
   ctx.lineTo(RADIUS + LEAD, 0);
   ctx.stroke();
 
-  // Daire — iç dolgu canvas rengi (zemin hissi), dış kenar wire.
+  // Daire — iç dolgu canvas rengi (zemin hissi), dış kenar wire/accent.
   ctx.beginPath();
   ctx.arc(0, 0, RADIUS, 0, Math.PI * 2);
   ctx.fillStyle = colors.canvasBg;
   ctx.fill();
-  ctx.strokeStyle = colors.wire;
+  ctx.strokeStyle = bodyColor;
   ctx.lineWidth = BODY_STROKE;
   ctx.stroke();
 
@@ -68,6 +70,7 @@ export function drawVoltageSourceLabels(
   id: string,
   value: string,
   colors: RenderColors,
+  isSelected = false,
 ): void {
   let idPos: Point;
   let valPos: Point;
@@ -89,7 +92,7 @@ export function drawVoltageSourceLabels(
   drawText(ctx, id, idPos.x, idPos.y, {
     family: 'mono',
     sizePx: 11,
-    color: colors.fg,
+    color: isSelected ? colors.accent : colors.fg,
     align,
     baseline,
     weight: 500,
@@ -97,7 +100,7 @@ export function drawVoltageSourceLabels(
   drawText(ctx, value, valPos.x, valPos.y, {
     family: 'mono',
     sizePx: 10,
-    color: colors.fg2,
+    color: isSelected ? colors.accent : colors.fg2,
     align,
     baseline,
     weight: 400,

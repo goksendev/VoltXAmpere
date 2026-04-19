@@ -67,11 +67,15 @@ export class VxaCanvas extends LitElement {
     }
   `;
 
-  // ─── Props (Sprint 0.5) ─────────────────────────────────────────────────
+  // ─── Props (Sprint 0.5 + 0.6) ────────────────────────────────────────────
   // attribute: false — HTML attribute olarak deserialize edilmesin, complex obj.
   @property({ attribute: false }) circuit?: CircuitDef;
   @property({ attribute: false }) layout?: CircuitLayout;
   @property({ attribute: false }) solve?: SolveResult | null;
+  /** Seçili bileşenin id'si (Sprint 0.6). Canvas bu prop'a göre o bileşeni
+   * --accent renginde çizer ve etrafına dashed frame ekler. Sprint 0.7'de
+   * canvas click event'i bu prop'u güncelleyecek. */
+  @property({ attribute: false }) selectionId?: string;
 
   // ─── Internal ───────────────────────────────────────────────────────────
   private readonly canvasRef: Ref<HTMLCanvasElement> = createRef();
@@ -100,7 +104,8 @@ export class VxaCanvas extends LitElement {
     if (
       changed.has('circuit') ||
       changed.has('layout') ||
-      changed.has('solve')
+      changed.has('solve') ||
+      changed.has('selectionId')
     ) {
       this.scheduleDraw();
     }
@@ -181,10 +186,19 @@ export class VxaCanvas extends LitElement {
       }
     }
 
-    // ─── Ön katman: devre (Sprint 0.5) ────────────────────────────────────
+    // ─── Ön katman: devre (Sprint 0.5 + 0.6) ──────────────────────────────
     if (this.circuit && this.layout) {
       const colors = readColors(this);
-      drawCircuit(ctx, cssW, cssH, this.circuit, this.layout, this.solve ?? null, colors);
+      drawCircuit(
+        ctx,
+        cssW,
+        cssH,
+        this.circuit,
+        this.layout,
+        this.solve ?? null,
+        colors,
+        this.selectionId,
+      );
     }
 
     // ─── Debug state güncelle ─────────────────────────────────────────────

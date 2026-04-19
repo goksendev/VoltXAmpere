@@ -1,12 +1,16 @@
-// VoltXAmpere v2 — devre render orkestratörü (Sprint 0.5).
+// VoltXAmpere v2 — devre render orkestratörü (Sprint 0.5 + 0.6).
 //
 // CircuitDef + CircuitLayout + SolveResult alır, Canvas 2D context'e çizer.
-// Katman sırası (alt → üst): teller → toprak → bileşenler → label'ler → probe'lar.
+// Katman sırası (alt → üst):
+//   teller → toprak → bileşenler → label'ler → seçim çerçevesi → probe'lar.
 //
 // Layout koordinatları "canvas merkezine göre relative". Renderer canvas
 // merkezini (cssW/2, cssH/2) ekleyip dünya koordinatına çevirir. Böylece
 // canvas resize olunca devre otomatik yeni merkeze kayar.
-import type { CircuitDef, SolveResult } from '../bridge/engine.ts';
+//
+// Sprint 0.6: selectionId parametresi. Seçili bileşenin sembol + label rengi
+// --accent olur, çevresine dashed frame çizilir.
+import type { CircuitDef, ComponentType, SolveResult } from '../bridge/engine.ts';
 import type { Point, RenderColors } from './helpers.ts';
 import { drawWire, type WireSpec } from './symbols/wire.ts';
 import { drawGround } from './symbols/ground.ts';
@@ -17,18 +21,15 @@ import {
   drawVoltageSourceLabels,
 } from './symbols/voltage-source.ts';
 import { drawProbe, type ProbeDrawSpec, type ProbeTone } from './symbols/probe.ts';
-import { formatVolt } from '../util/format.ts';
+import { formatVoltage } from '../util/format.ts';
 
 export type Rotation = 0 | 90 | 180 | 270;
 
-/** Bir bileşenin canvas yerleşimi — circuit'ten id referansıyla bağlanır. */
 export interface ComponentPlacement {
   id: string;
-  /** Canvas merkezine göre relative. */
   x: number;
   y: number;
   rotation: Rotation;
-  /** Sembol yanında gösterilecek değer etiketi — "1 kΩ" / "10 nF" / "5 V". */
   displayValue: string;
 }
 
@@ -39,15 +40,10 @@ export interface WireLayout {
 }
 
 export interface ProbePlacement {
-  /** CircuitDef.nodes'da tanımlı bir düğüm adı. */
   node: string;
-  /** Ölçme noktası (canvas merkezine göre). */
   pin: Point;
-  /** Etiket kutusu merkezi. */
   box: Point;
-  /** Başlık — "V_GİRİŞ" vb. */
   label: string;
-  /** Renk tonu — tokens.css'e göre etkilenen vurgu. */
   tone: ProbeTone;
 }
 
@@ -58,6 +54,44 @@ export interface CircuitLayout {
   probes: ProbePlacement[];
 }
 
+// ─── Sembol bounding box (rotation 0 referans) ───────────────────────────────
+// Sembol dosyalarındaki sabitlerin elle türetilmiş özet tablosu. Bileşene yeni
+// bir sembol eklendiğinde buraya da bir satır eklenir.
+const BBOX_BY_TYPE: Partial<Record<ComponentType, { w: number; h: number }>> = {
+  R: { w: 80, h: 20 },  // 80 genişlik + ±10 zigzag amp
+  C: { w: 48, h: 24 },  // 2·LEAD + GAP + PLATE_LEN yatay × PLATE_LEN dikey
+  V: { w: 70, h: 34 },  // 2·LEAD + 2·RADIUS × 2·RADIUS
+};
+
+function bboxFor(type: ComponentType, rotation: Rotation): { w: number; h: number } {
+  const base = BBOX_BY_TYPE[type] ?? { w: 40, h: 40 };
+  if (rotation === 90 || rotation === 270) {
+    return { w: base.h, h: base.w };
+  }
+  return base;
+}
+
+/** Sprint 0.6 — seçili bileşen çerçevesi. Dashed, --accent, 1.2 stroke,
+ * bounding box'tan 6 px dışarı padding. Geometry değişmez, sadece vurgu. */
+function drawSelectionFrame(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  w: number,
+  h: number,
+  colors: RenderColors,
+): void {
+  const PAD = 6;
+  const x = cx - w / 2 - PAD;
+  const y = cy - h / 2 - PAD;
+  ctx.save();
+  ctx.strokeStyle = colors.accent;
+  ctx.lineWidth = 1.2;
+  ctx.setLineDash([4, 3]);
+  ctx.strokeRect(x, y, w + PAD * 2, h + PAD * 2);
+  ctx.restore();
+}
+
 export function drawCircuit(
   ctx: CanvasRenderingContext2D,
   cssW: number,
@@ -66,6 +100,7 @@ export function drawCircuit(
   layout: CircuitLayout,
   solve: SolveResult | null,
   colors: RenderColors,
+  selectionId?: string,
 ): void {
   const cx = cssW / 2;
   const cy = cssH / 2;
@@ -93,20 +128,21 @@ export function drawCircuit(
   for (const p of layout.components) {
     const comp = circuit.components.find((c) => c.id === p.id);
     if (!comp) continue;
+    const isSelected = selectionId === p.id;
     ctx.save();
     ctx.translate(cx + p.x, cy + p.y);
     ctx.rotate((p.rotation * Math.PI) / 180);
     switch (comp.type) {
       case 'R':
-        drawResistor(ctx, colors);
+        drawResistor(ctx, colors, isSelected);
         break;
       case 'C':
-        drawCapacitor(ctx, colors);
+        drawCapacitor(ctx, colors, isSelected);
         break;
       case 'V':
-        drawVoltageSource(ctx, colors);
+        drawVoltageSource(ctx, colors, isSelected);
         break;
-      // L / D / Z / BJT / MOS / OA — Sprint 0.6+ sembolleri eklenecek.
+      // L / D / Z / BJT / MOS / OA — Sprint 0.7+ sembolleri eklenecek.
     }
     ctx.restore();
   }
@@ -115,21 +151,32 @@ export function drawCircuit(
   for (const p of layout.components) {
     const comp = circuit.components.find((c) => c.id === p.id);
     if (!comp) continue;
+    const isSelected = selectionId === p.id;
     const center: Point = { x: cx + p.x, y: cy + p.y };
     switch (comp.type) {
       case 'R':
-        drawResistorLabels(ctx, center, p.rotation, p.id, p.displayValue, colors);
+        drawResistorLabels(ctx, center, p.rotation, p.id, p.displayValue, colors, isSelected);
         break;
       case 'C':
-        drawCapacitorLabels(ctx, center, p.rotation, p.id, p.displayValue, colors);
+        drawCapacitorLabels(ctx, center, p.rotation, p.id, p.displayValue, colors, isSelected);
         break;
       case 'V':
-        drawVoltageSourceLabels(ctx, center, p.rotation, p.id, p.displayValue, colors);
+        drawVoltageSourceLabels(ctx, center, p.rotation, p.id, p.displayValue, colors, isSelected);
         break;
     }
   }
 
-  // ─── 5) Probe'lar (solver sonucu yoksa çizme — plan "fake değer yok") ────
+  // ─── 5) Seçim çerçevesi (seçili bileşen varsa) ───────────────────────────
+  if (selectionId) {
+    const placement = layout.components.find((p) => p.id === selectionId);
+    const comp = circuit.components.find((c) => c.id === selectionId);
+    if (placement && comp && BBOX_BY_TYPE[comp.type]) {
+      const { w, h } = bboxFor(comp.type, placement.rotation);
+      drawSelectionFrame(ctx, cx + placement.x, cy + placement.y, w, h, colors);
+    }
+  }
+
+  // ─── 6) Probe'lar (üst katman) — solver başarılıysa ──────────────────────
   if (!solve || !solve.success) return;
   for (const pr of layout.probes) {
     const voltage = solve.nodeVoltages[pr.node] ?? 0;
@@ -137,7 +184,7 @@ export function drawCircuit(
       pin: world(pr.pin),
       box: world(pr.box),
       label: pr.label,
-      value: formatVolt(voltage),
+      value: formatVoltage(voltage),
       tone: pr.tone,
     };
     drawProbe(ctx, spec, colors);

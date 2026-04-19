@@ -24,8 +24,9 @@ const LABEL_GAP = 14;   // bileşen gövdesinden etiket uzaklığı
 export function drawResistor(
   ctx: CanvasRenderingContext2D,
   colors: RenderColors,
+  isSelected = false,
 ): void {
-  ctx.strokeStyle = colors.wire;
+  ctx.strokeStyle = isSelected ? colors.accent : colors.wire;
   ctx.lineWidth = BODY_STROKE;
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
@@ -59,6 +60,7 @@ export function drawResistorLabels(
   id: string,
   value: string,
   colors: RenderColors,
+  isSelected = false,
 ): void {
   let idPos: Point;
   let valPos: Point;
@@ -82,7 +84,7 @@ export function drawResistorLabels(
   drawText(ctx, id, idPos.x, idPos.y, {
     family: 'mono',
     sizePx: 11, // --fs-sm
-    color: colors.fg,
+    color: isSelected ? colors.accent : colors.fg,
     align,
     baseline,
     weight: 500,
@@ -90,7 +92,7 @@ export function drawResistorLabels(
   drawText(ctx, value, valPos.x, valPos.y, {
     family: 'mono',
     sizePx: 10, // --fs-xs
-    color: colors.fg2,
+    color: isSelected ? colors.accent : colors.fg2,
     align,
     baseline,
     weight: 400,

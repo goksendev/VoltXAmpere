@@ -25,10 +25,11 @@ const LABEL_GAP = 16;
 export function drawCapacitor(
   ctx: CanvasRenderingContext2D,
   colors: RenderColors,
+  isSelected = false,
 ): void {
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
-  ctx.strokeStyle = colors.wire;
+  ctx.strokeStyle = isSelected ? colors.accent : colors.wire;
 
   // Teller (ince) — pin'lerden plakalara
   ctx.lineWidth = WIRE_STROKE;
@@ -56,6 +57,7 @@ export function drawCapacitorLabels(
   id: string,
   value: string,
   colors: RenderColors,
+  isSelected = false,
 ): void {
   let idPos: Point;
   let valPos: Point;
@@ -77,7 +79,7 @@ export function drawCapacitorLabels(
   drawText(ctx, id, idPos.x, idPos.y, {
     family: 'mono',
     sizePx: 11,
-    color: colors.fg,
+    color: isSelected ? colors.accent : colors.fg,
     align,
     baseline,
     weight: 500,
@@ -85,7 +87,7 @@ export function drawCapacitorLabels(
   drawText(ctx, value, valPos.x, valPos.y, {
     family: 'mono',
     sizePx: 10,
-    color: colors.fg2,
+    color: isSelected ? colors.accent : colors.fg2,
     align,
     baseline,
     weight: 400,
