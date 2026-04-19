@@ -16,6 +16,9 @@
   --current: #3DE0FF;    /* Akım cyan (mono vurgu) */
   --sans: 'Geist', system-ui, sans-serif;
   --mono: 'JetBrains Mono', monospace;
+  /* Sprint 0.8: Marka logosu için serif — sadece "Volt&Ampere" ampersand
+     italik kullanımı. Diğer UI'da kullanılmaz. */
+  --serif: 'Instrument Serif', 'Times New Roman', serif;
 
   /* ─── Arka plan seviyeleri (Sprint 0.2 yeni) ─── */
   --bg-2: #12151B;         /* yüzey */

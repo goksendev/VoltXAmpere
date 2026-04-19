@@ -14,6 +14,8 @@ import { customElement, state } from 'lit/decorators.js';
 import '../canvas/canvas.ts';
 import '../inspector/inspector.ts';
 import '../charts/transient-chart.ts';
+import '../topbar/topbar.ts';
+import type { ModeName } from '../topbar/topbar.ts';
 import {
   solveTransient,
   type SolveResult,
@@ -83,10 +85,18 @@ export class VxaDesignMode extends LitElement {
       overflow: hidden;
     }
 
-    .zone.topbar {
+    /* Topbar bölgesi: placeholder değil — <vxa-topbar> tam kaplar (Sprint 0.8).
+       .zone base class uygulanmıyor (dashed kenar + merkez hiza gerek yok). */
+    .topbar-zone {
       grid-area: topbar;
       background: var(--bg-1);
       border-bottom: 1px solid var(--line);
+      overflow: hidden;
+      display: flex;
+    }
+    .topbar-zone > vxa-topbar {
+      flex: 1 1 auto;
+      min-width: 0;
     }
 
     .zone.sidebar {
@@ -274,6 +284,10 @@ export class VxaDesignMode extends LitElement {
   // güncelleyecek.
   @state() private selection: Selection = INITIAL_SELECTION;
 
+  // Sprint 0.8: mod switch state. Şu an sadece 'tasarla' aktif; Keşfet/Güç
+  // shell'leri Faz 3+'da gelecek.
+  @state() private activeMode: ModeName = 'tasarla';
+
   override async firstUpdated(): Promise<void> {
     // Sprint 0.7: tek çağrı ile transient al. Son örnek = DC steady-state
     // yerine geçiyor → inspector ve canvas probe'ları aynı snapshot'tan.
@@ -393,8 +407,8 @@ export class VxaDesignMode extends LitElement {
   override render() {
     const solve = this.dashboard.kind === 'ok' ? this.dashboard.snapshot : null;
     return html`
-      <section class="zone topbar" aria-label="topbar">
-        topbar · 54px · sprint 0.3'te toolbar
+      <section class="topbar-zone" aria-label="topbar">
+        <vxa-topbar .activeMode=${this.activeMode}></vxa-topbar>
       </section>
 
       <section class="zone sidebar" aria-label="sidebar">
@@ -422,7 +436,7 @@ export class VxaDesignMode extends LitElement {
       ${this.renderDashboard()}
 
       <span class="dev-marker" aria-hidden="true"
-        >sprint 0.7 · transient grafik · v2</span
+        >sprint 0.8 · topbar · v2</span
       >
     `;
   }
