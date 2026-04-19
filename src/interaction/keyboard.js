@@ -1,13 +1,26 @@
-// ──────── SPRINT 104.4 — STAMP MODE LETTER SHORTCUTS ────────
-// Pills on the sidebar cards (R, C, L, V, A, D, G, Q, M, J, O, P) are now
-// live keybindings. Pressing the letter enters place mode for that
-// component; the mouse becomes a ghost preview that stamps on click. Shift+
-// modifier swaps to the complementary variant: Shift+Q = PNP (vs NPN),
-// Shift+M = P-MOSFET (vs N-MOSFET), Shift+J = P-JFET (vs N-JFET).
+// ──────── SPRINT 104.4 (REVISED) — CONTEXT-AWARE STAMP SHORTCUTS ────────
+// Letters do different jobs depending on whether a stamp (place mode) is
+// active.
 //
-// Rotation moves to Space (was R in pre-104.4 builds) because R now means
-// resistor. The Space handler below switches on mode so it still toggles
-// the simulation when no component is in play.
+//   SELECTION MODE (S.mode !== 'place')
+//     R C L V A D G Q M J O P → start stamp for that component
+//     Shift+Q / Shift+M / Shift+J → complementary variant
+//     W → wire mode, Space → sim toggle
+//
+//   STAMP MODE (S.mode === 'place')
+//     R        → rotate ghost 90° CCW
+//     Shift+R  → rotate ghost 90° CW
+//     F        → flip horizontal
+//     Shift+F  → flip vertical
+//     Any comp letter (C L V A D G Q M J O P, Shift variants) → switch to
+//                that component. startPlace resets rotation/flip so the
+//                user doesn't get a surprise upside-down kapasitör because
+//                they rotated a resistor earlier.
+//     W → wire mode (cancels current stamp).
+//     Esc / Del / Backspace → leave stamp mode.
+//
+// Space is **always** sim play/pause — even in stamp mode. Rotation lives
+// on R so the muscle memory from KiCad / Eagle / Altium still works.
 var _KBD_LETTER_MAP = {
   r: 'resistor',
   c: 'capacitor',
@@ -22,7 +35,6 @@ var _KBD_LETTER_MAP = {
   o: 'opamp',
   p: 'potentiometer'
 };
-// Shift+letter swap table — Q/M/J have complementary-polarity siblings.
 var _KBD_SHIFT_MAP = {
   q: 'pnp',
   m: 'pmos',
@@ -62,19 +74,39 @@ document.addEventListener('keydown', e => {
   }
   if (k === 'w' && !e.ctrlKey && !e.metaKey && !e.altKey) { toggleWire(); return; }
 
-  // Sprint 104.4 — letter shortcut pill bindings. Fires BEFORE legacy
-  // single-letter handlers (R-rotate, G-voltage, P-probe) so those are
-  // only reachable via modifiers now (e.g. rotation moved to Space).
+  // Sprint 104.4 (revised) — context-aware letter shortcuts.
+  //   inStamp + R / Shift+R → rotate ghost
+  //   inStamp + F / Shift+F → flip ghost
+  //   Any mode + comp letter → startPlace that component (stamp switch or
+  //     initial stamp-mode entry; startPlace resets rotation/flip state).
   if (!e.ctrlKey && !e.metaKey && !e.altKey && !_modalOpen()) {
     var letterKey = e.key.length === 1 ? e.key.toLowerCase() : null;
+    var inStamp = (S.mode === 'place' && !!S.placingType);
     if (letterKey && /^[a-z]$/.test(letterKey)) {
+      // Stamp-only orientation keys must come first so R doesn't restart
+      // the same resistor stamp from scratch (which would clobber any
+      // rotation the user just set).
+      if (inStamp) {
+        if (letterKey === 'r') {
+          e.preventDefault();
+          if (typeof rotateGhost === 'function') rotateGhost(e.shiftKey ? 1 : -1);
+          return;
+        }
+        if (letterKey === 'f') {
+          e.preventDefault();
+          if (typeof flipGhost === 'function') flipGhost(e.shiftKey ? 'v' : 'h');
+          return;
+        }
+      }
+      // Component switch or initial stamp entry.
       var compKey = _letterShortcutTarget(letterKey, e.shiftKey);
       if (compKey && (window.COMP && window.COMP[compKey])) {
         e.preventDefault();
+        var previousStamp = inStamp ? S.placingType : null;
         startPlace(compKey);
         if (typeof StampToast !== 'undefined' && StampToast.show) {
           var shown = e.shiftKey ? ('⇧' + letterKey.toUpperCase()) : letterKey.toUpperCase();
-          StampToast.show(compKey, window.COMP[compKey].cat, shown);
+          StampToast.show(compKey, window.COMP[compKey].cat, shown, previousStamp ? 'switch' : 'enter');
         }
         return;
       }
@@ -141,14 +173,11 @@ document.addEventListener('keydown', e => {
   if (k === 'g' && !e.ctrlKey && !e.metaKey) { S.voltageMap = !S.voltageMap; needsRender = true; return; }
   if (k === '?' || (k === '/' && e.shiftKey)) { document.getElementById('shortcuts-modal').classList.toggle('show'); return; }
   if (k === ' ') {
-    // Sprint 104.4 — Space has a new double life. In place mode (active
-    // stamp) or when a selection exists, it rotates. Otherwise keep the
-    // original sim toggle. The rotateSelected function below already
-    // switches on S.mode internally, so one call covers both ghost
-    // preview rotation and selected-part rotation.
+    // Sprint 104.4 (revised) — Space is *always* sim play/pause, even in
+    // stamp mode. Rotation lives on R in stamp mode; muscle memory from
+    // other schematic editors keeps Space = play across contexts.
     e.preventDefault();
-    if (S.mode === 'place' || (S.sel && S.sel.length)) rotateSelected();
-    else toggleSim();
+    toggleSim();
     return;
   }
   if (k === '=' || k === '+') { S.view.zoom = Math.min(S.view.maxZoom, S.view.zoom * 1.2); needsRender = true; return; }

@@ -1,20 +1,30 @@
 // ──────── SPRINT 104.4 — STAMP MODE TOAST ────────
-// Shown for ~2 seconds in the bottom-right when a keyboard shortcut picks
-// a component. Text: "[R] Direnç seçildi · Canvas'a tıkla · Space döndür · Esc iptal".
-// Per-component seen counter in localStorage: after the user has seen the
-// toast 3 times for the same component they've learnt the flow — we stop
-// showing it.
+// Shown in the bottom-right when a keyboard shortcut picks a component.
+// Two variants:
+//   variant === 'enter'  — first stamp of a session, or first-ever stamp for
+//                           this component. Long hint:
+//                           "[R] Direnç · Tık yerleştir · R döndür · Esc iptal"
+//                           (2 s)
+//   variant === 'switch' — already in stamp mode and user pressed another
+//                           letter. Short name only: "[C] Kapasitör" (1 s).
+//
+// Per-component seen counter in localStorage: after the 'enter' variant has
+// fired 5 times for a component we stop showing any toast for it — the
+// user has learnt the flow. The 'switch' variant also stops once the
+// global firstStamp flag is set (first-ever enter).
 //
 // Public surface:
-//   StampToast.show(compKey, catKey, letter) — fire the toast
-//   StampToast.resetSeen()                   — dev helper (not wired)
+//   StampToast.show(compKey, catKey, letter, variant)  — fire the toast
+//   StampToast.resetSeen()                             — dev helper
 
 var StampToast = (function() {
 
-  var DURATION_MS = 2000;
+  var ENTER_DURATION_MS = 2000;
+  var SWITCH_DURATION_MS = 1000;
   var FADE_OUT_MS = 200;
-  var SEEN_LIMIT  = 3;
+  var SEEN_LIMIT  = 5;
   var STORAGE_PREFIX = 'vxa.toast.seen.';
+  var FIRST_STAMP_KEY = 'vxa.toast.seen.firstStamp';
 
   var el = null;
   var hideTimer = null;
@@ -62,28 +72,47 @@ var StampToast = (function() {
     return def && def.name ? def.name : compKey;
   }
 
-  function show(compKey, catKey, letter) {
+  function _firstStampFlag() {
+    try { return localStorage.getItem(FIRST_STAMP_KEY) === '1'; } catch (e) { return false; }
+  }
+  function _setFirstStampFlag() {
+    try { localStorage.setItem(FIRST_STAMP_KEY, '1'); } catch (e) {}
+  }
+
+  function show(compKey, catKey, letter, variant) {
     if (!compKey) return;
+    variant = variant || 'enter';
+
+    // Switch variant is a minor aid — once the user has been through a
+    // full enter-style toast we assume they know the drill and skip.
+    if (variant === 'switch' && _firstStampFlag()) return;
+
     if (_seen(compKey) >= SEEN_LIMIT) {
-      // Already learnt — suppress AND actively hide any lingering toast
-      // from a previous call (its .visible class may still have 2s to go).
       if (el) el.classList.remove('stamp-toast-visible');
       if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
       return;
     }
     _bumpSeen(compKey);
+    if (variant === 'enter') _setFirstStampFlag();
 
     _ensureEl();
     el.style.setProperty('--toast-accent', _catColor(catKey || (window.COMP && window.COMP[compKey] && window.COMP[compKey].cat)));
 
     var letterPart = letter ? '<span class="stamp-toast-key">' + letter + '</span>' : '';
     var name = _labelFor(compKey);
-    el.innerHTML =
-      letterPart +
-      '<span class="stamp-toast-name">' + name + '</span>' +
-      '<span class="stamp-toast-verb">seçildi</span>' +
-      '<span class="stamp-toast-sep">·</span>' +
-      '<span class="stamp-toast-hint">Canvas\'a tıkla · <kbd>Space</kbd> döndür · <kbd>Esc</kbd> iptal</span>';
+    var duration = ENTER_DURATION_MS;
+    if (variant === 'switch') {
+      duration = SWITCH_DURATION_MS;
+      el.innerHTML =
+        letterPart +
+        '<span class="stamp-toast-name">' + name + '</span>';
+    } else {
+      el.innerHTML =
+        letterPart +
+        '<span class="stamp-toast-name">' + name + '</span>' +
+        '<span class="stamp-toast-sep">·</span>' +
+        '<span class="stamp-toast-hint"><kbd>Tık</kbd> yerleştir · <kbd>R</kbd> döndür · <kbd>Esc</kbd> iptal</span>';
+    }
 
     el.classList.add('stamp-toast-visible');
     if (hideTimer) clearTimeout(hideTimer);
@@ -91,10 +120,9 @@ var StampToast = (function() {
     hideTimer = setTimeout(function() {
       if (el) el.classList.remove('stamp-toast-visible');
       removeTimer = setTimeout(function() {
-        // Leave the node in the DOM; next show() repopulates it. Keeps
-        // layout stable if the user triggers rapid shortcuts.
+        // Node stays; next show() repopulates it.
       }, FADE_OUT_MS);
-    }, DURATION_MS);
+    }, duration);
   }
 
   function resetSeen(compKey) {

@@ -19,11 +19,17 @@ function nextName(type) { const en = COMP[type].en; _nc[en] = (_nc[en] || 0) + 1
 
 // ──────── MODE ACTIONS ────────
 function startPlace(type) {
-  S.mode = 'place'; S.placingType = type; S.placeRot = 0; S.sel = [];
+  // Sprint 104.4 (revised) — component switch resets ghost orientation so
+  // the user never ends up with a surprise 180° flipped kapasitör because
+  // they rotated a resistor a moment ago. If consistent-angle stamping is
+  // needed later we'll add a "lock orientation" toggle.
+  S.mode = 'place'; S.placingType = type;
+  S.placeRot = 0; S.placeFlipH = false; S.placeFlipV = false;
+  S.sel = [];
   S.wireStart = null; S.wirePreview = null;
   document.getElementById('btn-wire').classList.remove('active');
   needsRender = true; updateInspector();
-  // Sprint 104.4 — UI sync for the stamp/keyboard pipeline:
+  // UI sync for the stamp/keyboard pipeline:
   //   • close any hover datasheet panel (pointer about to leave the card)
   //   • flag canvas-wrap so the CSS cursor switches to crosshair
   //   • mark the matching sidebar card so the category glow reads
@@ -32,6 +38,23 @@ function startPlace(type) {
   var wrap = document.getElementById('canvas-wrap');
   if (wrap) wrap.classList.add('place-mode');
   if (typeof _syncStampSelection === 'function') _syncStampSelection();
+}
+
+// Sprint 104.4 (revised) — rotate/flip the current ghost. Direction +1 is
+// CW, -1 is CCW (drawing.js multiplies placeRot by π/2 with canvas Y-down,
+// so +1 increments produce clockwise visible rotation). No-op when no
+// stamp is active.
+function rotateGhost(dir) {
+  if (S.mode !== 'place' || !S.placingType) return;
+  var d = dir | 0; if (d === 0) d = 1;
+  S.placeRot = ((S.placeRot + d) % 4 + 4) % 4;
+  needsRender = true;
+}
+function flipGhost(axis) {
+  if (S.mode !== 'place' || !S.placingType) return;
+  if (axis === 'h') S.placeFlipH = !S.placeFlipH;
+  else if (axis === 'v') S.placeFlipV = !S.placeFlipV;
+  needsRender = true;
 }
 
 // Sprint 104.4 — keeps sidebar card .selected class + canvas cursor in

@@ -6,27 +6,27 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>VoltXAmpere v12.0.0-alpha.15 — Professional Circuit Simulator</title>
+<title>VoltXAmpere v12.0.0-alpha.16 — Professional Circuit Simulator</title>
 <meta name="description" content="Professional browser-based circuit simulator. 71+ components, full SPICE parser, complete thermal-electrical coupling, AC-MNA analysis (Bode + Nyquist), professional multimeter probe. MIT licensed.">
 <meta name="keywords" content="circuit simulator, SPICE, devre simülatörü, electronics, voltxampere, free, online, oscilloscope, Bode, Nyquist, thermal, Newton-Raphson, MNA, Gummel-Poon">
 <meta name="author" content="goksendev">
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="https://voltxampere.com/simulator.html">
-<meta property="og:title" content="VoltXAmpere v12.0.0-alpha.15 — Professional Circuit Simulator">
+<meta property="og:title" content="VoltXAmpere v12.0.0-alpha.16 — Professional Circuit Simulator">
 <meta property="og:description" content="71+ components. Full SPICE parser. Thermal-electrical coupling. AC-MNA analysis. Professional multimeter. Free and open source.">
 <meta property="og:url" content="https://voltxampere.com/simulator.html">
 <meta property="og:type" content="website">
 <meta property="og:locale" content="en_US">
 <meta property="og:locale:alternate" content="tr_TR">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="VoltXAmpere v12.0.0-alpha.15 — Circuit Simulator">
+<meta name="twitter:title" content="VoltXAmpere v12.0.0-alpha.16 — Circuit Simulator">
 <meta name="twitter:description" content="71+ components. Full SPICE parser. Thermal-electrical coupling. Free and open source.">
 <meta name="theme-color" content="#0a0e14">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="VoltXAmpere">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='28' font-size='28'%3E%E2%9A%A1%3C/text%3E%3C/svg%3E">
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"VoltXAmpere","url":"https://voltxampere.com/simulator.html","description":"Professional browser-based circuit simulator with full SPICE parser, thermal-electrical coupling, and AC-MNA analysis","applicationCategory":"EducationalApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"softwareVersion":"12.0.0-alpha.15","license":"https://opensource.org/licenses/MIT","featureList":"71 components, Full SPICE parser, Thermal-electrical coupling, BSIM3 MOSFET, Gummel-Poon BJT, AC-MNA Bode and Nyquist, Professional multimeter probe, Inductor saturation, Hysteresis and eddy-current losses, Curie-point derating, Adaptive Newton-Raphson solver"}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"VoltXAmpere","url":"https://voltxampere.com/simulator.html","description":"Professional browser-based circuit simulator with full SPICE parser, thermal-electrical coupling, and AC-MNA analysis","applicationCategory":"EducationalApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"softwareVersion":"12.0.0-alpha.16","license":"https://opensource.org/licenses/MIT","featureList":"71 components, Full SPICE parser, Thermal-electrical coupling, BSIM3 MOSFET, Gummel-Poon BJT, AC-MNA Bode and Nyquist, Professional multimeter probe, Inductor saturation, Hysteresis and eddy-current losses, Curie-point derating, Adaptive Newton-Raphson solver"}</script>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
@@ -939,7 +939,7 @@ body.sidebar-resizing *{user-select:none!important}
     <span id="sb-temp" style="color:var(--text-3)"></span>
     <span id="sb-engine" style="color:var(--text-4)"></span>
     <span id="sb-extra" style="color:var(--text-3)"></span>
-    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v12.0.0-alpha.15 — Build: 2026-04-19 00:22 — © 2026</span>
+    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v12.0.0-alpha.16 — Build: 2026-04-19 00:31 — © 2026</span>
   </div>
 </div>
 
@@ -3076,11 +3076,17 @@ function nextName(type) { const en = COMP[type].en; _nc[en] = (_nc[en] || 0) + 1
 
 // ──────── MODE ACTIONS ────────
 function startPlace(type) {
-  S.mode = 'place'; S.placingType = type; S.placeRot = 0; S.sel = [];
+  // Sprint 104.4 (revised) — component switch resets ghost orientation so
+  // the user never ends up with a surprise 180° flipped kapasitör because
+  // they rotated a resistor a moment ago. If consistent-angle stamping is
+  // needed later we'll add a "lock orientation" toggle.
+  S.mode = 'place'; S.placingType = type;
+  S.placeRot = 0; S.placeFlipH = false; S.placeFlipV = false;
+  S.sel = [];
   S.wireStart = null; S.wirePreview = null;
   document.getElementById('btn-wire').classList.remove('active');
   needsRender = true; updateInspector();
-  // Sprint 104.4 — UI sync for the stamp/keyboard pipeline:
+  // UI sync for the stamp/keyboard pipeline:
   //   • close any hover datasheet panel (pointer about to leave the card)
   //   • flag canvas-wrap so the CSS cursor switches to crosshair
   //   • mark the matching sidebar card so the category glow reads
@@ -3089,6 +3095,23 @@ function startPlace(type) {
   var wrap = document.getElementById('canvas-wrap');
   if (wrap) wrap.classList.add('place-mode');
   if (typeof _syncStampSelection === 'function') _syncStampSelection();
+}
+
+// Sprint 104.4 (revised) — rotate/flip the current ghost. Direction +1 is
+// CW, -1 is CCW (drawing.js multiplies placeRot by π/2 with canvas Y-down,
+// so +1 increments produce clockwise visible rotation). No-op when no
+// stamp is active.
+function rotateGhost(dir) {
+  if (S.mode !== 'place' || !S.placingType) return;
+  var d = dir | 0; if (d === 0) d = 1;
+  S.placeRot = ((S.placeRot + d) % 4 + 4) % 4;
+  needsRender = true;
+}
+function flipGhost(axis) {
+  if (S.mode !== 'place' || !S.placingType) return;
+  if (axis === 'h') S.placeFlipH = !S.placeFlipH;
+  else if (axis === 'v') S.placeFlipV = !S.placeFlipV;
+  needsRender = true;
 }
 
 // Sprint 104.4 — keeps sidebar card .selected class + canvas cursor in
@@ -3451,7 +3474,7 @@ wrap.addEventListener('mousedown', e => {
   if (S.mode === 'place' && S.placingType) {
     saveUndo();
     const def = COMP[S.placingType];
-    const p = { id: S.nextId++, type: S.placingType, name: nextName(S.placingType), x: snap(w.x), y: snap(w.y), rot: S.placeRot, val: def.def, flipH: false, flipV: false };
+    const p = { id: S.nextId++, type: S.placingType, name: nextName(S.placingType), x: snap(w.x), y: snap(w.y), rot: S.placeRot, val: def.def, flipH: !!S.placeFlipH, flipV: !!S.placeFlipV };
     // Sprint 9: net label default name
     if (S.placingType === 'netLabel') { var nlCount = S.parts.filter(function(pp) { return pp.type === 'netLabel'; }).length; p.val = 'NET' + (nlCount + 1); }
     else if (S.placingType === 'vccLabel') { p.val = 'VCC'; }
@@ -3638,16 +3661,29 @@ document.addEventListener('mousedown', e => { if (!ctxMenu.contains(e.target)) h
 
 
 // ═══ keyboard.js ═══
-// ──────── SPRINT 104.4 — STAMP MODE LETTER SHORTCUTS ────────
-// Pills on the sidebar cards (R, C, L, V, A, D, G, Q, M, J, O, P) are now
-// live keybindings. Pressing the letter enters place mode for that
-// component; the mouse becomes a ghost preview that stamps on click. Shift+
-// modifier swaps to the complementary variant: Shift+Q = PNP (vs NPN),
-// Shift+M = P-MOSFET (vs N-MOSFET), Shift+J = P-JFET (vs N-JFET).
+// ──────── SPRINT 104.4 (REVISED) — CONTEXT-AWARE STAMP SHORTCUTS ────────
+// Letters do different jobs depending on whether a stamp (place mode) is
+// active.
 //
-// Rotation moves to Space (was R in pre-104.4 builds) because R now means
-// resistor. The Space handler below switches on mode so it still toggles
-// the simulation when no component is in play.
+//   SELECTION MODE (S.mode !== 'place')
+//     R C L V A D G Q M J O P → start stamp for that component
+//     Shift+Q / Shift+M / Shift+J → complementary variant
+//     W → wire mode, Space → sim toggle
+//
+//   STAMP MODE (S.mode === 'place')
+//     R        → rotate ghost 90° CCW
+//     Shift+R  → rotate ghost 90° CW
+//     F        → flip horizontal
+//     Shift+F  → flip vertical
+//     Any comp letter (C L V A D G Q M J O P, Shift variants) → switch to
+//                that component. startPlace resets rotation/flip so the
+//                user doesn't get a surprise upside-down kapasitör because
+//                they rotated a resistor earlier.
+//     W → wire mode (cancels current stamp).
+//     Esc / Del / Backspace → leave stamp mode.
+//
+// Space is **always** sim play/pause — even in stamp mode. Rotation lives
+// on R so the muscle memory from KiCad / Eagle / Altium still works.
 var _KBD_LETTER_MAP = {
   r: 'resistor',
   c: 'capacitor',
@@ -3662,7 +3698,6 @@ var _KBD_LETTER_MAP = {
   o: 'opamp',
   p: 'potentiometer'
 };
-// Shift+letter swap table — Q/M/J have complementary-polarity siblings.
 var _KBD_SHIFT_MAP = {
   q: 'pnp',
   m: 'pmos',
@@ -3702,19 +3737,39 @@ document.addEventListener('keydown', e => {
   }
   if (k === 'w' && !e.ctrlKey && !e.metaKey && !e.altKey) { toggleWire(); return; }
 
-  // Sprint 104.4 — letter shortcut pill bindings. Fires BEFORE legacy
-  // single-letter handlers (R-rotate, G-voltage, P-probe) so those are
-  // only reachable via modifiers now (e.g. rotation moved to Space).
+  // Sprint 104.4 (revised) — context-aware letter shortcuts.
+  //   inStamp + R / Shift+R → rotate ghost
+  //   inStamp + F / Shift+F → flip ghost
+  //   Any mode + comp letter → startPlace that component (stamp switch or
+  //     initial stamp-mode entry; startPlace resets rotation/flip state).
   if (!e.ctrlKey && !e.metaKey && !e.altKey && !_modalOpen()) {
     var letterKey = e.key.length === 1 ? e.key.toLowerCase() : null;
+    var inStamp = (S.mode === 'place' && !!S.placingType);
     if (letterKey && /^[a-z]$/.test(letterKey)) {
+      // Stamp-only orientation keys must come first so R doesn't restart
+      // the same resistor stamp from scratch (which would clobber any
+      // rotation the user just set).
+      if (inStamp) {
+        if (letterKey === 'r') {
+          e.preventDefault();
+          if (typeof rotateGhost === 'function') rotateGhost(e.shiftKey ? 1 : -1);
+          return;
+        }
+        if (letterKey === 'f') {
+          e.preventDefault();
+          if (typeof flipGhost === 'function') flipGhost(e.shiftKey ? 'v' : 'h');
+          return;
+        }
+      }
+      // Component switch or initial stamp entry.
       var compKey = _letterShortcutTarget(letterKey, e.shiftKey);
       if (compKey && (window.COMP && window.COMP[compKey])) {
         e.preventDefault();
+        var previousStamp = inStamp ? S.placingType : null;
         startPlace(compKey);
         if (typeof StampToast !== 'undefined' && StampToast.show) {
           var shown = e.shiftKey ? ('⇧' + letterKey.toUpperCase()) : letterKey.toUpperCase();
-          StampToast.show(compKey, window.COMP[compKey].cat, shown);
+          StampToast.show(compKey, window.COMP[compKey].cat, shown, previousStamp ? 'switch' : 'enter');
         }
         return;
       }
@@ -3781,14 +3836,11 @@ document.addEventListener('keydown', e => {
   if (k === 'g' && !e.ctrlKey && !e.metaKey) { S.voltageMap = !S.voltageMap; needsRender = true; return; }
   if (k === '?' || (k === '/' && e.shiftKey)) { document.getElementById('shortcuts-modal').classList.toggle('show'); return; }
   if (k === ' ') {
-    // Sprint 104.4 — Space has a new double life. In place mode (active
-    // stamp) or when a selection exists, it rotates. Otherwise keep the
-    // original sim toggle. The rotateSelected function below already
-    // switches on S.mode internally, so one call covers both ghost
-    // preview rotation and selected-part rotation.
+    // Sprint 104.4 (revised) — Space is *always* sim play/pause, even in
+    // stamp mode. Rotation lives on R in stamp mode; muscle memory from
+    // other schematic editors keeps Space = play across contexts.
     e.preventDefault();
-    if (S.mode === 'place' || (S.sel && S.sel.length)) rotateSelected();
-    else toggleSim();
+    toggleSim();
     return;
   }
   if (k === '=' || k === '+') { S.view.zoom = Math.min(S.view.maxZoom, S.view.zoom * 1.2); needsRender = true; return; }
@@ -4676,15 +4728,22 @@ function drawGhostPreview() {
   if (S.mode !== 'place' || !S.placingType) return;
   const def = COMP[S.placingType]; if (!def) return;
   const wx = snap(S.mouse.wx), wy = snap(S.mouse.wy);
+  const fh = S.placeFlipH ? -1 : 1;
+  const fv = S.placeFlipV ? -1 : 1;
   ctx.save(); ctx.globalAlpha = 0.4;
-  ctx.translate(wx, wy); ctx.rotate(S.placeRot * Math.PI / 2);
+  ctx.translate(wx, wy);
+  ctx.rotate(S.placeRot * Math.PI / 2);
+  if (fh !== 1 || fv !== 1) ctx.scale(fh, fv);
   def.draw(ctx, GRID, {});
   ctx.restore();
-  // ghost pins
+  // Ghost pin markers. Compose rotation + flip in world space so markers
+  // follow the flipped symbol exactly.
   const r = S.placeRot * Math.PI / 2, cos = Math.cos(r), sin = Math.sin(r);
   ctx.globalAlpha = 0.35;
   def.pins.forEach(p => {
-    const px = wx + p.dx * cos - p.dy * sin, py = wy + p.dx * sin + p.dy * cos;
+    const lx = p.dx * fh;
+    const ly = p.dy * fv;
+    const px = wx + lx * cos - ly * sin, py = wy + lx * sin + ly * cos;
     ctx.fillStyle = '#00e09e'; ctx.beginPath(); ctx.arc(px, py, 4, 0, Math.PI * 2); ctx.fill();
   });
   ctx.globalAlpha = 1;
@@ -18740,22 +18799,32 @@ if (typeof window !== 'undefined') window.DatasheetPanel = DatasheetPanel;
 
 // ═══ stamp-toast.js ═══
 // ──────── SPRINT 104.4 — STAMP MODE TOAST ────────
-// Shown for ~2 seconds in the bottom-right when a keyboard shortcut picks
-// a component. Text: "[R] Direnç seçildi · Canvas'a tıkla · Space döndür · Esc iptal".
-// Per-component seen counter in localStorage: after the user has seen the
-// toast 3 times for the same component they've learnt the flow — we stop
-// showing it.
+// Shown in the bottom-right when a keyboard shortcut picks a component.
+// Two variants:
+//   variant === 'enter'  — first stamp of a session, or first-ever stamp for
+//                           this component. Long hint:
+//                           "[R] Direnç · Tık yerleştir · R döndür · Esc iptal"
+//                           (2 s)
+//   variant === 'switch' — already in stamp mode and user pressed another
+//                           letter. Short name only: "[C] Kapasitör" (1 s).
+//
+// Per-component seen counter in localStorage: after the 'enter' variant has
+// fired 5 times for a component we stop showing any toast for it — the
+// user has learnt the flow. The 'switch' variant also stops once the
+// global firstStamp flag is set (first-ever enter).
 //
 // Public surface:
-//   StampToast.show(compKey, catKey, letter) — fire the toast
-//   StampToast.resetSeen()                   — dev helper (not wired)
+//   StampToast.show(compKey, catKey, letter, variant)  — fire the toast
+//   StampToast.resetSeen()                             — dev helper
 
 var StampToast = (function() {
 
-  var DURATION_MS = 2000;
+  var ENTER_DURATION_MS = 2000;
+  var SWITCH_DURATION_MS = 1000;
   var FADE_OUT_MS = 200;
-  var SEEN_LIMIT  = 3;
+  var SEEN_LIMIT  = 5;
   var STORAGE_PREFIX = 'vxa.toast.seen.';
+  var FIRST_STAMP_KEY = 'vxa.toast.seen.firstStamp';
 
   var el = null;
   var hideTimer = null;
@@ -18803,28 +18872,47 @@ var StampToast = (function() {
     return def && def.name ? def.name : compKey;
   }
 
-  function show(compKey, catKey, letter) {
+  function _firstStampFlag() {
+    try { return localStorage.getItem(FIRST_STAMP_KEY) === '1'; } catch (e) { return false; }
+  }
+  function _setFirstStampFlag() {
+    try { localStorage.setItem(FIRST_STAMP_KEY, '1'); } catch (e) {}
+  }
+
+  function show(compKey, catKey, letter, variant) {
     if (!compKey) return;
+    variant = variant || 'enter';
+
+    // Switch variant is a minor aid — once the user has been through a
+    // full enter-style toast we assume they know the drill and skip.
+    if (variant === 'switch' && _firstStampFlag()) return;
+
     if (_seen(compKey) >= SEEN_LIMIT) {
-      // Already learnt — suppress AND actively hide any lingering toast
-      // from a previous call (its .visible class may still have 2s to go).
       if (el) el.classList.remove('stamp-toast-visible');
       if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
       return;
     }
     _bumpSeen(compKey);
+    if (variant === 'enter') _setFirstStampFlag();
 
     _ensureEl();
     el.style.setProperty('--toast-accent', _catColor(catKey || (window.COMP && window.COMP[compKey] && window.COMP[compKey].cat)));
 
     var letterPart = letter ? '<span class="stamp-toast-key">' + letter + '</span>' : '';
     var name = _labelFor(compKey);
-    el.innerHTML =
-      letterPart +
-      '<span class="stamp-toast-name">' + name + '</span>' +
-      '<span class="stamp-toast-verb">seçildi</span>' +
-      '<span class="stamp-toast-sep">·</span>' +
-      '<span class="stamp-toast-hint">Canvas\'a tıkla · <kbd>Space</kbd> döndür · <kbd>Esc</kbd> iptal</span>';
+    var duration = ENTER_DURATION_MS;
+    if (variant === 'switch') {
+      duration = SWITCH_DURATION_MS;
+      el.innerHTML =
+        letterPart +
+        '<span class="stamp-toast-name">' + name + '</span>';
+    } else {
+      el.innerHTML =
+        letterPart +
+        '<span class="stamp-toast-name">' + name + '</span>' +
+        '<span class="stamp-toast-sep">·</span>' +
+        '<span class="stamp-toast-hint"><kbd>Tık</kbd> yerleştir · <kbd>R</kbd> döndür · <kbd>Esc</kbd> iptal</span>';
+    }
 
     el.classList.add('stamp-toast-visible');
     if (hideTimer) clearTimeout(hideTimer);
@@ -18832,10 +18920,9 @@ var StampToast = (function() {
     hideTimer = setTimeout(function() {
       if (el) el.classList.remove('stamp-toast-visible');
       removeTimer = setTimeout(function() {
-        // Leave the node in the DOM; next show() repopulates it. Keeps
-        // layout stable if the user triggers rapid shortcuts.
+        // Node stays; next show() repopulates it.
       }, FADE_OUT_MS);
-    }, DURATION_MS);
+    }, duration);
   }
 
   function resetSeen(compKey) {
@@ -18916,7 +19003,7 @@ function setAriaLabels() {
 setAriaLabels();
 
 // Console banner
-console.log('%c\u26A1 VoltXAmpere v12.0.0-alpha.15', 'color:#00e09e;font-size:18px;font-weight:bold');
+console.log('%c\u26A1 VoltXAmpere v12.0.0-alpha.16', 'color:#00e09e;font-size:18px;font-weight:bold');
 console.log('%cProfessional Circuit Simulator \u2014 voltxampere.com', 'color:#8899aa;font-size:12px');
 console.log('%c' + t('scriptApi'), 'color:#f59e0b;font-size:11px');
 
@@ -30944,7 +31031,7 @@ function runQuickDemo() {
 function showAbout() {
   var box = document.getElementById('about-box');
   var tr = currentLang === 'tr';
-  box.innerHTML = '<div style="font:800 24px var(--font-ui);margin-bottom:4px"><span style="color:var(--accent)">\u26A1 Volt</span><span style="color:var(--orange)">X</span><span style="color:var(--blue)">Ampere</span> <span style="font:500 14px var(--font-mono);color:var(--text-3)">v12.0.0-alpha.15</span></div>'
+  box.innerHTML = '<div style="font:800 24px var(--font-ui);margin-bottom:4px"><span style="color:var(--accent)">\u26A1 Volt</span><span style="color:var(--orange)">X</span><span style="color:var(--blue)">Ampere</span> <span style="font:500 14px var(--font-mono);color:var(--text-3)">v12.0.0-alpha.16</span></div>'
     + '<div style="font:13px var(--font-ui);color:var(--text-2);margin-bottom:16px">' + (tr?'D\u00fcnyan\u0131n En Geli\u015fmi\u015f \u00dccretsiz Devre Sim\u00fclat\u00f6r\u00fc':'World\'s Most Advanced Free Circuit Simulator') + '</div>'
     + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;text-align:left;font-size:11px;color:var(--text-2);margin-bottom:12px">'
     + '<div>\u2705 71+ ' + (tr?'Bile\u015fen':'Components') + '</div>'

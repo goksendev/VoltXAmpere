@@ -873,15 +873,22 @@ function drawGhostPreview() {
   if (S.mode !== 'place' || !S.placingType) return;
   const def = COMP[S.placingType]; if (!def) return;
   const wx = snap(S.mouse.wx), wy = snap(S.mouse.wy);
+  const fh = S.placeFlipH ? -1 : 1;
+  const fv = S.placeFlipV ? -1 : 1;
   ctx.save(); ctx.globalAlpha = 0.4;
-  ctx.translate(wx, wy); ctx.rotate(S.placeRot * Math.PI / 2);
+  ctx.translate(wx, wy);
+  ctx.rotate(S.placeRot * Math.PI / 2);
+  if (fh !== 1 || fv !== 1) ctx.scale(fh, fv);
   def.draw(ctx, GRID, {});
   ctx.restore();
-  // ghost pins
+  // Ghost pin markers. Compose rotation + flip in world space so markers
+  // follow the flipped symbol exactly.
   const r = S.placeRot * Math.PI / 2, cos = Math.cos(r), sin = Math.sin(r);
   ctx.globalAlpha = 0.35;
   def.pins.forEach(p => {
-    const px = wx + p.dx * cos - p.dy * sin, py = wy + p.dx * sin + p.dy * cos;
+    const lx = p.dx * fh;
+    const ly = p.dy * fv;
+    const px = wx + lx * cos - ly * sin, py = wy + lx * sin + ly * cos;
     ctx.fillStyle = '#00e09e'; ctx.beginPath(); ctx.arc(px, py, 4, 0, Math.PI * 2); ctx.fill();
   });
   ctx.globalAlpha = 1;

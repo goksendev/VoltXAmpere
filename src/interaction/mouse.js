@@ -87,7 +87,7 @@ wrap.addEventListener('mousedown', e => {
   if (S.mode === 'place' && S.placingType) {
     saveUndo();
     const def = COMP[S.placingType];
-    const p = { id: S.nextId++, type: S.placingType, name: nextName(S.placingType), x: snap(w.x), y: snap(w.y), rot: S.placeRot, val: def.def, flipH: false, flipV: false };
+    const p = { id: S.nextId++, type: S.placingType, name: nextName(S.placingType), x: snap(w.x), y: snap(w.y), rot: S.placeRot, val: def.def, flipH: !!S.placeFlipH, flipV: !!S.placeFlipV };
     // Sprint 9: net label default name
     if (S.placingType === 'netLabel') { var nlCount = S.parts.filter(function(pp) { return pp.type === 'netLabel'; }).length; p.val = 'NET' + (nlCount + 1); }
     else if (S.placingType === 'vccLabel') { p.val = 'VCC'; }
