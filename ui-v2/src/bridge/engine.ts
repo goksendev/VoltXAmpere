@@ -18,14 +18,35 @@
 import workerBody from '@v1-engine/sim-worker-body.js?raw';
 
 // ─── v2 temiz API tipleri ────────────────────────────────────────────────────
-export type ComponentType = 'V' | 'R' | 'C' | 'L' | 'I';
+// v1 worker'ın (sim-worker-body.js stampAndSolve) tanıdığı tüm component
+// tipleri. Sprint 0.4 keşfinde grep ile çıkarıldı. Buraya yazmayan bir tip
+// worker'a gönderilirse SESSIZCE SKİP edilir — Sprint 0.5'ten itibaren
+// validation ile önceden reddediyoruz.
+export type ComponentType =
+  | 'V'     // Voltage source
+  | 'I'     // Current source
+  | 'R'     // Resistor
+  | 'C'     // Capacitor
+  | 'L'     // Inductor
+  | 'D'     // Diode
+  | 'Z'     // Zener diode
+  | 'BJT'   // Bipolar junction transistor
+  | 'MOS'   // MOSFET
+  | 'OA';   // Operational amplifier
+
+// Runtime whitelist — TypeScript union ile senkron. v2 codebase'inin başka
+// yerlerinde de referans olarak kullanılabilir.
+export const SUPPORTED_TYPES: ReadonlySet<ComponentType> = new Set<ComponentType>([
+  'V', 'I', 'R', 'C', 'L', 'D', 'Z', 'BJT', 'MOS', 'OA',
+]);
 
 export interface ComponentDef {
   type: ComponentType;
   id: string;
   /** İki uçlu bileşen için [pozitif düğüm adı, negatif düğüm adı]. Düğüm adları
    * keyfî string'tir; devrenin `nodes` listesinde olmalıdır. Bir düğüm adı
-   * 'gnd' / 'ground' / '0' ise ground olarak işaretlenir (MNA indeks 0). */
+   * 'gnd' / 'ground' / '0' ise ground olarak işaretlenir (MNA indeks 0).
+   * NOT: Çok pinli bileşenler (BJT, MOS, OA) Sprint 0.5+ nodes[]'u genişletecek. */
   nodes: [string, string];
   /** SI birimi (Ω / F / H / V / A). */
   value: number;
@@ -203,6 +224,26 @@ function fromWorkerResult(
 const SOLVE_TIMEOUT_MS = 5000;
 
 export function solveCircuit(circuit: CircuitDef): Promise<SolveResult> {
+  // ─── Whitelist validation (Sprint 0.5 — Sprint 0.4 silent-skip fix) ────
+  // v1 worker match'siz tipi sessizce skip eder; o bileşen devreden kaybolur
+  // ve solver başkalarıyla çalışır. Bu sessiz veri kaybını önlemek için
+  // desteklenmeyen tipler için açık hata dönüyoruz. Plan: bileşen kataloğu
+  // (Sprint 0.5+) bu set'ten okunmalı, UI yalnızca desteklenen tipleri sunmalı.
+  const unsupported = circuit.components.filter(
+    (c) => !SUPPORTED_TYPES.has(c.type as ComponentType),
+  );
+  if (unsupported.length > 0) {
+    const list = unsupported.map((c) => `${c.id}(${c.type})`).join(', ');
+    const msg = `Desteklenmeyen bileşen tipleri: ${list}. Worker yalnızca ${Array.from(SUPPORTED_TYPES).join('/')} tanıyor.`;
+    console.error('[bridge] solver başarısız:', msg);
+    return Promise.resolve({
+      success: false,
+      nodeVoltages: {},
+      branchCurrents: {},
+      errorMessage: msg,
+    });
+  }
+
   let worker: Worker;
   let meta: PayloadMeta;
   let payload: WorkerPayload;

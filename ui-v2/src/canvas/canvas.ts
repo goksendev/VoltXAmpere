@@ -1,18 +1,25 @@
-// VoltXAmpere v2 — <vxa-canvas> (Sprint 0.3).
-// Tek sorumluluğu: HTMLCanvasElement mount etmek, Canvas 2D context açmak,
-// üzerine statik noktalı grid çizmek. Pan, zoom, etkileşim YOK — sonraki sprintler.
+// VoltXAmpere v2 — <vxa-canvas> (Sprint 0.3 + 0.5).
 //
-// Kritik teknik nokta: DPI scaling. Retina ekranlarda canvas'ın iç çözünürlüğünü
-// devicePixelRatio ile çarpıyor, CSS boyutunu host'u dolduracak şekilde tutuyor
-// ve context'i DPR ile ölçekliyoruz. Yanlış yapılırsa noktalar bulanık çıkar.
+// Sprint 0.3: Canvas 2D mount, DPI scaling, ResizeObserver, statik noktalı grid.
+// Sprint 0.5: prop tabanlı devre render. circuit + layout + solve prop olarak
+//             gelir, pure render — component state tutmuyor.
+//
+// İki katmanlı çizim:
+//   1. Arka: noktalı grid (her zaman)
+//   2. Ön:   devre (circuit/layout/solve prop'ları verilmişse)
 import { LitElement, html, css } from 'lit';
-import { customElement, state } from 'lit/decorators.js';
+import { customElement, property, state } from 'lit/decorators.js';
 import { createRef, ref, type Ref } from 'lit/directives/ref.js';
+import type { CircuitDef, SolveResult } from '../bridge/engine.ts';
+import { readColors } from '../render/helpers.ts';
+import {
+  drawCircuit,
+  type CircuitLayout,
+} from '../render/circuit-renderer.ts';
 
 // ─── Grid sabitleri ──────────────────────────────────────────────────────────
 // Küçük grid adımı: 16 CSS piksel. Devre bacakları ve wire snap için ideal bir
 // denge — 8px fazla yoğun (görsel gürültü), 20px fazla seyrek (hassasiyet kaybı).
-// Falstad / EveryCircuit de benzer 16-20px bandını kullanır.
 const MINOR_STEP = 16;
 
 // Büyük grid adımı: her 5 küçük grid'de bir majör nokta (efektif 5 × 16 = 80 CSS
@@ -60,41 +67,43 @@ export class VxaCanvas extends LitElement {
     }
   `;
 
-  // Canvas DOM elementine Lit ref ile ulaşıyoruz. querySelector shadow DOM'da
-  // da çalışır ama ref daha tipli ve yaşam döngüsü güvenli.
+  // ─── Props (Sprint 0.5) ─────────────────────────────────────────────────
+  // attribute: false — HTML attribute olarak deserialize edilmesin, complex obj.
+  @property({ attribute: false }) circuit?: CircuitDef;
+  @property({ attribute: false }) layout?: CircuitLayout;
+  @property({ attribute: false }) solve?: SolveResult | null;
+
+  // ─── Internal ───────────────────────────────────────────────────────────
   private readonly canvasRef: Ref<HTMLCanvasElement> = createRef();
-
-  // Host boyut değişimini izleyen ResizeObserver. Window resize değil — host
-  // element (canvas zone) herhangi bir sebeple boyutlanırsa (ör. gelecekte
-  // inspector collapse) tetiklenir.
   private resizeObserver: ResizeObserver | null = null;
-
-  // Art arda gelen resize olaylarını rAF ile tek frame'e birleştirir.
   private rafHandle: number | null = null;
 
-  // Debug etiketi için reactive state — canvas CSS boyutu ve DPR her çizimde
-  // güncellenir.
   @state() private cssW = 0;
   @state() private cssH = 0;
   @state() private dpr = 1;
 
   override firstUpdated(): void {
     const canvas = this.canvasRef.value;
-    if (!canvas) {
-      throw new Error('vxa-canvas: canvas referansı alınamadı');
-    }
-    // getContext null dönebilir (çok eski tarayıcı / disabled). Fallback yok —
-    // plan gereği sert hata fırlat.
+    if (!canvas) throw new Error('vxa-canvas: canvas referansı alınamadı');
     const ctx = canvas.getContext('2d');
-    if (!ctx) {
-      throw new Error('vxa-canvas: Canvas 2D context alınamadı');
-    }
+    if (!ctx) throw new Error('vxa-canvas: Canvas 2D context alınamadı');
 
-    // Host boyutunu gözle. İlk çizimi de observer ilk callback'i tetikleyecek,
-    // ama emniyet için bir ilk draw zamanlıyoruz.
     this.resizeObserver = new ResizeObserver(() => this.scheduleDraw());
     this.resizeObserver.observe(this);
     this.scheduleDraw();
+  }
+
+  override updated(changed: Map<string, unknown>): void {
+    // Sprint 0.5: prop değişiminde yeniden çiz. Resize gibi scheduleDraw ile
+    // rAF içinde tek frame'e batch'lenir. Lit zaten render olduğu için burada
+    // sadece canvas repaint tetiklenir.
+    if (
+      changed.has('circuit') ||
+      changed.has('layout') ||
+      changed.has('solve')
+    ) {
+      this.scheduleDraw();
+    }
   }
 
   override disconnectedCallback(): void {
@@ -108,10 +117,7 @@ export class VxaCanvas extends LitElement {
   }
 
   private scheduleDraw(): void {
-    // Birden fazla resize callback'i aynı frame içinde tek bir draw'a dönüşsün.
-    if (this.rafHandle !== null) {
-      cancelAnimationFrame(this.rafHandle);
-    }
+    if (this.rafHandle !== null) cancelAnimationFrame(this.rafHandle);
     this.rafHandle = requestAnimationFrame(() => {
       this.rafHandle = null;
       this.draw();
@@ -125,79 +131,45 @@ export class VxaCanvas extends LitElement {
     if (!ctx) return;
 
     // ─── DPI scaling ──────────────────────────────────────────────────────
-    // devicePixelRatio: 1 (standart), 2 (Retina), 3 (Samsung AMOLED vb.).
-    // Multi-monitor'da pencere taşınınca değişebilir — her draw'da taze oku.
     const dpr = window.devicePixelRatio || 1;
-    // clientWidth/Height: canvas'ın CSS (layout) boyutu — host 100% doldurur.
     const cssW = canvas.clientWidth;
     const cssH = canvas.clientHeight;
-
-    // 0×0 host'ta draw yapma — RAF sırası öncesi henüz layout yoksa atla.
     if (cssW === 0 || cssH === 0) return;
 
-    // Canvas'ın iç (piksel) çözünürlüğü = CSS boyut × DPR. Bu fiziksel piksel
-    // sayısı. Aksi halde Retina'da 1 CSS piksel = 4 fiziksel piksel "boyanır".
     canvas.width = Math.round(cssW * dpr);
     canvas.height = Math.round(cssH * dpr);
-    // CSS boyutu host'u doldurmaya devam etsin (layout bozulmasın).
     canvas.style.width = cssW + 'px';
     canvas.style.height = cssH + 'px';
 
-    // Önceki transform'u sıfırla, sonra DPR kadar ölçekle. Artık CSS
-    // koordinatlarında çizim yaparız, browser fiziksel pikselle haritalar.
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.scale(dpr, dpr);
-
-    // ─── Arka plan ────────────────────────────────────────────────────────
-    // Canvas zone'unun --canvas rengi zaten host arkasında — transparent
-    // bırakmak yerine explicit temizlik yap (transform reset sonrası kalıntı
-    // olmasın).
     ctx.clearRect(0, 0, cssW, cssH);
 
-    // ─── Renk tokenlerini oku ─────────────────────────────────────────────
-    // CSS custom property string formatında. Canvas 2D fillStyle direkt CSS
-    // color string kabul eder ("rgba(200, 210, 230, 0.22)" gibi).
+    // ─── Arka katman: noktalı grid ────────────────────────────────────────
     const styles = getComputedStyle(this);
     const minorColor = styles.getPropertyValue('--canvas-dot').trim();
     const majorColor = styles.getPropertyValue('--canvas-dot-maj').trim();
 
-    // ─── Merkez-odaklı grid hesabı ────────────────────────────────────────
-    // Canvas'ın görsel merkezi grid origin'i — merkezde her zaman bir majör
-    // nokta olsun istiyoruz. (i, j) = (0, 0) orada.
     const centerX = cssW / 2;
     const centerY = cssH / 2;
 
-    // Merkezden dışa tarama: i, j integer index'leri. Canvas sınırları dışını
-    // hesaplama.
     const startI = -Math.ceil(centerX / MINOR_STEP);
     const endI = Math.ceil((cssW - centerX) / MINOR_STEP);
     const startJ = -Math.ceil(centerY / MINOR_STEP);
     const endJ = Math.ceil((cssH - centerY) / MINOR_STEP);
 
-    // ─── Çizim ────────────────────────────────────────────────────────────
-    // Minör ve majör noktaları iki ayrı geçişte çiz — fillStyle değişikliği
-    // sadece iki kez. Nokta başına fillStyle ayarlamak state machine
-    // maliyeti doğurur.
-    //
-    // Half-pixel bulanıklığını engellemek için koordinatları Math.round ile
-    // integer pikseline oturtuyoruz. fillRect(x, y, 1, 1) böylece tam bir CSS
-    // pikselini doldurur.
     ctx.fillStyle = minorColor;
     for (let i = startI; i <= endI; i++) {
-      // i veya j majör çizgide ise bu noktayı ikinci geçişte çizeceğiz.
       const iMajor = i % MAJOR_STEP_RATIO === 0;
       const x = Math.round(centerX + i * MINOR_STEP);
       for (let j = startJ; j <= endJ; j++) {
-        if (iMajor && j % MAJOR_STEP_RATIO === 0) continue; // bunu majör'de çiziyoruz
+        if (iMajor && j % MAJOR_STEP_RATIO === 0) continue;
         const y = Math.round(centerY + j * MINOR_STEP);
         ctx.fillRect(x, y, MINOR_DOT, MINOR_DOT);
       }
     }
 
     ctx.fillStyle = majorColor;
-    // Majör noktalar yalnızca MAJOR_STEP aralıklarında (her 5 küçük gridde bir).
-    // MAJOR_DOT 1.4 olduğu için kenarda anti-aliasing var — bu kasıtlı, minör
-    // nokta ile kalınlık farkını belli etmek için.
     const majHalf = MAJOR_DOT / 2;
     const startIM = Math.ceil(startI / MAJOR_STEP_RATIO) * MAJOR_STEP_RATIO;
     const startJM = Math.ceil(startJ / MAJOR_STEP_RATIO) * MAJOR_STEP_RATIO;
@@ -207,6 +179,12 @@ export class VxaCanvas extends LitElement {
         const y = Math.round(centerY + j * MINOR_STEP);
         ctx.fillRect(x - majHalf, y - majHalf, MAJOR_DOT, MAJOR_DOT);
       }
+    }
+
+    // ─── Ön katman: devre (Sprint 0.5) ────────────────────────────────────
+    if (this.circuit && this.layout) {
+      const colors = readColors(this);
+      drawCircuit(ctx, cssW, cssH, this.circuit, this.layout, this.solve ?? null, colors);
     }
 
     // ─── Debug state güncelle ─────────────────────────────────────────────

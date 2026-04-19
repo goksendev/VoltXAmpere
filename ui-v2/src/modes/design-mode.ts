@@ -9,28 +9,13 @@ import { LitElement, html, css, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import '../canvas/canvas.ts';
 import { solveCircuit, type SolveResult } from '../bridge/engine.ts';
-import { RC_LOWPASS } from '../circuits/rc-lowpass.ts';
+import { RC_LOWPASS, RC_LOWPASS_LAYOUT } from '../circuits/rc-lowpass.ts';
+import { formatVolt, formatAmp } from '../util/format.ts';
 
 type DashboardState =
   | { kind: 'loading' }
   | { kind: 'ok'; result: SolveResult }
   | { kind: 'err'; message: string };
-
-/** Voltaj formatı: "5.00 V". İleride (Sprint 0.7) SI otomatik ölçek eklenecek. */
-function formatVolt(v: number): string {
-  return `${v.toFixed(2)} V`;
-}
-
-/** Akım formatı: SI otomatik ölçek (pA / nA / µA / mA / A).
- * RC DC steady-state'te |I(R1)| ≈ 0 — solver hassasiyetinde pA/nA gözükebilir. */
-function formatAmp(i: number): string {
-  const a = Math.abs(i);
-  if (a < 1e-9) return `${(i * 1e12).toFixed(2)} pA`;
-  if (a < 1e-6) return `${(i * 1e9).toFixed(2)} nA`;
-  if (a < 1e-3) return `${(i * 1e6).toFixed(2)} µA`;
-  if (a < 1) return `${(i * 1e3).toFixed(2)} mA`;
-  return `${i.toFixed(2)} A`;
-}
 
 @customElement('vxa-design-mode')
 export class VxaDesignMode extends LitElement {
@@ -204,11 +189,13 @@ export class VxaDesignMode extends LitElement {
     }
 
     /* Sol alt köşe sprint etiketi — sabit, shadow DOM içinde position:fixed
-       viewport'a göre konumlanır. İleride dev-mode-only toggle ile değişecek. */
+       viewport'a göre konumlanır. Dashboard 140px yüksek olduğundan marker
+       dashboard üstüne alındı (canvas zone'un sol-alt köşesi). İleride
+       dev-mode-only toggle ile değişecek. */
     .dev-marker {
       position: fixed;
       left: var(--sp-3);
-      bottom: var(--sp-3);
+      bottom: calc(var(--grid-dashboard-h) + var(--sp-3));
       font-family: var(--mono);
       font-size: var(--fs-xs);
       color: var(--fg-4);
@@ -317,7 +304,11 @@ export class VxaDesignMode extends LitElement {
       </section>
 
       <section class="canvas-zone" aria-label="canvas">
-        <vxa-canvas></vxa-canvas>
+        <vxa-canvas
+          .circuit=${RC_LOWPASS}
+          .layout=${RC_LOWPASS_LAYOUT}
+          .solve=${this.dashboard.kind === 'ok' ? this.dashboard.result : null}
+        ></vxa-canvas>
       </section>
 
       <section class="zone inspector" aria-label="inspector">
@@ -327,7 +318,7 @@ export class VxaDesignMode extends LitElement {
       ${this.renderDashboard()}
 
       <span class="dev-marker" aria-hidden="true"
-        >sprint 0.4 · backend bridge + dc op · v2</span
+        >sprint 0.5 · devre render + probe · v2</span
       >
     `;
   }
