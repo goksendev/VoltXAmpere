@@ -6,27 +6,27 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>VoltXAmpere v12.0.0-alpha.17 — Professional Circuit Simulator</title>
+<title>VoltXAmpere v12.0.0-alpha.18 — Professional Circuit Simulator</title>
 <meta name="description" content="Professional browser-based circuit simulator. 71+ components, full SPICE parser, complete thermal-electrical coupling, AC-MNA analysis (Bode + Nyquist), professional multimeter probe. MIT licensed.">
 <meta name="keywords" content="circuit simulator, SPICE, devre simülatörü, electronics, voltxampere, free, online, oscilloscope, Bode, Nyquist, thermal, Newton-Raphson, MNA, Gummel-Poon">
 <meta name="author" content="goksendev">
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="https://voltxampere.com/simulator.html">
-<meta property="og:title" content="VoltXAmpere v12.0.0-alpha.17 — Professional Circuit Simulator">
+<meta property="og:title" content="VoltXAmpere v12.0.0-alpha.18 — Professional Circuit Simulator">
 <meta property="og:description" content="71+ components. Full SPICE parser. Thermal-electrical coupling. AC-MNA analysis. Professional multimeter. Free and open source.">
 <meta property="og:url" content="https://voltxampere.com/simulator.html">
 <meta property="og:type" content="website">
 <meta property="og:locale" content="en_US">
 <meta property="og:locale:alternate" content="tr_TR">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="VoltXAmpere v12.0.0-alpha.17 — Circuit Simulator">
+<meta name="twitter:title" content="VoltXAmpere v12.0.0-alpha.18 — Circuit Simulator">
 <meta name="twitter:description" content="71+ components. Full SPICE parser. Thermal-electrical coupling. Free and open source.">
 <meta name="theme-color" content="#0a0e14">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="VoltXAmpere">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='28' font-size='28'%3E%E2%9A%A1%3C/text%3E%3C/svg%3E">
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"VoltXAmpere","url":"https://voltxampere.com/simulator.html","description":"Professional browser-based circuit simulator with full SPICE parser, thermal-electrical coupling, and AC-MNA analysis","applicationCategory":"EducationalApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"softwareVersion":"12.0.0-alpha.17","license":"https://opensource.org/licenses/MIT","featureList":"71 components, Full SPICE parser, Thermal-electrical coupling, BSIM3 MOSFET, Gummel-Poon BJT, AC-MNA Bode and Nyquist, Professional multimeter probe, Inductor saturation, Hysteresis and eddy-current losses, Curie-point derating, Adaptive Newton-Raphson solver"}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"VoltXAmpere","url":"https://voltxampere.com/simulator.html","description":"Professional browser-based circuit simulator with full SPICE parser, thermal-electrical coupling, and AC-MNA analysis","applicationCategory":"EducationalApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"softwareVersion":"12.0.0-alpha.18","license":"https://opensource.org/licenses/MIT","featureList":"71 components, Full SPICE parser, Thermal-electrical coupling, BSIM3 MOSFET, Gummel-Poon BJT, AC-MNA Bode and Nyquist, Professional multimeter probe, Inductor saturation, Hysteresis and eddy-current losses, Curie-point derating, Adaptive Newton-Raphson solver"}</script>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
@@ -702,22 +702,114 @@ body.sidebar-resizing *{user-select:none!important}
   color:rgba(255,255,255,0.82);font:600 13px/1 var(--font-ui);
 }
 
+/* ──────── SPRINT 105.1 — TOOLBAR REFACTOR CONTAINERS ──────── */
+/* Canvas tools overlay — top-left floating panel */
+#canvas-tools{
+  position:absolute;top:12px;left:12px;z-index:40;
+  display:flex;align-items:center;gap:6px;
+  padding:6px 8px;border-radius:10px;
+  background:rgba(18,18,18,0.72);
+  border:1px solid rgba(255,255,255,0.08);
+  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  box-shadow:0 6px 20px rgba(0,0,0,0.35);
+  user-select:none;
+}
+#canvas-tools .ct-btn{
+  width:32px;height:32px;display:flex;align-items:center;justify-content:center;
+  border:1px solid transparent;border-radius:7px;
+  background:transparent;color:rgba(255,255,255,0.78);
+  cursor:pointer;transition:background .12s,color .12s,border-color .12s;
+  font-size:18px;line-height:1;padding:0;
+}
+#canvas-tools .ct-btn:hover{background:rgba(255,255,255,0.05);color:#fff}
+#canvas-tools .ct-btn.active{
+  background:rgba(255,255,255,0.08);
+  border-color:rgba(255,255,255,0.12);
+  color:var(--accent);
+  box-shadow:inset 0 0 0 1px rgba(0,224,158,0.25);
+}
+#canvas-tools .ct-sep{width:1px;height:20px;background:rgba(255,255,255,0.08);margin:0 2px}
+
+/* Minimap zoom dock — tucked directly above the minimap */
+#minimap-zoom{
+  position:absolute;bottom:184px;right:8px;z-index:6;width:200px;
+  display:flex;align-items:center;gap:4px;
+  padding:4px 6px;border-radius:6px;
+  background:rgba(18,18,18,0.72);
+  border:1px solid rgba(255,255,255,0.08);
+  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  user-select:none;
+}
+#minimap-zoom .mz-btn{
+  flex:0 0 28px;height:24px;display:flex;align-items:center;justify-content:center;
+  border:none;background:transparent;color:rgba(255,255,255,0.78);
+  font:500 14px/1 var(--font-ui);cursor:pointer;border-radius:4px;
+  transition:background .12s,color .12s;
+}
+#minimap-zoom .mz-btn:hover{background:rgba(255,255,255,0.06);color:#fff}
+#minimap-zoom .mz-percent{
+  flex:1;text-align:center;font:500 11px/1 var(--font-mono);color:rgba(255,255,255,0.72);
+}
+#minimap-zoom .mz-fit{flex:0 0 32px;margin-left:2px}
+
+/* Sim transport — single row above the analysis tabs */
+#sim-transport{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:6px 12px;background:rgba(18,18,18,0.6);
+  border-top:1px solid rgba(255,255,255,0.05);
+  border-bottom:1px solid rgba(255,255,255,0.05);
+  gap:10px;user-select:none;
+}
+#sim-transport .st-group{display:flex;align-items:center;gap:4px}
+#sim-transport .st-center .st-label{
+  font:500 10px/1 var(--font-ui);color:rgba(255,255,255,0.45);
+  text-transform:uppercase;letter-spacing:.08em;margin-right:4px;
+}
+#sim-transport .st-right{gap:8px}
+#sim-transport .st-btn{
+  width:28px;height:28px;display:flex;align-items:center;justify-content:center;
+  border:1px solid rgba(255,255,255,0.06);border-radius:6px;
+  background:rgba(255,255,255,0.02);color:rgba(255,255,255,0.82);
+  cursor:pointer;font-size:12px;line-height:1;padding:0;
+  transition:background .12s,border-color .12s,transform .08s;
+}
+#sim-transport .st-btn:hover{background:rgba(255,255,255,0.06);border-color:rgba(255,255,255,0.12)}
+#sim-transport .st-btn:active{transform:scale(0.94)}
+#sim-transport .st-play{
+  width:36px;background:rgba(0,224,158,0.12);border-color:rgba(0,224,158,0.25);color:var(--accent);
+}
+#sim-transport .st-play:hover{background:rgba(0,224,158,0.2)}
+#sim-transport select{
+  background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);
+  color:var(--text);border-radius:5px;padding:3px 8px;
+  font:500 11px/1 var(--font-mono);cursor:pointer;
+}
+
 </style>
 </head>
 <body>
 <div id="app">
   <!-- TOPBAR -->
+  <!-- Sprint 105.1 — slimmed topbar. 14 buttons moved out:
+         undo/redo/wire        → #canvas-tools (canvas top-left overlay)
+         rotate/delete          → REMOVED (Del + R keyboard shortcuts cover)
+         probe                  → #canvas-tools mode button
+         fit                    → #minimap-zoom panel
+         rewind/step/bookmark/
+         goto-bookmark/speed/
+         label/dot/start        → #sim-transport (canvas bottom)
+       Topbar now carries only: logo + Dosya group + Dışa aktarma group +
+       view modes + language/font/contrast. View-mode refactor is spec'd
+       for the next sprint. -->
   <div id="topbar" role="toolbar" aria-label="Circuit tools">
     <div class="logo"><span class="v">Volt</span><span class="x">X</span><span class="a">Ampere</span></div>
-    <button class="tb-btn" onclick="undo()" title="Geri Al (Ctrl+Z)">&#8630; Geri Al</button>
-    <button class="tb-btn" onclick="redo()" title="Yinele (Ctrl+Y)">&#8631; Yinele</button>
-    <div class="tb-sep"></div>
-    <button class="tb-btn" id="btn-wire" onclick="toggleWire()" title="Kablo (W)">&#9866; Kablo</button>
-    <button class="tb-btn" onclick="rotateSelected()" title="Döndür (R)">&#8635; Döndür</button>
-    <button class="tb-btn" onclick="deleteSelected()" title="Sil (Del)">&#10005; Sil</button>
-    <div class="tb-sep"></div>
+    <!-- Dosya grubu -->
     <button class="tb-btn" onclick="exportJSON()" title="Kaydet (Ctrl+S)">&#128190; Kaydet</button>
     <button class="tb-btn" onclick="importJSON()" title="Aç (Ctrl+O)">&#128194; Aç</button>
+    <button class="tb-btn" onclick="showGallery()" title="Gallery">&#128218; <span class="tb-gallery-label"></span></button>
+    <button class="tb-btn" onclick="shareURL()" title="Paylaş">&#128279; Paylaş</button>
+    <div class="tb-sep"></div>
+    <!-- Dışa aktarma grubu -->
     <button class="tb-btn" onclick="showSpiceImportModal()" title="SPICE Import (Ctrl+I)">&#9881; SPICE</button>
     <div class="tb-dropdown" id="export-dropdown-wrap" style="position:relative;display:inline-block">
       <button class="tb-btn" id="btn-export" onclick="toggleExportMenu(event)" title="Export">&#128229; Export &#9662;</button>
@@ -730,30 +822,17 @@ body.sidebar-resizing *{user-select:none!important}
       </div>
     </div>
     <button class="tb-btn" onclick="showBOM()" title="BOM">&#128203; BOM</button>
-    <button class="tb-btn" onclick="showGallery()" title="Gallery">&#128218; <span class="tb-gallery-label"></span></button>
     <button class="tb-btn" onclick="generateReport()" title="Rapor">&#128196; Rapor</button>
-    <button class="tb-btn" onclick="shareURL()" title="Paylaş">&#128279; Paylaş</button>
     <div class="tb-sep"></div>
+    <!-- View modes (next sprint refactor) -->
     <button class="tb-btn" id="btn-vmap" onclick="S.voltageMap=!S.voltageMap;needsRender=true" title="Voltaj Renk Haritası" aria-label="Toggle voltage color map">&#9889; Renk Haritası</button>
     <button class="tb-btn" onclick="showTutorialList()" title="Dersler">&#128214; Dersler</button>
     <button class="tb-btn" onclick="openSettings()" title="Ayarlar">&#9881; Ayarlar</button>
     <button class="tb-btn" id="btn-realistic" onclick="toggleRealisticBtn()" title="Gerçekçi Mod (Shift+R)">&#128737; Gerçekçi</button>
     <button class="tb-btn" onclick="cycleBgBtn()" title="Arka Plan (B)">&#127912; Arka Plan</button>
-    <button class="tb-btn" onclick="fitToScreen()" title="Sığdır (Ctrl+Shift+F)">&#128208; Sığdır</button>
     <button class="tb-btn" id="btn-chaos" onclick="toggleChaosPanel()" title="Kaos Testi (Shift+K)" style="color:#ff8800">⚡ Kaos</button>
-    <button class="tb-btn" id="btn-probes" onclick="toggleProbeMode()" title="Prob Modu (Shift+P)" style="color:#4a9eff">🔌 Prob</button>
     <button class="tb-btn" id="btn-breadboard" onclick="if(VXA.Breadboard)VXA.Breadboard.toggle()" title="Breadboard (Ctrl+B)" style="color:#f5e0b0">🔲 Breadboard</button>
     <div class="sim-badge">
-      <button class="tb-btn" style="font-size:10px" onclick="if(typeof _tlEnterPlayback==='function')_tlEnterPlayback()" title="Time Machine (M)" id="btn-timemachine">&#9194; Rewind</button>
-      <button class="tb-btn" style="font-size:10px" onclick="simStep()" title="Tek Ad&#305;m">&#9193; Ad&#305;m</button>
-      <button class="tb-btn" style="font-size:10px" onclick="simBookmark()" title="Yer &#304;mi">&#128278; &#304;&#351;aretle</button>
-      <button class="tb-btn" style="font-size:10px" onclick="simGotoBookmark()" title="Yer &#304;mine Git">&#8617; Geri</button>
-      <select id="sim-speed" onchange="S.sim.speed=parseFloat(this.value)" style="background:var(--surface-3);border:1px solid var(--border);color:var(--text);border-radius:4px;padding:2px 4px;font:11px var(--font-mono);cursor:pointer">
-        <option value="0.1">0.1x</option><option value="0.5">0.5x</option><option value="1" selected>1x</option><option value="2">2x</option><option value="5">5x</option><option value="10">10x</option>
-      </select>
-      <span class="tb-badge" id="sim-label">DURDURULDU</span>
-      <div class="sim-dot" id="sim-dot"></div>
-      <button class="tb-btn" id="btn-sim" onclick="toggleSim()" title="Simülasyonu Başlat/Durdur (Space)" aria-label="Toggle simulation">&#9654; Başlat</button>
       <button class="tb-btn" id="lang-btn" onclick="setLanguage(currentLang==='tr'?'en':'tr')" title="TR/EN" style="margin-left:8px">🌐 TR</button>
       <button class="tb-btn" onclick="changeFontSize(-1)" aria-label="Decrease font" title="A-">A-</button>
       <button class="tb-btn" onclick="changeFontSize(1)" aria-label="Increase font" title="A+">A+</button>
@@ -770,7 +849,47 @@ body.sidebar-resizing *{user-select:none!important}
   </div>
 
   <!-- CANVAS -->
-  <div id="canvas-wrap"><canvas id="C" role="img" aria-label="Circuit schematic canvas" tabindex="0"></canvas><canvas id="minimap" width="200" height="130" style="position:absolute;bottom:50px;right:8px;width:200px;height:130px;background:#1a1a30;border:1px solid #333;border-radius:6px;z-index:5;cursor:pointer"></canvas></div>
+  <div id="canvas-wrap">
+    <canvas id="C" role="img" aria-label="Circuit schematic canvas" tabindex="0"></canvas>
+    <canvas id="minimap" width="200" height="130" style="position:absolute;bottom:50px;right:8px;width:200px;height:130px;background:#1a1a30;border:1px solid #333;border-radius:6px;z-index:5;cursor:pointer"></canvas>
+    <!-- Sprint 105.1 — drawing tools overlay. 4 mutex modes + 2 history
+         actions. Modes: Seçim (V), Kablo (W), Prob, Not. History: Geri /
+         İleri (Ctrl+Z / Ctrl+Y). Buttons delegate to the same legacy
+         functions the topbar used; only the DOM location moved. -->
+    <div id="canvas-tools" role="toolbar" aria-label="Canvas çizim araçları">
+      <button class="ct-btn ct-mode" id="ct-mode-select" data-mode="select" onclick="setCanvasTool('select')" title="Seçim (V)">
+        <span class="ct-ico">&#x2316;</span>
+      </button>
+      <button class="ct-btn ct-mode" id="ct-mode-wire" data-mode="wire" onclick="setCanvasTool('wire')" title="Kablo (W)">
+        <span class="ct-ico">&#8866;</span>
+      </button>
+      <!-- Hidden legacy btn-wire so existing code that toggles its .active
+           class (toggleWire, startPlace, keyboard.js Esc) keeps working.
+           Sprint 105.3 will refactor those callers. -->
+      <button id="btn-wire" style="display:none" aria-hidden="true" tabindex="-1"></button>
+      <button class="ct-btn ct-mode" id="ct-mode-probe" data-mode="probe" onclick="setCanvasTool('probe')" title="Prob (Shift+P)">
+        <span class="ct-ico">&#9673;</span>
+      </button>
+      <button class="ct-btn ct-mode" id="ct-mode-note" data-mode="note" onclick="setCanvasTool('note')" title="Not (T)">
+        <span class="ct-ico">&#9998;</span>
+      </button>
+      <div class="ct-sep"></div>
+      <button class="ct-btn ct-action" onclick="undo()" title="Geri (Ctrl+Z)">
+        <span class="ct-ico">&#8630;</span>
+      </button>
+      <button class="ct-btn ct-action" onclick="redo()" title="İleri (Ctrl+Y)">
+        <span class="ct-ico">&#8631;</span>
+      </button>
+    </div>
+    <!-- Sprint 105.1 — zoom dock tucked directly under the minimap. Same
+         panel vocabulary (blur + subtle border) for visual continuity. -->
+    <div id="minimap-zoom" role="toolbar" aria-label="Harita zoom">
+      <button class="mz-btn" onclick="S.view.zoom=Math.max(S.view.minZoom,S.view.zoom/1.2);needsRender=true" title="Uzaklaştır (-)">&#8722;</button>
+      <span class="mz-percent" id="mz-percent">100%</span>
+      <button class="mz-btn" onclick="S.view.zoom=Math.min(S.view.maxZoom,S.view.zoom*1.2);needsRender=true" title="Yakınlaştır (+)">&#43;</button>
+      <button class="mz-btn mz-fit" onclick="fitToScreen()" title="Sığdır (Ctrl+Shift+F)">&#9965;</button>
+    </div>
+  </div>
   <button id="fab-add" aria-label="Add Component">+</button>
   <div id="touch-ctx-menu"></div>
 
@@ -784,7 +903,35 @@ body.sidebar-resizing *{user-select:none!important}
   </div>
 
   <!-- BOTTOM -->
-  <div id="bottom" style="display:grid;grid-template-rows:auto 1fr;grid-template-columns:1fr">
+  <!-- Sprint 105.1 — grid gained a new "sim-transport" row between the
+       panel height and the analysis tab bar. Transport controls (rewind
+       / step / play-pause / speed / status) moved out of the topbar. -->
+  <div id="bottom" style="display:grid;grid-template-rows:auto auto 1fr;grid-template-columns:1fr">
+    <div id="sim-transport" role="toolbar" aria-label="Simülasyon transport">
+      <div class="st-group st-left">
+        <button class="st-btn" onclick="if(typeof _tlEnterPlayback==='function')_tlEnterPlayback()" title="Time Machine (M)" id="btn-timemachine">&#9194;</button>
+        <button class="st-btn" onclick="simGotoBookmark()" title="Yer İmine Git">&#8617;</button>
+        <button class="st-btn st-play" id="btn-sim" onclick="toggleSim()" title="Başlat/Duraklat (Space)" aria-label="Toggle simulation">&#9654;</button>
+        <button class="st-btn" onclick="simStep()" title="Tek Adım">&#9193;</button>
+        <button class="st-btn" onclick="simBookmark()" title="Yer İmi">&#128278;</button>
+      </div>
+      <div class="st-group st-center">
+        <label class="st-label" for="sim-speed">Hız</label>
+        <select id="sim-speed" onchange="S.sim.speed=parseFloat(this.value)">
+          <option value="0.1">0.1×</option>
+          <option value="0.25">0.25×</option>
+          <option value="0.5">0.5×</option>
+          <option value="1" selected>1×</option>
+          <option value="2">2×</option>
+          <option value="5">5×</option>
+          <option value="10">10×</option>
+        </select>
+      </div>
+      <div class="st-group st-right">
+        <div class="sim-dot" id="sim-dot"></div>
+        <span class="tb-badge" id="sim-label">DURDURULDU</span>
+      </div>
+    </div>
     <div style="display:flex;gap:2px;padding:3px 8px;background:var(--surface-2);border-bottom:1px solid var(--border);overflow-x:auto;overflow-y:hidden;white-space:nowrap;scrollbar-width:thin">
       <button class="btab active" data-tab="scope" onclick="switchTab('scope')">Osiloskop</button>
       <button class="btab" data-tab="bode" onclick="switchTab('bode')">Bode Plot</button>
@@ -970,7 +1117,7 @@ body.sidebar-resizing *{user-select:none!important}
     <span id="sb-temp" style="color:var(--text-3)"></span>
     <span id="sb-engine" style="color:var(--text-4)"></span>
     <span id="sb-extra" style="color:var(--text-3)"></span>
-    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v12.0.0-alpha.17 — Build: 2026-04-19 00:48 — © 2026</span>
+    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v12.0.0-alpha.18 — Build: 2026-04-19 01:42 — © 2026</span>
   </div>
 </div>
 
@@ -1115,7 +1262,7 @@ body.sidebar-resizing *{user-select:none!important}
       <div class="sc-cat"><h4>Düzenleme</h4>
         <div class="sc-row"><kbd>Del</kbd><span>Sil</span></div>
         <div class="sc-row"><kbd>Ctrl+Z</kbd><span>Geri al</span></div>
-        <div class="sc-row"><kbd>Ctrl+Y</kbd><span>Yinele</span></div>
+        <div class="sc-row"><kbd>Ctrl+Y</kbd><span>İleri</span></div>
         <div class="sc-row"><kbd>Ctrl+C</kbd><span>Kopyala</span></div>
         <div class="sc-row"><kbd>Ctrl+V</kbd><span>Yapıştır</span></div>
         <div class="sc-row"><kbd>Ctrl+D</kbd><span>Çoğalt</span></div>
@@ -1315,7 +1462,7 @@ var currentLang = localStorage.getItem('vxa_lang') || (navigator.language && nav
 
 var STR = {
   tr: {
-    undo:'Geri Al', redo:'Yinele', wire:'Kablo', rotate:'Döndür', del:'Sil',
+    undo:'Geri Al', redo:'İleri', wire:'Kablo', rotate:'Döndür', del:'Sil',
     save:'Kaydet', open:'Aç', png:'PNG', svg:'SVG', csv:'CSV', spiceModel:'.model',
     share:'Paylaş', colorMap:'Renk Haritası', start:'Başlat', stop:'Durdur',
     running:'ÇALIŞIYOR', stopped:'DURDURULDU', step:'Adım', bookmark:'İşaretle',
@@ -19310,7 +19457,7 @@ function setAriaLabels() {
 setAriaLabels();
 
 // Console banner
-console.log('%c\u26A1 VoltXAmpere v12.0.0-alpha.17', 'color:#00e09e;font-size:18px;font-weight:bold');
+console.log('%c\u26A1 VoltXAmpere v12.0.0-alpha.18', 'color:#00e09e;font-size:18px;font-weight:bold');
 console.log('%cProfessional Circuit Simulator \u2014 voltxampere.com', 'color:#8899aa;font-size:12px');
 console.log('%c' + t('scriptApi'), 'color:#f59e0b;font-size:11px');
 
@@ -20242,6 +20389,78 @@ function _doFilterComponents(query) {
     body.appendChild(_renderCompCard(entry[0], entry[1], entry[1].cat));
   });
   el.appendChild(body);
+}
+
+// ──────── SPRINT 105.1 — CANVAS TOOLS + SIM TRANSPORT GLUE ────────
+// The new canvas-top overlay has four mutex mode buttons (Seçim / Kablo /
+// Prob / Not) plus two history actions. This helper routes clicks to the
+// legacy functions that used to live on the topbar and keeps the .active
+// class in sync with S.mode + the Probe subsystem state.
+function setCanvasTool(mode) {
+  if (mode === 'wire') {
+    if (S.mode !== 'wire') toggleWire();
+  } else if (mode === 'probe') {
+    if (typeof toggleProbeMode === 'function') toggleProbeMode();
+  } else if (mode === 'note') {
+    // Annotation tool — matches the legacy T-key flow: prompt for text at
+    // the current mouse world coord. Added a second entry point, nothing
+    // else changed.
+    if (typeof S !== 'undefined' && S.mouse && typeof snap === 'function') {
+      var text = prompt('Not metni:', '');
+      if (text) {
+        var aw = s2w(S.mouse.x, S.mouse.y);
+        S.annotations = S.annotations || [];
+        S.annotations.push({ id: Date.now(), x: snap(aw.x), y: snap(aw.y), text: text, fontSize: 12, color: '#8899aa' });
+        needsRender = true;
+      }
+    }
+  } else {
+    // select → drop out of wire/probe if we're in either.
+    if (S.mode === 'wire') toggleWire();
+    if (typeof VXA !== 'undefined' && VXA.Probes && VXA.Probes.isActive && VXA.Probes.isActive()) {
+      if (typeof toggleProbeMode === 'function') toggleProbeMode();
+    }
+    S.mode = 'select';
+  }
+  _syncCanvasToolButtons();
+  needsRender = true;
+}
+
+function _syncCanvasToolButtons() {
+  var nodes = document.querySelectorAll('#canvas-tools .ct-mode');
+  if (!nodes || !nodes.length) return;
+  var probeActive = (typeof VXA !== 'undefined' && VXA.Probes && VXA.Probes.isActive && VXA.Probes.isActive());
+  var active = 'select';
+  if (S.mode === 'wire') active = 'wire';
+  else if (probeActive) active = 'probe';
+  nodes.forEach(function(n) { n.classList.toggle('active', n.dataset.mode === active); });
+}
+
+// Sprint 105.1 — sim play/pause icon swap. Legacy toggleSim sets
+// "Başlat / Durdur" text on #btn-sim; we override the innerHTML after the
+// original handler runs so the new transport bar's id="btn-sim" stays in
+// sync (glyph only, no text, so it fits the 28×28 button).
+(function _patchSimIcon() {
+  if (typeof toggleSim !== 'function') return;
+  var origToggle = toggleSim;
+  window.toggleSim = function() {
+    origToggle.apply(this, arguments);
+    var btn = document.getElementById('btn-sim');
+    if (btn) btn.innerHTML = S.sim.running ? '&#10074;&#10074;' : '&#9654;';
+  };
+})();
+
+// Zoom % display for the minimap-zoom panel.
+function _syncZoomPercent() {
+  var el = document.getElementById('mz-percent');
+  if (!el || typeof S === 'undefined' || !S.view) return;
+  el.textContent = Math.round(S.view.zoom * 100) + '%';
+}
+
+// Two light pollers — cheaper than wiring into every mode transition.
+if (typeof document !== 'undefined') {
+  setInterval(_syncCanvasToolButtons, 250);
+  setInterval(_syncZoomPercent, 250);
 }
 
 // Keyboard shortcut: "/" to focus search
@@ -31338,7 +31557,7 @@ function runQuickDemo() {
 function showAbout() {
   var box = document.getElementById('about-box');
   var tr = currentLang === 'tr';
-  box.innerHTML = '<div style="font:800 24px var(--font-ui);margin-bottom:4px"><span style="color:var(--accent)">\u26A1 Volt</span><span style="color:var(--orange)">X</span><span style="color:var(--blue)">Ampere</span> <span style="font:500 14px var(--font-mono);color:var(--text-3)">v12.0.0-alpha.17</span></div>'
+  box.innerHTML = '<div style="font:800 24px var(--font-ui);margin-bottom:4px"><span style="color:var(--accent)">\u26A1 Volt</span><span style="color:var(--orange)">X</span><span style="color:var(--blue)">Ampere</span> <span style="font:500 14px var(--font-mono);color:var(--text-3)">v12.0.0-alpha.18</span></div>'
     + '<div style="font:13px var(--font-ui);color:var(--text-2);margin-bottom:16px">' + (tr?'D\u00fcnyan\u0131n En Geli\u015fmi\u015f \u00dccretsiz Devre Sim\u00fclat\u00f6r\u00fc':'World\'s Most Advanced Free Circuit Simulator') + '</div>'
     + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;text-align:left;font-size:11px;color:var(--text-2);margin-bottom:12px">'
     + '<div>\u2705 71+ ' + (tr?'Bile\u015fen':'Components') + '</div>'

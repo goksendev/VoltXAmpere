@@ -57,7 +57,7 @@ function setAriaLabels() {
 setAriaLabels();
 
 // Console banner
-console.log('%c\u26A1 VoltXAmpere v12.0.0-alpha.17', 'color:#00e09e;font-size:18px;font-weight:bold');
+console.log('%c\u26A1 VoltXAmpere v12.0.0-alpha.18', 'color:#00e09e;font-size:18px;font-weight:bold');
 console.log('%cProfessional Circuit Simulator \u2014 voltxampere.com', 'color:#8899aa;font-size:12px');
 console.log('%c' + t('scriptApi'), 'color:#f59e0b;font-size:11px');
 
@@ -989,6 +989,78 @@ function _doFilterComponents(query) {
     body.appendChild(_renderCompCard(entry[0], entry[1], entry[1].cat));
   });
   el.appendChild(body);
+}
+
+// ──────── SPRINT 105.1 — CANVAS TOOLS + SIM TRANSPORT GLUE ────────
+// The new canvas-top overlay has four mutex mode buttons (Seçim / Kablo /
+// Prob / Not) plus two history actions. This helper routes clicks to the
+// legacy functions that used to live on the topbar and keeps the .active
+// class in sync with S.mode + the Probe subsystem state.
+function setCanvasTool(mode) {
+  if (mode === 'wire') {
+    if (S.mode !== 'wire') toggleWire();
+  } else if (mode === 'probe') {
+    if (typeof toggleProbeMode === 'function') toggleProbeMode();
+  } else if (mode === 'note') {
+    // Annotation tool — matches the legacy T-key flow: prompt for text at
+    // the current mouse world coord. Added a second entry point, nothing
+    // else changed.
+    if (typeof S !== 'undefined' && S.mouse && typeof snap === 'function') {
+      var text = prompt('Not metni:', '');
+      if (text) {
+        var aw = s2w(S.mouse.x, S.mouse.y);
+        S.annotations = S.annotations || [];
+        S.annotations.push({ id: Date.now(), x: snap(aw.x), y: snap(aw.y), text: text, fontSize: 12, color: '#8899aa' });
+        needsRender = true;
+      }
+    }
+  } else {
+    // select → drop out of wire/probe if we're in either.
+    if (S.mode === 'wire') toggleWire();
+    if (typeof VXA !== 'undefined' && VXA.Probes && VXA.Probes.isActive && VXA.Probes.isActive()) {
+      if (typeof toggleProbeMode === 'function') toggleProbeMode();
+    }
+    S.mode = 'select';
+  }
+  _syncCanvasToolButtons();
+  needsRender = true;
+}
+
+function _syncCanvasToolButtons() {
+  var nodes = document.querySelectorAll('#canvas-tools .ct-mode');
+  if (!nodes || !nodes.length) return;
+  var probeActive = (typeof VXA !== 'undefined' && VXA.Probes && VXA.Probes.isActive && VXA.Probes.isActive());
+  var active = 'select';
+  if (S.mode === 'wire') active = 'wire';
+  else if (probeActive) active = 'probe';
+  nodes.forEach(function(n) { n.classList.toggle('active', n.dataset.mode === active); });
+}
+
+// Sprint 105.1 — sim play/pause icon swap. Legacy toggleSim sets
+// "Başlat / Durdur" text on #btn-sim; we override the innerHTML after the
+// original handler runs so the new transport bar's id="btn-sim" stays in
+// sync (glyph only, no text, so it fits the 28×28 button).
+(function _patchSimIcon() {
+  if (typeof toggleSim !== 'function') return;
+  var origToggle = toggleSim;
+  window.toggleSim = function() {
+    origToggle.apply(this, arguments);
+    var btn = document.getElementById('btn-sim');
+    if (btn) btn.innerHTML = S.sim.running ? '&#10074;&#10074;' : '&#9654;';
+  };
+})();
+
+// Zoom % display for the minimap-zoom panel.
+function _syncZoomPercent() {
+  var el = document.getElementById('mz-percent');
+  if (!el || typeof S === 'undefined' || !S.view) return;
+  el.textContent = Math.round(S.view.zoom * 100) + '%';
+}
+
+// Two light pollers — cheaper than wiring into every mode transition.
+if (typeof document !== 'undefined') {
+  setInterval(_syncCanvasToolButtons, 250);
+  setInterval(_syncZoomPercent, 250);
 }
 
 // Keyboard shortcut: "/" to focus search

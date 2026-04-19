@@ -3,7 +3,7 @@ var currentLang = localStorage.getItem('vxa_lang') || (navigator.language && nav
 
 var STR = {
   tr: {
-    undo:'Geri Al', redo:'Yinele', wire:'Kablo', rotate:'Döndür', del:'Sil',
+    undo:'Geri Al', redo:'İleri', wire:'Kablo', rotate:'Döndür', del:'Sil',
     save:'Kaydet', open:'Aç', png:'PNG', svg:'SVG', csv:'CSV', spiceModel:'.model',
     share:'Paylaş', colorMap:'Renk Haritası', start:'Başlat', stop:'Durdur',
     running:'ÇALIŞIYOR', stopped:'DURDURULDU', step:'Adım', bookmark:'İşaretle',
