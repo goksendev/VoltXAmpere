@@ -15,6 +15,7 @@ import '../canvas/canvas.ts';
 import '../inspector/inspector.ts';
 import '../charts/transient-chart.ts';
 import '../topbar/topbar.ts';
+import '../sidebar/sidebar.ts';
 import type { ModeName } from '../topbar/topbar.ts';
 import {
   solveTransient,
@@ -262,6 +263,10 @@ export class VxaDesignMode extends LitElement {
   // shell'leri Faz 3+'da gelecek.
   @state() private activeMode: ModeName = 'tasarla';
 
+  // Sprint 0.11: aktif araç (sidebar katalog). Faz 2'de canvas click/drag ile
+  // bileşen yerleştirme akışında güncellenecek. Şimdilik null.
+  @state() private activeTool: string | null = null;
+
   override async firstUpdated(): Promise<void> {
     // Sprint 0.7: tek çağrı ile transient al. Son örnek = DC steady-state
     // yerine geçiyor → inspector ve canvas probe'ları aynı snapshot'tan.
@@ -385,7 +390,9 @@ export class VxaDesignMode extends LitElement {
         <vxa-topbar .activeMode=${this.activeMode}></vxa-topbar>
       </section>
 
-      <section class="sidebar-zone" aria-label="sidebar"></section>
+      <section class="sidebar-zone" aria-label="sidebar">
+        <vxa-sidebar .activeTool=${this.activeTool}></vxa-sidebar>
+      </section>
 
       <section class="canvas-zone" aria-label="canvas">
         <vxa-canvas
