@@ -1,10 +1,12 @@
-// VoltXAmpere v2 — Tasarla modu grid iskeleti (Sprint 0.2).
-// 5-bölgeli CSS Grid layout: topbar / sidebar / canvas-area / inspector / dashboard.
-// İçerik yok — her bölge yalnızca placeholder etiketi ve kesikli kenar gösterir.
-// Canvas 2D context, toolbar, bileşen kataloğu, inspector formları, dashboard
-// grafikleri sonraki sprintlere ait.
+// VoltXAmpere v2 — Tasarla modu grid iskeleti.
+// Sprint 0.2: 5-bölgeli CSS Grid layout (topbar / sidebar / canvas-area /
+// inspector / dashboard), tüm bölgeler placeholder.
+// Sprint 0.3: canvas bölgesine gerçek <vxa-canvas> mount edildi; diğer 4 bölge
+// hâlâ dashed-kenarlı placeholder. Canvas zone artık .zone base class'ından
+// ayrı (border/padding inherit etmesin diye).
 import { LitElement, html, css } from 'lit';
 import { customElement } from 'lit/decorators.js';
+import '../canvas/canvas.ts';
 
 @customElement('vxa-design-mode')
 export class VxaDesignMode extends LitElement {
@@ -32,7 +34,8 @@ export class VxaDesignMode extends LitElement {
       overflow: hidden;
     }
 
-    /* Ortak placeholder bölge stili — kesikli kenar, mono etiket, hizalama. */
+    /* Placeholder bölge stili — kesikli kenar, mono etiket, hizalama.
+       Canvas bölgesi bu class'ı KULLANMIYOR (Sprint 0.3'ten beri gerçek canvas). */
     .zone {
       border: 1px dashed var(--line-str);
       padding: var(--sp-3);
@@ -59,12 +62,13 @@ export class VxaDesignMode extends LitElement {
       border-right: 1px solid var(--line);
     }
 
-    .zone.canvas {
+    /* Canvas bölgesi: placeholder değil — <vxa-canvas> tam olarak kaplar.
+       .zone base class UYGULANMAZ (dashed kenar ve padding inherit etmesin
+       diye kasıtlı olarak ayrı tutuldu). */
+    .canvas-zone {
       grid-area: canvas-area;
       background: var(--canvas);
-      /* Canvas etiketi ortada dursun. */
-      align-items: center;
-      justify-content: center;
+      overflow: hidden;
     }
 
     .zone.inspector {
@@ -77,30 +81,6 @@ export class VxaDesignMode extends LitElement {
       grid-area: dashboard;
       background: var(--bg-1);
       border-top: 1px solid var(--line);
-    }
-
-    /* Canvas bölgesinde ortada büyük başlık + altında küçük açıklama. */
-    .canvas-label {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: var(--sp-2);
-      text-transform: uppercase;
-      letter-spacing: 0.12em;
-    }
-
-    .canvas-title {
-      margin: 0;
-      font-family: var(--mono);
-      font-size: var(--fs-lg);
-      color: var(--fg-2);
-    }
-
-    .canvas-sub {
-      margin: 0;
-      font-family: var(--mono);
-      font-size: var(--fs-xs);
-      color: var(--fg-3);
     }
 
     /* Sol alt köşe sprint etiketi — sabit, shadow DOM içinde position:fixed
@@ -129,13 +109,8 @@ export class VxaDesignMode extends LitElement {
         sidebar · 96px · sprint 0.5'te bileşen kataloğu
       </section>
 
-      <section class="zone canvas" aria-label="canvas">
-        <div class="canvas-label">
-          <p class="canvas-title">canvas-area</p>
-          <p class="canvas-sub">
-            sprint 0.3'te canvas 2d + sprint 0.4'te backend
-          </p>
-        </div>
+      <section class="canvas-zone" aria-label="canvas">
+        <vxa-canvas></vxa-canvas>
       </section>
 
       <section class="zone inspector" aria-label="inspector">
@@ -147,7 +122,7 @@ export class VxaDesignMode extends LitElement {
       </section>
 
       <span class="dev-marker" aria-hidden="true"
-        >sprint 0.2 · tasarla grid iskelet · v2</span
+        >sprint 0.3 · canvas 2d + noktalı grid · v2</span
       >
     `;
   }

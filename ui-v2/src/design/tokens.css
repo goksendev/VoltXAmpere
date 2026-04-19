@@ -73,4 +73,8 @@
   --grid-sidebar-w: 96px;
   --grid-inspector-w: 216px;
   --grid-dashboard-h: 140px;
+
+  /* ─── Canvas grid (Sprint 0.3 yeni) ─── */
+  --canvas-dot:     rgba(200, 210, 230, 0.22);    /* küçük grid noktaları */
+  --canvas-dot-maj: rgba(200, 210, 230, 0.35);    /* büyük grid noktaları (her 5 nokta) */
 }
