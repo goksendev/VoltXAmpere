@@ -243,6 +243,10 @@ const JS_FILES = [
   'src/ui/datasheet-chart.js',
   'src/ui/datasheet-panel.js',
 
+  // Sprint 104.4 stamp-mode toast — needs to be loaded before keyboard.js
+  // so StampToast is defined when the first keydown fires.
+  'src/ui/stamp-toast.js',
+
   // Core: startup (DOMContentLoaded, buildLeftPanel, loadPreset, API)
   'src/core/startup.js',
 

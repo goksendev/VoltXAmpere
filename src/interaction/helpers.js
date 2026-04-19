@@ -23,6 +23,28 @@ function startPlace(type) {
   S.wireStart = null; S.wirePreview = null;
   document.getElementById('btn-wire').classList.remove('active');
   needsRender = true; updateInspector();
+  // Sprint 104.4 — UI sync for the stamp/keyboard pipeline:
+  //   • close any hover datasheet panel (pointer about to leave the card)
+  //   • flag canvas-wrap so the CSS cursor switches to crosshair
+  //   • mark the matching sidebar card so the category glow reads
+  //     "this is selected" even when the pick came from a shortcut
+  try { if (typeof DatasheetPanel !== 'undefined' && DatasheetPanel.closeNow) DatasheetPanel.closeNow(); } catch (e) {}
+  var wrap = document.getElementById('canvas-wrap');
+  if (wrap) wrap.classList.add('place-mode');
+  if (typeof _syncStampSelection === 'function') _syncStampSelection();
+}
+
+// Sprint 104.4 — keeps sidebar card .selected class + canvas cursor in
+// sync with the current place-mode target. Called from startPlace (entry)
+// and from keyboard.js Escape handler (exit).
+function _syncStampSelection() {
+  var active = (typeof S !== 'undefined' && S.mode === 'place') ? S.placingType : null;
+  var cards = document.querySelectorAll('#comp-panel-body .comp-item');
+  cards.forEach(function(c) {
+    c.classList.toggle('selected', c.dataset.comp === active);
+  });
+  var wrap = document.getElementById('canvas-wrap');
+  if (wrap) wrap.classList.toggle('place-mode', !!active);
 }
 function toggleWire() {
   if (S.mode === 'wire') {

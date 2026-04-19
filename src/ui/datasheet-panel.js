@@ -263,9 +263,17 @@ var DatasheetPanel = (function() {
 
   // Global close triggers
   if (typeof document !== 'undefined') {
+    // Sprint 104.4 — Esc should close the datasheet panel FIRST, then on a
+    // second press fall through to keyboard.js which clears the stamp
+    // selection. We only swallow the event (stopImmediatePropagation)
+    // when the panel was actually open, otherwise the other listeners
+    // need to react.
     document.addEventListener('keydown', function(e) {
-      if (e.key === 'Escape') closeNow();
-    });
+      if (e.key !== 'Escape') return;
+      var wasOpen = panelEl && panelEl.classList.contains('ds-open');
+      closeNow();
+      if (wasOpen) e.stopImmediatePropagation();
+    }, true);   // capture so we beat keyboard.js to the punch
     // Sidebar scroll dismisses — content no longer aligned to card.
     function _wireScroll() {
       var left = document.getElementById('left');
