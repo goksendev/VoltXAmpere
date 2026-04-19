@@ -67,9 +67,26 @@ document.addEventListener('keydown', e => {
   for (const [type, def] of Object.entries(COMP)) { if (def.key && k === def.key && !e.ctrlKey && !e.metaKey && !e.altKey) { startPlace(type); return; } }
 
   if (k === 'escape') {
-    S.mode = 'select'; S.placingType = null; S.wireStart = null; S.wirePreview = null;
+    // Sprint 104.5 — Esc priority: datasheet panel (handled by its own
+    // capture-phase listener) > wire-drawing in progress > stamp > idle.
+    // Wire in-progress = user has clicked first point; clearing wireStart
+    // keeps the user in wire MODE but drops the dangling preview. Next
+    // Esc still exits wire mode via the select-mode reset below.
+    if (S.mode === 'wire' && S.wireStart) {
+      S.wireStart = null; S.wirePreview = null; S.wireLPath = null;
+      needsRender = true;
+      return;
+    }
+    S.mode = 'select'; S.placingType = null; S.wireStart = null; S.wirePreview = null; S.wireLPath = null;
     document.getElementById('btn-wire').classList.remove('active'); needsRender = true;
     if (typeof _syncStampSelection === 'function') _syncStampSelection();
+    return;
+  }
+  // Sprint 104.5 — Enter in stamp mode places the ghost where it currently
+  // is (snap point under the mouse). Mouse-less placement convenience.
+  if (e.key === 'Enter' && S.mode === 'place' && S.placingType) {
+    e.preventDefault();
+    if (typeof _stampPlaceAtGhost === 'function') _stampPlaceAtGhost(e.shiftKey);
     return;
   }
   if (k === 'w' && !e.ctrlKey && !e.metaKey && !e.altKey) { toggleWire(); return; }

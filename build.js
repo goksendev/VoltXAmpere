@@ -247,6 +247,11 @@ const JS_FILES = [
   // so StampToast is defined when the first keydown fires.
   'src/ui/stamp-toast.js',
 
+  // Sprint 104.5 DOM overlays for snap glow + rotation pill. Loaded after
+  // startup.js isn't needed because StampOverlay just listens to pointer
+  // events; however loading here keeps it grouped with the stamp UI.
+  'src/ui/stamp-overlay.js',
+
   // Core: startup (DOMContentLoaded, buildLeftPanel, loadPreset, API)
   'src/core/startup.js',
 

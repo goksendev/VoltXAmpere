@@ -69,7 +69,21 @@ wrap.addEventListener('mousemove', e => {
   // Sprint 14: Probe drag
   if (VXA.Probes && VXA.Probes.isDragging()) { VXA.Probes.onDrag(w.x, w.y); needsRender = true; }
   // wire preview
-  if (S.mode === 'wire' && S.wireStart) { S.wirePreview = { x: w.x, y: w.y }; needsRender = true; }
+  // Sprint 104.5 — L-shape autoroute. We stash the raw target as
+  // wirePreview (legacy consumers stay happy) and additionally build
+  // an `Lpath` two-segment path on the state so drawing.js can draw the
+  // elbow. Direction is chosen by the dominant axis so the longer leg
+  // ends up first — the user's eye follows the path naturally.
+  if (S.mode === 'wire' && S.wireStart) {
+    var tx = snap(w.x), ty = snap(w.y);
+    S.wirePreview = { x: tx, y: ty };
+    var dx = Math.abs(tx - S.wireStart.x);
+    var dy = Math.abs(ty - S.wireStart.y);
+    var horizFirst = dx >= dy;
+    var corner = horizFirst ? { x: tx, y: S.wireStart.y } : { x: S.wireStart.x, y: ty };
+    S.wireLPath = { corner: corner, target: { x: tx, y: ty }, horizFirst: horizFirst };
+    needsRender = true;
+  }
   if (S.mode === 'place') needsRender = true;
 });
 
@@ -87,7 +101,23 @@ wrap.addEventListener('mousedown', e => {
   if (S.mode === 'place' && S.placingType) {
     saveUndo();
     const def = COMP[S.placingType];
-    const p = { id: S.nextId++, type: S.placingType, name: nextName(S.placingType), x: snap(w.x), y: snap(w.y), rot: S.placeRot, val: def.def, flipH: !!S.placeFlipH, flipV: !!S.placeFlipV };
+    var px = snap(w.x), py = snap(w.y);
+    // Sprint 104.5 — smart-offset: if the user targets a cell already
+    // occupied (within GRID/2) and isn't holding Shift to force overlap,
+    // nudge one grid down-right. Direction reacts to ghost rotation so
+    // vertical components step sideways instead of sandwiching each
+    // other. Shift bypass is announced in the enter-variant toast.
+    var nudged = false;
+    if (!e.shiftKey) {
+      var near = S.parts.some(function(q) { return Math.abs(q.x - px) < GRID / 2 && Math.abs(q.y - py) < GRID / 2; });
+      if (near) {
+        var rot = (S.placeRot | 0) % 2;
+        if (rot === 0) px += GRID; else py += GRID;
+        nudged = true;
+        if (typeof StampToast !== 'undefined' && StampToast.showNudge) StampToast.showNudge();
+      }
+    }
+    const p = { id: S.nextId++, type: S.placingType, name: nextName(S.placingType), x: px, y: py, rot: S.placeRot, val: def.def, flipH: !!S.placeFlipH, flipV: !!S.placeFlipV };
     // Sprint 9: net label default name
     if (S.placingType === 'netLabel') { var nlCount = S.parts.filter(function(pp) { return pp.type === 'netLabel'; }).length; p.val = 'NET' + (nlCount + 1); }
     else if (S.placingType === 'vccLabel') { p.val = 'VCC'; }
@@ -119,22 +149,35 @@ wrap.addEventListener('mousedown', e => {
     const tx = pin ? pin.x : snap(w.x), ty = pin ? pin.y : snap(w.y);
     if (!S.wireStart) {
       S.wireStart = { x: tx, y: ty };
+      S.wireLPath = null;
       if (typeof resetWireLag === 'function') resetWireLag();
     }
     else {
       if (Math.abs(tx - S.wireStart.x) < 2 && Math.abs(ty - S.wireStart.y) < 2) {
-        S.wireStart = null; S.wirePreview = null;
+        S.wireStart = null; S.wirePreview = null; S.wireLPath = null;
         if (typeof resetWireLag === 'function') resetWireLag();
         needsRender = true; return;
       }
       saveUndo();
-      S.wires.push({ x1: S.wireStart.x, y1: S.wireStart.y, x2: tx, y2: ty });
+      // Sprint 104.5 — push TWO segments forming an L. Axis choice mirrors
+      // the live preview in the mousemove handler above.
+      var dx = Math.abs(tx - S.wireStart.x);
+      var dy = Math.abs(ty - S.wireStart.y);
+      var horizFirst = dx >= dy;
+      var corner = horizFirst ? { x: tx, y: S.wireStart.y } : { x: S.wireStart.x, y: ty };
+      if (dx > 0 && dy > 0) {
+        S.wires.push({ x1: S.wireStart.x, y1: S.wireStart.y, x2: corner.x, y2: corner.y });
+        S.wires.push({ x1: corner.x, y1: corner.y, x2: tx, y2: ty });
+      } else {
+        // Pure horizontal or vertical — one segment is enough.
+        S.wires.push({ x1: S.wireStart.x, y1: S.wireStart.y, x2: tx, y2: ty });
+      }
       // Sprint 14: Flash effect on connection
       if (typeof onWireConnected === 'function') onWireConnected(tx, ty);
-      // Wire mode stays open — start next wire from this point
-      // User exits with ESC or right-click
+      // Wire mode stays open — start next wire from this point.
       S.wireStart = { x: tx, y: ty };
       S.wirePreview = null;
+      S.wireLPath = null;
       if (typeof resetWireLag === 'function') resetWireLag();
       needsRender = true;
     }

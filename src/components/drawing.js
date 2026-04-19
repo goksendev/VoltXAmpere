@@ -840,6 +840,26 @@ function drawWirePreview() {
   }
 
   var dist = Math.hypot(lagX - s.x, lagY - s.y);
+
+  // Sprint 104.5 — when the mouse handler has a live L-path, render it
+  // verbatim so preview and commit match pixel-for-pixel. Snapped corner
+  // is highlighted with a small circle so the user sees where the elbow
+  // will land.
+  if (S.wireLPath) {
+    var corner = S.wireLPath.corner;
+    var target = S.wireLPath.target;
+    ctx.strokeStyle = '#00e09e'; ctx.lineWidth = 1.5; ctx.setLineDash([6, 4]);
+    ctx.beginPath();
+    ctx.moveTo(s.x, s.y);
+    ctx.lineTo(corner.x, corner.y);
+    ctx.lineTo(target.x, target.y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(0, 224, 158, 0.55)';
+    ctx.beginPath(); ctx.arc(corner.x, corner.y, 3, 0, Math.PI * 2); ctx.fill();
+    return;
+  }
+
   ctx.strokeStyle = '#00e09e'; ctx.lineWidth = 1.5; ctx.setLineDash([6, 4]);
   ctx.beginPath(); ctx.moveTo(s.x, s.y);
 
@@ -869,29 +889,56 @@ function drawWirePreview() {
   ctx.setLineDash([]);
 }
 
+// Sprint 104.5 — category-accented ghost with pin preview dots. Resolves
+// the part's category color so the ghost and the surrounding DOM overlays
+// (snap glow, rotation pill) all read as one coherent tint.
+function _ghostCategoryColor(typeKey) {
+  var map = {
+    Passive: '#4fc3f7', Sources: '#66bb6a', Semi: '#ba68c8',
+    ICs:     '#42a5f5', Logic:   '#ec407a', Mixed: '#ec407a',
+    Control: '#ff7043', Basic:   '#90a4ae', Blocks: '#90a4ae'
+  };
+  var def = COMP[typeKey];
+  return def && map[def.cat] ? map[def.cat] : '#90a4ae';
+}
+
 function drawGhostPreview() {
   if (S.mode !== 'place' || !S.placingType) return;
   const def = COMP[S.placingType]; if (!def) return;
   const wx = snap(S.mouse.wx), wy = snap(S.mouse.wy);
   const fh = S.placeFlipH ? -1 : 1;
   const fv = S.placeFlipV ? -1 : 1;
+  const accent = _ghostCategoryColor(S.placingType);
   ctx.save(); ctx.globalAlpha = 0.4;
   ctx.translate(wx, wy);
   ctx.rotate(S.placeRot * Math.PI / 2);
   if (fh !== 1 || fv !== 1) ctx.scale(fh, fv);
   def.draw(ctx, GRID, {});
   ctx.restore();
-  // Ghost pin markers. Compose rotation + flip in world space so markers
-  // follow the flipped symbol exactly.
+  // Sprint 104.5 — ghost pin dots use the category accent and a higher
+  // opacity than the body so the user's eye jumps to "this is where the
+  // connections will land". Slightly larger radius (3 → matches the
+  // canvas pin hit-test size seen in mouse.js).
   const r = S.placeRot * Math.PI / 2, cos = Math.cos(r), sin = Math.sin(r);
-  ctx.globalAlpha = 0.35;
+  ctx.save();
+  ctx.globalAlpha = 0.85;
+  ctx.fillStyle = accent;
   def.pins.forEach(p => {
     const lx = p.dx * fh;
     const ly = p.dy * fv;
     const px = wx + lx * cos - ly * sin, py = wy + lx * sin + ly * cos;
-    ctx.fillStyle = '#00e09e'; ctx.beginPath(); ctx.arc(px, py, 4, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(px, py, 3.5, 0, Math.PI * 2); ctx.fill();
   });
-  ctx.globalAlpha = 1;
+  // Inner 1.5px bright core so the dot reads even over dark grids.
+  ctx.globalAlpha = 0.95;
+  ctx.fillStyle = '#ffffff';
+  def.pins.forEach(p => {
+    const lx = p.dx * fh;
+    const ly = p.dy * fv;
+    const px = wx + lx * cos - ly * sin, py = wy + lx * sin + ly * cos;
+    ctx.beginPath(); ctx.arc(px, py, 1.2, 0, Math.PI * 2); ctx.fill();
+  });
+  ctx.restore();
 }
 
 function drawSelBox() {

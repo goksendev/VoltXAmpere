@@ -35,6 +35,7 @@ function startPlace(type) {
   //   • mark the matching sidebar card so the category glow reads
   //     "this is selected" even when the pick came from a shortcut
   try { if (typeof DatasheetPanel !== 'undefined' && DatasheetPanel.closeNow) DatasheetPanel.closeNow(); } catch (e) {}
+  try { if (typeof StampToast !== 'undefined' && StampToast.resetNudge) StampToast.resetNudge(); } catch (e) {}
   var wrap = document.getElementById('canvas-wrap');
   if (wrap) wrap.classList.add('place-mode');
   if (typeof _syncStampSelection === 'function') _syncStampSelection();
@@ -55,6 +56,34 @@ function flipGhost(axis) {
   if (axis === 'h') S.placeFlipH = !S.placeFlipH;
   else if (axis === 'v') S.placeFlipV = !S.placeFlipV;
   needsRender = true;
+}
+
+// Sprint 104.5 — mouse-less placement for Enter key. Targets the current
+// ghost position (snap of S.mouse.wx/wy). Skips the smart-offset nudge
+// when the user holds Shift, matching the mouse click override.
+function _stampPlaceAtGhost(shiftHeld) {
+  if (S.mode !== 'place' || !S.placingType) return;
+  if (typeof snap !== 'function' || !S.mouse) return;
+  var def = COMP[S.placingType]; if (!def) return;
+  var px = snap(S.mouse.wx);
+  var py = snap(S.mouse.wy);
+  if (!shiftHeld) {
+    var near = S.parts.some(function(q) { return Math.abs(q.x - px) < GRID / 2 && Math.abs(q.y - py) < GRID / 2; });
+    if (near) {
+      var rot = (S.placeRot | 0) % 2;
+      if (rot === 0) px += GRID; else py += GRID;
+      if (typeof StampToast !== 'undefined' && StampToast.showNudge) StampToast.showNudge();
+    }
+  }
+  saveUndo();
+  var p = { id: S.nextId++, type: S.placingType, name: nextName(S.placingType), x: px, y: py, rot: S.placeRot, val: def.def, flipH: !!S.placeFlipH, flipV: !!S.placeFlipV };
+  if (S.placingType === 'netLabel') { var nlCount = S.parts.filter(function(pp) { return pp.type === 'netLabel'; }).length; p.val = 'NET' + (nlCount + 1); }
+  else if (S.placingType === 'vccLabel') { p.val = 'VCC'; }
+  else if (S.placingType === 'gndLabel') { p.val = 'GND'; }
+  var defModel = (typeof VXA !== 'undefined' && VXA.Models) ? VXA.Models.getDefault(S.placingType) : null;
+  if (defModel) { p.model = defModel; if (typeof applyModel === 'function') applyModel(p, defModel); }
+  S.parts.push(p); S.sel = [p.id]; needsRender = true;
+  if (typeof updateInspector === 'function') updateInspector();
 }
 
 // Sprint 104.4 — keeps sidebar card .selected class + canvas cursor in

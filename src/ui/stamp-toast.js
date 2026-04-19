@@ -111,7 +111,7 @@ var StampToast = (function() {
         letterPart +
         '<span class="stamp-toast-name">' + name + '</span>' +
         '<span class="stamp-toast-sep">·</span>' +
-        '<span class="stamp-toast-hint"><kbd>Tık</kbd> yerleştir · <kbd>R</kbd> döndür · <kbd>Esc</kbd> iptal</span>';
+        '<span class="stamp-toast-hint"><kbd>Tık</kbd> yerleştir · <kbd>R</kbd> döndür · <kbd>Shift+Tık</kbd> override · <kbd>Esc</kbd> iptal</span>';
     }
 
     el.classList.add('stamp-toast-visible');
@@ -125,6 +125,27 @@ var StampToast = (function() {
     }, duration);
   }
 
+  // Sprint 104.5 — tiny "auto-nudged" toast. Shown the first 3 times smart
+  // placement offsets a stamp, then silent. Resets when the user exits
+  // stamp mode (via startPlace toggling inStamp off — we drive it by
+  // tracking a per-session counter on the module closure).
+  var _nudgeCount = 0;
+  var _NUDGE_LIMIT = 3;
+  function showNudge() {
+    if (_nudgeCount >= _NUDGE_LIMIT) return;
+    _nudgeCount++;
+    _ensureEl();
+    el.style.setProperty('--toast-accent', 'var(--cat-temel)');
+    el.innerHTML = '<span class="stamp-toast-nudge-ico">\u2197</span><span class="stamp-toast-name">Otomatik kaydırıldı</span><span class="stamp-toast-hint"><kbd>Shift+Tık</kbd> override</span>';
+    el.classList.add('stamp-toast-visible');
+    if (hideTimer) clearTimeout(hideTimer);
+    if (removeTimer) clearTimeout(removeTimer);
+    hideTimer = setTimeout(function() {
+      if (el) el.classList.remove('stamp-toast-visible');
+    }, 1100);
+  }
+  function resetNudge() { _nudgeCount = 0; }
+
   function resetSeen(compKey) {
     try {
       if (compKey) localStorage.removeItem(STORAGE_PREFIX + compKey);
@@ -137,7 +158,7 @@ var StampToast = (function() {
     } catch (e) {}
   }
 
-  return { show: show, resetSeen: resetSeen };
+  return { show: show, showNudge: showNudge, resetNudge: resetNudge, resetSeen: resetSeen };
 })();
 
 if (typeof window !== 'undefined') window.StampToast = StampToast;

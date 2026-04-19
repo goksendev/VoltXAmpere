@@ -6,27 +6,27 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>VoltXAmpere v12.0.0-alpha.16 — Professional Circuit Simulator</title>
+<title>VoltXAmpere v12.0.0-alpha.17 — Professional Circuit Simulator</title>
 <meta name="description" content="Professional browser-based circuit simulator. 71+ components, full SPICE parser, complete thermal-electrical coupling, AC-MNA analysis (Bode + Nyquist), professional multimeter probe. MIT licensed.">
 <meta name="keywords" content="circuit simulator, SPICE, devre simülatörü, electronics, voltxampere, free, online, oscilloscope, Bode, Nyquist, thermal, Newton-Raphson, MNA, Gummel-Poon">
 <meta name="author" content="goksendev">
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="https://voltxampere.com/simulator.html">
-<meta property="og:title" content="VoltXAmpere v12.0.0-alpha.16 — Professional Circuit Simulator">
+<meta property="og:title" content="VoltXAmpere v12.0.0-alpha.17 — Professional Circuit Simulator">
 <meta property="og:description" content="71+ components. Full SPICE parser. Thermal-electrical coupling. AC-MNA analysis. Professional multimeter. Free and open source.">
 <meta property="og:url" content="https://voltxampere.com/simulator.html">
 <meta property="og:type" content="website">
 <meta property="og:locale" content="en_US">
 <meta property="og:locale:alternate" content="tr_TR">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="VoltXAmpere v12.0.0-alpha.16 — Circuit Simulator">
+<meta name="twitter:title" content="VoltXAmpere v12.0.0-alpha.17 — Circuit Simulator">
 <meta name="twitter:description" content="71+ components. Full SPICE parser. Thermal-electrical coupling. Free and open source.">
 <meta name="theme-color" content="#0a0e14">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="VoltXAmpere">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='28' font-size='28'%3E%E2%9A%A1%3C/text%3E%3C/svg%3E">
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"VoltXAmpere","url":"https://voltxampere.com/simulator.html","description":"Professional browser-based circuit simulator with full SPICE parser, thermal-electrical coupling, and AC-MNA analysis","applicationCategory":"EducationalApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"softwareVersion":"12.0.0-alpha.16","license":"https://opensource.org/licenses/MIT","featureList":"71 components, Full SPICE parser, Thermal-electrical coupling, BSIM3 MOSFET, Gummel-Poon BJT, AC-MNA Bode and Nyquist, Professional multimeter probe, Inductor saturation, Hysteresis and eddy-current losses, Curie-point derating, Adaptive Newton-Raphson solver"}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"VoltXAmpere","url":"https://voltxampere.com/simulator.html","description":"Professional browser-based circuit simulator with full SPICE parser, thermal-electrical coupling, and AC-MNA analysis","applicationCategory":"EducationalApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"softwareVersion":"12.0.0-alpha.17","license":"https://opensource.org/licenses/MIT","featureList":"71 components, Full SPICE parser, Thermal-electrical coupling, BSIM3 MOSFET, Gummel-Poon BJT, AC-MNA Bode and Nyquist, Professional multimeter probe, Inductor saturation, Hysteresis and eddy-current losses, Curie-point derating, Adaptive Newton-Raphson solver"}</script>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
@@ -671,6 +671,37 @@ body.sidebar-resizing *{user-select:none!important}
 }
 @media (hover:none){ .stamp-toast{display:none!important} }
 
+/* ──────── SPRINT 104.5 — STAMP OVERLAY (SNAP GLOW + ROTATION PILL) ──────── */
+#canvas-wrap .snap-hint{
+  position:absolute;width:24px;height:24px;border-radius:50%;
+  --cat-accent:var(--cat-temel);
+  background:radial-gradient(circle, color-mix(in srgb,var(--cat-accent) 55%,transparent) 0%, transparent 68%);
+  pointer-events:none;z-index:4;
+  animation:snap-pulse 1.2s ease-in-out infinite;
+  display:none;
+}
+@keyframes snap-pulse{
+  0%,100%{opacity:.35;transform:scale(1)}
+  50%   {opacity:.7; transform:scale(1.25)}
+}
+#canvas-wrap .rotation-pill{
+  position:absolute;padding:2px 6px;border-radius:4px;
+  --cat-accent:var(--cat-temel);
+  font:500 10px/1 'JetBrains Mono',ui-monospace,monospace;
+  letter-spacing:.04em;
+  color:#fff;background:rgba(18,18,18,0.86);
+  border:1px solid color-mix(in srgb,var(--cat-accent) 45%,transparent);
+  box-shadow:0 2px 8px rgba(0,0,0,0.35);
+  pointer-events:none;z-index:5;
+  display:none;
+}
+.stamp-toast-nudge-ico{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:20px;height:20px;border-radius:4px;
+  background:rgba(255,255,255,0.06);
+  color:rgba(255,255,255,0.82);font:600 13px/1 var(--font-ui);
+}
+
 </style>
 </head>
 <body>
@@ -939,7 +970,7 @@ body.sidebar-resizing *{user-select:none!important}
     <span id="sb-temp" style="color:var(--text-3)"></span>
     <span id="sb-engine" style="color:var(--text-4)"></span>
     <span id="sb-extra" style="color:var(--text-3)"></span>
-    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v12.0.0-alpha.16 — Build: 2026-04-19 00:31 — © 2026</span>
+    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v12.0.0-alpha.17 — Build: 2026-04-19 00:48 — © 2026</span>
   </div>
 </div>
 
@@ -3092,6 +3123,7 @@ function startPlace(type) {
   //   • mark the matching sidebar card so the category glow reads
   //     "this is selected" even when the pick came from a shortcut
   try { if (typeof DatasheetPanel !== 'undefined' && DatasheetPanel.closeNow) DatasheetPanel.closeNow(); } catch (e) {}
+  try { if (typeof StampToast !== 'undefined' && StampToast.resetNudge) StampToast.resetNudge(); } catch (e) {}
   var wrap = document.getElementById('canvas-wrap');
   if (wrap) wrap.classList.add('place-mode');
   if (typeof _syncStampSelection === 'function') _syncStampSelection();
@@ -3112,6 +3144,34 @@ function flipGhost(axis) {
   if (axis === 'h') S.placeFlipH = !S.placeFlipH;
   else if (axis === 'v') S.placeFlipV = !S.placeFlipV;
   needsRender = true;
+}
+
+// Sprint 104.5 — mouse-less placement for Enter key. Targets the current
+// ghost position (snap of S.mouse.wx/wy). Skips the smart-offset nudge
+// when the user holds Shift, matching the mouse click override.
+function _stampPlaceAtGhost(shiftHeld) {
+  if (S.mode !== 'place' || !S.placingType) return;
+  if (typeof snap !== 'function' || !S.mouse) return;
+  var def = COMP[S.placingType]; if (!def) return;
+  var px = snap(S.mouse.wx);
+  var py = snap(S.mouse.wy);
+  if (!shiftHeld) {
+    var near = S.parts.some(function(q) { return Math.abs(q.x - px) < GRID / 2 && Math.abs(q.y - py) < GRID / 2; });
+    if (near) {
+      var rot = (S.placeRot | 0) % 2;
+      if (rot === 0) px += GRID; else py += GRID;
+      if (typeof StampToast !== 'undefined' && StampToast.showNudge) StampToast.showNudge();
+    }
+  }
+  saveUndo();
+  var p = { id: S.nextId++, type: S.placingType, name: nextName(S.placingType), x: px, y: py, rot: S.placeRot, val: def.def, flipH: !!S.placeFlipH, flipV: !!S.placeFlipV };
+  if (S.placingType === 'netLabel') { var nlCount = S.parts.filter(function(pp) { return pp.type === 'netLabel'; }).length; p.val = 'NET' + (nlCount + 1); }
+  else if (S.placingType === 'vccLabel') { p.val = 'VCC'; }
+  else if (S.placingType === 'gndLabel') { p.val = 'GND'; }
+  var defModel = (typeof VXA !== 'undefined' && VXA.Models) ? VXA.Models.getDefault(S.placingType) : null;
+  if (defModel) { p.model = defModel; if (typeof applyModel === 'function') applyModel(p, defModel); }
+  S.parts.push(p); S.sel = [p.id]; needsRender = true;
+  if (typeof updateInspector === 'function') updateInspector();
 }
 
 // Sprint 104.4 — keeps sidebar card .selected class + canvas cursor in
@@ -3456,7 +3516,21 @@ wrap.addEventListener('mousemove', e => {
   // Sprint 14: Probe drag
   if (VXA.Probes && VXA.Probes.isDragging()) { VXA.Probes.onDrag(w.x, w.y); needsRender = true; }
   // wire preview
-  if (S.mode === 'wire' && S.wireStart) { S.wirePreview = { x: w.x, y: w.y }; needsRender = true; }
+  // Sprint 104.5 — L-shape autoroute. We stash the raw target as
+  // wirePreview (legacy consumers stay happy) and additionally build
+  // an `Lpath` two-segment path on the state so drawing.js can draw the
+  // elbow. Direction is chosen by the dominant axis so the longer leg
+  // ends up first — the user's eye follows the path naturally.
+  if (S.mode === 'wire' && S.wireStart) {
+    var tx = snap(w.x), ty = snap(w.y);
+    S.wirePreview = { x: tx, y: ty };
+    var dx = Math.abs(tx - S.wireStart.x);
+    var dy = Math.abs(ty - S.wireStart.y);
+    var horizFirst = dx >= dy;
+    var corner = horizFirst ? { x: tx, y: S.wireStart.y } : { x: S.wireStart.x, y: ty };
+    S.wireLPath = { corner: corner, target: { x: tx, y: ty }, horizFirst: horizFirst };
+    needsRender = true;
+  }
   if (S.mode === 'place') needsRender = true;
 });
 
@@ -3474,7 +3548,23 @@ wrap.addEventListener('mousedown', e => {
   if (S.mode === 'place' && S.placingType) {
     saveUndo();
     const def = COMP[S.placingType];
-    const p = { id: S.nextId++, type: S.placingType, name: nextName(S.placingType), x: snap(w.x), y: snap(w.y), rot: S.placeRot, val: def.def, flipH: !!S.placeFlipH, flipV: !!S.placeFlipV };
+    var px = snap(w.x), py = snap(w.y);
+    // Sprint 104.5 — smart-offset: if the user targets a cell already
+    // occupied (within GRID/2) and isn't holding Shift to force overlap,
+    // nudge one grid down-right. Direction reacts to ghost rotation so
+    // vertical components step sideways instead of sandwiching each
+    // other. Shift bypass is announced in the enter-variant toast.
+    var nudged = false;
+    if (!e.shiftKey) {
+      var near = S.parts.some(function(q) { return Math.abs(q.x - px) < GRID / 2 && Math.abs(q.y - py) < GRID / 2; });
+      if (near) {
+        var rot = (S.placeRot | 0) % 2;
+        if (rot === 0) px += GRID; else py += GRID;
+        nudged = true;
+        if (typeof StampToast !== 'undefined' && StampToast.showNudge) StampToast.showNudge();
+      }
+    }
+    const p = { id: S.nextId++, type: S.placingType, name: nextName(S.placingType), x: px, y: py, rot: S.placeRot, val: def.def, flipH: !!S.placeFlipH, flipV: !!S.placeFlipV };
     // Sprint 9: net label default name
     if (S.placingType === 'netLabel') { var nlCount = S.parts.filter(function(pp) { return pp.type === 'netLabel'; }).length; p.val = 'NET' + (nlCount + 1); }
     else if (S.placingType === 'vccLabel') { p.val = 'VCC'; }
@@ -3506,22 +3596,35 @@ wrap.addEventListener('mousedown', e => {
     const tx = pin ? pin.x : snap(w.x), ty = pin ? pin.y : snap(w.y);
     if (!S.wireStart) {
       S.wireStart = { x: tx, y: ty };
+      S.wireLPath = null;
       if (typeof resetWireLag === 'function') resetWireLag();
     }
     else {
       if (Math.abs(tx - S.wireStart.x) < 2 && Math.abs(ty - S.wireStart.y) < 2) {
-        S.wireStart = null; S.wirePreview = null;
+        S.wireStart = null; S.wirePreview = null; S.wireLPath = null;
         if (typeof resetWireLag === 'function') resetWireLag();
         needsRender = true; return;
       }
       saveUndo();
-      S.wires.push({ x1: S.wireStart.x, y1: S.wireStart.y, x2: tx, y2: ty });
+      // Sprint 104.5 — push TWO segments forming an L. Axis choice mirrors
+      // the live preview in the mousemove handler above.
+      var dx = Math.abs(tx - S.wireStart.x);
+      var dy = Math.abs(ty - S.wireStart.y);
+      var horizFirst = dx >= dy;
+      var corner = horizFirst ? { x: tx, y: S.wireStart.y } : { x: S.wireStart.x, y: ty };
+      if (dx > 0 && dy > 0) {
+        S.wires.push({ x1: S.wireStart.x, y1: S.wireStart.y, x2: corner.x, y2: corner.y });
+        S.wires.push({ x1: corner.x, y1: corner.y, x2: tx, y2: ty });
+      } else {
+        // Pure horizontal or vertical — one segment is enough.
+        S.wires.push({ x1: S.wireStart.x, y1: S.wireStart.y, x2: tx, y2: ty });
+      }
       // Sprint 14: Flash effect on connection
       if (typeof onWireConnected === 'function') onWireConnected(tx, ty);
-      // Wire mode stays open — start next wire from this point
-      // User exits with ESC or right-click
+      // Wire mode stays open — start next wire from this point.
       S.wireStart = { x: tx, y: ty };
       S.wirePreview = null;
+      S.wireLPath = null;
       if (typeof resetWireLag === 'function') resetWireLag();
       needsRender = true;
     }
@@ -3730,9 +3833,26 @@ document.addEventListener('keydown', e => {
   for (const [type, def] of Object.entries(COMP)) { if (def.key && k === def.key && !e.ctrlKey && !e.metaKey && !e.altKey) { startPlace(type); return; } }
 
   if (k === 'escape') {
-    S.mode = 'select'; S.placingType = null; S.wireStart = null; S.wirePreview = null;
+    // Sprint 104.5 — Esc priority: datasheet panel (handled by its own
+    // capture-phase listener) > wire-drawing in progress > stamp > idle.
+    // Wire in-progress = user has clicked first point; clearing wireStart
+    // keeps the user in wire MODE but drops the dangling preview. Next
+    // Esc still exits wire mode via the select-mode reset below.
+    if (S.mode === 'wire' && S.wireStart) {
+      S.wireStart = null; S.wirePreview = null; S.wireLPath = null;
+      needsRender = true;
+      return;
+    }
+    S.mode = 'select'; S.placingType = null; S.wireStart = null; S.wirePreview = null; S.wireLPath = null;
     document.getElementById('btn-wire').classList.remove('active'); needsRender = true;
     if (typeof _syncStampSelection === 'function') _syncStampSelection();
+    return;
+  }
+  // Sprint 104.5 — Enter in stamp mode places the ghost where it currently
+  // is (snap point under the mouse). Mouse-less placement convenience.
+  if (e.key === 'Enter' && S.mode === 'place' && S.placingType) {
+    e.preventDefault();
+    if (typeof _stampPlaceAtGhost === 'function') _stampPlaceAtGhost(e.shiftKey);
     return;
   }
   if (k === 'w' && !e.ctrlKey && !e.metaKey && !e.altKey) { toggleWire(); return; }
@@ -4695,6 +4815,26 @@ function drawWirePreview() {
   }
 
   var dist = Math.hypot(lagX - s.x, lagY - s.y);
+
+  // Sprint 104.5 — when the mouse handler has a live L-path, render it
+  // verbatim so preview and commit match pixel-for-pixel. Snapped corner
+  // is highlighted with a small circle so the user sees where the elbow
+  // will land.
+  if (S.wireLPath) {
+    var corner = S.wireLPath.corner;
+    var target = S.wireLPath.target;
+    ctx.strokeStyle = '#00e09e'; ctx.lineWidth = 1.5; ctx.setLineDash([6, 4]);
+    ctx.beginPath();
+    ctx.moveTo(s.x, s.y);
+    ctx.lineTo(corner.x, corner.y);
+    ctx.lineTo(target.x, target.y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(0, 224, 158, 0.55)';
+    ctx.beginPath(); ctx.arc(corner.x, corner.y, 3, 0, Math.PI * 2); ctx.fill();
+    return;
+  }
+
   ctx.strokeStyle = '#00e09e'; ctx.lineWidth = 1.5; ctx.setLineDash([6, 4]);
   ctx.beginPath(); ctx.moveTo(s.x, s.y);
 
@@ -4724,29 +4864,56 @@ function drawWirePreview() {
   ctx.setLineDash([]);
 }
 
+// Sprint 104.5 — category-accented ghost with pin preview dots. Resolves
+// the part's category color so the ghost and the surrounding DOM overlays
+// (snap glow, rotation pill) all read as one coherent tint.
+function _ghostCategoryColor(typeKey) {
+  var map = {
+    Passive: '#4fc3f7', Sources: '#66bb6a', Semi: '#ba68c8',
+    ICs:     '#42a5f5', Logic:   '#ec407a', Mixed: '#ec407a',
+    Control: '#ff7043', Basic:   '#90a4ae', Blocks: '#90a4ae'
+  };
+  var def = COMP[typeKey];
+  return def && map[def.cat] ? map[def.cat] : '#90a4ae';
+}
+
 function drawGhostPreview() {
   if (S.mode !== 'place' || !S.placingType) return;
   const def = COMP[S.placingType]; if (!def) return;
   const wx = snap(S.mouse.wx), wy = snap(S.mouse.wy);
   const fh = S.placeFlipH ? -1 : 1;
   const fv = S.placeFlipV ? -1 : 1;
+  const accent = _ghostCategoryColor(S.placingType);
   ctx.save(); ctx.globalAlpha = 0.4;
   ctx.translate(wx, wy);
   ctx.rotate(S.placeRot * Math.PI / 2);
   if (fh !== 1 || fv !== 1) ctx.scale(fh, fv);
   def.draw(ctx, GRID, {});
   ctx.restore();
-  // Ghost pin markers. Compose rotation + flip in world space so markers
-  // follow the flipped symbol exactly.
+  // Sprint 104.5 — ghost pin dots use the category accent and a higher
+  // opacity than the body so the user's eye jumps to "this is where the
+  // connections will land". Slightly larger radius (3 → matches the
+  // canvas pin hit-test size seen in mouse.js).
   const r = S.placeRot * Math.PI / 2, cos = Math.cos(r), sin = Math.sin(r);
-  ctx.globalAlpha = 0.35;
+  ctx.save();
+  ctx.globalAlpha = 0.85;
+  ctx.fillStyle = accent;
   def.pins.forEach(p => {
     const lx = p.dx * fh;
     const ly = p.dy * fv;
     const px = wx + lx * cos - ly * sin, py = wy + lx * sin + ly * cos;
-    ctx.fillStyle = '#00e09e'; ctx.beginPath(); ctx.arc(px, py, 4, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(px, py, 3.5, 0, Math.PI * 2); ctx.fill();
   });
-  ctx.globalAlpha = 1;
+  // Inner 1.5px bright core so the dot reads even over dark grids.
+  ctx.globalAlpha = 0.95;
+  ctx.fillStyle = '#ffffff';
+  def.pins.forEach(p => {
+    const lx = p.dx * fh;
+    const ly = p.dy * fv;
+    const px = wx + lx * cos - ly * sin, py = wy + lx * sin + ly * cos;
+    ctx.beginPath(); ctx.arc(px, py, 1.2, 0, Math.PI * 2); ctx.fill();
+  });
+  ctx.restore();
 }
 
 function drawSelBox() {
@@ -18911,7 +19078,7 @@ var StampToast = (function() {
         letterPart +
         '<span class="stamp-toast-name">' + name + '</span>' +
         '<span class="stamp-toast-sep">·</span>' +
-        '<span class="stamp-toast-hint"><kbd>Tık</kbd> yerleştir · <kbd>R</kbd> döndür · <kbd>Esc</kbd> iptal</span>';
+        '<span class="stamp-toast-hint"><kbd>Tık</kbd> yerleştir · <kbd>R</kbd> döndür · <kbd>Shift+Tık</kbd> override · <kbd>Esc</kbd> iptal</span>';
     }
 
     el.classList.add('stamp-toast-visible');
@@ -18925,6 +19092,27 @@ var StampToast = (function() {
     }, duration);
   }
 
+  // Sprint 104.5 — tiny "auto-nudged" toast. Shown the first 3 times smart
+  // placement offsets a stamp, then silent. Resets when the user exits
+  // stamp mode (via startPlace toggling inStamp off — we drive it by
+  // tracking a per-session counter on the module closure).
+  var _nudgeCount = 0;
+  var _NUDGE_LIMIT = 3;
+  function showNudge() {
+    if (_nudgeCount >= _NUDGE_LIMIT) return;
+    _nudgeCount++;
+    _ensureEl();
+    el.style.setProperty('--toast-accent', 'var(--cat-temel)');
+    el.innerHTML = '<span class="stamp-toast-nudge-ico">\u2197</span><span class="stamp-toast-name">Otomatik kaydırıldı</span><span class="stamp-toast-hint"><kbd>Shift+Tık</kbd> override</span>';
+    el.classList.add('stamp-toast-visible');
+    if (hideTimer) clearTimeout(hideTimer);
+    if (removeTimer) clearTimeout(removeTimer);
+    hideTimer = setTimeout(function() {
+      if (el) el.classList.remove('stamp-toast-visible');
+    }, 1100);
+  }
+  function resetNudge() { _nudgeCount = 0; }
+
   function resetSeen(compKey) {
     try {
       if (compKey) localStorage.removeItem(STORAGE_PREFIX + compKey);
@@ -18937,10 +19125,129 @@ var StampToast = (function() {
     } catch (e) {}
   }
 
-  return { show: show, resetSeen: resetSeen };
+  return { show: show, showNudge: showNudge, resetNudge: resetNudge, resetSeen: resetSeen };
 })();
 
 if (typeof window !== 'undefined') window.StampToast = StampToast;
+
+
+// ═══ stamp-overlay.js ═══
+// ──────── SPRINT 104.5 — STAMP MODE DOM OVERLAYS ────────
+// Two absolutely-positioned DOM elements living inside #canvas-wrap:
+//
+//   .snap-hint      — 10px pulsing dot showing which grid intersection the
+//                      ghost will snap to. CSS handles the pulse animation
+//                      so we don't tax the canvas redraw loop.
+//   .rotation-pill  — tiny monospace chip near the ghost showing the
+//                      current rotation angle (and flip icons). Hidden
+//                      when the ghost is at 0° with no flips — nothing
+//                      interesting to show.
+//
+// Both layers read world→screen coordinates via the canvas transform the
+// simulator already uses (S.view.zoom + S.view.ox/oy). We register a
+// pointermove listener on #canvas-wrap so the update happens alongside
+// the existing canvas mousemove without fighting it.
+//
+// Public surface:
+//   StampOverlay.update()    — repositions hints to current S.mouse + S.place*
+//   StampOverlay.hide()      — force hide (called on stamp exit)
+
+var StampOverlay = (function() {
+
+  var snapEl = null;
+  var pillEl = null;
+  var wrapEl = null;
+
+  function _ensure() {
+    if (wrapEl) return;
+    wrapEl = document.getElementById('canvas-wrap');
+    if (!wrapEl) return;
+    snapEl = document.createElement('div');
+    snapEl.className = 'snap-hint';
+    snapEl.setAttribute('aria-hidden', 'true');
+    wrapEl.appendChild(snapEl);
+    pillEl = document.createElement('div');
+    pillEl.className = 'rotation-pill';
+    pillEl.setAttribute('aria-hidden', 'true');
+    wrapEl.appendChild(pillEl);
+  }
+
+  function _catColor() {
+    var key = (typeof S !== 'undefined' && S.placingType) || null;
+    var cat = key && window.COMP && window.COMP[key] ? window.COMP[key].cat : null;
+    var map = {
+      Passive: '--cat-pasif', Sources: '--cat-kaynaklar', Semi: '--cat-yariiletken',
+      ICs: '--cat-entegre', Logic: '--cat-lojik', Mixed: '--cat-mixedsignal',
+      Control: '--cat-kontrol', Basic: '--cat-temel', Blocks: '--cat-temel'
+    };
+    return 'var(' + (map[cat] || '--cat-temel') + ')';
+  }
+
+  function _worldToScreen(wx, wy) {
+    if (typeof S === 'undefined' || !S.view) return { x: 0, y: 0 };
+    return { x: wx * S.view.zoom + S.view.ox, y: wy * S.view.zoom + S.view.oy };
+  }
+
+  function update() {
+    _ensure();
+    if (!wrapEl || !snapEl || !pillEl) return;
+    var inStamp = (typeof S !== 'undefined') && S.mode === 'place' && S.placingType;
+    if (!inStamp) { snapEl.style.display = 'none'; pillEl.style.display = 'none'; return; }
+
+    // Snap glow — snap(S.mouse.wx), snap(S.mouse.wy) should match the
+    // position drawGhostPreview uses.
+    if (typeof S.mouse !== 'undefined' && typeof snap === 'function') {
+      var sx = snap(S.mouse.wx);
+      var sy = snap(S.mouse.wy);
+      var p = _worldToScreen(sx, sy);
+      snapEl.style.display = 'block';
+      snapEl.style.left = (p.x - 12) + 'px';
+      snapEl.style.top = (p.y - 12) + 'px';
+      snapEl.style.setProperty('--cat-accent', _catColor());
+
+      // Rotation pill — show only when interesting (not 0° no flip).
+      var rot = (S.placeRot || 0) * 90;
+      var flipH = !!S.placeFlipH, flipV = !!S.placeFlipV;
+      if (rot === 0 && !flipH && !flipV) {
+        pillEl.style.display = 'none';
+      } else {
+        var txt = rot + '°';
+        if (flipH) txt += ' \u21C6';  // ⇆
+        if (flipV) txt += ' \u21C5';  // ⇅
+        pillEl.textContent = txt;
+        pillEl.style.display = 'block';
+        pillEl.style.left = (p.x + 16) + 'px';
+        pillEl.style.top = (p.y - 28) + 'px';
+        pillEl.style.setProperty('--cat-accent', _catColor());
+      }
+    }
+  }
+
+  function hide() {
+    if (snapEl) snapEl.style.display = 'none';
+    if (pillEl) pillEl.style.display = 'none';
+  }
+
+  // Drive updates off canvas-wrap pointer events — these already fire on
+  // every move the simulator cares about.
+  if (typeof document !== 'undefined') {
+    function _wire() {
+      _ensure();
+      if (!wrapEl) return;
+      wrapEl.addEventListener('pointermove', update);
+      wrapEl.addEventListener('pointerenter', update);
+      // Fallback ticker so the pill shows up right after R/F rotate/flip
+      // even if the mouse hasn't moved since.
+      setInterval(update, 120);
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _wire);
+    else _wire();
+  }
+
+  return { update: update, hide: hide };
+})();
+
+if (typeof window !== 'undefined') window.StampOverlay = StampOverlay;
 
 
 // ═══ startup.js ═══
@@ -19003,7 +19310,7 @@ function setAriaLabels() {
 setAriaLabels();
 
 // Console banner
-console.log('%c\u26A1 VoltXAmpere v12.0.0-alpha.16', 'color:#00e09e;font-size:18px;font-weight:bold');
+console.log('%c\u26A1 VoltXAmpere v12.0.0-alpha.17', 'color:#00e09e;font-size:18px;font-weight:bold');
 console.log('%cProfessional Circuit Simulator \u2014 voltxampere.com', 'color:#8899aa;font-size:12px');
 console.log('%c' + t('scriptApi'), 'color:#f59e0b;font-size:11px');
 
@@ -31031,7 +31338,7 @@ function runQuickDemo() {
 function showAbout() {
   var box = document.getElementById('about-box');
   var tr = currentLang === 'tr';
-  box.innerHTML = '<div style="font:800 24px var(--font-ui);margin-bottom:4px"><span style="color:var(--accent)">\u26A1 Volt</span><span style="color:var(--orange)">X</span><span style="color:var(--blue)">Ampere</span> <span style="font:500 14px var(--font-mono);color:var(--text-3)">v12.0.0-alpha.16</span></div>'
+  box.innerHTML = '<div style="font:800 24px var(--font-ui);margin-bottom:4px"><span style="color:var(--accent)">\u26A1 Volt</span><span style="color:var(--orange)">X</span><span style="color:var(--blue)">Ampere</span> <span style="font:500 14px var(--font-mono);color:var(--text-3)">v12.0.0-alpha.17</span></div>'
     + '<div style="font:13px var(--font-ui);color:var(--text-2);margin-bottom:16px">' + (tr?'D\u00fcnyan\u0131n En Geli\u015fmi\u015f \u00dccretsiz Devre Sim\u00fclat\u00f6r\u00fc':'World\'s Most Advanced Free Circuit Simulator') + '</div>'
     + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;text-align:left;font-size:11px;color:var(--text-2);margin-bottom:12px">'
     + '<div>\u2705 71+ ' + (tr?'Bile\u015fen':'Components') + '</div>'

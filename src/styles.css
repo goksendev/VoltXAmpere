@@ -639,3 +639,34 @@ body.sidebar-resizing *{user-select:none!important}
   border:1px solid rgba(255,255,255,0.12);
 }
 @media (hover:none){ .stamp-toast{display:none!important} }
+
+/* ──────── SPRINT 104.5 — STAMP OVERLAY (SNAP GLOW + ROTATION PILL) ──────── */
+#canvas-wrap .snap-hint{
+  position:absolute;width:24px;height:24px;border-radius:50%;
+  --cat-accent:var(--cat-temel);
+  background:radial-gradient(circle, color-mix(in srgb,var(--cat-accent) 55%,transparent) 0%, transparent 68%);
+  pointer-events:none;z-index:4;
+  animation:snap-pulse 1.2s ease-in-out infinite;
+  display:none;
+}
+@keyframes snap-pulse{
+  0%,100%{opacity:.35;transform:scale(1)}
+  50%   {opacity:.7; transform:scale(1.25)}
+}
+#canvas-wrap .rotation-pill{
+  position:absolute;padding:2px 6px;border-radius:4px;
+  --cat-accent:var(--cat-temel);
+  font:500 10px/1 'JetBrains Mono',ui-monospace,monospace;
+  letter-spacing:.04em;
+  color:#fff;background:rgba(18,18,18,0.86);
+  border:1px solid color-mix(in srgb,var(--cat-accent) 45%,transparent);
+  box-shadow:0 2px 8px rgba(0,0,0,0.35);
+  pointer-events:none;z-index:5;
+  display:none;
+}
+.stamp-toast-nudge-ico{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:20px;height:20px;border-radius:4px;
+  background:rgba(255,255,255,0.06);
+  color:rgba(255,255,255,0.82);font:600 13px/1 var(--font-ui);
+}
