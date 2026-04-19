@@ -1,9 +1,13 @@
 /*
- * VoltXAmpere v2 — tasarım tokenleri (Sprint 0.1 başlangıç seti).
- * Sonraki sprintlerde (0.2 → layout + tipografi skalası) genişletilecek.
- * Şu anda yalnızca "iskelet ayakta" sayfası için gereken yedi değişken tanımlı.
+ * VoltXAmpere v2 — tasarım tokenleri.
+ * Sprint 0.1: 8 temel token (renk + font).
+ * Sprint 0.2: 39 yeni token — yüzey seviyeleri, kenar, metin hiyerarşisi,
+ *             devre renkleri, durum, tipografi skalası, spacing, radius,
+ *             Tasarla modu grid boyutları.
+ * Sonraki sprintlerde yalnızca gerçekten kullanılacak tokenler eklenecek.
  */
 :root {
+  /* ─── Mevcut (Sprint 0.1) ─── */
   --bg-0: #07080A;       /* Sayfa zemini */
   --bg-1: #0D0F13;       /* Yükseltilmiş yüzey / kod bloğu */
   --fg: #E8EAED;         /* Birincil metin */
@@ -12,4 +16,61 @@
   --current: #3DE0FF;    /* Akım cyan (mono vurgu) */
   --sans: 'Geist', system-ui, sans-serif;
   --mono: 'JetBrains Mono', monospace;
+
+  /* ─── Arka plan seviyeleri (Sprint 0.2 yeni) ─── */
+  --bg-2: #12151B;         /* yüzey */
+  --bg-3: #1A1E26;         /* yükselen yüzey */
+  --bg-4: #242932;         /* vurgulanan yüzey */
+  --canvas: #050709;       /* devre canvas'ı, en koyu */
+
+  /* ─── Kenarlıklar ─── */
+  --line: #1F242E;
+  --line-str: #2E3542;     /* güçlü kenar */
+
+  /* ─── Metin hiyerarşisi ─── */
+  --fg-3: #5F6670;
+  --fg-4: #3B4049;
+
+  /* ─── Ek devre renkleri (canvas içi) ─── */
+  --v-pos: #FFB84D;        /* pozitif voltaj (= accent) */
+  --v-neg: #FF6B6B;
+  --ground: #6B7280;
+  --wire: #B8C1D0;
+  --probe-a: #FFB84D;
+  --probe-b: #3DE0FF;
+  --probe-c: #B794F4;      /* 3. probe için mor */
+
+  /* ─── Durum ─── */
+  --ok: #4ADE80;
+  --warn: #FBBF24;
+  --err: #F87171;
+
+  /* ─── Tipografi skalası ─── */
+  --fs-xs: 10px;
+  --fs-sm: 11px;
+  --fs-base: 13px;
+  --fs-md: 14px;
+  --fs-lg: 16px;
+  --fs-xl: 20px;
+  --fs-2xl: 28px;
+
+  /* ─── Spacing (4px tabanlı) ─── */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+
+  /* ─── Radius ─── */
+  --r-1: 2px;
+  --r-2: 4px;
+  --r-3: 6px;
+  --r-4: 8px;
+
+  /* ─── Grid boyutları (Tasarla modu) ─── */
+  --grid-topbar-h: 54px;
+  --grid-sidebar-w: 96px;
+  --grid-inspector-w: 216px;
+  --grid-dashboard-h: 140px;
 }
