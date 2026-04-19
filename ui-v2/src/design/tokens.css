@@ -72,9 +72,15 @@
   --grid-topbar-h: 54px;
   --grid-sidebar-w: 96px;
   --grid-inspector-w: 216px;
-  --grid-dashboard-h: 140px;
+  /* Sprint 0.7: 140 → 220 transient grafik için alan. Token tek kaynak —
+     design-mode grid template otomatik yansır, başka dosya dokunulmaz. */
+  --grid-dashboard-h: 220px;
 
   /* ─── Canvas grid (Sprint 0.3 yeni) ─── */
   --canvas-dot:     rgba(200, 210, 230, 0.22);    /* küçük grid noktaları */
   --canvas-dot-maj: rgba(200, 210, 230, 0.35);    /* büyük grid noktaları (her 5 nokta) */
+
+  /* ─── Transient grafik grid (Sprint 0.7) ─── */
+  /* Grafik zeminindeki referans çizgileri — çok hafif, göz yormaz. */
+  --chart-grid: rgba(200, 210, 230, 0.08);
 }

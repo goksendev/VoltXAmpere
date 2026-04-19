@@ -15,7 +15,51 @@
 // İleride v1 engine'i WASM'a taşırsak veya kendi solver'ımızı yazarsak
 // **yalnızca bu dosya değişir** — design-mode.ts, circuits/*.ts, vb. dokunmaz.
 // v2'nin başka hiçbir yerinden `@v1-engine/...` import EDİLMEMELİ.
-import workerBody from '@v1-engine/sim-worker-body.js?raw';
+import workerBodyRaw from '@v1-engine/sim-worker-body.js?raw';
+
+// ─── Worker body runtime patch'leri (Sprint 0.7) ────────────────────────────
+// v1'in transient reactive-element güncelleme satırlarında 1-based vs 0-based
+// index karışıklığı var:
+//   uc.n1 / uc.n2 1-based (node index 1..N, 0 = ground)
+//   nodeV Float64Array 0-based (M elemanlı)
+//
+// Worker şu an `nodeV[uc.n1]` yazıyor — aslında `nodeV[uc.n1 - 1]` olmalı
+// (ground için 0). sim-legacy.js ayrı bir sim path'i kullanıyor, bu yüzden
+// v1 production'da fark edilmemiş; worker RC transient'te V_ÇIKIŞ negatif
+// döndürüyor.
+//
+// v1 dosyasına dokunmuyoruz — Blob'a yüklemeden önce string üstünde regex
+// replace yapıyoruz. Fix çok dar kapsamlı: sadece C._vPrev ve L._iPrev
+// güncelleme satırları. Matches tek seferlik; başarısızlık hâlinde konsolda
+// uyarı — transient yine çalışır ama yanlış değerler döner (bug görünür olur).
+function patchWorkerBody(src: string): string {
+  // Tek satır replace yardımcısı. Match bulamazsa aynen döndürür.
+  const fix = (pattern: RegExp, replacement: string, label: string): string => {
+    if (!pattern.test(src)) {
+      console.warn(`[bridge] worker patch '${label}' bulunamadı — v1 engine değişmiş olabilir.`);
+      return src;
+    }
+    return src.replace(pattern, replacement);
+  };
+
+  // C: uc._vPrev = (nodeV[uc.n1] || 0) - (nodeV[uc.n2] || 0);
+  src = fix(
+    /uc\._vPrev\s*=\s*\(nodeV\[uc\.n1\][^;]+;/,
+    'uc._vPrev = ((uc.n1 > 0 ? (nodeV[uc.n1 - 1] || 0) : 0)) - ((uc.n2 > 0 ? (nodeV[uc.n2 - 1] || 0) : 0));',
+    'C vPrev 0-based index',
+  );
+
+  // L: var vL = (nodeV[uc.n1] || 0) - (nodeV[uc.n2] || 0);
+  src = fix(
+    /var\s+vL\s*=\s*\(nodeV\[uc\.n1\][^;]+;/,
+    'var vL = ((uc.n1 > 0 ? (nodeV[uc.n1 - 1] || 0) : 0)) - ((uc.n2 > 0 ? (nodeV[uc.n2 - 1] || 0) : 0));',
+    'L vL 0-based index',
+  );
+
+  return src;
+}
+
+const workerBody = patchWorkerBody(workerBodyRaw);
 
 // ─── v2 temiz API tipleri ────────────────────────────────────────────────────
 // v1 worker'ın (sim-worker-body.js stampAndSolve) tanıdığı tüm component
@@ -115,6 +159,9 @@ interface WorkerPayload {
     val: number;
     bi?: number;
   }>;
+  /** Transient tick'lerinde scope buffer'a yazılacak düğüm indisleri. DC
+   * solve'da verilmez. */
+  scopeNodes?: number[];
 }
 
 interface PayloadMeta {
@@ -122,7 +169,17 @@ interface PayloadMeta {
   branchIdxByComp: Map<string, number>;
 }
 
-function toWorkerPayload(circuit: CircuitDef): {
+interface PayloadOpts {
+  /** DC için DC_OP_DT, transient için gerçek dt. */
+  dt?: number;
+  /** Transient tick'te izlenecek düğüm adları (sırası önemli). */
+  scopeNodeNames?: string[];
+}
+
+function toWorkerPayload(
+  circuit: CircuitDef,
+  opts: PayloadOpts = {},
+): {
   payload: WorkerPayload;
   meta: PayloadMeta;
 } {
@@ -165,8 +222,27 @@ function toWorkerPayload(circuit: CircuitDef): {
     return base;
   });
 
+  const dt = opts.dt ?? DC_OP_DT;
+  const scopeNodes = opts.scopeNodeNames
+    ? opts.scopeNodeNames.map((name) => {
+        const idx = nodeIdx.get(name);
+        if (idx === undefined || idx === 0) {
+          throw new Error(
+            `scope düğümü '${name}' tanımsız veya ground — non-ground bir düğüm adı olmalı.`,
+          );
+        }
+        return idx;
+      })
+    : undefined;
+
   return {
-    payload: { N, branchCount, dt: DC_OP_DT, comps },
+    payload: {
+      N,
+      branchCount,
+      dt,
+      comps,
+      ...(scopeNodes ? { scopeNodes } : {}),
+    },
     meta: { nodeIdx, branchIdxByComp },
   };
 }
@@ -250,6 +326,7 @@ export function solveCircuit(circuit: CircuitDef): Promise<SolveResult> {
 
   try {
     worker = ensureWorker();
+    // DC operating point — dt varsayılan (DC_OP_DT), scope yok.
     const conv = toWorkerPayload(circuit);
     payload = conv.payload;
     meta = conv.meta;
@@ -346,4 +423,197 @@ export function resetBridge(): void {
     try { URL.revokeObjectURL(workerObjectUrl); } catch { /* yoksay */ }
     workerObjectUrl = null;
   }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// ─── Transient analiz (Sprint 0.7) ──────────────────────────────────────────
+// ────────────────────────────────────────────────────────────────────────────
+//
+// Worker protokolü: init → start + speed. Worker her `stepsPerTick × speed`
+// adımda bir `tick` mesajı gönderir; mesaj içinde `scopeBuffer` ArrayBuffer'ı
+// (steps × channels × Float64). Bridge istenen örnek sayısına ulaşınca stop
+// edip Promise'i resolve eder.
+//
+// Tek shot analiz — transient bittikten sonra worker terminate edilir. Ayrı
+// worker instance kullanıyoruz ki solveCircuit'in paylaşılan worker'ıyla
+// state çakışmasın.
+
+export interface TransientRequest {
+  circuit: CircuitDef;
+  /** Zaman adımı (saniye). RC low-pass için 1e-7 (100 ns) iyi bir başlangıç. */
+  dt: number;
+  /** Toplam süre (saniye). 5·τ kural-ı-kaba. */
+  duration: number;
+  /** Takip edilecek düğüm adları (ground olamaz, `nodes` listesinde tanımlı). */
+  probeNodes: string[];
+}
+
+export interface TransientResult {
+  success: boolean;
+  errorMessage?: string;
+  /** N-uzunluk zaman serisi (saniye). */
+  time: Float64Array;
+  /** probeNodes her biri için N-uzunluk voltaj serisi. */
+  nodeVoltages: Record<string, Float64Array>;
+}
+
+// Üst örnek sınırı — tarayıcı kilitlenmesini önlemek için.
+// 10000 × dt=100ns → 1 ms; 10000 × dt=1µs → 10 ms. RC için çok yeterli.
+const MAX_SAMPLES = 10_000;
+
+// Transient tamamlanana kadar beklenecek en fazla süre (ms). Tek worker iyi
+// speed ile 500 örneği 50 ms'de bitirir; 5 saniye fazlasıyla güvenli.
+const TRANSIENT_TIMEOUT_MS = 5_000;
+
+// Speed çarpanı. Worker her tick'te `stepsPerTick × speed` adım simule eder.
+// Default stepsPerTick = 10; speed 50 ile tick başı 500 adım → 500 örnek
+// yaklaşık 1 tick (16 ms) sürer. Loading latency'sini minimize ediyor.
+const TRANSIENT_SPEED = 50;
+
+function createTransientWorker(): Worker {
+  const blob = new Blob([workerBody], { type: 'application/javascript' });
+  const url = URL.createObjectURL(blob);
+  const w = new Worker(url);
+  // URL'i worker kapandığında temizle (Chrome otomatik revoke etmez).
+  w.addEventListener('error', () => URL.revokeObjectURL(url));
+  // Terminate sonrası URL'i serbest bırakmak için closure'da tutuyoruz ama
+  // onu çağıran taraf terminate sonrası revoke eder (aşağıda finalize).
+  (w as Worker & { _objectUrl?: string })._objectUrl = url;
+  return w;
+}
+
+function terminateTransientWorker(w: Worker): void {
+  try { w.terminate(); } catch { /* yoksay */ }
+  const url = (w as Worker & { _objectUrl?: string })._objectUrl;
+  if (url) {
+    try { URL.revokeObjectURL(url); } catch { /* yoksay */ }
+  }
+}
+
+export function solveTransient(req: TransientRequest): Promise<TransientResult> {
+  const emptyResult = (msg: string): TransientResult => ({
+    success: false,
+    errorMessage: msg,
+    time: new Float64Array(0),
+    nodeVoltages: {},
+  });
+
+  // ─── Validation ──────────────────────────────────────────────────────────
+  const unsupported = req.circuit.components.filter(
+    (c) => !SUPPORTED_TYPES.has(c.type as ComponentType),
+  );
+  if (unsupported.length > 0) {
+    const list = unsupported.map((c) => `${c.id}(${c.type})`).join(', ');
+    const msg = `Desteklenmeyen bileşen tipleri: ${list}. Worker yalnızca ${Array.from(SUPPORTED_TYPES).join('/')} tanıyor.`;
+    console.error('[bridge] transient başarısız:', msg);
+    return Promise.resolve(emptyResult(msg));
+  }
+
+  if (req.dt <= 0 || req.duration <= 0) {
+    return Promise.resolve(emptyResult(`dt ve duration pozitif olmalı (dt=${req.dt}, duration=${req.duration}).`));
+  }
+
+  const totalSamples = Math.ceil(req.duration / req.dt);
+  if (totalSamples > MAX_SAMPLES) {
+    const msg = `Çok fazla örnek: ${totalSamples}. Max ${MAX_SAMPLES}. dt veya duration azalt.`;
+    console.error('[bridge] transient başarısız:', msg);
+    return Promise.resolve(emptyResult(msg));
+  }
+
+  if (req.probeNodes.length === 0) {
+    return Promise.resolve(emptyResult('En az bir probeNode belirt.'));
+  }
+
+  // ─── Payload ─────────────────────────────────────────────────────────────
+  let worker: Worker;
+  let payload: WorkerPayload;
+  try {
+    const conv = toWorkerPayload(req.circuit, {
+      dt: req.dt,
+      scopeNodeNames: req.probeNodes,
+    });
+    payload = conv.payload;
+    worker = createTransientWorker();
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error('[bridge] transient başarısız:', msg);
+    return Promise.resolve(emptyResult(msg));
+  }
+
+  // ─── Tick toplayıcı ──────────────────────────────────────────────────────
+  return new Promise<TransientResult>((resolve) => {
+    let resolved = false;
+    // Düğüm başına biriken değerler (push-based, final'da Float64Array'e çevrilir).
+    const perNode: number[][] = req.probeNodes.map(() => []);
+    let sampleCount = 0;
+
+    const finalize = (r: TransientResult) => {
+      if (resolved) return;
+      resolved = true;
+      clearTimeout(timeoutHandle);
+      worker.removeEventListener('message', onMessage);
+      try { worker.postMessage({ command: 'stop' }); } catch { /* yoksay */ }
+      terminateTransientWorker(worker);
+      if (!r.success && r.errorMessage) {
+        console.error('[bridge] transient başarısız:', r.errorMessage);
+      }
+      resolve(r);
+    };
+
+    const timeoutHandle = setTimeout(() => {
+      finalize(emptyResult(`Transient yanıt vermedi (${TRANSIENT_TIMEOUT_MS} ms zaman aşımı, ${sampleCount}/${totalSamples} örnek alındı)`));
+    }, TRANSIENT_TIMEOUT_MS);
+
+    const onMessage = (e: MessageEvent) => {
+      const msg = e.data;
+      if (!msg || typeof msg.type !== 'string') return;
+
+      switch (msg.type) {
+        case 'ready':
+          try {
+            worker.postMessage({ command: 'start', speed: TRANSIENT_SPEED });
+          } catch (err) {
+            finalize(emptyResult(`Worker start komutu başarısız: ${err}`));
+          }
+          break;
+
+        case 'tick': {
+          if (!msg.scopeBuffer) break;
+          const buf = new Float64Array(msg.scopeBuffer as ArrayBuffer);
+          const channels = (msg.scopeChannels as number) || req.probeNodes.length;
+          const steps = Math.floor(buf.length / channels);
+          for (let s = 0; s < steps; s++) {
+            if (sampleCount >= totalSamples) break;
+            for (let c = 0; c < channels; c++) {
+              perNode[c]!.push(buf[s * channels + c]!);
+            }
+            sampleCount++;
+          }
+          if (sampleCount >= totalSamples) {
+            // Hedef sayıya ulaştık — serileştir ve bitir.
+            const time = new Float64Array(totalSamples);
+            for (let i = 0; i < totalSamples; i++) time[i] = i * req.dt;
+            const nodeVoltages: Record<string, Float64Array> = {};
+            for (let c = 0; c < req.probeNodes.length; c++) {
+              const name = req.probeNodes[c]!;
+              nodeVoltages[name] = new Float64Array(perNode[c]!.slice(0, totalSamples));
+            }
+            finalize({ success: true, time, nodeVoltages });
+          }
+          break;
+        }
+
+        case 'error':
+          finalize(emptyResult(`Worker hatası: ${msg.message || 'bilinmeyen'}`));
+          break;
+      }
+    };
+
+    worker.addEventListener('message', onMessage);
+    try {
+      worker.postMessage({ command: 'init', circuit: payload });
+    } catch (err) {
+      finalize(emptyResult(`Worker init komutu başarısız: ${err}`));
+    }
+  });
 }

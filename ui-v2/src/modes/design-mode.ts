@@ -1,26 +1,43 @@
 // VoltXAmpere v2 — Tasarla modu grid iskeleti.
-// Sprint 0.2: 5-bölgeli CSS Grid layout, tüm bölgeler placeholder.
-// Sprint 0.3: canvas bölgesine <vxa-canvas> mount edildi; dashboard dahil
-//             diğer 4 bölge hâlâ dashed-kenarlı placeholder.
-// Sprint 0.4: dashboard artık canlı — engine bridge üzerinden RC low-pass'in
-//             DC operating point'ini okuyup 3 slot (V_ÇIKIŞ / V_GİRİŞ / I(R1))
-//             halinde gösteriyor.
-// Sprint 0.5: canvas'ta RC devresi + probe etiketleri.
-// Sprint 0.6: inspector canlı — seçili bileşen (hard-coded R1) için elektriksel/
-//             konum/canlı sections. Canvas'ta seçili bileşen --accent + dashed
-//             frame. Topbar ve sidebar hâlâ placeholder.
+// Sprint 0.2: 5-bölgeli CSS Grid layout.
+// Sprint 0.3: canvas bölgesine <vxa-canvas> mount.
+// Sprint 0.4: dashboard canlı — DC operating point (3 slot).
+// Sprint 0.5: canvas'ta devre + probe etiketleri.
+// Sprint 0.6: inspector canlı (seçili bileşen).
+// Sprint 0.7: dashboard 220px yükseldi, üstte ZAMAN DOMAIN grafiği
+//             (<vxa-transient-chart>), altta 3 slot (transient son örneği =
+//             steady-state). DC çağrısı kaldırıldı — tek kaynak disiplini:
+//             dashboard + inspector + canvas probe hepsi aynı transient
+//             snapshot'ından besleniyor.
 import { LitElement, html, css, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import '../canvas/canvas.ts';
 import '../inspector/inspector.ts';
-import { solveCircuit, type SolveResult } from '../bridge/engine.ts';
-import { RC_LOWPASS, RC_LOWPASS_LAYOUT } from '../circuits/rc-lowpass.ts';
-import { formatVoltage, formatCurrent } from '../util/format.ts';
+import '../charts/transient-chart.ts';
+import {
+  solveTransient,
+  type SolveResult,
+  type TransientResult,
+} from '../bridge/engine.ts';
+import {
+  RC_LOWPASS,
+  RC_LOWPASS_LAYOUT,
+  RC_TAU_SECONDS,
+  RC_TRANSIENT_DT,
+  RC_TRANSIENT_DURATION,
+  RC_TRANSIENT_PROBE_NODES,
+} from '../circuits/rc-lowpass.ts';
+import {
+  formatCurrent,
+  formatTime,
+  formatVoltage,
+} from '../util/format.ts';
+import { snapshotFromTransient } from '../util/snapshot.ts';
 import { INITIAL_SELECTION, type Selection } from '../state/selection.ts';
 
 type DashboardState =
   | { kind: 'loading' }
-  | { kind: 'ok'; result: SolveResult }
+  | { kind: 'ok'; transient: TransientResult; snapshot: SolveResult }
   | { kind: 'err'; message: string };
 
 @customElement('vxa-design-mode')
@@ -28,7 +45,8 @@ export class VxaDesignMode extends LitElement {
   static override styles = css`
     :host {
       /* Hibrit grid: sidebar/inspector sabit px, canvas-area esnek.
-         Topbar ve dashboard yükseklikleri sabit, canvas-area dikeyde de esner. */
+         Topbar ve dashboard yükseklikleri sabit, canvas-area dikeyde de esner.
+         Dashboard yüksekliği tokens.css'ten gelir — Sprint 0.7'de 220 px. */
       display: grid;
       grid-template-columns:
         var(--grid-sidebar-w)
@@ -50,8 +68,7 @@ export class VxaDesignMode extends LitElement {
     }
 
     /* Placeholder bölge stili — kesikli kenar, mono etiket, sol-üst hizalama.
-       Canvas ve dashboard bu class'ı KULLANMIYOR (Sprint 0.3-0.4'ten beri
-       gerçek içerik). */
+       Canvas, dashboard ve inspector bu class'ı KULLANMIYOR. */
     .zone {
       border: 1px dashed var(--line-str);
       padding: var(--sp-3);
@@ -78,16 +95,14 @@ export class VxaDesignMode extends LitElement {
       border-right: 1px solid var(--line);
     }
 
-    /* Canvas bölgesi: placeholder değil — <vxa-canvas> tam olarak kaplar.
-       .zone base class uygulanmıyor (Sprint 0.3). */
+    /* Canvas bölgesi: placeholder değil — <vxa-canvas> tam olarak kaplar. */
     .canvas-zone {
       grid-area: canvas-area;
       background: var(--canvas);
       overflow: hidden;
     }
 
-    /* Inspector bölgesi: placeholder değil — <vxa-inspector> tam kaplar.
-       .zone base class uygulanmıyor (Sprint 0.6). */
+    /* Inspector bölgesi: <vxa-inspector> tam kaplar. */
     .inspector-zone {
       grid-area: inspector;
       background: var(--bg-1);
@@ -100,24 +115,67 @@ export class VxaDesignMode extends LitElement {
       min-width: 0;
     }
 
-    /* ─── Dashboard (Sprint 0.4) ──────────────────────────────────────────
-       Canlı DC operating point verisi. .zone base class UYGULANMIYOR —
-       dashed kenar + merkez-hizalı placeholder kuralları gerek yok artık. */
+    /* ─── Dashboard (Sprint 0.7 — transient + 3 slot) ─────────────────────
+       3 satır: başlık (22px) + grafik (1fr) + slot row (60px).
+       220 px toplam (tokens.css --grid-dashboard-h). */
     .dashboard-zone {
       grid-area: dashboard;
       background: var(--bg-1);
       border-top: 1px solid var(--line);
       display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
+      grid-template-rows: 22px minmax(0, 1fr) 60px;
       overflow: hidden;
     }
 
+    /* Üst başlık şeridi. CSS uppercase UYGULAMIYORUZ — µ karakteri Greek
+       capital mu'ya (Μ) dönüşüp Latin "M" ile karışıyor ("µs" → "Μs" ≈ "Ms").
+       Static kısmı şablonda elle büyük, dinamik birim kısmı aynen. */
+    .dash-header {
+      padding: 0 var(--sp-4);
+      display: flex;
+      align-items: center;
+      font-family: var(--mono);
+      font-size: var(--fs-xs);
+      color: var(--fg-3);
+      letter-spacing: 0.16em;
+      border-bottom: 1px solid var(--line);
+      gap: var(--sp-2);
+    }
+    .dash-header .sep {
+      color: var(--fg-4);
+    }
+    /* Dinamik birim (formatTime çıktısı) — letter-spacing biraz daha dar,
+       rakamlar düzgün akar. */
+    .dash-header .value {
+      letter-spacing: 0.08em;
+      color: var(--fg-2);
+    }
+
+    /* Grafik kabuğu — chart canvas buraya oturur. */
+    .dash-chart {
+      position: relative;
+      padding: var(--sp-2) var(--sp-4);
+      overflow: hidden;
+    }
+    .dash-chart > vxa-transient-chart {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    /* Alt slot satırı — Sprint 0.4'ün 3 slot'u korundu. */
+    .dash-slots {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      border-top: 1px solid var(--line);
+    }
+
     .slot {
-      padding: var(--sp-3) var(--sp-4);
+      padding: 0 var(--sp-4);
       display: flex;
       flex-direction: column;
-      justify-content: space-between;
-      gap: var(--sp-2);
+      justify-content: center;
+      gap: 2px;
       border-right: 1px solid var(--line);
     }
     .slot:last-child {
@@ -139,15 +197,11 @@ export class VxaDesignMode extends LitElement {
       color: var(--fg);
       letter-spacing: -0.01em;
       font-variant-numeric: tabular-nums;
+      line-height: 1.1;
     }
 
-    .slot-value--accent {
-      color: var(--accent);
-    }
-
-    .slot-value--current {
-      color: var(--current);
-    }
+    .slot-value--accent { color: var(--accent); }
+    .slot-value--current { color: var(--current); }
 
     .slot-sub {
       font-family: var(--mono);
@@ -157,23 +211,20 @@ export class VxaDesignMode extends LitElement {
       text-transform: lowercase;
     }
 
-    /* Loading: grid iskelet ve renk duruyor, içerik boş — 3 slot kutusu
-       sadece sınırlarıyla görünür. Plan "placeholder değer yok" diyor:
-       tek bekleme göstergesi slot sınırlarıdır, sahte rakam yok. */
     .dashboard-zone--loading .slot {
       opacity: 0.35;
     }
     .slot-placeholder {
-      /* Değer alanı boş kalsın ama yükseklik korunsun (layout zıplaması yok) */
       min-height: var(--fs-xl);
     }
 
-    /* Hata durumu: tek merkez kutu, --err aksanı. */
+    /* Hata durumu: başlık + tek hata kutusu merkez hizalı. */
     .dashboard-zone--error {
       display: flex;
       align-items: center;
       justify-content: center;
       padding: var(--sp-3) var(--sp-4);
+      grid-template-rows: none;
     }
 
     .err-box {
@@ -202,10 +253,7 @@ export class VxaDesignMode extends LitElement {
       word-break: break-word;
     }
 
-    /* Sol alt köşe sprint etiketi — sabit, shadow DOM içinde position:fixed
-       viewport'a göre konumlanır. Dashboard 140px yüksek olduğundan marker
-       dashboard üstüne alındı (canvas zone'un sol-alt köşesi). İleride
-       dev-mode-only toggle ile değişecek. */
+    /* Sol alt köşe sprint etiketi — dashboard üstünde. */
     .dev-marker {
       position: fixed;
       left: var(--sp-3);
@@ -222,22 +270,27 @@ export class VxaDesignMode extends LitElement {
 
   @state() private dashboard: DashboardState = { kind: 'loading' };
 
-  // Sprint 0.6: selection state. Şimdilik sabit R1, canvas click event'i
-  // Sprint 0.7'de bu state'i güncelleyecek.
+  // Sprint 0.6: selection state. Sprint 0.7'de canvas click event'i bu state'i
+  // güncelleyecek.
   @state() private selection: Selection = INITIAL_SELECTION;
 
   override async firstUpdated(): Promise<void> {
-    // Sprint 0.4: sayfa yüklenirken RC low-pass'in DC operating point'ini
-    // solver worker'ına sorup state'e yazıyoruz. Hata durumunda dashboard
-    // tek hata kutusu gösterir — sahte değer yok.
+    // Sprint 0.7: tek çağrı ile transient al. Son örnek = DC steady-state
+    // yerine geçiyor → inspector ve canvas probe'ları aynı snapshot'tan.
     try {
-      const result = await solveCircuit(RC_LOWPASS);
-      if (result.success) {
-        this.dashboard = { kind: 'ok', result };
+      const transient = await solveTransient({
+        circuit: RC_LOWPASS,
+        dt: RC_TRANSIENT_DT,
+        duration: RC_TRANSIENT_DURATION,
+        probeNodes: [...RC_TRANSIENT_PROBE_NODES],
+      });
+      if (transient.success) {
+        const snapshot = snapshotFromTransient(transient, RC_LOWPASS, -1);
+        this.dashboard = { kind: 'ok', transient, snapshot };
       } else {
         this.dashboard = {
           kind: 'err',
-          message: result.errorMessage ?? 'Bilinmeyen hata',
+          message: transient.errorMessage ?? 'Bilinmeyen hata',
         };
       }
     } catch (err) {
@@ -246,30 +299,19 @@ export class VxaDesignMode extends LitElement {
     }
   }
 
-  private renderDashboard() {
-    if (this.dashboard.kind === 'loading') {
-      // Layout iskeleti hazır, değer alanı boş. Opacity azaltılmış.
-      return html`
-        <section class="dashboard-zone dashboard-zone--loading" aria-label="dashboard">
-          <div class="slot">
-            <span class="slot-title">V_ÇIKIŞ</span>
-            <span class="slot-value slot-placeholder">${nothing}</span>
-            <span class="slot-sub">DC operating point</span>
-          </div>
-          <div class="slot">
-            <span class="slot-title">V_GİRİŞ</span>
-            <span class="slot-value slot-placeholder">${nothing}</span>
-            <span class="slot-sub">DC operating point</span>
-          </div>
-          <div class="slot">
-            <span class="slot-title">I(R1)</span>
-            <span class="slot-value slot-placeholder">${nothing}</span>
-            <span class="slot-sub">DC operating point</span>
-          </div>
-        </section>
-      `;
-    }
+  private renderDashboardHeader() {
+    return html`
+      <div class="dash-header" aria-label="zaman domain başlık">
+        <span>ZAMAN DOMAIN</span>
+        <span class="sep">·</span>
+        <span class="value">0 → ${formatTime(RC_TRANSIENT_DURATION)}</span>
+        <span class="sep">·</span>
+        <span class="value">τ = ${formatTime(RC_TAU_SECONDS)}</span>
+      </div>
+    `;
+  }
 
+  private renderDashboard() {
     if (this.dashboard.kind === 'err') {
       return html`
         <section
@@ -285,33 +327,71 @@ export class VxaDesignMode extends LitElement {
       `;
     }
 
-    const { nodeVoltages, branchCurrents } = this.dashboard.result;
-    const vOut = nodeVoltages['out'] ?? 0;
-    const vIn = nodeVoltages['in'] ?? 0;
-    const iR1 = branchCurrents['R1'] ?? 0;
+    if (this.dashboard.kind === 'loading') {
+      return html`
+        <section class="dashboard-zone dashboard-zone--loading" aria-label="dashboard">
+          ${this.renderDashboardHeader()}
+          <div class="dash-chart" aria-hidden="true"></div>
+          <div class="dash-slots">
+            <div class="slot">
+              <span class="slot-title">V_ÇIKIŞ @son</span>
+              <span class="slot-value slot-placeholder">${nothing}</span>
+              <span class="slot-sub">transient steady-state</span>
+            </div>
+            <div class="slot">
+              <span class="slot-title">V_GİRİŞ @son</span>
+              <span class="slot-value slot-placeholder">${nothing}</span>
+              <span class="slot-sub">transient steady-state</span>
+            </div>
+            <div class="slot">
+              <span class="slot-title">I(R1) @son</span>
+              <span class="slot-value slot-placeholder">${nothing}</span>
+              <span class="slot-sub">transient steady-state</span>
+            </div>
+          </div>
+        </section>
+      `;
+    }
+
+    // ok durumu: transient + snapshot hazır
+    const { transient, snapshot } = this.dashboard;
+    const vOut = snapshot.nodeVoltages['out'] ?? 0;
+    const vIn = snapshot.nodeVoltages['in'] ?? 0;
+    const iR1 = snapshot.branchCurrents['R1'] ?? 0;
 
     return html`
       <section class="dashboard-zone" aria-label="dashboard">
-        <div class="slot">
-          <span class="slot-title">V_ÇIKIŞ</span>
-          <span class="slot-value slot-value--accent">${formatVoltage(vOut)}</span>
-          <span class="slot-sub">DC operating point</span>
+        ${this.renderDashboardHeader()}
+        <div class="dash-chart">
+          <vxa-transient-chart
+            .data=${transient}
+            probeNode="out"
+            tone="accent"
+          ></vxa-transient-chart>
         </div>
-        <div class="slot">
-          <span class="slot-title">V_GİRİŞ</span>
-          <span class="slot-value">${formatVoltage(vIn)}</span>
-          <span class="slot-sub">DC operating point</span>
-        </div>
-        <div class="slot">
-          <span class="slot-title">I(R1)</span>
-          <span class="slot-value slot-value--current">${formatCurrent(iR1)}</span>
-          <span class="slot-sub">DC operating point</span>
+        <div class="dash-slots">
+          <div class="slot">
+            <span class="slot-title">V_ÇIKIŞ @son</span>
+            <span class="slot-value slot-value--accent">${formatVoltage(vOut)}</span>
+            <span class="slot-sub">transient steady-state</span>
+          </div>
+          <div class="slot">
+            <span class="slot-title">V_GİRİŞ @son</span>
+            <span class="slot-value">${formatVoltage(vIn)}</span>
+            <span class="slot-sub">transient steady-state</span>
+          </div>
+          <div class="slot">
+            <span class="slot-title">I(R1) @son</span>
+            <span class="slot-value slot-value--current">${formatCurrent(iR1)}</span>
+            <span class="slot-sub">transient steady-state</span>
+          </div>
         </div>
       </section>
     `;
   }
 
   override render() {
+    const solve = this.dashboard.kind === 'ok' ? this.dashboard.snapshot : null;
     return html`
       <section class="zone topbar" aria-label="topbar">
         topbar · 54px · sprint 0.3'te toolbar
@@ -325,7 +405,7 @@ export class VxaDesignMode extends LitElement {
         <vxa-canvas
           .circuit=${RC_LOWPASS}
           .layout=${RC_LOWPASS_LAYOUT}
-          .solve=${this.dashboard.kind === 'ok' ? this.dashboard.result : null}
+          .solve=${solve}
           .selectionId=${this.selection.type === 'component' ? this.selection.id : undefined}
         ></vxa-canvas>
       </section>
@@ -335,14 +415,14 @@ export class VxaDesignMode extends LitElement {
           .selection=${this.selection}
           .circuit=${RC_LOWPASS}
           .layout=${RC_LOWPASS_LAYOUT}
-          .solveResult=${this.dashboard.kind === 'ok' ? this.dashboard.result : null}
+          .solveResult=${solve}
         ></vxa-inspector>
       </section>
 
       ${this.renderDashboard()}
 
       <span class="dev-marker" aria-hidden="true"
-        >sprint 0.6 · inspector + seçim · v2</span
+        >sprint 0.7 · transient grafik · v2</span
       >
     `;
   }

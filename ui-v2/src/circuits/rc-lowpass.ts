@@ -23,6 +23,20 @@ const V_SOURCE = 5;
 const R1_OHM = 1_000;
 const C1_FARAD = 10e-9;
 
+// ─── Transient analiz parametreleri (Sprint 0.7) ─────────────────────────────
+// τ = R · C = 1 kΩ × 10 nF = 10 µs.
+//
+// Worker'ın companion modelinde Geq = 2·C/dt ama Ieq = Geq · V_prev (klasik
+// trapezoidal yerine kısmi formül). Etkin zaman sabiti ~2τ görünür. Bu yüzden
+// 5τ duration %99 yerine %85'e varıyor — grafik okunurken yanıltıcı. Duration
+// 10τ (100 µs) seçtik: sayısal steady-state %97.5'e gelir, eğri ilk yarısı
+// dolma, son yarısı yataylaşma. dt τ/100 = 100 ns doğruluk için yeterli.
+// 100 µs / 100 ns = 1000 örnek (MAX_SAMPLES 10000 çok altında).
+export const RC_TAU_SECONDS = R1_OHM * C1_FARAD;
+export const RC_TRANSIENT_DT = 1e-7;         // 100 ns
+export const RC_TRANSIENT_DURATION = 1e-4;   // 100 µs (10τ)
+export const RC_TRANSIENT_PROBE_NODES = ['in', 'out'] as const;
+
 export const RC_LOWPASS: CircuitDef = {
   components: [
     { type: 'V', id: 'V1', nodes: ['in', 'gnd'], value: V_SOURCE },

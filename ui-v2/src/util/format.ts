@@ -89,3 +89,11 @@ export function formatEnergy(joules: number): string {
   const { scaled, prefix } = siScale(joules);
   return `${scaled.toFixed(2)} ${prefix}J`;
 }
+
+/** Zaman — transient başlıkları gibi kompakt gösterim. Integer basamakta
+ * trim trailing-zero uygulanır ("50 µs", "10 ms", "100 ps"). */
+export function formatTime(seconds: number): string {
+  if (seconds === 0) return '0 s';
+  const { scaled, prefix } = siScale(seconds);
+  return `${trimTrailingZeros(scaled.toFixed(digitsFor(scaled)))} ${prefix}s`;
+}
