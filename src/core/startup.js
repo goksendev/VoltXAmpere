@@ -57,7 +57,7 @@ function setAriaLabels() {
 setAriaLabels();
 
 // Console banner
-console.log('%c\u26A1 VoltXAmpere v12.0.0-alpha.12', 'color:#00e09e;font-size:18px;font-weight:bold');
+console.log('%c\u26A1 VoltXAmpere v12.0.0-alpha.13', 'color:#00e09e;font-size:18px;font-weight:bold');
 console.log('%cProfessional Circuit Simulator \u2014 voltxampere.com', 'color:#8899aa;font-size:12px');
 console.log('%c' + t('scriptApi'), 'color:#f59e0b;font-size:11px');
 
@@ -1001,19 +1001,15 @@ if (typeof document !== 'undefined') {
   });
 }
 
-// ──────── SPRINT 104.3.8 — ROTATING SEARCH PLACEHOLDER ────────
-// Every 2.5 s the palette search input cycles through a shuffled pool of
-// suggestions so new users can see the kinds of things they can search for
-// (TR names, EN terms, SPICE primitives, common units). The prefix "Ara: "
-// stays put; only the tail animates. Pool shuffles on every session and
-// re-shuffles whenever it's consumed end-to-end.
+// ──────── SPRINT 104.3.9 — STATIC 3-SUGGESTION PLACEHOLDER ────────
+// One-shot: on page load we pick 3 distinct suggestions from the pool and
+// write "Ara: a, b, c" into the palette search input. Each refresh shows a
+// different trio; within a session the placeholder is stable.
 //
-// Guards:
-//   - focused input             → freeze current placeholder
-//   - input has a value         → skip tick (placeholder is hidden anyway)
-//   - document.hidden           → clear interval (no wasted CPU on inactive
-//                                 tabs); resume on visibilitychange → visible
-var SEARCH_SUGGESTIONS = [
+// No rotation, no timer, no focus/blur/visibility handlers — 104.3.8 tried
+// a 2.5 s rotation and the motion distracted users who were mid-scan. One
+// curated sample is enough hint without moving the eye.
+var SEARCH_POOL = [
   'direnç', 'ohm', 'kapasitör', 'farad', 'bobin', 'henry',
   'diyot', 'LED', 'transistör', 'NPN', 'MOSFET', 'JFET',
   'op-amp', 'komparatör', '555', 'regülatör',
@@ -1021,85 +1017,34 @@ var SEARCH_SUGGESTIONS = [
   'ground', 'VCC', 'net label',
   'kristal', 'PWM', 'ADC', 'DAC',
   'potansiyometre', 'NTC', 'LDR',
-  'pulse source', 'noise'
+  'pulse source', 'voltmetre'
 ];
 
-(function _setupRotatingPlaceholder() {
+(function _setupStaticPlaceholder() {
   if (typeof document === 'undefined') return;
 
-  function _shuffle(arr) {
-    // Fisher-Yates; last item of the previous order is kept out of the
-    // first slot so back-to-back identical placeholders never happen.
-    var out = arr.slice();
-    for (var i = out.length - 1; i > 0; i--) {
-      var j = Math.floor(Math.random() * (i + 1));
-      var t = out[i]; out[i] = out[j]; out[j] = t;
+  function _pickThree() {
+    var pool = SEARCH_POOL.slice();
+    // Fisher-Yates for just the first three positions — no need to shuffle
+    // the rest when we only ever read [0], [1], [2].
+    for (var i = 0; i < 3; i++) {
+      var j = i + Math.floor(Math.random() * (pool.length - i));
+      var t = pool[i]; pool[i] = pool[j]; pool[j] = t;
     }
-    return out;
+    return [pool[0], pool[1], pool[2]];
   }
 
-  var order = _shuffle(SEARCH_SUGGESTIONS);
-  var idx = 0;
-  var timer = null;
-  var lastShown = null;
-
-  function _applyNext(input) {
-    if (document.activeElement === input) return;   // focused → freeze
-    if (input.value) return;                         // typing → skip
-    var pick = order[idx];
-    if (pick === lastShown && order.length > 1) {
-      idx = (idx + 1) % order.length;
-      pick = order[idx];
-    }
-    input.placeholder = 'Ara: ' + pick;
-    lastShown = pick;
-    idx++;
-    if (idx >= order.length) {
-      // Re-shuffle but keep the just-shown item off the head of the next
-      // run so transitions stay visibly different.
-      var reshuffled = _shuffle(SEARCH_SUGGESTIONS);
-      if (reshuffled[0] === lastShown && reshuffled.length > 1) {
-        var tmp = reshuffled[0]; reshuffled[0] = reshuffled[1]; reshuffled[1] = tmp;
-      }
-      order = reshuffled;
-      idx = 0;
-    }
-  }
-
-  function _start(input) {
-    if (timer) return;
-    _applyNext(input);   // show immediately — no "Bileşen ara..." flash
-    timer = setInterval(function() { _applyNext(input); }, 2500);
-  }
-  function _stop() {
-    if (timer) { clearInterval(timer); timer = null; }
-  }
-
-  function _wire() {
+  function _apply() {
     var input = document.getElementById('comp-search-input');
     if (!input) return;
-
-    input.addEventListener('focus', _stop);
-    input.addEventListener('blur', function() { if (!input.value) _start(input); });
-    input.addEventListener('input', function() {
-      // If user clears the field while focus is elsewhere, rotation
-      // resumes on the next blur; here we just make sure no stale timer
-      // overwrites mid-typing.
-      if (input.value) _stop();
-    });
-
-    document.addEventListener('visibilitychange', function() {
-      if (document.hidden) _stop();
-      else if (document.activeElement !== input && !input.value) _start(input);
-    });
-
-    _start(input);
+    var picks = _pickThree();
+    input.placeholder = 'Ara: ' + picks.join(', ');
   }
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', _wire);
+    document.addEventListener('DOMContentLoaded', _apply);
   } else {
-    _wire();
+    _apply();
   }
 })();
 
