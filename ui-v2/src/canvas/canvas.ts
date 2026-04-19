@@ -8,7 +8,7 @@
 //   1. Arka: noktalı grid (her zaman)
 //   2. Ön:   devre (circuit/layout/solve prop'ları verilmişse)
 import { LitElement, html, css } from 'lit';
-import { customElement, property, state } from 'lit/decorators.js';
+import { customElement, property } from 'lit/decorators.js';
 import { createRef, ref, type Ref } from 'lit/directives/ref.js';
 import type { CircuitDef, SolveResult } from '../bridge/engine.ts';
 import { readColors } from '../render/helpers.ts';
@@ -50,21 +50,8 @@ export class VxaCanvas extends LitElement {
       width: 100%;
       height: 100%;
     }
-    /* Debug etiketi: canvas CSS boyutu + DPR. Sprint 0.5-0.6 civarı kaldırılır
-       veya dev-mode-only olur. Şimdilik doğrulama için sağ alt köşede. */
-    .debug-label {
-      position: absolute;
-      bottom: var(--sp-2);
-      right: var(--sp-2);
-      padding: var(--sp-1) var(--sp-2);
-      background: rgba(0, 0, 0, 0.4);
-      font-family: var(--mono);
-      font-size: var(--fs-xs);
-      color: var(--fg-4);
-      border-radius: var(--r-1);
-      pointer-events: none;
-      letter-spacing: 0.05em;
-    }
+    /* Sprint 0.9: .debug-label kaldırıldı. DPI scaling Sprint 0.3 doğrulamasıyla
+       güvence altında — göz önünde durmasına gerek yok. */
   `;
 
   // ─── Props (Sprint 0.5 + 0.6) ────────────────────────────────────────────
@@ -81,10 +68,6 @@ export class VxaCanvas extends LitElement {
   private readonly canvasRef: Ref<HTMLCanvasElement> = createRef();
   private resizeObserver: ResizeObserver | null = null;
   private rafHandle: number | null = null;
-
-  @state() private cssW = 0;
-  @state() private cssH = 0;
-  @state() private dpr = 1;
 
   override firstUpdated(): void {
     const canvas = this.canvasRef.value;
@@ -201,19 +184,13 @@ export class VxaCanvas extends LitElement {
       );
     }
 
-    // ─── Debug state güncelle ─────────────────────────────────────────────
-    this.cssW = cssW;
-    this.cssH = cssH;
-    this.dpr = dpr;
+    // Sprint 0.9: debug state kaldırıldı — cssW/cssH/dpr içeride hesaplanıyor
+    // ve draw tamamlandığında artık kullanılmıyor.
+    void dpr; // lint (noUnusedLocals) — dpr yukarıda scale için zaten kullanıldı
   }
 
   override render() {
-    return html`
-      <canvas ${ref(this.canvasRef)} aria-label="devre canvas"></canvas>
-      <div class="debug-label" aria-hidden="true">
-        canvas: ${this.cssW} × ${this.cssH} · DPR: ${this.dpr}
-      </div>
-    `;
+    return html`<canvas ${ref(this.canvasRef)} aria-label="devre canvas"></canvas>`;
   }
 }
 

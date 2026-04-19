@@ -69,24 +69,7 @@ export class VxaDesignMode extends LitElement {
       overflow: hidden;
     }
 
-    /* Placeholder bölge stili — kesikli kenar, mono etiket, sol-üst hizalama.
-       Canvas, dashboard ve inspector bu class'ı KULLANMIYOR. */
-    .zone {
-      border: 1px dashed var(--line-str);
-      padding: var(--sp-3);
-      display: flex;
-      align-items: flex-start;
-      justify-content: flex-start;
-      font-family: var(--mono);
-      font-size: var(--fs-xs);
-      color: var(--fg-3);
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      overflow: hidden;
-    }
-
-    /* Topbar bölgesi: placeholder değil — <vxa-topbar> tam kaplar (Sprint 0.8).
-       .zone base class uygulanmıyor (dashed kenar + merkez hiza gerek yok). */
+    /* Topbar bölgesi — <vxa-topbar> tam kaplar (Sprint 0.8). */
     .topbar-zone {
       grid-area: topbar;
       background: var(--bg-1);
@@ -99,10 +82,13 @@ export class VxaDesignMode extends LitElement {
       min-width: 0;
     }
 
-    .zone.sidebar {
+    /* Sidebar bölgesi — Sprint 0.9'da placeholder metin ve dashed border
+       kaldırıldı. Boş zemin + sağ ayırıcı. İçerik Sprint 0.11'de. */
+    .sidebar-zone {
       grid-area: sidebar;
       background: var(--bg-1);
       border-right: 1px solid var(--line);
+      overflow: hidden;
     }
 
     /* Canvas bölgesi: placeholder değil — <vxa-canvas> tam olarak kaplar. */
@@ -263,19 +249,7 @@ export class VxaDesignMode extends LitElement {
       word-break: break-word;
     }
 
-    /* Sol alt köşe sprint etiketi — dashboard üstünde. */
-    .dev-marker {
-      position: fixed;
-      left: var(--sp-3);
-      bottom: calc(var(--grid-dashboard-h) + var(--sp-3));
-      font-family: var(--mono);
-      font-size: var(--fs-xs);
-      color: var(--fg-4);
-      letter-spacing: 0.12em;
-      text-transform: lowercase;
-      pointer-events: none;
-      z-index: 2;
-    }
+    /* Sprint 0.9: .dev-marker kaldırıldı — production temiz görünüm. */
   `;
 
   @state() private dashboard: DashboardState = { kind: 'loading' };
@@ -411,9 +385,7 @@ export class VxaDesignMode extends LitElement {
         <vxa-topbar .activeMode=${this.activeMode}></vxa-topbar>
       </section>
 
-      <section class="zone sidebar" aria-label="sidebar">
-        sidebar · 96px · sprint 0.5'te bileşen kataloğu
-      </section>
+      <section class="sidebar-zone" aria-label="sidebar"></section>
 
       <section class="canvas-zone" aria-label="canvas">
         <vxa-canvas
@@ -434,10 +406,6 @@ export class VxaDesignMode extends LitElement {
       </section>
 
       ${this.renderDashboard()}
-
-      <span class="dev-marker" aria-hidden="true"
-        >sprint 0.8 · topbar · v2</span
-      >
     `;
   }
 }
