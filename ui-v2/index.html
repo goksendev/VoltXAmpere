@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="robots" content="noindex,nofollow" />
+    <title>VoltXAmpere v2 · Sprint 0.1</title>
+
+    <!-- Geist (sans) + JetBrains Mono (mono). Inter / Arial / Roboto kullanılmıyor. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+    />
+
+    <!-- Tasarım tokenleri `src/main.ts` üzerinden import ediliyor (Vite bundle). -->
+    <style>
+      /* Global reset minimum — sayfa kendi zeminini ve tipografisini tanımlar.
+         Token değişkenleri (:root) main.ts -> tokens.css ile yükleniyor. */
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background: #07080A;
+        color: #E8EAED;
+        font-family: 'Geist', system-ui, sans-serif;
+        -webkit-font-smoothing: antialiased;
+        min-height: 100vh;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Sprint 0.1 kanıt sayfası: tek Lit custom element. -->
+    <vxa-app-root></vxa-app-root>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

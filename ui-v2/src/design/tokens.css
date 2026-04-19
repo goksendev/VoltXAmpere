@@ -1,0 +1,15 @@
+/*
+ * VoltXAmpere v2 — tasarım tokenleri (Sprint 0.1 başlangıç seti).
+ * Sonraki sprintlerde (0.2 → layout + tipografi skalası) genişletilecek.
+ * Şu anda yalnızca "iskelet ayakta" sayfası için gereken yedi değişken tanımlı.
+ */
+:root {
+  --bg-0: #07080A;       /* Sayfa zemini */
+  --bg-1: #0D0F13;       /* Yükseltilmiş yüzey / kod bloğu */
+  --fg: #E8EAED;         /* Birincil metin */
+  --fg-2: #9AA0A8;       /* İkincil metin */
+  --accent: #FFB84D;     /* Voltaj amber (brand vurgu) */
+  --current: #3DE0FF;    /* Akım cyan (mono vurgu) */
+  --sans: 'Geist', system-ui, sans-serif;
+  --mono: 'JetBrains Mono', monospace;
+}

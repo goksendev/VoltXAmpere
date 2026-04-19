@@ -1,0 +1,19 @@
+{
+  "name": "voltxampere-ui-v2",
+  "version": "0.1.0",
+  "private": true,
+  "description": "VoltXAmpere v2 — paralel frontend iskeleti (Vite + Lit 3 + TypeScript).",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "lit": "^3.2.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "vite": "^5.4.10"
+  }
+}

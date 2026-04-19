@@ -1,8 +1,12 @@
 {
-  "buildCommand": "",
+  "buildCommand": "npm --prefix ui-v2 ci && npm --prefix ui-v2 run build",
   "outputDirectory": ".",
   "framework": null,
-  "rewrites": [],
+  "rewrites": [
+    { "source": "/v2", "destination": "/ui-v2/dist/index.html" },
+    { "source": "/v2/", "destination": "/ui-v2/dist/index.html" },
+    { "source": "/v2/(.*)", "destination": "/ui-v2/dist/$1" }
+  ],
   "headers": [
     {
       "source": "/(.*)",
