@@ -753,3 +753,79 @@ body.sidebar-resizing *{user-select:none!important}
   color:var(--text);border-radius:5px;padding:3px 8px;
   font:500 11px/1 var(--font-mono);cursor:pointer;
 }
+
+/* ──────── SPRINT 105.1 (v2) — FLOATING PANEL FAMILY ──────── */
+.fp-panel{
+  position:fixed;z-index:50;
+  background:rgba(18,18,18,0.88);
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  border:1px solid rgba(255,255,255,0.08);
+  border-radius:10px;
+  box-shadow:0 8px 24px rgba(0,0,0,0.35);
+  user-select:none;
+  /* default placement before JS positions; suppress native scrollbars
+     while initial geometry is computing */
+  top:12px;left:12px;
+  display:flex;flex-direction:column;
+  overflow:visible;
+}
+.fp-panel.dragging{cursor:grabbing;opacity:.92}
+.fp-panel .fp-handle{
+  height:14px;display:flex;align-items:center;justify-content:center;
+  cursor:grab;border-radius:10px 10px 0 0;
+  background:linear-gradient(rgba(255,255,255,0.04), transparent);
+  touch-action:none;
+}
+.fp-panel .fp-handle::before{
+  content:"";display:block;width:28px;height:3px;border-radius:2px;
+  background:rgba(255,255,255,0.2);transition:background .15s ease;
+}
+.fp-panel .fp-handle:hover::before{background:rgba(255,255,255,0.4)}
+.fp-panel.dragging .fp-handle::before{background:rgba(255,255,255,0.55)}
+.fp-panel .fp-body{display:flex;flex-direction:column;padding:0}
+
+/* TOOLS panel — body is a horizontal toolbar of buttons */
+#tools-panel .fp-body{
+  flex-direction:row;align-items:center;gap:4px;padding:6px 8px 8px;
+}
+
+/* MAP panel — minimap canvas + zoom row */
+#map-panel{width:212px}
+#map-panel #minimap{
+  display:block;width:200px;height:120px;margin:6px 6px 0 6px;
+  background:#1a1a30;border:1px solid #333;border-radius:6px;cursor:pointer;
+  position:static;
+}
+#map-panel .map-zoom{
+  display:flex;align-items:center;gap:4px;
+  padding:6px 8px;
+  border-top:1px solid rgba(255,255,255,0.06);
+}
+#map-panel .map-zoom .mz-btn{
+  flex:0 0 28px;height:24px;display:flex;align-items:center;justify-content:center;
+  border:none;background:transparent;color:rgba(255,255,255,0.78);
+  font:500 14px/1 var(--font-ui);cursor:pointer;border-radius:4px;
+  transition:background .12s,color .12s;
+}
+#map-panel .map-zoom .mz-btn:hover{background:rgba(255,255,255,0.06);color:#fff}
+#map-panel .map-zoom .mz-percent{
+  flex:1;text-align:center;font:500 11px/1 var(--font-mono);color:rgba(255,255,255,0.72);
+}
+#map-panel .map-zoom .mz-fit{flex:0 0 32px;margin-left:2px}
+
+/* PROBE panel — single-row readout */
+#probe-panel .fp-body{
+  flex-direction:row;align-items:center;gap:10px;
+  padding:8px 14px 10px;font:500 13px/1 var(--font-mono);
+  color:rgba(255,255,255,0.88);
+}
+#probe-panel .pp-dot{font-size:14px;line-height:1}
+#probe-panel .pp-red{color:#f0454a}
+#probe-panel .pp-black{color:rgba(255,255,255,0.55)}
+#probe-panel .pp-value{
+  letter-spacing:.04em;color:#fff;
+  background:rgba(255,255,255,0.04);padding:3px 8px;border-radius:5px;
+  border:1px solid rgba(255,255,255,0.06);
+  min-width:90px;text-align:center;
+}
+#probe-panel .pp-i{color:rgba(74,158,255,0.92)}

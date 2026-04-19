@@ -57,7 +57,7 @@ function setAriaLabels() {
 setAriaLabels();
 
 // Console banner
-console.log('%c\u26A1 VoltXAmpere v12.0.0-alpha.18', 'color:#00e09e;font-size:18px;font-weight:bold');
+console.log('%c\u26A1 VoltXAmpere v12.0.0-alpha.19', 'color:#00e09e;font-size:18px;font-weight:bold');
 console.log('%cProfessional Circuit Simulator \u2014 voltxampere.com', 'color:#8899aa;font-size:12px');
 console.log('%c' + t('scriptApi'), 'color:#f59e0b;font-size:11px');
 
@@ -1027,7 +1027,9 @@ function setCanvasTool(mode) {
 }
 
 function _syncCanvasToolButtons() {
-  var nodes = document.querySelectorAll('#canvas-tools .ct-mode');
+  // Sprint 105.1 (v2) — selector widened so panel id rename
+  // (#canvas-tools → #tools-panel) doesn't break the active-class sync.
+  var nodes = document.querySelectorAll('.ct-mode');
   if (!nodes || !nodes.length) return;
   var probeActive = (typeof VXA !== 'undefined' && VXA.Probes && VXA.Probes.isActive && VXA.Probes.isActive());
   var active = 'select';
@@ -1035,6 +1037,50 @@ function _syncCanvasToolButtons() {
   else if (probeActive) active = 'probe';
   nodes.forEach(function(n) { n.classList.toggle('active', n.dataset.mode === active); });
 }
+
+// Sprint 105.1 (v2) — DOM mirror of probe state for the floating
+// PROBE PANEL. The probe HUD itself is canvas-drawn (VXA.Probes), but the
+// panel echoes the latest ΔV / current so the user can read numbers in a
+// fixed location regardless of where the probe tips landed.
+function _syncProbePanel() {
+  var dvEl = document.getElementById('pp-dv');
+  var iEl  = document.getElementById('pp-i');
+  if (!dvEl || !iEl) return;
+  var st = null;
+  try { if (typeof VXA !== 'undefined' && VXA.Probes && VXA.Probes.getState) st = VXA.Probes.getState(); } catch (e) {}
+  if (!st) { dvEl.textContent = 'ΔV: —'; iEl.textContent = 'I: —'; return; }
+  var dv = (st.dV != null) ? st.dV
+         : (st.measurement && st.measurement.v != null) ? st.measurement.v
+         : null;
+  var iv = (st.dI != null) ? st.dI
+         : (st.measurement && st.measurement.i != null) ? st.measurement.i
+         : null;
+  function _fmt(v, unit) {
+    if (v == null || !isFinite(v)) return '—';
+    var a = Math.abs(v);
+    if (a >= 1) return v.toFixed(2) + ' ' + unit;
+    if (a >= 1e-3) return (v * 1000).toFixed(2) + ' m' + unit;
+    if (a >= 1e-6) return (v * 1e6).toFixed(2) + ' µ' + unit;
+    return v.toExponential(2) + ' ' + unit;
+  }
+  dvEl.textContent = 'ΔV: ' + _fmt(dv, 'V');
+  iEl.textContent  = 'I: '  + _fmt(iv, 'A');
+}
+
+// Sprint 105.1 (v2) — wire the three floating panels to the drag helper.
+// Default positions are CSS-pixel anchors; localStorage overrides on
+// subsequent loads. Resize listener inside DraggablePanel keeps panels
+// inside the viewport on window resize.
+(function _bootFloatingPanels() {
+  if (typeof DraggablePanel === 'undefined') return;
+  function _attachAll() {
+    DraggablePanel.attach(document.getElementById('tools-panel'),  { storageKey: 'vxa.panel.tools.pos', defaultPos: { left: 12, top: 12 } });
+    DraggablePanel.attach(document.getElementById('map-panel'),    { storageKey: 'vxa.panel.map.pos',   defaultPos: { right: 12, top: 12 } });
+    DraggablePanel.attach(document.getElementById('probe-panel'),  { storageKey: 'vxa.panel.probe.pos', defaultPos: { centerX: true, bottom: 220 } });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _attachAll);
+  else _attachAll();
+})();
 
 // Sprint 105.1 — sim play/pause icon swap. Legacy toggleSim sets
 // "Başlat / Durdur" text on #btn-sim; we override the innerHTML after the
@@ -1058,9 +1104,11 @@ function _syncZoomPercent() {
 }
 
 // Two light pollers — cheaper than wiring into every mode transition.
+// Sprint 105.1 (v2) added _syncProbePanel.
 if (typeof document !== 'undefined') {
   setInterval(_syncCanvasToolButtons, 250);
   setInterval(_syncZoomPercent, 250);
+  setInterval(_syncProbePanel, 250);
 }
 
 // Keyboard shortcut: "/" to focus search

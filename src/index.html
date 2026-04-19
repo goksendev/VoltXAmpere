@@ -6,27 +6,27 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>VoltXAmpere v12.0.0-alpha.18 — Professional Circuit Simulator</title>
+<title>VoltXAmpere v12.0.0-alpha.19 — Professional Circuit Simulator</title>
 <meta name="description" content="Professional browser-based circuit simulator. 71+ components, full SPICE parser, complete thermal-electrical coupling, AC-MNA analysis (Bode + Nyquist), professional multimeter probe. MIT licensed.">
 <meta name="keywords" content="circuit simulator, SPICE, devre simülatörü, electronics, voltxampere, free, online, oscilloscope, Bode, Nyquist, thermal, Newton-Raphson, MNA, Gummel-Poon">
 <meta name="author" content="goksendev">
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="https://voltxampere.com/simulator.html">
-<meta property="og:title" content="VoltXAmpere v12.0.0-alpha.18 — Professional Circuit Simulator">
+<meta property="og:title" content="VoltXAmpere v12.0.0-alpha.19 — Professional Circuit Simulator">
 <meta property="og:description" content="71+ components. Full SPICE parser. Thermal-electrical coupling. AC-MNA analysis. Professional multimeter. Free and open source.">
 <meta property="og:url" content="https://voltxampere.com/simulator.html">
 <meta property="og:type" content="website">
 <meta property="og:locale" content="en_US">
 <meta property="og:locale:alternate" content="tr_TR">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="VoltXAmpere v12.0.0-alpha.18 — Circuit Simulator">
+<meta name="twitter:title" content="VoltXAmpere v12.0.0-alpha.19 — Circuit Simulator">
 <meta name="twitter:description" content="71+ components. Full SPICE parser. Thermal-electrical coupling. Free and open source.">
 <meta name="theme-color" content="#0a0e14">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="VoltXAmpere">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='28' font-size='28'%3E%E2%9A%A1%3C/text%3E%3C/svg%3E">
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"VoltXAmpere","url":"https://voltxampere.com/simulator.html","description":"Professional browser-based circuit simulator with full SPICE parser, thermal-electrical coupling, and AC-MNA analysis","applicationCategory":"EducationalApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"softwareVersion":"12.0.0-alpha.18","license":"https://opensource.org/licenses/MIT","featureList":"71 components, Full SPICE parser, Thermal-electrical coupling, BSIM3 MOSFET, Gummel-Poon BJT, AC-MNA Bode and Nyquist, Professional multimeter probe, Inductor saturation, Hysteresis and eddy-current losses, Curie-point derating, Adaptive Newton-Raphson solver"}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"VoltXAmpere","url":"https://voltxampere.com/simulator.html","description":"Professional browser-based circuit simulator with full SPICE parser, thermal-electrical coupling, and AC-MNA analysis","applicationCategory":"EducationalApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"softwareVersion":"12.0.0-alpha.19","license":"https://opensource.org/licenses/MIT","featureList":"71 components, Full SPICE parser, Thermal-electrical coupling, BSIM3 MOSFET, Gummel-Poon BJT, AC-MNA Bode and Nyquist, Professional multimeter probe, Inductor saturation, Hysteresis and eddy-current losses, Curie-point derating, Adaptive Newton-Raphson solver"}</script>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 /* __CSS_PLACEHOLDER__ */
@@ -96,21 +96,29 @@
   <!-- CANVAS -->
   <div id="canvas-wrap">
     <canvas id="C" role="img" aria-label="Circuit schematic canvas" tabindex="0"></canvas>
-    <canvas id="minimap" width="200" height="130" style="position:absolute;bottom:50px;right:8px;width:200px;height:130px;background:#1a1a30;border:1px solid #333;border-radius:6px;z-index:5;cursor:pointer"></canvas>
-    <!-- Sprint 105.1 — drawing tools overlay. 4 mutex modes + 2 history
-         actions. Modes: Seçim (V), Kablo (W), Prob, Not. History: Geri /
-         İleri (Ctrl+Z / Ctrl+Y). Buttons delegate to the same legacy
-         functions the topbar used; only the DOM location moved. -->
-    <div id="canvas-tools" role="toolbar" aria-label="Canvas çizim araçları">
+  </div>
+
+  <!-- ════════ Sprint 105.1 (v2) — FLOATING PANELS ════════
+       Three draggable panels live OUTSIDE #canvas-wrap so they're
+       position:fixed and survive canvas pan/zoom. DraggablePanel.attach()
+       wires drag handles, viewport clamp + localStorage persistence.
+
+       Removed in this sprint:
+         · #zoom-controls (right-edge − 100% + ⊠) — duplicate of map zoom
+         · #fab-chaos     (Kaos floating button)
+         · #ai-fab        (AI Assistant robot button)
+   -->
+
+  <!-- TOOLS PANEL — 4 modes + 2 history actions -->
+  <div id="tools-panel" class="fp-panel" role="toolbar" aria-label="Canvas çizim araçları">
+    <div class="fp-handle" title="Sürükle · Çift tık: varsayılan konum"></div>
+    <div class="fp-body">
       <button class="ct-btn ct-mode" id="ct-mode-select" data-mode="select" onclick="setCanvasTool('select')" title="Seçim (V)">
         <span class="ct-ico">&#x2316;</span>
       </button>
       <button class="ct-btn ct-mode" id="ct-mode-wire" data-mode="wire" onclick="setCanvasTool('wire')" title="Kablo (W)">
         <span class="ct-ico">&#8866;</span>
       </button>
-      <!-- Hidden legacy btn-wire so existing code that toggles its .active
-           class (toggleWire, startPlace, keyboard.js Esc) keeps working.
-           Sprint 105.3 will refactor those callers. -->
       <button id="btn-wire" style="display:none" aria-hidden="true" tabindex="-1"></button>
       <button class="ct-btn ct-mode" id="ct-mode-probe" data-mode="probe" onclick="setCanvasTool('probe')" title="Prob (Shift+P)">
         <span class="ct-ico">&#9673;</span>
@@ -126,13 +134,31 @@
         <span class="ct-ico">&#8631;</span>
       </button>
     </div>
-    <!-- Sprint 105.1 — zoom dock tucked directly under the minimap. Same
-         panel vocabulary (blur + subtle border) for visual continuity. -->
-    <div id="minimap-zoom" role="toolbar" aria-label="Harita zoom">
-      <button class="mz-btn" onclick="S.view.zoom=Math.max(S.view.minZoom,S.view.zoom/1.2);needsRender=true" title="Uzaklaştır (-)">&#8722;</button>
-      <span class="mz-percent" id="mz-percent">100%</span>
-      <button class="mz-btn" onclick="S.view.zoom=Math.min(S.view.maxZoom,S.view.zoom*1.2);needsRender=true" title="Yakınlaştır (+)">&#43;</button>
-      <button class="mz-btn mz-fit" onclick="fitToScreen()" title="Sığdır (Ctrl+Shift+F)">&#9965;</button>
+  </div>
+
+  <!-- MAP PANEL — minimap + zoom row, single draggable panel -->
+  <div id="map-panel" class="fp-panel" role="region" aria-label="Devre Haritası">
+    <div class="fp-handle" title="Sürükle · Çift tık: varsayılan konum"></div>
+    <div class="fp-body">
+      <canvas id="minimap" width="200" height="120" aria-label="Devre minimap" tabindex="-1"></canvas>
+      <div class="map-zoom" role="toolbar" aria-label="Harita zoom">
+        <button class="mz-btn" onclick="S.view.zoom=Math.max(S.view.minZoom,S.view.zoom/1.2);needsRender=true" title="Uzaklaştır (-)">&#8722;</button>
+        <span class="mz-percent" id="mz-percent">100%</span>
+        <button class="mz-btn" onclick="S.view.zoom=Math.min(S.view.maxZoom,S.view.zoom*1.2);needsRender=true" title="Yakınlaştır (+)">&#43;</button>
+        <button class="mz-btn mz-fit" onclick="fitToScreen()" title="Sığdır (Ctrl+Shift+F)">&#9965;</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PROBE PANEL — DOM mirror of VXA.Probes state. Polled at 250ms via
+       _syncProbePanel in startup.js. Empty state is a friendly hint. -->
+  <div id="probe-panel" class="fp-panel" role="region" aria-label="Prob ölçümü">
+    <div class="fp-handle" title="Sürükle · Çift tık: varsayılan konum"></div>
+    <div class="fp-body" id="probe-panel-body">
+      <span class="pp-dot pp-red" aria-hidden="true">&#9679;</span>
+      <span class="pp-value pp-dv" id="pp-dv">ΔV: —</span>
+      <span class="pp-value pp-i" id="pp-i">I: —</span>
+      <span class="pp-dot pp-black" aria-hidden="true">&#9679;</span>
     </div>
   </div>
   <button id="fab-add" aria-label="Add Component">+</button>
@@ -362,7 +388,7 @@
     <span id="sb-temp" style="color:var(--text-3)"></span>
     <span id="sb-engine" style="color:var(--text-4)"></span>
     <span id="sb-extra" style="color:var(--text-3)"></span>
-    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v12.0.0-alpha.18 — Build: __BUILD_TIME__ — © 2026</span>
+    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v12.0.0-alpha.19 — Build: __BUILD_TIME__ — © 2026</span>
   </div>
 </div>
 
@@ -537,24 +563,20 @@
 
 <noscript><div style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#06080c;color:#e0e7f0;font-family:sans-serif;text-align:center;padding:40px"><div><h1 style="color:#00e09e;margin-bottom:12px">VoltXAmpere</h1><p>Bu uygulama JavaScript gerektirir.<br>Lütfen tarayıcınızda JavaScript'i etkinleştirin.</p></div></div></noscript>
 
-<!-- Zoom controls — canvas right side -->
-<div id="zoom-controls" style="position:fixed;right:12px;bottom:130px;display:flex;gap:2px;background:rgba(15,20,35,0.85);padding:4px;border-radius:8px;border:1px solid #333;z-index:90">
-  <button class="canvas-fab" onclick="S.view.zoom=Math.max(S.view.minZoom,S.view.zoom/1.2);needsRender=true" title="Uzaklaştır" style="font-size:18px">−</button>
-  <button class="canvas-fab" onclick="S.view.zoom=1;S.view.ox=cvs.width/DPR/2;S.view.oy=cvs.height/DPR/2;needsRender=true" title="Sıfırla" style="font-size:10px" id="zoom-level">100%</button>
-  <button class="canvas-fab" onclick="S.view.zoom=Math.min(S.view.maxZoom,S.view.zoom*1.2);needsRender=true" title="Yakınlaştır" style="font-size:18px">+</button>
-  <button class="canvas-fab" onclick="fitToScreen()" title="Sığdır">&#8862;</button>
-</div>
-
-<!-- Floating tool buttons — canvas right side -->
+<!-- Sprint 105.1 (v2) — bottom-right cluster trimmed:
+       · #zoom-controls REMOVED (duplicate of map-panel zoom row)
+       · #fab-chaos REMOVED (still reachable from topbar btn-chaos)
+       · #ai-fab REMOVED (no hotkey shipped today; Sprint 105.x revisit)
+     Surviving fabs: probe / realistic / repair (no spec note to remove). -->
 <div id="canvas-fab-group" style="position:fixed;right:12px;bottom:76px;display:flex;flex-direction:column;gap:6px;z-index:90">
   <button class="canvas-fab" onclick="toggleProbeMode()" title="Prob (Shift+P)" id="fab-probe">&#128270;</button>
-  <button class="canvas-fab" onclick="toggleChaosPanel()" title="Kaos (Shift+K)" id="fab-chaos" style="color:#ff8800">&#9889;</button>
   <button class="canvas-fab" onclick="toggleRealisticBtn()" title="Gerçekçi (Shift+R)" id="fab-realistic">&#128737;</button>
   <button class="canvas-fab" onclick="VXA.repairAll();needsRender=true" title="Sıfırla">&#8617;</button>
 </div>
 
-<!-- AI FAB + PANEL -->
-<button id="ai-fab" onclick="toggleAI()" aria-label="AI Assistant">&#129302;</button>
+<!-- AI panel kept (closes via X inside) but the floating launcher button
+     #ai-fab is gone. AI is reachable via direct DOM toggle (developers)
+     until a proper menu entry lands. -->
 <div id="ai-panel">
   <div id="ai-header">
     <h3>&#129302; <span id="ai-title-text"></span></h3>

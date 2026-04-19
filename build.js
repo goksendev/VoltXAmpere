@@ -252,6 +252,10 @@ const JS_FILES = [
   // events; however loading here keeps it grouped with the stamp UI.
   'src/ui/stamp-overlay.js',
 
+  // Sprint 105.1 (v2) — draggable floating panel helper. MUST load before
+  // startup.js because the boot IIFE calls DraggablePanel.attach().
+  'src/ui/draggable-panel.js',
+
   // Core: startup (DOMContentLoaded, buildLeftPanel, loadPreset, API)
   'src/core/startup.js',
 

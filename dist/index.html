@@ -6,27 +6,27 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>VoltXAmpere v12.0.0-alpha.18 — Professional Circuit Simulator</title>
+<title>VoltXAmpere v12.0.0-alpha.19 — Professional Circuit Simulator</title>
 <meta name="description" content="Professional browser-based circuit simulator. 71+ components, full SPICE parser, complete thermal-electrical coupling, AC-MNA analysis (Bode + Nyquist), professional multimeter probe. MIT licensed.">
 <meta name="keywords" content="circuit simulator, SPICE, devre simülatörü, electronics, voltxampere, free, online, oscilloscope, Bode, Nyquist, thermal, Newton-Raphson, MNA, Gummel-Poon">
 <meta name="author" content="goksendev">
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="https://voltxampere.com/simulator.html">
-<meta property="og:title" content="VoltXAmpere v12.0.0-alpha.18 — Professional Circuit Simulator">
+<meta property="og:title" content="VoltXAmpere v12.0.0-alpha.19 — Professional Circuit Simulator">
 <meta property="og:description" content="71+ components. Full SPICE parser. Thermal-electrical coupling. AC-MNA analysis. Professional multimeter. Free and open source.">
 <meta property="og:url" content="https://voltxampere.com/simulator.html">
 <meta property="og:type" content="website">
 <meta property="og:locale" content="en_US">
 <meta property="og:locale:alternate" content="tr_TR">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="VoltXAmpere v12.0.0-alpha.18 — Circuit Simulator">
+<meta name="twitter:title" content="VoltXAmpere v12.0.0-alpha.19 — Circuit Simulator">
 <meta name="twitter:description" content="71+ components. Full SPICE parser. Thermal-electrical coupling. Free and open source.">
 <meta name="theme-color" content="#0a0e14">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="VoltXAmpere">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='28' font-size='28'%3E%E2%9A%A1%3C/text%3E%3C/svg%3E">
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"VoltXAmpere","url":"https://voltxampere.com/simulator.html","description":"Professional browser-based circuit simulator with full SPICE parser, thermal-electrical coupling, and AC-MNA analysis","applicationCategory":"EducationalApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"softwareVersion":"12.0.0-alpha.18","license":"https://opensource.org/licenses/MIT","featureList":"71 components, Full SPICE parser, Thermal-electrical coupling, BSIM3 MOSFET, Gummel-Poon BJT, AC-MNA Bode and Nyquist, Professional multimeter probe, Inductor saturation, Hysteresis and eddy-current losses, Curie-point derating, Adaptive Newton-Raphson solver"}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"VoltXAmpere","url":"https://voltxampere.com/simulator.html","description":"Professional browser-based circuit simulator with full SPICE parser, thermal-electrical coupling, and AC-MNA analysis","applicationCategory":"EducationalApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"softwareVersion":"12.0.0-alpha.19","license":"https://opensource.org/licenses/MIT","featureList":"71 components, Full SPICE parser, Thermal-electrical coupling, BSIM3 MOSFET, Gummel-Poon BJT, AC-MNA Bode and Nyquist, Professional multimeter probe, Inductor saturation, Hysteresis and eddy-current losses, Curie-point derating, Adaptive Newton-Raphson solver"}</script>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
@@ -785,6 +785,82 @@ body.sidebar-resizing *{user-select:none!important}
   font:500 11px/1 var(--font-mono);cursor:pointer;
 }
 
+/* ──────── SPRINT 105.1 (v2) — FLOATING PANEL FAMILY ──────── */
+.fp-panel{
+  position:fixed;z-index:50;
+  background:rgba(18,18,18,0.88);
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  border:1px solid rgba(255,255,255,0.08);
+  border-radius:10px;
+  box-shadow:0 8px 24px rgba(0,0,0,0.35);
+  user-select:none;
+  /* default placement before JS positions; suppress native scrollbars
+     while initial geometry is computing */
+  top:12px;left:12px;
+  display:flex;flex-direction:column;
+  overflow:visible;
+}
+.fp-panel.dragging{cursor:grabbing;opacity:.92}
+.fp-panel .fp-handle{
+  height:14px;display:flex;align-items:center;justify-content:center;
+  cursor:grab;border-radius:10px 10px 0 0;
+  background:linear-gradient(rgba(255,255,255,0.04), transparent);
+  touch-action:none;
+}
+.fp-panel .fp-handle::before{
+  content:"";display:block;width:28px;height:3px;border-radius:2px;
+  background:rgba(255,255,255,0.2);transition:background .15s ease;
+}
+.fp-panel .fp-handle:hover::before{background:rgba(255,255,255,0.4)}
+.fp-panel.dragging .fp-handle::before{background:rgba(255,255,255,0.55)}
+.fp-panel .fp-body{display:flex;flex-direction:column;padding:0}
+
+/* TOOLS panel — body is a horizontal toolbar of buttons */
+#tools-panel .fp-body{
+  flex-direction:row;align-items:center;gap:4px;padding:6px 8px 8px;
+}
+
+/* MAP panel — minimap canvas + zoom row */
+#map-panel{width:212px}
+#map-panel #minimap{
+  display:block;width:200px;height:120px;margin:6px 6px 0 6px;
+  background:#1a1a30;border:1px solid #333;border-radius:6px;cursor:pointer;
+  position:static;
+}
+#map-panel .map-zoom{
+  display:flex;align-items:center;gap:4px;
+  padding:6px 8px;
+  border-top:1px solid rgba(255,255,255,0.06);
+}
+#map-panel .map-zoom .mz-btn{
+  flex:0 0 28px;height:24px;display:flex;align-items:center;justify-content:center;
+  border:none;background:transparent;color:rgba(255,255,255,0.78);
+  font:500 14px/1 var(--font-ui);cursor:pointer;border-radius:4px;
+  transition:background .12s,color .12s;
+}
+#map-panel .map-zoom .mz-btn:hover{background:rgba(255,255,255,0.06);color:#fff}
+#map-panel .map-zoom .mz-percent{
+  flex:1;text-align:center;font:500 11px/1 var(--font-mono);color:rgba(255,255,255,0.72);
+}
+#map-panel .map-zoom .mz-fit{flex:0 0 32px;margin-left:2px}
+
+/* PROBE panel — single-row readout */
+#probe-panel .fp-body{
+  flex-direction:row;align-items:center;gap:10px;
+  padding:8px 14px 10px;font:500 13px/1 var(--font-mono);
+  color:rgba(255,255,255,0.88);
+}
+#probe-panel .pp-dot{font-size:14px;line-height:1}
+#probe-panel .pp-red{color:#f0454a}
+#probe-panel .pp-black{color:rgba(255,255,255,0.55)}
+#probe-panel .pp-value{
+  letter-spacing:.04em;color:#fff;
+  background:rgba(255,255,255,0.04);padding:3px 8px;border-radius:5px;
+  border:1px solid rgba(255,255,255,0.06);
+  min-width:90px;text-align:center;
+}
+#probe-panel .pp-i{color:rgba(74,158,255,0.92)}
+
 </style>
 </head>
 <body>
@@ -851,21 +927,29 @@ body.sidebar-resizing *{user-select:none!important}
   <!-- CANVAS -->
   <div id="canvas-wrap">
     <canvas id="C" role="img" aria-label="Circuit schematic canvas" tabindex="0"></canvas>
-    <canvas id="minimap" width="200" height="130" style="position:absolute;bottom:50px;right:8px;width:200px;height:130px;background:#1a1a30;border:1px solid #333;border-radius:6px;z-index:5;cursor:pointer"></canvas>
-    <!-- Sprint 105.1 — drawing tools overlay. 4 mutex modes + 2 history
-         actions. Modes: Seçim (V), Kablo (W), Prob, Not. History: Geri /
-         İleri (Ctrl+Z / Ctrl+Y). Buttons delegate to the same legacy
-         functions the topbar used; only the DOM location moved. -->
-    <div id="canvas-tools" role="toolbar" aria-label="Canvas çizim araçları">
+  </div>
+
+  <!-- ════════ Sprint 105.1 (v2) — FLOATING PANELS ════════
+       Three draggable panels live OUTSIDE #canvas-wrap so they're
+       position:fixed and survive canvas pan/zoom. DraggablePanel.attach()
+       wires drag handles, viewport clamp + localStorage persistence.
+
+       Removed in this sprint:
+         · #zoom-controls (right-edge − 100% + ⊠) — duplicate of map zoom
+         · #fab-chaos     (Kaos floating button)
+         · #ai-fab        (AI Assistant robot button)
+   -->
+
+  <!-- TOOLS PANEL — 4 modes + 2 history actions -->
+  <div id="tools-panel" class="fp-panel" role="toolbar" aria-label="Canvas çizim araçları">
+    <div class="fp-handle" title="Sürükle · Çift tık: varsayılan konum"></div>
+    <div class="fp-body">
       <button class="ct-btn ct-mode" id="ct-mode-select" data-mode="select" onclick="setCanvasTool('select')" title="Seçim (V)">
         <span class="ct-ico">&#x2316;</span>
       </button>
       <button class="ct-btn ct-mode" id="ct-mode-wire" data-mode="wire" onclick="setCanvasTool('wire')" title="Kablo (W)">
         <span class="ct-ico">&#8866;</span>
       </button>
-      <!-- Hidden legacy btn-wire so existing code that toggles its .active
-           class (toggleWire, startPlace, keyboard.js Esc) keeps working.
-           Sprint 105.3 will refactor those callers. -->
       <button id="btn-wire" style="display:none" aria-hidden="true" tabindex="-1"></button>
       <button class="ct-btn ct-mode" id="ct-mode-probe" data-mode="probe" onclick="setCanvasTool('probe')" title="Prob (Shift+P)">
         <span class="ct-ico">&#9673;</span>
@@ -881,13 +965,31 @@ body.sidebar-resizing *{user-select:none!important}
         <span class="ct-ico">&#8631;</span>
       </button>
     </div>
-    <!-- Sprint 105.1 — zoom dock tucked directly under the minimap. Same
-         panel vocabulary (blur + subtle border) for visual continuity. -->
-    <div id="minimap-zoom" role="toolbar" aria-label="Harita zoom">
-      <button class="mz-btn" onclick="S.view.zoom=Math.max(S.view.minZoom,S.view.zoom/1.2);needsRender=true" title="Uzaklaştır (-)">&#8722;</button>
-      <span class="mz-percent" id="mz-percent">100%</span>
-      <button class="mz-btn" onclick="S.view.zoom=Math.min(S.view.maxZoom,S.view.zoom*1.2);needsRender=true" title="Yakınlaştır (+)">&#43;</button>
-      <button class="mz-btn mz-fit" onclick="fitToScreen()" title="Sığdır (Ctrl+Shift+F)">&#9965;</button>
+  </div>
+
+  <!-- MAP PANEL — minimap + zoom row, single draggable panel -->
+  <div id="map-panel" class="fp-panel" role="region" aria-label="Devre Haritası">
+    <div class="fp-handle" title="Sürükle · Çift tık: varsayılan konum"></div>
+    <div class="fp-body">
+      <canvas id="minimap" width="200" height="120" aria-label="Devre minimap" tabindex="-1"></canvas>
+      <div class="map-zoom" role="toolbar" aria-label="Harita zoom">
+        <button class="mz-btn" onclick="S.view.zoom=Math.max(S.view.minZoom,S.view.zoom/1.2);needsRender=true" title="Uzaklaştır (-)">&#8722;</button>
+        <span class="mz-percent" id="mz-percent">100%</span>
+        <button class="mz-btn" onclick="S.view.zoom=Math.min(S.view.maxZoom,S.view.zoom*1.2);needsRender=true" title="Yakınlaştır (+)">&#43;</button>
+        <button class="mz-btn mz-fit" onclick="fitToScreen()" title="Sığdır (Ctrl+Shift+F)">&#9965;</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PROBE PANEL — DOM mirror of VXA.Probes state. Polled at 250ms via
+       _syncProbePanel in startup.js. Empty state is a friendly hint. -->
+  <div id="probe-panel" class="fp-panel" role="region" aria-label="Prob ölçümü">
+    <div class="fp-handle" title="Sürükle · Çift tık: varsayılan konum"></div>
+    <div class="fp-body" id="probe-panel-body">
+      <span class="pp-dot pp-red" aria-hidden="true">&#9679;</span>
+      <span class="pp-value pp-dv" id="pp-dv">ΔV: —</span>
+      <span class="pp-value pp-i" id="pp-i">I: —</span>
+      <span class="pp-dot pp-black" aria-hidden="true">&#9679;</span>
     </div>
   </div>
   <button id="fab-add" aria-label="Add Component">+</button>
@@ -1117,7 +1219,7 @@ body.sidebar-resizing *{user-select:none!important}
     <span id="sb-temp" style="color:var(--text-3)"></span>
     <span id="sb-engine" style="color:var(--text-4)"></span>
     <span id="sb-extra" style="color:var(--text-3)"></span>
-    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v12.0.0-alpha.18 — Build: 2026-04-19 01:42 — © 2026</span>
+    <span id="sb-about" style="margin-left:auto;color:var(--text-4);cursor:pointer" onclick="showAbout()">VoltXAmpere v12.0.0-alpha.19 — Build: 2026-04-19 13:26 — © 2026</span>
   </div>
 </div>
 
@@ -1292,24 +1394,20 @@ body.sidebar-resizing *{user-select:none!important}
 
 <noscript><div style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#06080c;color:#e0e7f0;font-family:sans-serif;text-align:center;padding:40px"><div><h1 style="color:#00e09e;margin-bottom:12px">VoltXAmpere</h1><p>Bu uygulama JavaScript gerektirir.<br>Lütfen tarayıcınızda JavaScript'i etkinleştirin.</p></div></div></noscript>
 
-<!-- Zoom controls — canvas right side -->
-<div id="zoom-controls" style="position:fixed;right:12px;bottom:130px;display:flex;gap:2px;background:rgba(15,20,35,0.85);padding:4px;border-radius:8px;border:1px solid #333;z-index:90">
-  <button class="canvas-fab" onclick="S.view.zoom=Math.max(S.view.minZoom,S.view.zoom/1.2);needsRender=true" title="Uzaklaştır" style="font-size:18px">−</button>
-  <button class="canvas-fab" onclick="S.view.zoom=1;S.view.ox=cvs.width/DPR/2;S.view.oy=cvs.height/DPR/2;needsRender=true" title="Sıfırla" style="font-size:10px" id="zoom-level">100%</button>
-  <button class="canvas-fab" onclick="S.view.zoom=Math.min(S.view.maxZoom,S.view.zoom*1.2);needsRender=true" title="Yakınlaştır" style="font-size:18px">+</button>
-  <button class="canvas-fab" onclick="fitToScreen()" title="Sığdır">&#8862;</button>
-</div>
-
-<!-- Floating tool buttons — canvas right side -->
+<!-- Sprint 105.1 (v2) — bottom-right cluster trimmed:
+       · #zoom-controls REMOVED (duplicate of map-panel zoom row)
+       · #fab-chaos REMOVED (still reachable from topbar btn-chaos)
+       · #ai-fab REMOVED (no hotkey shipped today; Sprint 105.x revisit)
+     Surviving fabs: probe / realistic / repair (no spec note to remove). -->
 <div id="canvas-fab-group" style="position:fixed;right:12px;bottom:76px;display:flex;flex-direction:column;gap:6px;z-index:90">
   <button class="canvas-fab" onclick="toggleProbeMode()" title="Prob (Shift+P)" id="fab-probe">&#128270;</button>
-  <button class="canvas-fab" onclick="toggleChaosPanel()" title="Kaos (Shift+K)" id="fab-chaos" style="color:#ff8800">&#9889;</button>
   <button class="canvas-fab" onclick="toggleRealisticBtn()" title="Gerçekçi (Shift+R)" id="fab-realistic">&#128737;</button>
   <button class="canvas-fab" onclick="VXA.repairAll();needsRender=true" title="Sıfırla">&#8617;</button>
 </div>
 
-<!-- AI FAB + PANEL -->
-<button id="ai-fab" onclick="toggleAI()" aria-label="AI Assistant">&#129302;</button>
+<!-- AI panel kept (closes via X inside) but the floating launcher button
+     #ai-fab is gone. AI is reachable via direct DOM toggle (developers)
+     until a proper menu entry lands. -->
 <div id="ai-panel">
   <div id="ai-header">
     <h3>&#129302; <span id="ai-title-text"></span></h3>
@@ -19397,6 +19495,184 @@ var StampOverlay = (function() {
 if (typeof window !== 'undefined') window.StampOverlay = StampOverlay;
 
 
+// ═══ draggable-panel.js ═══
+// ──────── SPRINT 105.1 — DRAGGABLE FLOATING PANEL HELPER ────────
+// Generic helper that turns any element with an .fp-handle child into a
+// pointer-draggable floating panel. Position is persisted in localStorage
+// and clamped to the viewport with an 8px margin so a panel can't escape
+// off-screen even on resize. Double-clicking the handle restores the
+// caller-provided default position.
+//
+// Public surface:
+//   DraggablePanel.attach(panelEl, {
+//     storageKey: 'vxa.panel.map.pos',
+//     defaultPos: { left: 12, top: 12 }    // OR { right: 12, bottom: 12 }
+//   })
+//
+// Position object stored as { left, top } in CSS pixels (top-left anchor).
+// Viewport clamping converts right/bottom anchors to left/top on first
+// apply so subsequent drags use a single coord system.
+
+var DraggablePanel = (function() {
+
+  var MARGIN = 8;
+  var instances = [];
+
+  function _readStored(key) {
+    try {
+      var raw = localStorage.getItem(key);
+      if (!raw) return null;
+      var p = JSON.parse(raw);
+      if (typeof p.left !== 'number' || typeof p.top !== 'number') return null;
+      return p;
+    } catch (e) { return null; }
+  }
+  function _store(key, pos) {
+    try { localStorage.setItem(key, JSON.stringify({ left: pos.left, top: pos.top })); } catch (e) {}
+  }
+
+  function _viewport() {
+    return { w: window.innerWidth, h: window.innerHeight };
+  }
+
+  function _clamp(pos, panelEl) {
+    var rect = panelEl.getBoundingClientRect();
+    var vp = _viewport();
+    var maxLeft = Math.max(MARGIN, vp.w - rect.width - MARGIN);
+    var maxTop = Math.max(MARGIN, vp.h - rect.height - MARGIN);
+    return {
+      left: Math.min(Math.max(MARGIN, pos.left), maxLeft),
+      top: Math.min(Math.max(MARGIN, pos.top), maxTop)
+    };
+  }
+
+  function _resolveDefault(defaults, panelEl) {
+    // Accept {left, top} or {right, bottom}. Convert to {left, top}.
+    var rect = panelEl.getBoundingClientRect();
+    var vp = _viewport();
+    var left, top;
+    if (typeof defaults.left === 'number') left = defaults.left;
+    else if (typeof defaults.right === 'number') left = vp.w - rect.width - defaults.right;
+    else left = MARGIN;
+    if (typeof defaults.top === 'number') top = defaults.top;
+    else if (typeof defaults.bottom === 'number') top = vp.h - rect.height - defaults.bottom;
+    else top = MARGIN;
+    // Centered horizontally if defaults.centerX:true
+    if (defaults.centerX) left = Math.round((vp.w - rect.width) / 2);
+    return _clamp({ left: left, top: top }, panelEl);
+  }
+
+  function _apply(panelEl, pos) {
+    panelEl.style.left = pos.left + 'px';
+    panelEl.style.top = pos.top + 'px';
+    panelEl.style.right = 'auto';
+    panelEl.style.bottom = 'auto';
+  }
+
+  function attach(panelEl, opts) {
+    if (!panelEl) return null;
+    opts = opts || {};
+    var storageKey = opts.storageKey;
+    var defaults = opts.defaultPos || { left: 12, top: 12 };
+    var handle = panelEl.querySelector('.fp-handle');
+    if (!handle) return null;
+
+    // Initial placement: stored > defaults
+    function initialPlace() {
+      var stored = storageKey ? _readStored(storageKey) : null;
+      var pos = stored ? _clamp(stored, panelEl) : _resolveDefault(defaults, panelEl);
+      _apply(panelEl, pos);
+    }
+    // Defer so the panel has its computed dimensions.
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initialPlace);
+    } else {
+      requestAnimationFrame(initialPlace);
+    }
+
+    var dragging = false;
+    var startPointer = { x: 0, y: 0 };
+    var startPanel = { left: 0, top: 0 };
+    var pointerId = null;
+
+    function _onDown(e) {
+      if (e.button !== undefined && e.button !== 0) return;
+      var rect = panelEl.getBoundingClientRect();
+      startPointer.x = e.clientX;
+      startPointer.y = e.clientY;
+      startPanel.left = rect.left;
+      startPanel.top = rect.top;
+      dragging = true;
+      pointerId = e.pointerId !== undefined ? e.pointerId : null;
+      panelEl.classList.add('dragging');
+      try { handle.setPointerCapture && pointerId !== null && handle.setPointerCapture(pointerId); } catch (err) {}
+      if (e.cancelable) e.preventDefault();
+    }
+    function _onMove(e) {
+      if (!dragging) return;
+      var dx = e.clientX - startPointer.x;
+      var dy = e.clientY - startPointer.y;
+      var pos = _clamp({ left: startPanel.left + dx, top: startPanel.top + dy }, panelEl);
+      _apply(panelEl, pos);
+      if (e.cancelable) e.preventDefault();
+    }
+    function _onUp() {
+      if (!dragging) return;
+      dragging = false;
+      panelEl.classList.remove('dragging');
+      try { pointerId !== null && handle.releasePointerCapture && handle.releasePointerCapture(pointerId); } catch (err) {}
+      var rect = panelEl.getBoundingClientRect();
+      if (storageKey) _store(storageKey, { left: Math.round(rect.left), top: Math.round(rect.top) });
+    }
+    function _onDblClick() {
+      var pos = _resolveDefault(defaults, panelEl);
+      _apply(panelEl, pos);
+      if (storageKey) _store(storageKey, { left: pos.left, top: pos.top });
+    }
+
+    if (window.PointerEvent) {
+      handle.addEventListener('pointerdown', _onDown);
+      handle.addEventListener('pointermove', _onMove);
+      handle.addEventListener('pointerup', _onUp);
+      handle.addEventListener('pointercancel', _onUp);
+    } else {
+      // Legacy fallback — combined mouse + touch.
+      handle.addEventListener('mousedown', _onDown);
+      window.addEventListener('mousemove', _onMove);
+      window.addEventListener('mouseup', _onUp);
+      handle.addEventListener('touchstart', function(t) {
+        if (!t.touches || !t.touches[0]) return;
+        _onDown({ button: 0, clientX: t.touches[0].clientX, clientY: t.touches[0].clientY, cancelable: true, preventDefault: function() { t.preventDefault(); } });
+      }, { passive: false });
+      window.addEventListener('touchmove', function(t) {
+        if (!dragging || !t.touches || !t.touches[0]) return;
+        _onMove({ clientX: t.touches[0].clientX, clientY: t.touches[0].clientY, cancelable: true, preventDefault: function() { t.preventDefault(); } });
+      }, { passive: false });
+      window.addEventListener('touchend', _onUp);
+    }
+    handle.addEventListener('dblclick', _onDblClick);
+
+    // Re-clamp on viewport resize so a panel doesn't get stranded off-screen.
+    window.addEventListener('resize', function() {
+      var rect = panelEl.getBoundingClientRect();
+      var pos = _clamp({ left: rect.left, top: rect.top }, panelEl);
+      _apply(panelEl, pos);
+    });
+
+    var inst = { panel: panelEl, handle: handle, storageKey: storageKey, reset: _onDblClick };
+    instances.push(inst);
+    return inst;
+  }
+
+  function getAll() { return instances.slice(); }
+  function resetAll() { instances.forEach(function(i) { i.reset(); }); }
+
+  return { attach: attach, getAll: getAll, resetAll: resetAll };
+})();
+
+if (typeof window !== 'undefined') window.DraggablePanel = DraggablePanel;
+
+
 // ═══ startup.js ═══
 // ──────── STARTUP ────────
 loadFromURL();
@@ -19457,7 +19733,7 @@ function setAriaLabels() {
 setAriaLabels();
 
 // Console banner
-console.log('%c\u26A1 VoltXAmpere v12.0.0-alpha.18', 'color:#00e09e;font-size:18px;font-weight:bold');
+console.log('%c\u26A1 VoltXAmpere v12.0.0-alpha.19', 'color:#00e09e;font-size:18px;font-weight:bold');
 console.log('%cProfessional Circuit Simulator \u2014 voltxampere.com', 'color:#8899aa;font-size:12px');
 console.log('%c' + t('scriptApi'), 'color:#f59e0b;font-size:11px');
 
@@ -20427,7 +20703,9 @@ function setCanvasTool(mode) {
 }
 
 function _syncCanvasToolButtons() {
-  var nodes = document.querySelectorAll('#canvas-tools .ct-mode');
+  // Sprint 105.1 (v2) — selector widened so panel id rename
+  // (#canvas-tools → #tools-panel) doesn't break the active-class sync.
+  var nodes = document.querySelectorAll('.ct-mode');
   if (!nodes || !nodes.length) return;
   var probeActive = (typeof VXA !== 'undefined' && VXA.Probes && VXA.Probes.isActive && VXA.Probes.isActive());
   var active = 'select';
@@ -20435,6 +20713,50 @@ function _syncCanvasToolButtons() {
   else if (probeActive) active = 'probe';
   nodes.forEach(function(n) { n.classList.toggle('active', n.dataset.mode === active); });
 }
+
+// Sprint 105.1 (v2) — DOM mirror of probe state for the floating
+// PROBE PANEL. The probe HUD itself is canvas-drawn (VXA.Probes), but the
+// panel echoes the latest ΔV / current so the user can read numbers in a
+// fixed location regardless of where the probe tips landed.
+function _syncProbePanel() {
+  var dvEl = document.getElementById('pp-dv');
+  var iEl  = document.getElementById('pp-i');
+  if (!dvEl || !iEl) return;
+  var st = null;
+  try { if (typeof VXA !== 'undefined' && VXA.Probes && VXA.Probes.getState) st = VXA.Probes.getState(); } catch (e) {}
+  if (!st) { dvEl.textContent = 'ΔV: —'; iEl.textContent = 'I: —'; return; }
+  var dv = (st.dV != null) ? st.dV
+         : (st.measurement && st.measurement.v != null) ? st.measurement.v
+         : null;
+  var iv = (st.dI != null) ? st.dI
+         : (st.measurement && st.measurement.i != null) ? st.measurement.i
+         : null;
+  function _fmt(v, unit) {
+    if (v == null || !isFinite(v)) return '—';
+    var a = Math.abs(v);
+    if (a >= 1) return v.toFixed(2) + ' ' + unit;
+    if (a >= 1e-3) return (v * 1000).toFixed(2) + ' m' + unit;
+    if (a >= 1e-6) return (v * 1e6).toFixed(2) + ' µ' + unit;
+    return v.toExponential(2) + ' ' + unit;
+  }
+  dvEl.textContent = 'ΔV: ' + _fmt(dv, 'V');
+  iEl.textContent  = 'I: '  + _fmt(iv, 'A');
+}
+
+// Sprint 105.1 (v2) — wire the three floating panels to the drag helper.
+// Default positions are CSS-pixel anchors; localStorage overrides on
+// subsequent loads. Resize listener inside DraggablePanel keeps panels
+// inside the viewport on window resize.
+(function _bootFloatingPanels() {
+  if (typeof DraggablePanel === 'undefined') return;
+  function _attachAll() {
+    DraggablePanel.attach(document.getElementById('tools-panel'),  { storageKey: 'vxa.panel.tools.pos', defaultPos: { left: 12, top: 12 } });
+    DraggablePanel.attach(document.getElementById('map-panel'),    { storageKey: 'vxa.panel.map.pos',   defaultPos: { right: 12, top: 12 } });
+    DraggablePanel.attach(document.getElementById('probe-panel'),  { storageKey: 'vxa.panel.probe.pos', defaultPos: { centerX: true, bottom: 220 } });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _attachAll);
+  else _attachAll();
+})();
 
 // Sprint 105.1 — sim play/pause icon swap. Legacy toggleSim sets
 // "Başlat / Durdur" text on #btn-sim; we override the innerHTML after the
@@ -20458,9 +20780,11 @@ function _syncZoomPercent() {
 }
 
 // Two light pollers — cheaper than wiring into every mode transition.
+// Sprint 105.1 (v2) added _syncProbePanel.
 if (typeof document !== 'undefined') {
   setInterval(_syncCanvasToolButtons, 250);
   setInterval(_syncZoomPercent, 250);
+  setInterval(_syncProbePanel, 250);
 }
 
 // Keyboard shortcut: "/" to focus search
@@ -31557,7 +31881,7 @@ function runQuickDemo() {
 function showAbout() {
   var box = document.getElementById('about-box');
   var tr = currentLang === 'tr';
-  box.innerHTML = '<div style="font:800 24px var(--font-ui);margin-bottom:4px"><span style="color:var(--accent)">\u26A1 Volt</span><span style="color:var(--orange)">X</span><span style="color:var(--blue)">Ampere</span> <span style="font:500 14px var(--font-mono);color:var(--text-3)">v12.0.0-alpha.18</span></div>'
+  box.innerHTML = '<div style="font:800 24px var(--font-ui);margin-bottom:4px"><span style="color:var(--accent)">\u26A1 Volt</span><span style="color:var(--orange)">X</span><span style="color:var(--blue)">Ampere</span> <span style="font:500 14px var(--font-mono);color:var(--text-3)">v12.0.0-alpha.19</span></div>'
     + '<div style="font:13px var(--font-ui);color:var(--text-2);margin-bottom:16px">' + (tr?'D\u00fcnyan\u0131n En Geli\u015fmi\u015f \u00dccretsiz Devre Sim\u00fclat\u00f6r\u00fc':'World\'s Most Advanced Free Circuit Simulator') + '</div>'
     + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;text-align:left;font-size:11px;color:var(--text-2);margin-bottom:12px">'
     + '<div>\u2705 71+ ' + (tr?'Bile\u015fen':'Components') + '</div>'
