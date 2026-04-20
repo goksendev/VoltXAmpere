@@ -10,7 +10,23 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { createRef, ref, type Ref } from 'lit/directives/ref.js';
-import type { CircuitDef, SolveResult } from '../bridge/engine.ts';
+import type { CircuitDef, ComponentType, SolveResult } from '../bridge/engine.ts';
+
+// Sprint 1.3: sidebar tool id'sinden engine component type'ına map.
+// LED/Switch/Ground Sprint 1.3'te desteklenmiyor, null döner.
+function toolToComponentType(tool: string): ComponentType {
+  switch (tool) {
+    case 'resistor':
+      return 'R';
+    case 'capacitor':
+      return 'C';
+    case 'battery':
+      return 'V';
+    default:
+      // Tip garanti değilse güvenli fallback — ghost çizilmeyecek
+      return 'R';
+  }
+}
 import { readColors } from '../render/helpers.ts';
 import {
   drawCircuit,
@@ -29,6 +45,7 @@ import {
   INITIAL_DRAG,
   computeDraggedPosition,
   shouldActivateDrag,
+  snapToGrid,
   type DragState,
 } from '../interaction/drag.ts';
 import './canvas-chrome.ts';
@@ -88,6 +105,9 @@ export class VxaCanvas extends LitElement {
   @property() simTime = '—';
   @property({ type: Number }) zoom = 100;
 
+  // Sprint 1.3: aktif yerleştirme aracı (sidebar'dan). null → placement modu kapalı.
+  @property() activeTool: string | null = null;
+
   // ─── Internal ───────────────────────────────────────────────────────────
   private readonly canvasRef: Ref<HTMLCanvasElement> = createRef();
   private resizeObserver: ResizeObserver | null = null;
@@ -105,6 +125,10 @@ export class VxaCanvas extends LitElement {
   // Drag'in hemen sonrasında DOM otomatik click event'i tetikleyebilir —
   // "R1'i sürükledim, bırakınca seçim kaybolmasın/taşınmasın" için flag.
   private justFinishedDrag = false;
+
+  // Sprint 1.3: ghost preview pozisyonu (layout-relative, snap'li).
+  // activeTool null ise null. Canvas redraw ghost'u çizer.
+  @state() private ghostPosition: { x: number; y: number } | null = null;
 
   override firstUpdated(): void {
     const canvas = this.canvasRef.value;
@@ -136,9 +160,22 @@ export class VxaCanvas extends LitElement {
       changed.has('layout') ||
       changed.has('solve') ||
       changed.has('selectionId') ||
-      changed.has('hoveredId')
+      changed.has('hoveredId') ||
+      changed.has('activeTool') ||
+      changed.has('ghostPosition')
     ) {
       this.scheduleDraw();
+    }
+    // Sprint 1.3: activeTool null olduğunda ghost pozisyonu temizlenir, cursor
+    // default'a döner. Sidebar yeni araç seçince cursor crosshair.
+    if (changed.has('activeTool')) {
+      const canvas = this.canvasRef.value;
+      if (canvas) {
+        canvas.style.cursor = this.activeTool ? 'crosshair' : 'default';
+      }
+      if (!this.activeTool && this.ghostPosition !== null) {
+        this.ghostPosition = null;
+      }
     }
   }
 
@@ -204,8 +241,24 @@ export class VxaCanvas extends LitElement {
     const canvas = this.canvasRef.value;
     if (!canvas) return;
     const { x, y } = mouseToCanvasCoords(e, canvas);
-    const hitId = this.hitTest(x, y);
 
+    // Sprint 1.3: activeTool varsa — ghost pozisyonunu güncelle, hover atla.
+    if (this.activeTool) {
+      const rect = canvas.getBoundingClientRect();
+      const layoutX = snapToGrid(x - rect.width / 2);
+      const layoutY = snapToGrid(y - rect.height / 2);
+      if (
+        this.ghostPosition?.x !== layoutX ||
+        this.ghostPosition?.y !== layoutY
+      ) {
+        this.ghostPosition = { x: layoutX, y: layoutY };
+      }
+      // Hover highlight'ı placement modunda kapat
+      if (this.hoveredId !== null) this.hoveredId = null;
+      return;
+    }
+
+    const hitId = this.hitTest(x, y);
     if (hitId !== this.hoveredId) {
       this.hoveredId = hitId;
       canvas.style.cursor = hitId ? 'pointer' : 'default';
@@ -241,10 +294,26 @@ export class VxaCanvas extends LitElement {
 
     const canvas = this.canvasRef.value;
     if (!canvas) return;
+
+    // Sprint 1.3: activeTool varsa — yerleştirme sinyali, seçim atla.
+    if (this.activeTool && this.ghostPosition) {
+      this.dispatchEvent(
+        new CustomEvent('place-component', {
+          detail: {
+            tool: this.activeTool,
+            x: this.ghostPosition.x,
+            y: this.ghostPosition.y,
+          },
+          bubbles: true,
+          composed: true,
+        }),
+      );
+      return;
+    }
+
     const { x, y } = mouseToCanvasCoords(e, canvas);
     const hitId = this.hitTest(x, y);
 
-    // Plan gereği: bileşen hit → select; boş alan → none (seçimi temizle).
     const detail = hitId
       ? { type: 'component' as const, id: hitId }
       : { type: 'none' as const };
@@ -412,9 +481,18 @@ export class VxaCanvas extends LitElement {
       }
     }
 
-    // ─── Ön katman: devre (Sprint 0.5 + 0.6 + 1.1 hover) ──────────────────
+    // ─── Ön katman: devre (Sprint 0.5 + 0.6 + 1.1 hover + 1.3 ghost) ─────
     if (this.circuit && this.layout) {
       const colors = readColors(this);
+      // Sprint 1.3: ghost için bileşen tipi. activeTool null ise ghost yok.
+      const ghost =
+        this.activeTool && this.ghostPosition
+          ? {
+              type: toolToComponentType(this.activeTool),
+              x: this.ghostPosition.x,
+              y: this.ghostPosition.y,
+            }
+          : undefined;
       drawCircuit(
         ctx,
         cssW,
@@ -425,6 +503,7 @@ export class VxaCanvas extends LitElement {
         colors,
         this.selectionId,
         this.hoveredId,
+        ghost,
       );
     }
 

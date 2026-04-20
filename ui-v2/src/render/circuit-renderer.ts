@@ -102,6 +102,17 @@ function drawSelectionFrame(
   ctx.restore();
 }
 
+/** Sprint 1.3 — placement ghost preview. Canvas bu parametreyi doldurursa
+ * normal bileşenlerden sonra yarı saydam amber ghost çizilir. */
+export interface GhostSpec {
+  type: ComponentType;
+  x: number;
+  y: number;
+}
+
+/** Ghost saydamlık — placement modunda yarı görünür. */
+const GHOST_ALPHA = 0.45;
+
 export function drawCircuit(
   ctx: CanvasRenderingContext2D,
   cssW: number,
@@ -112,6 +123,7 @@ export function drawCircuit(
   colors: RenderColors,
   selectionId?: string,
   hoveredId?: string | null,
+  ghost?: GhostSpec,
 ): void {
   const cx = cssW / 2;
   const cy = cssH / 2;
@@ -210,16 +222,40 @@ export function drawCircuit(
   }
 
   // ─── 6) Probe'lar (üst katman) — solver başarılıysa ──────────────────────
-  if (!solve || !solve.success) return;
-  for (const pr of layout.probes) {
-    const voltage = solve.nodeVoltages[pr.node] ?? 0;
-    const spec: ProbeDrawSpec = {
-      pin: world(pr.pin),
-      box: world(pr.box),
-      label: pr.label,
-      value: formatVoltage(voltage),
-      tone: pr.tone,
-    };
-    drawProbe(ctx, spec, colors);
+  if (solve && solve.success) {
+    for (const pr of layout.probes) {
+      const voltage = solve.nodeVoltages[pr.node] ?? 0;
+      const spec: ProbeDrawSpec = {
+        pin: world(pr.pin),
+        box: world(pr.box),
+        label: pr.label,
+        value: formatVoltage(voltage),
+        tone: pr.tone,
+      };
+      drawProbe(ctx, spec, colors);
+    }
+  }
+
+  // ─── 7) Ghost preview (Sprint 1.3) — en üstte, yarı saydam ──────────────
+  // Rotation 0, seçim çerçevesi ve label yok. İsSelected=true ile accent
+  // rengi; globalAlpha ile saydamlık. Mevcut sembol fonksiyonları yeniden
+  // kullanılıyor.
+  if (ghost) {
+    ctx.save();
+    ctx.globalAlpha = GHOST_ALPHA;
+    ctx.translate(cx + ghost.x, cy + ghost.y);
+    switch (ghost.type) {
+      case 'R':
+        drawResistor(ctx, colors, true, false);
+        break;
+      case 'C':
+        drawCapacitor(ctx, colors, true, false);
+        break;
+      case 'V':
+        drawVoltageSource(ctx, colors, true, false);
+        break;
+      // Diğer tipler Sprint 1.x+ sembolleriyle gelecek
+    }
+    ctx.restore();
   }
 }

@@ -32,6 +32,8 @@ import {
 } from '../interaction/component-terminals.ts';
 import {
   solveTransient,
+  type CircuitDef,
+  type ComponentType,
   type SolveResult,
   type TransientResult,
 } from '../bridge/engine.ts';
@@ -41,8 +43,43 @@ import {
   RC_TAU_SECONDS,
   RC_TRANSIENT_DT,
   RC_TRANSIENT_DURATION,
-  RC_TRANSIENT_PROBE_NODES,
 } from '../circuits/rc-lowpass.ts';
+import {
+  formatCapacitance,
+  formatResistance,
+} from '../util/format.ts';
+
+// ─── Sprint 1.3 yerleştirme yardımcıları ──────────────────────────────────
+
+/** Sidebar tool id → engine ComponentType. Null = desteklenmiyor. */
+function toolToComponentType(tool: string): ComponentType | null {
+  switch (tool) {
+    case 'resistor':  return 'R';
+    case 'capacitor': return 'C';
+    case 'battery':   return 'V';
+    default:          return null;
+  }
+}
+
+/** Yeni bileşenin başlangıç değeri (SI birimde). Plan standardı. */
+const DEFAULT_VALUES: Record<ComponentType, number> = {
+  V: 5,       // 5 V pil
+  R: 1000,    // 1 kΩ
+  C: 10e-9,   // 10 nF
+  L: 1e-3,    // 1 mH (Sprint 1.x+)
+  I: 0.001,   // 1 mA (Sprint 1.x+)
+  D: 0, Z: 0, BJT: 0, MOS: 0, OA: 0,
+};
+
+/** Bileşen yanındaki görünür etiket (Sprint 0.5'teki displayValue semantiği). */
+function formatComponentDisplay(type: ComponentType, value: number): string {
+  switch (type) {
+    case 'R': return formatResistance(value);
+    case 'C': return formatCapacitance(value);
+    case 'V': return `${value} V`;
+    default:  return String(value);
+  }
+}
 import {
   formatCurrent,
   formatTime,
@@ -276,14 +313,25 @@ export class VxaDesignMode extends LitElement {
   // shell'leri Faz 3+'da gelecek.
   @state() private activeMode: ModeName = 'tasarla';
 
-  // Sprint 0.11: aktif araç (sidebar katalog). Faz 2'de canvas click/drag ile
-  // bileşen yerleştirme akışında güncellenecek. Şimdilik null.
-  @state() private activeTool: string | null = null;
+  // Sprint 0.11: aktif araç (sidebar katalog).
+  // Sprint 1.3: artık gerçek — sidebar tool-select set eder, canvas ghost gezer.
+  @state() private activeTool:
+    | 'resistor'
+    | 'capacitor'
+    | 'battery'
+    | null = null;
 
   // Sprint 1.2: layout artık state — kullanıcı bileşen drag edince güncellenir.
   // structuredClone ile derin kopya alıyoruz ki RC_LOWPASS_LAYOUT saf kalsın.
   // Via noktaları ilk yüklemede recomputeWires() ile hesaplanır.
   @state() private layout: CircuitLayout = structuredClone(RC_LOWPASS_LAYOUT);
+
+  // Sprint 1.3: circuit de artık state — kullanıcı bileşen yerleştirince
+  // components ve nodes listesi genişler. Derin kopya ile RC_LOWPASS saf kalır.
+  @state() private circuit: CircuitDef = structuredClone(RC_LOWPASS);
+
+  // Sprint 1.3: yeni bileşen terminalleri için eşsiz floating node sayacı.
+  private floatingNodeCounter = 1;
 
   // Sprint 1.1: canvas select event handler. hitId null olursa selection
   // temizlenir ('none'); bileşen hit olursa 'component' tipi + id.
@@ -291,6 +339,139 @@ export class VxaDesignMode extends LitElement {
     const detail = (e as CustomEvent).detail as Selection;
     this.selection = detail;
   };
+
+  // ─── Sprint 1.3: yerleştirme akışı ────────────────────────────────────
+
+  /** Sidebar'dan tool-select event'i. Yalnızca R/C/V destekleniyor — diğer
+   * tipler [TODO] log. */
+  private onSidebarToolSelect = (e: Event): void => {
+    const id = (e as CustomEvent).detail.id as string;
+    if (id === 'resistor' || id === 'capacitor' || id === 'battery') {
+      this.activeTool = id;
+    } else {
+      // LED, Switch, Ground Sprint 1.x+'da gelecek
+      console.log(`[TODO] ${id} aracı Sprint 1.x+'da gelecek`);
+    }
+  };
+
+  /** Canvas'tan place-component event'i. Yeni bileşen id üret, circuit ve
+   * layout state güncelle, solver yeniden çağır. */
+  private onPlaceComponent = async (e: Event): Promise<void> => {
+    const detail = (e as CustomEvent).detail as {
+      tool: string;
+      x: number;
+      y: number;
+    };
+    const type = toolToComponentType(detail.tool);
+    if (!type) return;
+
+    const id = this.generateNewId(type);
+    const value = DEFAULT_VALUES[type];
+    const n1 = this.generateFloatingNode();
+    const n2 = this.generateFloatingNode();
+    const displayValue = formatComponentDisplay(type, value);
+
+    // Circuit — immutable update. components + nodes genişler.
+    this.circuit = {
+      ...this.circuit,
+      components: [
+        ...this.circuit.components,
+        { type, id, nodes: [n1, n2], value },
+      ],
+      nodes: [...this.circuit.nodes, n1, n2],
+    };
+
+    // Layout — yeni placement eklenir, wires dokunulmaz (yeni bileşen bağsız).
+    const newLayout: CircuitLayout = {
+      ...this.layout,
+      components: [
+        ...this.layout.components,
+        { id, x: detail.x, y: detail.y, rotation: 0, displayValue },
+      ],
+    };
+    this.layout = this.recomputeWires(newLayout);
+
+    // Placement modunu kapat — tek tıklama = tek yerleştirme
+    this.activeTool = null;
+
+    // Sprint 1.3: topoloji değişti → solver yeniden çağrılmalı
+    await this.runSolver();
+  };
+
+  /** Yeni bileşen id üretici. Mevcut aynı-tip id'lerini tarar, max+1. */
+  private generateNewId(type: ComponentType): string {
+    const prefix = type;
+    const existing = this.circuit.components
+      .filter((c) => c.type === type)
+      .map((c) => {
+        const match = c.id.match(/(\d+)$/);
+        return match ? parseInt(match[1]!, 10) : 0;
+      })
+      .filter((n) => !isNaN(n));
+    const nextNum = existing.length > 0 ? Math.max(...existing) + 1 : 1;
+    return `${prefix}${nextNum}`;
+  }
+
+  /** Eşsiz floating node adı. Her terminal bağımsız. */
+  private generateFloatingNode(): string {
+    return `float_${this.floatingNodeCounter++}`;
+  }
+
+  /** Tüm non-ground node adları — solver probeNodes parametresi için. */
+  private getAllNonGroundNodes(): string[] {
+    const nodes = new Set<string>();
+    for (const c of this.circuit.components) {
+      for (const n of c.nodes) {
+        if (n !== 'gnd' && n !== 'ground' && n !== '0') nodes.add(n);
+      }
+    }
+    return Array.from(nodes);
+  }
+
+  /** Solver'ı mevcut circuit ile yeniden çağır. Topoloji değişimi sonrası
+   * (Sprint 1.3 yerleştirme, Sprint 1.4 tel çekme, Sprint 1.5 silme).
+   * Drag (layout-only) tetiklemez. */
+  private async runSolver(): Promise<void> {
+    try {
+      const transient = await solveTransient({
+        circuit: this.circuit,
+        dt: RC_TRANSIENT_DT,
+        duration: RC_TRANSIENT_DURATION,
+        probeNodes: this.getAllNonGroundNodes(),
+      });
+      if (transient.success) {
+        const snapshot = snapshotFromTransient(transient, this.circuit, -1);
+        this.dashboard = { kind: 'ok', transient, snapshot };
+      } else {
+        // Plan: eski sonucu koru, UI değişmesin — kullanıcı önceki değerleri
+        // görmeye devam etsin.
+        console.warn(
+          '[solver] yeniden hesap başarısız:',
+          transient.errorMessage,
+        );
+      }
+    } catch (err) {
+      console.error('[solver] beklenmedik hata:', err);
+    }
+  }
+
+  /** Document keydown — Escape ile placement iptali. */
+  private onKeyDown = (e: KeyboardEvent): void => {
+    if (e.key === 'Escape' && this.activeTool) {
+      this.activeTool = null;
+      e.preventDefault();
+    }
+  };
+
+  override connectedCallback(): void {
+    super.connectedCallback();
+    document.addEventListener('keydown', this.onKeyDown);
+  }
+
+  override disconnectedCallback(): void {
+    super.disconnectedCallback();
+    document.removeEventListener('keydown', this.onKeyDown);
+  }
 
   // ─── Sprint 1.2: drag event handler + wire routing ────────────────────
 
@@ -316,7 +497,7 @@ export class VxaDesignMode extends LitElement {
     const TEL_PAD = 8;
     const compAabbs = layout.components
       .map((c) => {
-        const comp = RC_LOWPASS.components.find((x) => x.id === c.id);
+        const comp = this.circuit.components.find((x) => x.id === c.id);
         if (!comp) return null;
         const bounds = COMPONENT_BOUNDS[comp.type] ?? DEFAULT_BOUNDS;
         const isRot = c.rotation === 90 || c.rotation === 270;
@@ -357,7 +538,9 @@ export class VxaDesignMode extends LitElement {
     if (ep.kind === 'fixed') return { x: ep.x, y: ep.y };
     const placement = layout.components.find((c) => c.id === ep.componentId);
     if (!placement) return { x: 0, y: 0 };
-    const comp = RC_LOWPASS.components.find((c) => c.id === ep.componentId);
+    // Sprint 1.3: this.circuit (dinamik), RC_LOWPASS değil — yeni bileşenler
+    // için de tipi bulabilsin.
+    const comp = this.circuit.components.find((c) => c.id === ep.componentId);
     const compType = comp?.type ?? 'R';
     return resolveTerminalLocal(
       { x: placement.x, y: placement.y, rotation: placement.rotation },
@@ -375,13 +558,13 @@ export class VxaDesignMode extends LitElement {
     // yerine geçiyor → inspector ve canvas probe'ları aynı snapshot'tan.
     try {
       const transient = await solveTransient({
-        circuit: RC_LOWPASS,
+        circuit: this.circuit,
         dt: RC_TRANSIENT_DT,
         duration: RC_TRANSIENT_DURATION,
-        probeNodes: [...RC_TRANSIENT_PROBE_NODES],
+        probeNodes: this.getAllNonGroundNodes(),
       });
       if (transient.success) {
-        const snapshot = snapshotFromTransient(transient, RC_LOWPASS, -1);
+        const snapshot = snapshotFromTransient(transient, this.circuit, -1);
         this.dashboard = { kind: 'ok', transient, snapshot };
       } else {
         this.dashboard = {
@@ -494,15 +677,19 @@ export class VxaDesignMode extends LitElement {
       </section>
 
       <section class="sidebar-zone" aria-label="sidebar">
-        <vxa-sidebar .activeTool=${this.activeTool}></vxa-sidebar>
+        <vxa-sidebar
+          .activeTool=${this.activeTool}
+          @tool-select=${this.onSidebarToolSelect}
+        ></vxa-sidebar>
       </section>
 
       <section class="canvas-zone" aria-label="canvas">
         <vxa-canvas
-          .circuit=${RC_LOWPASS}
+          .circuit=${this.circuit}
           .layout=${this.layout}
           .solve=${solve}
           .selectionId=${this.selection.type === 'component' ? this.selection.id : undefined}
+          .activeTool=${this.activeTool}
           chromeTitle="DENEY"
           chromeSubtitle="Alçak Geçiren RC Süzgeç · f_c ≈ 15.9 kHz"
           .isPlaying=${true}
@@ -510,13 +697,14 @@ export class VxaDesignMode extends LitElement {
           .zoom=${100}
           @select=${this.onCanvasSelect}
           @drag-position=${this.onCanvasDragPosition}
+          @place-component=${this.onPlaceComponent}
         ></vxa-canvas>
       </section>
 
       <section class="inspector-zone" aria-label="inspector">
         <vxa-inspector
           .selection=${this.selection}
-          .circuit=${RC_LOWPASS}
+          .circuit=${this.circuit}
           .layout=${this.layout}
           .solveResult=${solve}
         ></vxa-inspector>
