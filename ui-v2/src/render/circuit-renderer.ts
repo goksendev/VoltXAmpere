@@ -181,11 +181,21 @@ export function drawCircuit(
   }
 
   // ─── 2) Toprak sembolleri ────────────────────────────────────────────────
-  for (const g of layout.grounds) {
-    ctx.save();
-    ctx.translate(cx + g.x, cy + g.y);
-    drawGround(ctx, colors);
-    ctx.restore();
+  //   Sprint 2.6 / Bug #4A: sadece 'gnd' node aktif bir bileşende kullanılıyorsa
+  //   çiz. Aksi halde bulk delete sonrası canvas'ta orphan GND sembolleri
+  //   kalıyordu (Sprint 2.5'te probe için aynı disiplin eklendi, grounds
+  //   atlandı — şimdi burada kapatılıyor).
+  let gndActive = false;
+  for (const c of circuit.components) {
+    if (c.nodes.includes('gnd')) { gndActive = true; break; }
+  }
+  if (gndActive) {
+    for (const g of layout.grounds) {
+      ctx.save();
+      ctx.translate(cx + g.x, cy + g.y);
+      drawGround(ctx, colors);
+      ctx.restore();
+    }
   }
 
   // ─── 3) Bileşen gövdeleri (rotate edilir) ────────────────────────────────

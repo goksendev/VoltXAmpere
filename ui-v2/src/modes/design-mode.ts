@@ -123,7 +123,11 @@ type DashboardState =
   | { kind: 'err'; message: string }
   // Sprint 2.5 / Bug #3: boş devre. Kullanıcı tüm bileşenleri sildi ya da
   // henüz hiçbir şey eklemedi. Stale snapshot gösterme — placeholder UI.
-  | { kind: 'empty' };
+  | { kind: 'empty' }
+  // Sprint 2.6 / Bug #4B: bileşen var ama tel yok. Tüm bileşenler izole,
+  // solver matematiksel olarak anlamlı sonuç üretemez. Empty'den farklı
+  // bir mesaj — "devre tamamlanmamış · bileşenleri telle bağla".
+  | { kind: 'floating' };
 
 @customElement('vxa-design-mode')
 export class VxaDesignMode extends LitElement {
@@ -615,6 +619,14 @@ export class VxaDesignMode extends LitElement {
   private async runSolver(): Promise<void> {
     if (this.circuit.components.length === 0) {
       this.dashboard = { kind: 'empty' };
+      return;
+    }
+    // Sprint 2.6 / Bug #4B: bileşen var ama hiç tel yok — tüm bileşenler
+    // izole. Solver'ı çağırmadan floating state'e düş. 33.94µA gibi stale
+    // değer ya da anlamsız "0.00 V" slot'u yerine kullanıcıya "telle bağla"
+    // ipucu veriliyor.
+    if (this.layout.wires.length === 0) {
+      this.dashboard = { kind: 'floating' };
       return;
     }
     try {
@@ -1482,6 +1494,36 @@ export class VxaDesignMode extends LitElement {
               <span class="slot-title">I(R1) @son</span>
               <span class="slot-value">—</span>
               <span class="slot-sub">bileşen yok</span>
+            </div>
+          </div>
+        </section>
+      `;
+    }
+
+    // Sprint 2.6 / Bug #4B: bileşen var ama hiç tel yok — izole bileşenler.
+    // Empty'den ayrı ton: "tamamlanmamış" (hata değil, devam bekleniyor).
+    if (this.dashboard.kind === 'floating') {
+      return html`
+        <section class="dashboard-zone dashboard-zone--loading" aria-label="dashboard bağlantısız">
+          ${this.renderDashboardHeader()}
+          <div class="dash-chart" aria-hidden="true">
+            <div class="empty-hint">Devre tamamlanmamış · bileşenleri terminal'lerden telle bağla</div>
+          </div>
+          <div class="dash-slots">
+            <div class="slot">
+              <span class="slot-title">V_ÇIKIŞ @son</span>
+              <span class="slot-value">—</span>
+              <span class="slot-sub">bağlantı bekleniyor</span>
+            </div>
+            <div class="slot">
+              <span class="slot-title">V_GİRİŞ @son</span>
+              <span class="slot-value">—</span>
+              <span class="slot-sub">bağlantı bekleniyor</span>
+            </div>
+            <div class="slot">
+              <span class="slot-title">I(R1) @son</span>
+              <span class="slot-value">—</span>
+              <span class="slot-sub">bağlantı bekleniyor</span>
             </div>
           </div>
         </section>
