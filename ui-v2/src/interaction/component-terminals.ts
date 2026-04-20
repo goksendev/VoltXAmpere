@@ -18,6 +18,12 @@ export interface Point {
   y: number;
 }
 
+/** Sprint 1.4 — bir bileşenin bir terminal'ini işaret eden referans. */
+export interface TerminalRef {
+  componentId: string;
+  terminal: string;
+}
+
 interface TerminalMap {
   [terminal: string]: Point;
 }
@@ -35,6 +41,14 @@ export const COMPONENT_TERMINALS: Readonly<Record<string, TerminalMap>> = {
     t1: { x: -24, y: 0 }, // nodes[0] — sol plaka
     t2: { x: 24, y: 0 }, // nodes[1] — sağ plaka
   },
+};
+
+/** Sprint 1.4 — her bileşen tipinde terminal adlarının nodes[] sırasına
+ * karşılığı. TerminalRef.terminal → nodes[index] çevirmek için. */
+export const TERMINAL_ORDER: Readonly<Record<string, readonly string[]>> = {
+  V: ['pos', 'neg'], // nodes[0] = pos, nodes[1] = neg
+  R: ['t1', 't2'],
+  C: ['t1', 't2'],
 };
 
 export type Rotation = 0 | 90 | 180 | 270;

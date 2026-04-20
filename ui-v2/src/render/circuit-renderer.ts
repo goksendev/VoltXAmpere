@@ -22,7 +22,12 @@ import {
 } from './symbols/voltage-source.ts';
 import { drawProbe, type ProbeDrawSpec, type ProbeTone } from './symbols/probe.ts';
 import { formatVoltage } from '../util/format.ts';
-import { resolveTerminalLocal } from '../interaction/component-terminals.ts';
+import {
+  resolveTerminalLocal,
+  TERMINAL_ORDER,
+} from '../interaction/component-terminals.ts';
+import type { WireDrawState } from '../interaction/wire-draw.ts';
+import { routeWire } from '../interaction/wire-router.ts';
 
 export type Rotation = 0 | 90 | 180 | 270;
 
@@ -113,6 +118,11 @@ export interface GhostSpec {
 /** Ghost saydamlık — placement modunda yarı görünür. */
 const GHOST_ALPHA = 0.45;
 
+/** Sprint 1.4 — hover'da bileşen terminal marker'ı boyutu. */
+const TERMINAL_MARKER_RADIUS = 4;
+/** Preview tel alfa'sı. */
+const PREVIEW_WIRE_ALPHA = 0.6;
+
 export function drawCircuit(
   ctx: CanvasRenderingContext2D,
   cssW: number,
@@ -124,6 +134,7 @@ export function drawCircuit(
   selectionId?: string,
   hoveredId?: string | null,
   ghost?: GhostSpec,
+  wireDraw?: WireDrawState,
 ): void {
   const cx = cssW / 2;
   const cy = cssH / 2;
@@ -234,6 +245,82 @@ export function drawCircuit(
       };
       drawProbe(ctx, spec, colors);
     }
+  }
+
+  // ─── 6.5) Terminal marker'ları (Sprint 1.4) ─────────────────────────────
+  // Hover edilen bileşenin terminalleri küçük amber daire + glow. Tel
+  // modundayken kaynak bileşenin terminalleri de belirgin kalır.
+  const terminalHighlightIds = new Set<string>();
+  if (hoveredId) terminalHighlightIds.add(hoveredId);
+  if (wireDraw?.phase === 'started') {
+    terminalHighlightIds.add(wireDraw.from.componentId);
+  }
+  if (terminalHighlightIds.size > 0) {
+    for (const p of layout.components) {
+      if (!terminalHighlightIds.has(p.id)) continue;
+      const comp = circuit.components.find((c) => c.id === p.id);
+      if (!comp) continue;
+      const terms = TERMINAL_ORDER[comp.type];
+      if (!terms) continue;
+      ctx.save();
+      for (const t of terms) {
+        const local = resolveTerminalLocal(
+          { x: p.x, y: p.y, rotation: p.rotation },
+          comp.type,
+          t,
+        );
+        const wp = world(local);
+        // Glow pass — hafif halo
+        ctx.shadowBlur = 8;
+        ctx.shadowColor = colors.accent;
+        ctx.fillStyle = colors.accent;
+        ctx.beginPath();
+        ctx.arc(wp.x, wp.y, TERMINAL_MARKER_RADIUS, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+  }
+
+  // ─── 6.6) Preview tel (Sprint 1.4) — tel modundayken ────────────────────
+  if (wireDraw?.phase === 'started') {
+    const fromWorld = world(wireDraw.fromPoint);
+    const toWorld = world(wireDraw.previewTo);
+    // Obstacles: tüm bileşen AABB'leri (kaynak bileşen hariç — kendi
+    // terminalinden tel çıkıyor).
+    const obstacles: {x1:number;y1:number;x2:number;y2:number}[] = [];
+    for (const p of layout.components) {
+      if (p.id === wireDraw.from.componentId) continue;
+      const comp = circuit.components.find((c) => c.id === p.id);
+      if (!comp) continue;
+      // Basit AABB — Sprint 1.2'deki hesaplama (layout relative, +8 padding)
+      const BBOX_PAD = 8;
+      const H_MAP: Record<string, { w: number; h: number }> = {
+        R: { w: 80, h: 28 }, C: { w: 48, h: 28 }, V: { w: 70, h: 36 },
+      };
+      const base = H_MAP[comp.type] ?? { w: 40, h: 40 };
+      const isRot = p.rotation === 90 || p.rotation === 270;
+      const hw = (isRot ? base.h : base.w) / 2 + BBOX_PAD;
+      const hh = (isRot ? base.w : base.h) / 2 + BBOX_PAD;
+      obstacles.push({
+        x1: cx + p.x - hw, y1: cy + p.y - hh,
+        x2: cx + p.x + hw, y2: cy + p.y + hh,
+      });
+    }
+    const route = routeWire(fromWorld, toWorld, obstacles);
+    ctx.save();
+    ctx.strokeStyle = colors.accent;
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([6, 3]);
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.globalAlpha = PREVIEW_WIRE_ALPHA;
+    ctx.beginPath();
+    ctx.moveTo(fromWorld.x, fromWorld.y);
+    for (const v of route.via) ctx.lineTo(v.x, v.y);
+    ctx.lineTo(toWorld.x, toWorld.y);
+    ctx.stroke();
+    ctx.restore();
   }
 
   // ─── 7) Ghost preview (Sprint 1.3) — en üstte, yarı saydam ──────────────

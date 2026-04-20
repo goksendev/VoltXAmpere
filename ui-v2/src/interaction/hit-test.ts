@@ -51,3 +51,59 @@ export function mouseToCanvasCoords(
     y: event.clientY - rect.top,
   };
 }
+
+// ─── Sprint 1.4: terminal hit testing ──────────────────────────────────────
+
+import {
+  COMPONENT_TERMINALS,
+  TERMINAL_ORDER,
+  resolveTerminalLocal,
+  type TerminalRef,
+} from './component-terminals.ts';
+
+/** Terminal hit radius (CSS piksel) — görsel 4 px ama tıklama alanı 8 px,
+ * UX için cömert. */
+const TERMINAL_HIT_RADIUS_PX = 8;
+
+/** Circuit component layout bilgisi ile terminalin world koordinatını çöz. */
+function terminalWorldPosition(
+  placement: { x: number; y: number; rotation: 0 | 90 | 180 | 270 },
+  componentType: string,
+  terminal: string,
+  centerX: number,
+  centerY: number,
+): { x: number; y: number } | null {
+  if (!COMPONENT_TERMINALS[componentType]?.[terminal]) return null;
+  const local = resolveTerminalLocal(placement, componentType, terminal);
+  return { x: centerX + local.x, y: centerY + local.y };
+}
+
+/** Canvas koordinatı (px, py) hangi terminal'e denk geliyor? Daire şeklinde
+ * hit test (TERMINAL_HIT_RADIUS_PX). İlk eşleşmeyi döner — reverse iteration
+ * yok çünkü terminal'ler bileşen merkezinde değil, kenarlarında; overlap nadir. */
+export function hitTestTerminal(
+  px: number,
+  py: number,
+  layout: { components: ReadonlyArray<{ id: string; x: number; y: number; rotation: 0 | 90 | 180 | 270 }> },
+  circuitComponents: ReadonlyArray<{ id: string; type: string }>,
+  centerX: number,
+  centerY: number,
+): TerminalRef | null {
+  const r2 = TERMINAL_HIT_RADIUS_PX * TERMINAL_HIT_RADIUS_PX;
+  for (const placement of layout.components) {
+    const comp = circuitComponents.find((c) => c.id === placement.id);
+    if (!comp) continue;
+    const terms = TERMINAL_ORDER[comp.type];
+    if (!terms) continue;
+    for (const t of terms) {
+      const pos = terminalWorldPosition(placement, comp.type, t, centerX, centerY);
+      if (!pos) continue;
+      const dx = px - pos.x;
+      const dy = py - pos.y;
+      if (dx * dx + dy * dy <= r2) {
+        return { componentId: placement.id, terminal: t };
+      }
+    }
+  }
+  return null;
+}

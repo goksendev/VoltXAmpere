@@ -29,7 +29,13 @@ import {
 import {
   resolveTerminalLocal,
   type Point,
+  type TerminalRef,
 } from '../interaction/component-terminals.ts';
+import {
+  INITIAL_WIRE_DRAW,
+  terminalToNodeName,
+  type WireDrawState,
+} from '../interaction/wire-draw.ts';
 import {
   solveTransient,
   type CircuitDef,
@@ -333,6 +339,9 @@ export class VxaDesignMode extends LitElement {
   // Sprint 1.3: yeni bileşen terminalleri için eşsiz floating node sayacı.
   private floatingNodeCounter = 1;
 
+  // Sprint 1.4: tel çekme durumu. idle → started → (kurulum/iptal) → idle.
+  @state() private wireDraw: WireDrawState = INITIAL_WIRE_DRAW;
+
   // Sprint 1.1: canvas select event handler. hitId null olursa selection
   // temizlenir ('none'); bileşen hit olursa 'component' tipi + id.
   private onCanvasSelect = (e: Event): void => {
@@ -455,13 +464,150 @@ export class VxaDesignMode extends LitElement {
     }
   }
 
-  /** Document keydown — Escape ile placement iptali. */
+  /** Document keydown — Escape placement iptali + Sprint 1.4 tel iptal. */
   private onKeyDown = (e: KeyboardEvent): void => {
-    if (e.key === 'Escape' && this.activeTool) {
+    if (e.key !== 'Escape') return;
+    if (this.activeTool) {
       this.activeTool = null;
+      e.preventDefault();
+    } else if (this.wireDraw.phase !== 'idle') {
+      this.wireDraw = INITIAL_WIRE_DRAW;
       e.preventDefault();
     }
   };
+
+  // ─── Sprint 1.4: tel çekme akışı ──────────────────────────────────────
+
+  /** Canvas'tan mouse-move event. Tel modundayken preview tel için previewTo
+   * güncellenir (layout-relative). */
+  private onCanvasMouseMove = (e: Event): void => {
+    if (this.wireDraw.phase !== 'started') return;
+    const detail = (e as CustomEvent).detail as {
+      x: number;
+      y: number;
+      cx: number;
+      cy: number;
+    };
+    // Canvas-local (x, y) → layout-relative (x-cx, y-cy)
+    const previewTo = { x: detail.x - detail.cx, y: detail.y - detail.cy };
+    this.wireDraw = { ...this.wireDraw, previewTo };
+  };
+
+  /** Canvas'tan terminal-click event. idle ise tel modunu başlat; started ise
+   * ikinci terminal — kur veya iptal. */
+  private onTerminalClick = (e: Event): void => {
+    const term = (e as CustomEvent).detail as TerminalRef;
+
+    if (this.wireDraw.phase === 'idle') {
+      const point = this.getTerminalLayoutPosition(term);
+      if (!point) return;
+      this.wireDraw = {
+        phase: 'started',
+        from: term,
+        fromPoint: point,
+        previewTo: point,
+      };
+      return;
+    }
+
+    // started phase — ikinci terminal
+    const from = this.wireDraw.from;
+    if (
+      term.componentId === from.componentId &&
+      term.terminal === from.terminal
+    ) {
+      // Aynı terminal — iptal
+      this.wireDraw = INITIAL_WIRE_DRAW;
+      return;
+    }
+    if (term.componentId === from.componentId) {
+      // Aynı bileşenin iki terminali — kısa devre, engelle
+      console.warn('[wire] kısa devre engellendi: aynı bileşenin terminalleri');
+      this.wireDraw = INITIAL_WIRE_DRAW;
+      return;
+    }
+
+    this.wireDraw = INITIAL_WIRE_DRAW;
+    void this.connectTerminals(from, term);
+  };
+
+  /** Terminal'in layout-relative noktasını döner. Canvas world için +cx/+cy. */
+  private getTerminalLayoutPosition(term: TerminalRef): Point | null {
+    const placement = this.layout.components.find((c) => c.id === term.componentId);
+    if (!placement) return null;
+    const comp = this.circuit.components.find((c) => c.id === term.componentId);
+    if (!comp) return null;
+    return resolveTerminalLocal(
+      { x: placement.x, y: placement.y, rotation: placement.rotation },
+      comp.type,
+      term.terminal,
+    );
+  }
+
+  /** Tel kur: iki terminal'in bağlı olduğu node'ları merge et + layout'a
+   * wire ekle + solver tetikle. */
+  private async connectTerminals(
+    from: TerminalRef,
+    to: TerminalRef,
+  ): Promise<void> {
+    const fromNode = terminalToNodeName(from, this.circuit);
+    const toNode = terminalToNodeName(to, this.circuit);
+    if (!fromNode || !toNode) {
+      console.warn('[wire] terminal node isimleri bulunamadı');
+      return;
+    }
+    if (fromNode === toNode) {
+      console.warn('[wire] terminaller zaten aynı node\'da:', fromNode);
+      return;
+    }
+
+    const merged = this.chooseMergedNodeName(fromNode, toNode);
+
+    // Immutable merge: tüm components nodes[]'da fromNode ve toNode → merged.
+    this.circuit = {
+      ...this.circuit,
+      components: this.circuit.components.map((c) => ({
+        ...c,
+        nodes: c.nodes.map((n) =>
+          n === fromNode || n === toNode ? merged : n,
+        ) as typeof c.nodes,
+      })),
+      nodes: Array.from(
+        new Set(
+          this.circuit.nodes.map((n) =>
+            n === fromNode || n === toNode ? merged : n,
+          ),
+        ),
+      ),
+    };
+
+    // Layout'a yeni wire ekle (terminal-ref format)
+    const newWires = [
+      ...this.layout.wires,
+      {
+        from: { kind: 'terminal' as const, componentId: from.componentId, terminal: from.terminal },
+        to: { kind: 'terminal' as const, componentId: to.componentId, terminal: to.terminal },
+      },
+    ];
+    this.layout = this.recomputeWires({ ...this.layout, wires: newWires });
+
+    // Topoloji değişti → solver yeniden çağır
+    await this.runSolver();
+  }
+
+  /** İki node adını tek ada indirger. Plan: float vs gerçek → gerçek kazanır.
+   * İkisi gerçek ise sıralı birleşik ad (nadir). İkisi float ise ilki tutulur. */
+  private chooseMergedNodeName(a: string, b: string): string {
+    const aFloat = a.startsWith('float_');
+    const bFloat = b.startsWith('float_');
+    if (aFloat && !bFloat) return b;
+    if (!aFloat && bFloat) return a;
+    if (!aFloat && !bFloat) {
+      const [lo, hi] = [a, b].sort();
+      return `${lo}_${hi}`;
+    }
+    return a;
+  }
 
   override connectedCallback(): void {
     super.connectedCallback();
@@ -690,6 +836,7 @@ export class VxaDesignMode extends LitElement {
           .solve=${solve}
           .selectionId=${this.selection.type === 'component' ? this.selection.id : undefined}
           .activeTool=${this.activeTool}
+          .wireDraw=${this.wireDraw}
           chromeTitle="DENEY"
           chromeSubtitle="Alçak Geçiren RC Süzgeç · f_c ≈ 15.9 kHz"
           .isPlaying=${true}
@@ -698,6 +845,8 @@ export class VxaDesignMode extends LitElement {
           @select=${this.onCanvasSelect}
           @drag-position=${this.onCanvasDragPosition}
           @place-component=${this.onPlaceComponent}
+          @terminal-click=${this.onTerminalClick}
+          @mouse-move=${this.onCanvasMouseMove}
         ></vxa-canvas>
       </section>
 

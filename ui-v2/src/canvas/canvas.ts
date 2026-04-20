@@ -34,9 +34,11 @@ import {
 } from '../render/circuit-renderer.ts';
 import {
   componentAABB,
+  hitTestTerminal,
   mouseToCanvasCoords,
   pointInAABB,
 } from '../interaction/hit-test.ts';
+import type { WireDrawState } from '../interaction/wire-draw.ts';
 import {
   COMPONENT_BOUNDS,
   DEFAULT_BOUNDS,
@@ -108,6 +110,10 @@ export class VxaCanvas extends LitElement {
   // Sprint 1.3: aktif yerleştirme aracı (sidebar'dan). null → placement modu kapalı.
   @property() activeTool: string | null = null;
 
+  // Sprint 1.4: design-mode'dan gelen tel çekme durumu. Canvas'ta preview
+  // tel + hover terminal marker'ları bu prop'a göre render edilir.
+  @property({ attribute: false }) wireDraw: WireDrawState = { phase: 'idle' };
+
   // ─── Internal ───────────────────────────────────────────────────────────
   private readonly canvasRef: Ref<HTMLCanvasElement> = createRef();
   private resizeObserver: ResizeObserver | null = null;
@@ -162,7 +168,8 @@ export class VxaCanvas extends LitElement {
       changed.has('selectionId') ||
       changed.has('hoveredId') ||
       changed.has('activeTool') ||
-      changed.has('ghostPosition')
+      changed.has('ghostPosition') ||
+      changed.has('wireDraw')
     ) {
       this.scheduleDraw();
     }
@@ -242,6 +249,18 @@ export class VxaCanvas extends LitElement {
     if (!canvas) return;
     const { x, y } = mouseToCanvasCoords(e, canvas);
 
+    // Sprint 1.4: tel modu veya normal modda mouse-move event emit —
+    // design-mode preview tel pozisyonunu bu event'ten güncelliyor.
+    // cx/cy canvas merkezi (layout-relative hesabı için).
+    const rect = canvas.getBoundingClientRect();
+    this.dispatchEvent(
+      new CustomEvent('mouse-move', {
+        detail: { x, y, cx: rect.width / 2, cy: rect.height / 2 },
+        bubbles: true,
+        composed: true,
+      }),
+    );
+
     // Sprint 1.3: activeTool varsa — ghost pozisyonunu güncelle, hover atla.
     if (this.activeTool) {
       const rect = canvas.getBoundingClientRect();
@@ -258,10 +277,18 @@ export class VxaCanvas extends LitElement {
       return;
     }
 
+    // Sprint 1.4: tel modundayken cursor crosshair (hedef bekleniyor).
+    if (this.wireDraw.phase === 'started') {
+      canvas.style.cursor = 'crosshair';
+      // hover yine açık — hedef bileşenin terminalleri belirgin olsun
+    }
+
     const hitId = this.hitTest(x, y);
     if (hitId !== this.hoveredId) {
       this.hoveredId = hitId;
-      canvas.style.cursor = hitId ? 'pointer' : 'default';
+      if (this.wireDraw.phase !== 'started') {
+        canvas.style.cursor = hitId ? 'pointer' : 'default';
+      }
       this.dispatchEvent(
         new CustomEvent('hover-change', {
           detail: { id: hitId },
@@ -295,7 +322,9 @@ export class VxaCanvas extends LitElement {
     const canvas = this.canvasRef.value;
     if (!canvas) return;
 
-    // Sprint 1.3: activeTool varsa — yerleştirme sinyali, seçim atla.
+    const { x, y } = mouseToCanvasCoords(e, canvas);
+
+    // ─── Sprint 1.3: activeTool placement önceliği ─────────────────────
     if (this.activeTool && this.ghostPosition) {
       this.dispatchEvent(
         new CustomEvent('place-component', {
@@ -311,9 +340,33 @@ export class VxaCanvas extends LitElement {
       return;
     }
 
-    const { x, y } = mouseToCanvasCoords(e, canvas);
-    const hitId = this.hitTest(x, y);
+    // ─── Sprint 1.4: terminal hit önceliği — bileşenden önce ───────────
+    if (this.circuit && this.layout) {
+      const rect = canvas.getBoundingClientRect();
+      const cx = rect.width / 2;
+      const cy = rect.height / 2;
+      const termHit = hitTestTerminal(
+        x,
+        y,
+        this.layout,
+        this.circuit.components,
+        cx,
+        cy,
+      );
+      if (termHit) {
+        this.dispatchEvent(
+          new CustomEvent('terminal-click', {
+            detail: termHit,
+            bubbles: true,
+            composed: true,
+          }),
+        );
+        return;
+      }
+    }
 
+    // ─── Öncelik 3: Normal bileşen seç/unselect (Sprint 1.1) ───────────
+    const hitId = this.hitTest(x, y);
     const detail = hitId
       ? { type: 'component' as const, id: hitId }
       : { type: 'none' as const };
@@ -504,6 +557,7 @@ export class VxaCanvas extends LitElement {
         this.selectionId,
         this.hoveredId,
         ghost,
+        this.wireDraw,
       );
     }
 
