@@ -17,6 +17,19 @@ import '../charts/transient-chart.ts';
 import '../topbar/topbar.ts';
 import '../sidebar/sidebar.ts';
 import type { ModeName } from '../topbar/topbar.ts';
+import type {
+  CircuitLayout,
+  WireEndpoint,
+} from '../render/circuit-renderer.ts';
+import { routeWire } from '../interaction/wire-router.ts';
+import {
+  COMPONENT_BOUNDS,
+  DEFAULT_BOUNDS,
+} from '../interaction/component-bounds.ts';
+import {
+  resolveTerminalLocal,
+  type Point,
+} from '../interaction/component-terminals.ts';
 import {
   solveTransient,
   type SolveResult,
@@ -267,6 +280,11 @@ export class VxaDesignMode extends LitElement {
   // bileşen yerleştirme akışında güncellenecek. Şimdilik null.
   @state() private activeTool: string | null = null;
 
+  // Sprint 1.2: layout artık state — kullanıcı bileşen drag edince güncellenir.
+  // structuredClone ile derin kopya alıyoruz ki RC_LOWPASS_LAYOUT saf kalsın.
+  // Via noktaları ilk yüklemede recomputeWires() ile hesaplanır.
+  @state() private layout: CircuitLayout = structuredClone(RC_LOWPASS_LAYOUT);
+
   // Sprint 1.1: canvas select event handler. hitId null olursa selection
   // temizlenir ('none'); bileşen hit olursa 'component' tipi + id.
   private onCanvasSelect = (e: Event): void => {
@@ -274,7 +292,85 @@ export class VxaDesignMode extends LitElement {
     this.selection = detail;
   };
 
+  // ─── Sprint 1.2: drag event handler + wire routing ────────────────────
+
+  /** Canvas drag-position event'i: bileşenin yeni layout pozisyonu (snap'lenmiş).
+   * Components map güncelle, wire'ları yeniden hesapla. */
+  private onCanvasDragPosition = (e: Event): void => {
+    const { componentId, x, y } = (e as CustomEvent).detail as {
+      componentId: string;
+      x: number;
+      y: number;
+    };
+    const components = this.layout.components.map((c) =>
+      c.id === componentId ? { ...c, x, y } : c,
+    );
+    const next: CircuitLayout = { ...this.layout, components };
+    this.layout = this.recomputeWires(next);
+  };
+
+  /** Tüm wire'lar için via ara noktalarını yeniden hesapla.
+   * Layout-merkez-relative koordinatlar; render world'e çevirir. */
+  private recomputeWires(layout: CircuitLayout): CircuitLayout {
+    // Tüm bileşenlerin layout-relative AABB + 8 px padding (tel nefes alsın)
+    const TEL_PAD = 8;
+    const compAabbs = layout.components
+      .map((c) => {
+        const comp = RC_LOWPASS.components.find((x) => x.id === c.id);
+        if (!comp) return null;
+        const bounds = COMPONENT_BOUNDS[comp.type] ?? DEFAULT_BOUNDS;
+        const isRot = c.rotation === 90 || c.rotation === 270;
+        const hw = isRot ? bounds.halfHeight : bounds.halfWidth;
+        const hh = isRot ? bounds.halfWidth : bounds.halfHeight;
+        return {
+          id: c.id,
+          aabb: {
+            x1: c.x - hw - TEL_PAD,
+            y1: c.y - hh - TEL_PAD,
+            x2: c.x + hw + TEL_PAD,
+            y2: c.y + hh + TEL_PAD,
+          },
+        };
+      })
+      .filter((x): x is { id: string; aabb: NonNullable<typeof x>['aabb'] } => x !== null);
+
+    const wires = layout.wires.map((wire) => {
+      const from = this.resolveEndpoint(wire.from, layout);
+      const to = this.resolveEndpoint(wire.to, layout);
+
+      // Bu wire'ın bağlı olduğu bileşenler engel sayılmasın
+      const exclude = new Set<string>();
+      if (wire.from.kind === 'terminal') exclude.add(wire.from.componentId);
+      if (wire.to.kind === 'terminal') exclude.add(wire.to.componentId);
+      const obstacles = compAabbs
+        .filter((x) => !exclude.has(x.id))
+        .map((x) => x.aabb);
+
+      const route = routeWire(from, to, obstacles);
+      return { ...wire, via: route.via };
+    });
+
+    return { ...layout, wires };
+  }
+
+  private resolveEndpoint(ep: WireEndpoint, layout: CircuitLayout): Point {
+    if (ep.kind === 'fixed') return { x: ep.x, y: ep.y };
+    const placement = layout.components.find((c) => c.id === ep.componentId);
+    if (!placement) return { x: 0, y: 0 };
+    const comp = RC_LOWPASS.components.find((c) => c.id === ep.componentId);
+    const compType = comp?.type ?? 'R';
+    return resolveTerminalLocal(
+      { x: placement.x, y: placement.y, rotation: placement.rotation },
+      compType,
+      ep.terminal,
+    );
+  }
+
   override async firstUpdated(): Promise<void> {
+    // Sprint 1.2: ilk yüklemede wire via noktalarını hesapla (terminal-ref
+    // formatı bittikten sonra layout'ta henüz via yok).
+    this.layout = this.recomputeWires(this.layout);
+
     // Sprint 0.7: tek çağrı ile transient al. Son örnek = DC steady-state
     // yerine geçiyor → inspector ve canvas probe'ları aynı snapshot'tan.
     try {
@@ -404,7 +500,7 @@ export class VxaDesignMode extends LitElement {
       <section class="canvas-zone" aria-label="canvas">
         <vxa-canvas
           .circuit=${RC_LOWPASS}
-          .layout=${RC_LOWPASS_LAYOUT}
+          .layout=${this.layout}
           .solve=${solve}
           .selectionId=${this.selection.type === 'component' ? this.selection.id : undefined}
           chromeTitle="DENEY"
@@ -413,6 +509,7 @@ export class VxaDesignMode extends LitElement {
           simTime="100.00 µs"
           .zoom=${100}
           @select=${this.onCanvasSelect}
+          @drag-position=${this.onCanvasDragPosition}
         ></vxa-canvas>
       </section>
 
@@ -420,7 +517,7 @@ export class VxaDesignMode extends LitElement {
         <vxa-inspector
           .selection=${this.selection}
           .circuit=${RC_LOWPASS}
-          .layout=${RC_LOWPASS_LAYOUT}
+          .layout=${this.layout}
           .solveResult=${solve}
         ></vxa-inspector>
       </section>

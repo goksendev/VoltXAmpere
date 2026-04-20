@@ -25,6 +25,12 @@ import {
   COMPONENT_BOUNDS,
   DEFAULT_BOUNDS,
 } from '../interaction/component-bounds.ts';
+import {
+  INITIAL_DRAG,
+  computeDraggedPosition,
+  shouldActivateDrag,
+  type DragState,
+} from '../interaction/drag.ts';
 import './canvas-chrome.ts';
 
 // ─── Grid sabitleri ──────────────────────────────────────────────────────────
@@ -91,6 +97,15 @@ export class VxaCanvas extends LitElement {
   // temizler. Selection ise design-mode'da (prop olarak geri iner).
   @state() private hoveredId: string | null = null;
 
+  // Sprint 1.2: drag state. Mousedown armed → mousemove eşik aşınca active.
+  // Document seviyesinde mousemove/mouseup dinleniyor ki canvas dışına
+  // sürüklenince bile akış devam etsin.
+  @state() private dragState: DragState = INITIAL_DRAG;
+
+  // Drag'in hemen sonrasında DOM otomatik click event'i tetikleyebilir —
+  // "R1'i sürükledim, bırakınca seçim kaybolmasın/taşınmasın" için flag.
+  private justFinishedDrag = false;
+
   override firstUpdated(): void {
     const canvas = this.canvasRef.value;
     if (!canvas) throw new Error('vxa-canvas: canvas referansı alınamadı');
@@ -105,6 +120,9 @@ export class VxaCanvas extends LitElement {
     canvas.addEventListener('mousemove', this.onMouseMove);
     canvas.addEventListener('mouseleave', this.onMouseLeave);
     canvas.addEventListener('click', this.onClick);
+    // Sprint 1.2: drag başlangıcı. Mousedown canvas'ta, ama mousemove/up
+    // document'ten — canvas dışına çıkınca da devam etsin.
+    canvas.addEventListener('mousedown', this.onCanvasMouseDown);
 
     this.scheduleDraw();
   }
@@ -137,7 +155,11 @@ export class VxaCanvas extends LitElement {
       canvas.removeEventListener('mousemove', this.onMouseMove);
       canvas.removeEventListener('mouseleave', this.onMouseLeave);
       canvas.removeEventListener('click', this.onClick);
+      canvas.removeEventListener('mousedown', this.onCanvasMouseDown);
     }
+    // Sprint 1.2: drag aktifken unmount olursa document listener'ları sızmasın.
+    document.removeEventListener('mousemove', this.onDocumentMouseMove);
+    document.removeEventListener('mouseup', this.onDocumentMouseUp);
   }
 
   // ─── Sprint 1.1: hit testing + mouse handler'ları ──────────────────────
@@ -175,6 +197,10 @@ export class VxaCanvas extends LitElement {
   }
 
   private onMouseMove = (e: MouseEvent): void => {
+    // Sprint 1.2: drag aktifken hover hesaplamayı bırak — cursor grabbing
+    // moduna geçmiş, hover highlight kullanıcıyı yanıltmasın.
+    if (this.dragState.phase !== 'idle') return;
+
     const canvas = this.canvasRef.value;
     if (!canvas) return;
     const { x, y } = mouseToCanvasCoords(e, canvas);
@@ -209,6 +235,10 @@ export class VxaCanvas extends LitElement {
   };
 
   private onClick = (e: MouseEvent): void => {
+    // Sprint 1.2: drag biter bitmez browser click event'i tetikleyebilir;
+    // bunu yoksay — kullanıcının niyeti taşımaktı, seçimi değiştirmek değil.
+    if (this.justFinishedDrag) return;
+
     const canvas = this.canvasRef.value;
     if (!canvas) return;
     const { x, y } = mouseToCanvasCoords(e, canvas);
@@ -226,6 +256,95 @@ export class VxaCanvas extends LitElement {
         composed: true,
       }),
     );
+  };
+
+  // ─── Sprint 1.2: drag handler'ları ────────────────────────────────────
+
+  private onCanvasMouseDown = (e: MouseEvent): void => {
+    const canvas = this.canvasRef.value;
+    if (!canvas) return;
+    if (e.button !== 0) return; // sadece sol tık
+
+    const { x, y } = mouseToCanvasCoords(e, canvas);
+    const hitId = this.hitTest(x, y);
+    if (!hitId) return; // boş alan — drag başlatma, click zaten handle eder
+
+    const placement = this.layout?.components.find((c) => c.id === hitId);
+    if (!placement) return;
+
+    this.dragState = {
+      phase: 'armed',
+      componentId: hitId,
+      startX: x,
+      startY: y,
+      origX: placement.x,
+      origY: placement.y,
+    };
+
+    // Metin seçimi vs engelle
+    e.preventDefault();
+
+    // Drag boyunca document listener'ları — canvas dışına çıkınca da akış sürsün
+    document.addEventListener('mousemove', this.onDocumentMouseMove);
+    document.addEventListener('mouseup', this.onDocumentMouseUp);
+  };
+
+  private onDocumentMouseMove = (e: MouseEvent): void => {
+    if (this.dragState.phase === 'idle') return;
+    const canvas = this.canvasRef.value;
+    if (!canvas) return;
+    const { x, y } = mouseToCanvasCoords(e, canvas);
+
+    // Armed → active geçişi (eşik)
+    if (this.dragState.phase === 'armed') {
+      if (!shouldActivateDrag(this.dragState, x, y)) return;
+      this.dragState = { ...this.dragState, phase: 'active' };
+      canvas.style.cursor = 'grabbing';
+      // Hover temizle — drag sırasında hover işi ölmeli
+      if (this.hoveredId !== null) this.hoveredId = null;
+    }
+
+    if (this.dragState.phase === 'active') {
+      const { x: newX, y: newY } = computeDraggedPosition(this.dragState, x, y);
+      this.dispatchEvent(
+        new CustomEvent('drag-position', {
+          detail: {
+            componentId: this.dragState.componentId,
+            x: newX,
+            y: newY,
+          },
+          bubbles: true,
+          composed: true,
+        }),
+      );
+    }
+  };
+
+  private onDocumentMouseUp = (): void => {
+    const wasActive = this.dragState.phase === 'active';
+    if (wasActive) {
+      this.dispatchEvent(
+        new CustomEvent('drag-end', {
+          detail: {
+            componentId: (this.dragState as Extract<DragState, { phase: 'active' }>).componentId,
+          },
+          bubbles: true,
+          composed: true,
+        }),
+      );
+      // Browser mouseup sonrası click event'ini tetikleyebilir; onClick
+      // handler'ı bu flag'e bakıp atlayacak. setTimeout 0 ile event kuyruğu
+      // sonunda temizle — click event bu frame'de tetiklenirse yakalanmış olur.
+      this.justFinishedDrag = true;
+      setTimeout(() => {
+        this.justFinishedDrag = false;
+      }, 0);
+    }
+    const canvas = this.canvasRef.value;
+    if (canvas) canvas.style.cursor = 'default';
+    this.dragState = INITIAL_DRAG;
+    document.removeEventListener('mousemove', this.onDocumentMouseMove);
+    document.removeEventListener('mouseup', this.onDocumentMouseUp);
   };
 
   private scheduleDraw(): void {

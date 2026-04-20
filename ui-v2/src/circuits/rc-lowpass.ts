@@ -91,16 +91,32 @@ export const RC_LOWPASS_LAYOUT: CircuitLayout = {
     { id: 'C1', x: 150, y: 0, rotation: 90, displayValue: '10 nF' },
   ],
 
-  // Teller (Manhattan) — canvas merkez relative.
+  // Sprint 1.2: Teller artık terminal-referans tabanlı. Bileşen drag edilince
+  // o bileşenin terminalleri otomatik takip eder; via routing her drag sonrası
+  // yeniden hesaplanır (design-mode recomputeWires).
+  // GND'ler sabit nokta olarak (kind: 'fixed') — drag edilmez, pozisyonları
+  // layout.grounds ile aynı.
   wires: [
-    // V1 üst (in) → R1 sol (in). (-150, -35) → (-150, -80) → (-40, -80)
-    { from: { x: -150, y: -35 }, to: { x: -40, y: -80 }, via: [{ x: -150, y: -80 }] },
-    // R1 sağ (out) → C1 üst (out). (+40, -80) → (+150, -80) → (+150, -24)
-    { from: { x: 40, y: -80 }, to: { x: 150, y: -24 }, via: [{ x: 150, y: -80 }] },
-    // V1 alt (gnd) → toprak üstü. (-150, +35) → (-150, +60)
-    { from: { x: -150, y: 35 }, to: { x: -150, y: 60 } },
-    // C1 alt (gnd) → toprak üstü. (+150, +24) → (+150, +60)
-    { from: { x: 150, y: 24 }, to: { x: 150, y: 60 } },
+    // V1 pos (in) → R1 t1 (in)
+    {
+      from: { kind: 'terminal', componentId: 'V1', terminal: 'pos' },
+      to:   { kind: 'terminal', componentId: 'R1', terminal: 't1' },
+    },
+    // R1 t2 (out) → C1 t1 (out)
+    {
+      from: { kind: 'terminal', componentId: 'R1', terminal: 't2' },
+      to:   { kind: 'terminal', componentId: 'C1', terminal: 't1' },
+    },
+    // V1 neg (gnd) → GND1 sabit (-150, 60)
+    {
+      from: { kind: 'terminal', componentId: 'V1', terminal: 'neg' },
+      to:   { kind: 'fixed', x: -150, y: 60 },
+    },
+    // C1 t2 (gnd) → GND2 sabit (150, 60)
+    {
+      from: { kind: 'terminal', componentId: 'C1', terminal: 't2' },
+      to:   { kind: 'fixed', x: 150, y: 60 },
+    },
   ],
 
   // İki toprak sembolü — V1 altında ve C1 altında.

@@ -22,6 +22,7 @@ import {
 } from './symbols/voltage-source.ts';
 import { drawProbe, type ProbeDrawSpec, type ProbeTone } from './symbols/probe.ts';
 import { formatVoltage } from '../util/format.ts';
+import { resolveTerminalLocal } from '../interaction/component-terminals.ts';
 
 export type Rotation = 0 | 90 | 180 | 270;
 
@@ -33,9 +34,18 @@ export interface ComponentPlacement {
   displayValue: string;
 }
 
+/** Sprint 1.2 — wire endpoint iki türde:
+ *   - terminal: bileşen id + terminal adı (bileşen taşındıkça takip eder)
+ *   - fixed:    sabit layout-merkez-relative nokta (GND'ler) */
+export type WireEndpoint =
+  | { kind: 'terminal'; componentId: string; terminal: string }
+  | { kind: 'fixed'; x: number; y: number };
+
 export interface WireLayout {
-  from: Point;
-  to: Point;
+  from: WireEndpoint;
+  to: WireEndpoint;
+  /** Manhattan rota ara köşe noktaları (layout merkez-relative).
+   * design-mode state'te cache — her drag sonrası yeniden hesaplanır. */
   via?: Point[];
 }
 
@@ -108,10 +118,31 @@ export function drawCircuit(
   const world = (p: Point): Point => ({ x: cx + p.x, y: cy + p.y });
 
   // ─── 1) Teller ──────────────────────────────────────────────────────────
+  // Sprint 1.2: WireEndpoint resolve — terminal referansı ise bileşen
+  // konumundan hesapla, fixed ise direkt kullan. via layout'ta cached.
+  const resolveEndpoint = (ep: WireEndpoint): Point => {
+    if (ep.kind === 'fixed') {
+      return world({ x: ep.x, y: ep.y });
+    }
+    const placement = layout.components.find((c) => c.id === ep.componentId);
+    if (!placement) {
+      // Güvenli fallback — eksik bileşen durumunda (0,0) layoutta
+      return world({ x: 0, y: 0 });
+    }
+    const comp = circuit.components.find((c) => c.id === ep.componentId);
+    const compType = comp?.type ?? 'R';
+    const local = resolveTerminalLocal(
+      { x: placement.x, y: placement.y, rotation: placement.rotation },
+      compType,
+      ep.terminal,
+    );
+    return world(local);
+  };
+
   for (const w of layout.wires) {
     const ws: WireSpec = {
-      from: world(w.from),
-      to: world(w.to),
+      from: resolveEndpoint(w.from),
+      to: resolveEndpoint(w.to),
       via: w.via?.map(world),
     };
     drawWire(ctx, ws, colors);
