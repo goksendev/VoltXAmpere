@@ -262,6 +262,16 @@ export class VxaInspector extends LitElement {
       font-size: var(--fs-xs);
       color: var(--err);
     }
+
+    /* Sprint 1.5 — tel seçimi için ipucu kutusu. --fg-3 donuk metin,
+       kenarlık yok, sadece hint görünümü. */
+    .hint-box {
+      padding: var(--sp-2) 0;
+      font-family: var(--mono);
+      font-size: var(--fs-xs);
+      color: var(--fg-3);
+      line-height: 1.5;
+    }
   `;
 
   @property({ attribute: false }) selection?: Selection;
@@ -271,14 +281,56 @@ export class VxaInspector extends LitElement {
 
   override render() {
     if (!this.selection || this.selection.type === 'none') {
-      return html`<div class="empty">bir bileşen seç</div>`;
+      return html`<div class="empty">bir bileşen veya tel seç</div>`;
     }
     if (this.selection.type === 'wire') {
-      return html`<div class="empty">tel bilgisi sprint 0.7'de</div>`;
+      return this.renderWire(this.selection.index);
     }
-    const comp = this.circuit?.components.find((c) => c.id === this.selection?.id);
+    return this.renderComponent(this.selection.id);
+  }
+
+  /** Sprint 1.5: seçili telin uçlarını göster + Delete ipucu. */
+  private renderWire(index: number): TemplateResult {
+    const wire = this.layout?.wires[index];
+    if (!wire) {
+      return html`<div class="empty">tel bulunamadı (#${index})</div>`;
+    }
+    const fromLabel = wire.from.kind === 'terminal'
+      ? `${wire.from.componentId}.${wire.from.terminal}`
+      : `(${wire.from.x}, ${wire.from.y})`;
+    const toLabel = wire.to.kind === 'terminal'
+      ? `${wire.to.componentId}.${wire.to.terminal}`
+      : `(${wire.to.x}, ${wire.to.y})`;
+
+    return html`
+      <div class="kicker">tel · #${index}</div>
+      <div class="name">—</div>
+      <div class="kind">bağlantı</div>
+
+      <section class="section first">
+        <div class="section-title">uçlar</div>
+        <div class="field">
+          <span class="field-label">Kaynak</span>
+          <span class="field-value">${fromLabel}</span>
+        </div>
+        <div class="field">
+          <span class="field-label">Hedef</span>
+          <span class="field-value">${toLabel}</span>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-title">ipucu</div>
+        <div class="hint-box">Delete tuşuyla telyi silebilirsin.</div>
+      </section>
+    `;
+  }
+
+  /** Seçili bileşen için detay paneli (Sprint 0.6). */
+  private renderComponent(id: string): TemplateResult {
+    const comp = this.circuit?.components.find((c) => c.id === id);
     if (!comp) {
-      return html`<div class="empty">bileşen bulunamadı: ${this.selection.id}</div>`;
+      return html`<div class="empty">bileşen bulunamadı: ${id}</div>`;
     }
 
     const defaults = COMPONENT_DEFAULTS[comp.type];

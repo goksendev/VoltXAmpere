@@ -135,6 +135,10 @@ export function drawCircuit(
   hoveredId?: string | null,
   ghost?: GhostSpec,
   wireDraw?: WireDrawState,
+  /** Sprint 1.5: seçili telin indeksi (varsa). Selection tipi 'wire' ise. */
+  selectedWireIndex?: number | null,
+  /** Sprint 1.5: hover edilen telin indeksi. */
+  hoveredWireIndex?: number | null,
 ): void {
   const cx = cssW / 2;
   const cy = cssH / 2;
@@ -162,13 +166,16 @@ export function drawCircuit(
     return world(local);
   };
 
-  for (const w of layout.wires) {
+  for (let i = 0; i < layout.wires.length; i++) {
+    const w = layout.wires[i]!;
     const ws: WireSpec = {
       from: resolveEndpoint(w.from),
       to: resolveEndpoint(w.to),
       via: w.via?.map(world),
     };
-    drawWire(ctx, ws, colors);
+    const isSelected = selectedWireIndex === i;
+    const isHovered = hoveredWireIndex === i;
+    drawWire(ctx, ws, colors, { isSelected, isHovered });
   }
 
   // ─── 2) Toprak sembolleri ────────────────────────────────────────────────

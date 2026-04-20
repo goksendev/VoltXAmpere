@@ -58,8 +58,15 @@ import {
   COMPONENT_TERMINALS,
   TERMINAL_ORDER,
   resolveTerminalLocal,
+  type Point,
   type TerminalRef,
 } from './component-terminals.ts';
+import type { CircuitDef } from '../bridge/engine.ts';
+import type {
+  CircuitLayout,
+  WireEndpoint,
+  WireLayout,
+} from '../render/circuit-renderer.ts';
 
 /** Terminal hit radius (CSS piksel) — görsel 4 px ama tıklama alanı 8 px,
  * UX için cömert. */
@@ -102,6 +109,112 @@ export function hitTestTerminal(
       const dy = py - pos.y;
       if (dx * dx + dy * dy <= r2) {
         return { componentId: placement.id, terminal: t };
+      }
+    }
+  }
+  return null;
+}
+
+// ─── Sprint 1.5: tel hit testing ───────────────────────────────────────────
+
+/** Tel'e yakınlık eşiği (CSS piksel). Tel stroke'u 1.5 px; 4 px hit alanı
+ * kullanıcıya "zor tıklanıyor" demeden rahat hedef verir. */
+const WIRE_HIT_RADIUS_PX = 4;
+
+/** Wire endpoint'ini world koordinatına çöz. circuit-renderer içindeki
+ * resolveEndpoint mantığının aynısı — ortak util haline getirmek yerine
+ * hit-test içinde izole tutuyoruz çünkü render vs hit test farklı iki
+ * pipeline. */
+function resolveWireEndpointWorld(
+  ep: WireEndpoint,
+  layout: CircuitLayout,
+  circuit: CircuitDef,
+  centerX: number,
+  centerY: number,
+): Point {
+  if (ep.kind === 'fixed') {
+    return { x: centerX + ep.x, y: centerY + ep.y };
+  }
+  const placement = layout.components.find((c) => c.id === ep.componentId);
+  if (!placement) {
+    // Güvenli fallback — bileşen silinmişse telin endpoint'i canvas merkezi.
+    // Normalde silme akışı tel'i önce kaldırır, bu dal hit değil.
+    return { x: centerX, y: centerY };
+  }
+  const comp = circuit.components.find((c) => c.id === ep.componentId);
+  const compType = comp?.type ?? 'R';
+  const local = resolveTerminalLocal(
+    { x: placement.x, y: placement.y, rotation: placement.rotation },
+    compType,
+    ep.terminal,
+  );
+  return { x: centerX + local.x, y: centerY + local.y };
+}
+
+/** Bir telin world koordinat segment'lerini sırayla üretir.
+ *  Tel: from → via[0] → via[1] → ... → to. Manhattan rotada 1-3 segment
+ *  yaygın. Empty via → tek segment. */
+function computeWireSegments(
+  wire: WireLayout,
+  layout: CircuitLayout,
+  circuit: CircuitDef,
+  centerX: number,
+  centerY: number,
+): [Point, Point][] {
+  const from = resolveWireEndpointWorld(wire.from, layout, circuit, centerX, centerY);
+  const to = resolveWireEndpointWorld(wire.to, layout, circuit, centerX, centerY);
+  const points: Point[] = [from];
+  if (wire.via) {
+    for (const v of wire.via) {
+      points.push({ x: centerX + v.x, y: centerY + v.y });
+    }
+  }
+  points.push(to);
+
+  const segments: [Point, Point][] = [];
+  for (let i = 0; i + 1 < points.length; i++) {
+    segments.push([points[i]!, points[i + 1]!]);
+  }
+  return segments;
+}
+
+/** Klasik "nokta-segment mesafesi" formülü. Segment uzunluğu 0 ise
+ * uçtan uzaklık. */
+function distanceToSegment(
+  px: number,
+  py: number,
+  a: Point,
+  b: Point,
+): number {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const lenSq = dx * dx + dy * dy;
+  if (lenSq === 0) return Math.hypot(px - a.x, py - a.y);
+  let t = ((px - a.x) * dx + (py - a.y) * dy) / lenSq;
+  t = Math.max(0, Math.min(1, t));
+  const closestX = a.x + t * dx;
+  const closestY = a.y + t * dy;
+  return Math.hypot(px - closestX, py - closestY);
+}
+
+/** Canvas koordinatı (px, py) hangi telin (layout.wires[i]) üzerinde?
+ *  WIRE_HIT_RADIUS_PX eşiğine en yakın ilk tel döner. Tellerin çok overlap
+ *  olduğu durum nadir; ilk eşleşme kabul edilir. */
+export function hitTestWire(
+  px: number,
+  py: number,
+  layout: CircuitLayout,
+  circuit: CircuitDef,
+  centerX: number,
+  centerY: number,
+): number | null {
+  for (let i = 0; i < layout.wires.length; i++) {
+    const wire = layout.wires[i];
+    if (!wire) continue;
+    const segments = computeWireSegments(wire, layout, circuit, centerX, centerY);
+    for (const [a, b] of segments) {
+      if (distanceToSegment(px, py, a, b) <= WIRE_HIT_RADIUS_PX) {
+        return i;
       }
     }
   }

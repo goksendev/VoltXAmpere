@@ -28,6 +28,7 @@ import {
 } from '../interaction/component-bounds.ts';
 import {
   resolveTerminalLocal,
+  TERMINAL_ORDER,
   type Point,
   type TerminalRef,
 } from '../interaction/component-terminals.ts';
@@ -464,17 +465,192 @@ export class VxaDesignMode extends LitElement {
     }
   }
 
-  /** Document keydown — Escape placement iptali + Sprint 1.4 tel iptal. */
+  /** Document keydown — Escape + Delete/Backspace.
+   *  Escape: placement veya tel modunu iptal (Sprint 1.3/1.4).
+   *  Delete/Backspace: seçili bileşen veya tel silme (Sprint 1.5). */
   private onKeyDown = (e: KeyboardEvent): void => {
-    if (e.key !== 'Escape') return;
-    if (this.activeTool) {
-      this.activeTool = null;
-      e.preventDefault();
-    } else if (this.wireDraw.phase !== 'idle') {
-      this.wireDraw = INITIAL_WIRE_DRAW;
-      e.preventDefault();
+    if (e.key === 'Escape') {
+      if (this.activeTool) {
+        this.activeTool = null;
+        e.preventDefault();
+        return;
+      }
+      if (this.wireDraw.phase !== 'idle') {
+        this.wireDraw = INITIAL_WIRE_DRAW;
+        e.preventDefault();
+        return;
+      }
+      return;
+    }
+
+    if (e.key === 'Delete' || e.key === 'Backspace') {
+      // Text input odağındayken Backspace'i yakalama — form'ları kırar.
+      // Şu an form yok ama gelecekte inspector değer düzenleme geldiğinde
+      // bu guard olmadan Backspace kullanıcının text'ini silmek yerine
+      // bileşeni silecek.
+      if (this.isTextInputFocused(e)) return;
+
+      if (this.selection.type === 'component') {
+        e.preventDefault();
+        void this.deleteComponent(this.selection.id);
+      } else if (this.selection.type === 'wire') {
+        e.preventDefault();
+        void this.deleteWire(this.selection.index);
+      }
     }
   };
+
+  /** Event target text alanı mı? input/textarea/contentEditable. */
+  private isTextInputFocused(e: KeyboardEvent): boolean {
+    const target = e.target as HTMLElement | null;
+    if (!target) return false;
+    const tag = target.tagName;
+    return tag === 'INPUT' || tag === 'TEXTAREA' || target.isContentEditable;
+  }
+
+  // ─── Sprint 1.5: silme akışı ──────────────────────────────────────────
+
+  /** Bileşeni sil: bileşeni + ona bağlı tüm telleri kaldır, orphan
+   *  node'ları temizle, seçimi sıfırla, solver yeniden çağır. */
+  private async deleteComponent(id: string): Promise<void> {
+    const comp = this.circuit.components.find((c) => c.id === id);
+    if (!comp) return;
+
+    // 1) Circuit'ten bileşeni çıkar
+    const newComponents = this.circuit.components.filter((c) => c.id !== id);
+    // 2) Artık hiçbir bileşenin kullanmadığı node'ları at (orphan cleanup)
+    const stillUsed = new Set<string>();
+    for (const c of newComponents) {
+      for (const n of c.nodes) stillUsed.add(n);
+    }
+    // 'gnd' her zaman kalsın — layout'ta GND sembolü var
+    stillUsed.add('gnd');
+
+    this.circuit = {
+      ...this.circuit,
+      components: newComponents,
+      nodes: this.circuit.nodes.filter((n) => stillUsed.has(n)),
+    };
+
+    // 3) Layout'tan bileşeni + ona bağlı tüm telleri kaldır
+    const newLayout: CircuitLayout = {
+      ...this.layout,
+      components: this.layout.components.filter((c) => c.id !== id),
+      wires: this.layout.wires.filter((w) => {
+        const fromMatch = w.from.kind === 'terminal' && w.from.componentId === id;
+        const toMatch = w.to.kind === 'terminal' && w.to.componentId === id;
+        return !fromMatch && !toMatch;
+      }),
+    };
+    this.layout = this.recomputeWires(newLayout);
+
+    // 4) Seçim temizle — silinen bileşen seçiliyse empty'e düş
+    this.selection = INITIAL_SELECTION;
+
+    // 5) Topoloji değişti → solver
+    await this.runSolver();
+  }
+
+  /** Tel'i sil: layout.wires[index] kaldır + node topolojisini Union-Find
+   *  ile yeniden hesapla. Rezerve isimler ('in', 'out', 'gnd') korunur. */
+  private async deleteWire(index: number): Promise<void> {
+    if (index < 0 || index >= this.layout.wires.length) return;
+
+    const remainingWires = this.layout.wires.filter((_, i) => i !== index);
+
+    // Node topolojisini yeniden kur — Seçenek B (Union-Find rebuild).
+    const rebuilt = this.rebuildNodeTopology(this.circuit, remainingWires);
+    this.circuit = rebuilt;
+
+    // Layout'tan wire kaldır + yeniden route
+    this.layout = this.recomputeWires({
+      ...this.layout,
+      wires: remainingWires,
+    });
+
+    // Seçim temizle
+    this.selection = INITIAL_SELECTION;
+
+    // Topoloji değişti → solver
+    await this.runSolver();
+  }
+
+  /** Sprint 1.5 — tüm component.nodes[]'ı sıfırdan Union-Find ile yeniden
+   *  kurar. Algoritma:
+   *    1. Her terminal için başlangıç node'u:
+   *       - Mevcut isim rezerve ise ('in', 'out', 'gnd') → koru.
+   *       - Aksi halde → 'n_{id}_{terminal}' (benzersiz generic).
+   *    2. Kalan tellerin her biri iki terminali aynı node'a merge eder.
+   *       Rezerve isim > generic isim (chooseMergedNodeName benzeri).
+   *    3. Tüm component.nodes[]'ı yeni atamalarla güncelle.
+   *    4. circuit.nodes'u kullanılan node'lar kümesiyle güncelle. */
+  private rebuildNodeTopology(
+    circuit: CircuitDef,
+    wires: ReadonlyArray<{ from: WireEndpoint; to: WireEndpoint }>,
+  ): CircuitDef {
+    // Terminal → node adı haritası
+    const nodeOf = new Map<string, string>();
+
+    // 1. Başlangıç atamaları
+    for (const comp of circuit.components) {
+      const termNames = TERMINAL_ORDER[comp.type];
+      if (!termNames) continue;
+      for (let i = 0; i < termNames.length; i++) {
+        const key = `${comp.id}.${termNames[i]}`;
+        const current = comp.nodes[i];
+        // Mevcut isim rezerve ise (generic değilse) koru.
+        const start =
+          current && !this.isGeneratedNodeName(current) && current !== ''
+            ? current
+            : `n_${comp.id}_${termNames[i]}`;
+        nodeOf.set(key, start);
+      }
+    }
+
+    // 2. Wire'ları uygula — merge
+    for (const wire of wires) {
+      if (wire.from.kind !== 'terminal' || wire.to.kind !== 'terminal') continue;
+      const kA = `${wire.from.componentId}.${wire.from.terminal}`;
+      const kB = `${wire.to.componentId}.${wire.to.terminal}`;
+      const nA = nodeOf.get(kA);
+      const nB = nodeOf.get(kB);
+      if (!nA || !nB || nA === nB) continue;
+
+      const winner = this.chooseMergedNodeName(nA, nB);
+      const loser = winner === nA ? nB : nA;
+      for (const [k, v] of nodeOf) {
+        if (v === loser) nodeOf.set(k, winner);
+      }
+    }
+
+    // 3. component.nodes[] yeniden üret
+    const newComponents = circuit.components.map((comp) => {
+      const termNames = TERMINAL_ORDER[comp.type];
+      if (!termNames) return comp;
+      const newNodes = termNames.map((t) => {
+        const k = `${comp.id}.${t}`;
+        return nodeOf.get(k) ?? comp.nodes[termNames.indexOf(t)] ?? '';
+      });
+      return { ...comp, nodes: newNodes as typeof comp.nodes };
+    });
+
+    // 4. circuit.nodes — kullanılan set
+    const used = new Set<string>();
+    for (const c of newComponents) for (const n of c.nodes) used.add(n);
+    used.add('gnd'); // toprak her zaman var
+
+    return {
+      ...circuit,
+      components: newComponents,
+      nodes: Array.from(used),
+    };
+  }
+
+  /** Generic (üretilmiş) node adı mı? 'float_N' ve 'n_X_Y' generic; diğerleri
+   *  rezerve sayılır ('in', 'out', 'gnd', composite 'in_out' vb.). */
+  private isGeneratedNodeName(n: string): boolean {
+    return n.startsWith('float_') || n.startsWith('n_');
+  }
 
   // ─── Sprint 1.4: tel çekme akışı ──────────────────────────────────────
 
@@ -595,17 +771,22 @@ export class VxaDesignMode extends LitElement {
     await this.runSolver();
   }
 
-  /** İki node adını tek ada indirger. Plan: float vs gerçek → gerçek kazanır.
-   * İkisi gerçek ise sıralı birleşik ad (nadir). İkisi float ise ilki tutulur. */
+  /** İki node adını tek ada indirger. Generic (float_/n_) vs rezerve ('in',
+   *  'out', 'gnd', composite) → rezerve kazanır. Sprint 1.4 sadece float_
+   *  prefix'ine bakıyordu; Sprint 1.5'te rebuild tarafından üretilen n_ prefix
+   *  de generic muamelesi görmeli. */
   private chooseMergedNodeName(a: string, b: string): string {
-    const aFloat = a.startsWith('float_');
-    const bFloat = b.startsWith('float_');
-    if (aFloat && !bFloat) return b;
-    if (!aFloat && bFloat) return a;
-    if (!aFloat && !bFloat) {
+    const aGen = this.isGeneratedNodeName(a);
+    const bGen = this.isGeneratedNodeName(b);
+    if (aGen && !bGen) return b;
+    if (!aGen && bGen) return a;
+    if (!aGen && !bGen) {
+      // İkisi de rezerve — nadir (iki rezerve isim bir grupta birleşmeye çalışıyor).
+      // Sırala ve join.
       const [lo, hi] = [a, b].sort();
       return `${lo}_${hi}`;
     }
+    // İkisi generic — ilki tutulur (stabil).
     return a;
   }
 
@@ -835,6 +1016,7 @@ export class VxaDesignMode extends LitElement {
           .layout=${this.layout}
           .solve=${solve}
           .selectionId=${this.selection.type === 'component' ? this.selection.id : undefined}
+          .selectedWireIndex=${this.selection.type === 'wire' ? this.selection.index : null}
           .activeTool=${this.activeTool}
           .wireDraw=${this.wireDraw}
           chromeTitle="DENEY"

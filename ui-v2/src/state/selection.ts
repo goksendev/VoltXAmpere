@@ -1,18 +1,22 @@
-// VoltXAmpere v2 — seçim modeli (Sprint 0.6).
+// VoltXAmpere v2 — seçim modeli.
 //
-// Tek bileşen seçimi. Multi-select Sprint 1.x; wire seçimi Sprint 0.7+.
-// Sprint 0.6'da selection canvas click'ten GELMIYOR — hard-coded "R1".
-// Sprint 0.7'de event-driven hale gelecek.
+// Sprint 0.6: ilk hâl, tek bileşen seçimi (hard-coded 'R1').
+// Sprint 1.1: event-driven — canvas click'ten geliyor.
+// Sprint 1.5: discriminated union — component + wire + none.
+//             Wire index ile referanslanır (layout.wires[i]); id string
+//             kullanmıyoruz çünkü tellerin kalıcı ismi yok, dizi pozisyonu
+//             tek kimlik.
+//
+// Eski `{ type, id? }` formatı Sprint 1.5'te terk edildi — exhaustive
+// type narrowing için discriminated union şart.
 
-export interface Selection {
-  type: 'component' | 'wire' | 'none';
-  /** component id ('R1', 'V1') veya wire id ('wire-0'). Tipi 'none' ise undefined. */
-  id?: string;
-}
+export type Selection =
+  | { type: 'none' }
+  | { type: 'component'; id: string }
+  | { type: 'wire'; index: number };
 
 /** Sprint 1.1: sayfa açılışında hiçbir şey seçili değil. Kullanıcı canvas'a
- * tıklayınca bileşen seçer. Sprint 0.6'daki hard-coded 'R1' başlangıcı
- * Faz 2A'da kaldırıldı — gerçek kullanım senaryosu. */
+ * tıklayınca bileşen veya tel seçer. */
 export const INITIAL_SELECTION: Selection = {
   type: 'none',
 };

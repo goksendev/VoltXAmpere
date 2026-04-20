@@ -35,6 +35,7 @@ import {
 import {
   componentAABB,
   hitTestTerminal,
+  hitTestWire,
   mouseToCanvasCoords,
   pointInAABB,
 } from '../interaction/hit-test.ts';
@@ -99,6 +100,10 @@ export class VxaCanvas extends LitElement {
    * canvas click event'i bu prop'u güncelleyecek. */
   @property({ attribute: false }) selectionId?: string;
 
+  /** Sprint 1.5: seçili telin layout.wires[] içindeki indeksi. null/undefined
+   * ise hiçbir tel seçili değil. Seçili tel render'da accent rengiyle çizilir. */
+  @property({ attribute: false }) selectedWireIndex: number | null = null;
+
   // ─── Chrome prop'ları (Sprint 0.10) ────────────────────────────────────
   // <vxa-canvas-chrome>'a pass-through; canvas draw'ını etkilemez.
   @property() chromeTitle = 'DENEY';
@@ -122,6 +127,11 @@ export class VxaCanvas extends LitElement {
   // Sprint 1.1: hover state canvas içinde. Kalıcı state değil — mouseleave
   // temizler. Selection ise design-mode'da (prop olarak geri iner).
   @state() private hoveredId: string | null = null;
+
+  // Sprint 1.5: hover edilen telin indeksi (layout.wires[]). hoveredId ile
+  // mutually exclusive değil teorik olarak ama pratikte aynı anda ikisi
+  // olmaz — component AABB teli kapsar. Öncelik: component hover > wire hover.
+  @state() private hoveredWireIndex: number | null = null;
 
   // Sprint 1.2: drag state. Mousedown armed → mousemove eşik aşınca active.
   // Document seviyesinde mousemove/mouseup dinleniyor ki canvas dışına
@@ -166,7 +176,9 @@ export class VxaCanvas extends LitElement {
       changed.has('layout') ||
       changed.has('solve') ||
       changed.has('selectionId') ||
+      changed.has('selectedWireIndex') ||
       changed.has('hoveredId') ||
+      changed.has('hoveredWireIndex') ||
       changed.has('activeTool') ||
       changed.has('ghostPosition') ||
       changed.has('wireDraw')
@@ -284,11 +296,24 @@ export class VxaCanvas extends LitElement {
     }
 
     const hitId = this.hitTest(x, y);
+
+    // Sprint 1.5: wire hover — ama component hover önceliği yüksek. Kullanıcı
+    // bileşen üzerindeyse altındaki tel parlamasın.
+    let wireHit: number | null = null;
+    if (!hitId && this.circuit && this.layout) {
+      const rect = canvas.getBoundingClientRect();
+      wireHit = hitTestWire(
+        x,
+        y,
+        this.layout,
+        this.circuit,
+        rect.width / 2,
+        rect.height / 2,
+      );
+    }
+
     if (hitId !== this.hoveredId) {
       this.hoveredId = hitId;
-      if (this.wireDraw.phase !== 'started') {
-        canvas.style.cursor = hitId ? 'pointer' : 'default';
-      }
       this.dispatchEvent(
         new CustomEvent('hover-change', {
           detail: { id: hitId },
@@ -297,13 +322,19 @@ export class VxaCanvas extends LitElement {
         }),
       );
     }
+    if (wireHit !== this.hoveredWireIndex) {
+      this.hoveredWireIndex = wireHit;
+    }
+
+    // Cursor: wire draw modunda dokunma, aksi halde hit durumuna göre.
+    if (this.wireDraw.phase !== 'started') {
+      canvas.style.cursor = hitId || wireHit !== null ? 'pointer' : 'default';
+    }
   };
 
   private onMouseLeave = (): void => {
     if (this.hoveredId !== null) {
       this.hoveredId = null;
-      const canvas = this.canvasRef.value;
-      if (canvas) canvas.style.cursor = 'default';
       this.dispatchEvent(
         new CustomEvent('hover-change', {
           detail: { id: null },
@@ -312,6 +343,12 @@ export class VxaCanvas extends LitElement {
         }),
       );
     }
+    // Sprint 1.5: tel hover'ı da temizle.
+    if (this.hoveredWireIndex !== null) {
+      this.hoveredWireIndex = null;
+    }
+    const canvas = this.canvasRef.value;
+    if (canvas) canvas.style.cursor = 'default';
   };
 
   private onClick = (e: MouseEvent): void => {
@@ -365,15 +402,48 @@ export class VxaCanvas extends LitElement {
       }
     }
 
-    // ─── Öncelik 3: Normal bileşen seç/unselect (Sprint 1.1) ───────────
+    // ─── Sprint 1.1/1.5: component > wire > none ──────────────────────
+    //   Terminal (1.4) > Component (1.1) > Wire (1.5) > Empty.
+    //   Component AABB'leri tellerin üstünde olduğundan bileşene tıklandığında
+    //   altındaki tel değil, bileşen seçilmeli.
     const hitId = this.hitTest(x, y);
-    const detail = hitId
-      ? { type: 'component' as const, id: hitId }
-      : { type: 'none' as const };
+    if (hitId) {
+      this.dispatchEvent(
+        new CustomEvent('select', {
+          detail: { type: 'component' as const, id: hitId },
+          bubbles: true,
+          composed: true,
+        }),
+      );
+      return;
+    }
 
+    if (this.circuit && this.layout) {
+      const rect = canvas.getBoundingClientRect();
+      const wireHit = hitTestWire(
+        x,
+        y,
+        this.layout,
+        this.circuit,
+        rect.width / 2,
+        rect.height / 2,
+      );
+      if (wireHit !== null) {
+        this.dispatchEvent(
+          new CustomEvent('select', {
+            detail: { type: 'wire' as const, index: wireHit },
+            bubbles: true,
+            composed: true,
+          }),
+        );
+        return;
+      }
+    }
+
+    // Boş alan — seçimi temizle.
     this.dispatchEvent(
       new CustomEvent('select', {
-        detail,
+        detail: { type: 'none' as const },
         bubbles: true,
         composed: true,
       }),
@@ -558,6 +628,8 @@ export class VxaCanvas extends LitElement {
         this.hoveredId,
         ghost,
         this.wireDraw,
+        this.selectedWireIndex,
+        this.hoveredWireIndex,
       );
     }
 
