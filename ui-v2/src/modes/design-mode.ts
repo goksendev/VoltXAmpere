@@ -267,6 +267,13 @@ export class VxaDesignMode extends LitElement {
   // bileşen yerleştirme akışında güncellenecek. Şimdilik null.
   @state() private activeTool: string | null = null;
 
+  // Sprint 1.1: canvas select event handler. hitId null olursa selection
+  // temizlenir ('none'); bileşen hit olursa 'component' tipi + id.
+  private onCanvasSelect = (e: Event): void => {
+    const detail = (e as CustomEvent).detail as Selection;
+    this.selection = detail;
+  };
+
   override async firstUpdated(): Promise<void> {
     // Sprint 0.7: tek çağrı ile transient al. Son örnek = DC steady-state
     // yerine geçiyor → inspector ve canvas probe'ları aynı snapshot'tan.
@@ -405,6 +412,7 @@ export class VxaDesignMode extends LitElement {
           .isPlaying=${true}
           simTime="100.00 µs"
           .zoom=${100}
+          @select=${this.onCanvasSelect}
         ></vxa-canvas>
       </section>
 

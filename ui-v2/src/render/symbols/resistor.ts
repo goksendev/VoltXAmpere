@@ -25,8 +25,10 @@ export function drawResistor(
   ctx: CanvasRenderingContext2D,
   colors: RenderColors,
   isSelected = false,
+  isHovered = false,
 ): void {
-  ctx.strokeStyle = isSelected ? colors.accent : colors.wire;
+  // Sprint 1.1: hover stroke --fg (beyaza yakın); selected > hovered > default.
+  ctx.strokeStyle = isSelected ? colors.accent : isHovered ? colors.fg : colors.wire;
   ctx.lineWidth = BODY_STROKE;
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';

@@ -101,6 +101,7 @@ export function drawCircuit(
   solve: SolveResult | null,
   colors: RenderColors,
   selectionId?: string,
+  hoveredId?: string | null,
 ): void {
   const cx = cssW / 2;
   const cy = cssH / 2;
@@ -129,18 +130,19 @@ export function drawCircuit(
     const comp = circuit.components.find((c) => c.id === p.id);
     if (!comp) continue;
     const isSelected = selectionId === p.id;
+    const isHovered = hoveredId === p.id;
     ctx.save();
     ctx.translate(cx + p.x, cy + p.y);
     ctx.rotate((p.rotation * Math.PI) / 180);
     switch (comp.type) {
       case 'R':
-        drawResistor(ctx, colors, isSelected);
+        drawResistor(ctx, colors, isSelected, isHovered);
         break;
       case 'C':
-        drawCapacitor(ctx, colors, isSelected);
+        drawCapacitor(ctx, colors, isSelected, isHovered);
         break;
       case 'V':
-        drawVoltageSource(ctx, colors, isSelected);
+        drawVoltageSource(ctx, colors, isSelected, isHovered);
         break;
       // L / D / Z / BJT / MOS / OA — Sprint 0.7+ sembolleri eklenecek.
     }

@@ -10,8 +10,9 @@ export interface Selection {
   id?: string;
 }
 
-/** Sprint 0.6 başlangıç seçimi — R1 sabit. */
+/** Sprint 1.1: sayfa açılışında hiçbir şey seçili değil. Kullanıcı canvas'a
+ * tıklayınca bileşen seçer. Sprint 0.6'daki hard-coded 'R1' başlangıcı
+ * Faz 2A'da kaldırıldı — gerçek kullanım senaryosu. */
 export const INITIAL_SELECTION: Selection = {
-  type: 'component',
-  id: 'R1',
+  type: 'none',
 };

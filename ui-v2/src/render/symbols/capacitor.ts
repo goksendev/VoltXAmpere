@@ -26,10 +26,12 @@ export function drawCapacitor(
   ctx: CanvasRenderingContext2D,
   colors: RenderColors,
   isSelected = false,
+  isHovered = false,
 ): void {
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
-  ctx.strokeStyle = isSelected ? colors.accent : colors.wire;
+  // Sprint 1.1: hover stroke --fg; selected > hovered > default.
+  ctx.strokeStyle = isSelected ? colors.accent : isHovered ? colors.fg : colors.wire;
 
   // Teller (ince) — pin'lerden plakalara
   ctx.lineWidth = WIRE_STROKE;

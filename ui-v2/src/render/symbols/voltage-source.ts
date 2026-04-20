@@ -25,11 +25,13 @@ export function drawVoltageSource(
   ctx: CanvasRenderingContext2D,
   colors: RenderColors,
   isSelected = false,
+  isHovered = false,
 ): void {
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
 
-  const bodyColor = isSelected ? colors.accent : colors.wire;
+  // Sprint 1.1: hover stroke --fg; selected > hovered > default.
+  const bodyColor = isSelected ? colors.accent : isHovered ? colors.fg : colors.wire;
   // Lead telleri — pin'den daire kenarına. 1.5 stroke (wire).
   ctx.strokeStyle = bodyColor;
   ctx.lineWidth = 1.5;

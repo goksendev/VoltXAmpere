@@ -8,7 +8,7 @@
 //   1. Arka: noktalı grid (her zaman)
 //   2. Ön:   devre (circuit/layout/solve prop'ları verilmişse)
 import { LitElement, html, css } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
+import { customElement, property, state } from 'lit/decorators.js';
 import { createRef, ref, type Ref } from 'lit/directives/ref.js';
 import type { CircuitDef, SolveResult } from '../bridge/engine.ts';
 import { readColors } from '../render/helpers.ts';
@@ -16,6 +16,15 @@ import {
   drawCircuit,
   type CircuitLayout,
 } from '../render/circuit-renderer.ts';
+import {
+  componentAABB,
+  mouseToCanvasCoords,
+  pointInAABB,
+} from '../interaction/hit-test.ts';
+import {
+  COMPONENT_BOUNDS,
+  DEFAULT_BOUNDS,
+} from '../interaction/component-bounds.ts';
 import './canvas-chrome.ts';
 
 // ─── Grid sabitleri ──────────────────────────────────────────────────────────
@@ -78,6 +87,10 @@ export class VxaCanvas extends LitElement {
   private resizeObserver: ResizeObserver | null = null;
   private rafHandle: number | null = null;
 
+  // Sprint 1.1: hover state canvas içinde. Kalıcı state değil — mouseleave
+  // temizler. Selection ise design-mode'da (prop olarak geri iner).
+  @state() private hoveredId: string | null = null;
+
   override firstUpdated(): void {
     const canvas = this.canvasRef.value;
     if (!canvas) throw new Error('vxa-canvas: canvas referansı alınamadı');
@@ -86,6 +99,13 @@ export class VxaCanvas extends LitElement {
 
     this.resizeObserver = new ResizeObserver(() => this.scheduleDraw());
     this.resizeObserver.observe(this);
+
+    // Sprint 1.1: mouse event'leri. Canvas element'e bağlıyoruz — shadow DOM
+    // içinde olduğundan design-mode listener bubbles+composed ile yakalıyor.
+    canvas.addEventListener('mousemove', this.onMouseMove);
+    canvas.addEventListener('mouseleave', this.onMouseLeave);
+    canvas.addEventListener('click', this.onClick);
+
     this.scheduleDraw();
   }
 
@@ -97,7 +117,8 @@ export class VxaCanvas extends LitElement {
       changed.has('circuit') ||
       changed.has('layout') ||
       changed.has('solve') ||
-      changed.has('selectionId')
+      changed.has('selectionId') ||
+      changed.has('hoveredId')
     ) {
       this.scheduleDraw();
     }
@@ -111,7 +132,101 @@ export class VxaCanvas extends LitElement {
       cancelAnimationFrame(this.rafHandle);
       this.rafHandle = null;
     }
+    const canvas = this.canvasRef.value;
+    if (canvas) {
+      canvas.removeEventListener('mousemove', this.onMouseMove);
+      canvas.removeEventListener('mouseleave', this.onMouseLeave);
+      canvas.removeEventListener('click', this.onClick);
+    }
   }
+
+  // ─── Sprint 1.1: hit testing + mouse handler'ları ──────────────────────
+
+  /** Canvas mouse koordinatından hangi bileşenin (varsa) altında olduğunu bul.
+   * Ters sırada (son çizilen önce) — ileride overlap'te üstteki kazanır. */
+  private hitTest(px: number, py: number): string | null {
+    if (!this.circuit || !this.layout) return null;
+    const canvas = this.canvasRef.value;
+    if (!canvas) return null;
+
+    const rect = canvas.getBoundingClientRect();
+    const centerX = rect.width / 2;
+    const centerY = rect.height / 2;
+
+    for (let i = this.layout.components.length - 1; i >= 0; i--) {
+      const comp = this.layout.components[i];
+      if (!comp) continue;
+      const circuitComp = this.circuit.components.find((c) => c.id === comp.id);
+      if (!circuitComp) continue;
+
+      const bounds = COMPONENT_BOUNDS[circuitComp.type] ?? DEFAULT_BOUNDS;
+      const aabb = componentAABB(
+        centerX,
+        centerY,
+        comp,
+        bounds.halfWidth,
+        bounds.halfHeight,
+      );
+      if (pointInAABB(px, py, aabb)) {
+        return comp.id;
+      }
+    }
+    return null;
+  }
+
+  private onMouseMove = (e: MouseEvent): void => {
+    const canvas = this.canvasRef.value;
+    if (!canvas) return;
+    const { x, y } = mouseToCanvasCoords(e, canvas);
+    const hitId = this.hitTest(x, y);
+
+    if (hitId !== this.hoveredId) {
+      this.hoveredId = hitId;
+      canvas.style.cursor = hitId ? 'pointer' : 'default';
+      this.dispatchEvent(
+        new CustomEvent('hover-change', {
+          detail: { id: hitId },
+          bubbles: true,
+          composed: true,
+        }),
+      );
+    }
+  };
+
+  private onMouseLeave = (): void => {
+    if (this.hoveredId !== null) {
+      this.hoveredId = null;
+      const canvas = this.canvasRef.value;
+      if (canvas) canvas.style.cursor = 'default';
+      this.dispatchEvent(
+        new CustomEvent('hover-change', {
+          detail: { id: null },
+          bubbles: true,
+          composed: true,
+        }),
+      );
+    }
+  };
+
+  private onClick = (e: MouseEvent): void => {
+    const canvas = this.canvasRef.value;
+    if (!canvas) return;
+    const { x, y } = mouseToCanvasCoords(e, canvas);
+    const hitId = this.hitTest(x, y);
+
+    // Plan gereği: bileşen hit → select; boş alan → none (seçimi temizle).
+    const detail = hitId
+      ? { type: 'component' as const, id: hitId }
+      : { type: 'none' as const };
+
+    this.dispatchEvent(
+      new CustomEvent('select', {
+        detail,
+        bubbles: true,
+        composed: true,
+      }),
+    );
+  };
 
   private scheduleDraw(): void {
     if (this.rafHandle !== null) cancelAnimationFrame(this.rafHandle);
@@ -178,7 +293,7 @@ export class VxaCanvas extends LitElement {
       }
     }
 
-    // ─── Ön katman: devre (Sprint 0.5 + 0.6) ──────────────────────────────
+    // ─── Ön katman: devre (Sprint 0.5 + 0.6 + 1.1 hover) ──────────────────
     if (this.circuit && this.layout) {
       const colors = readColors(this);
       drawCircuit(
@@ -190,6 +305,7 @@ export class VxaCanvas extends LitElement {
         this.solve ?? null,
         colors,
         this.selectionId,
+        this.hoveredId,
       );
     }
 
