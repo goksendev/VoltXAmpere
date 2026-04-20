@@ -30,6 +30,7 @@ import {
   resolveTerminalLocal,
   TERMINAL_ORDER,
   type Point,
+  type Rotation,
   type TerminalRef,
 } from '../interaction/component-terminals.ts';
 import {
@@ -722,6 +723,23 @@ export class VxaDesignMode extends LitElement {
       return;
     }
 
+    // Sprint 2.9: R / Shift+R → tek seçili bileşeni 90° döndür.
+    // Context-aware: text input focus'ta no-op, stamp mode'da no-op,
+    // selection !== 'component' ise no-op. Ctrl/Cmd+R → browser reload,
+    // karışmayız (bare R ve Shift+R yakalanır).
+    if (e.key === 'r' || e.key === 'R') {
+      if (e.ctrlKey || e.metaKey) return;
+      if (this.isTextInputFocused(e)) return;
+      // Dahil Değil: ghost rotation — activeTool aktifken no-op.
+      if (this.activeTool !== null) return;
+      // Dahil Değil: multi / wire / none rotation — sadece tek bileşen.
+      if (this.selection.type !== 'component') return;
+
+      e.preventDefault();
+      this.rotateSelectedComponent(e.shiftKey ? 'ccw' : 'cw');
+      return;
+    }
+
     // Sprint 2.1: Undo/Redo. Mac'te Cmd, Windows/Linux'ta Ctrl.
     const isMac = navigator.platform.toLowerCase().includes('mac');
     const cmdKey = isMac ? e.metaKey : e.ctrlKey;
@@ -753,6 +771,41 @@ export class VxaDesignMode extends LitElement {
     if (!target) return false;
     const tag = target.tagName;
     return tag === 'INPUT' || tag === 'TEXTAREA' || target.isContentEditable;
+  }
+
+  /** Sprint 2.9: tek seçili bileşeni 90° döndür (CW veya CCW). Layout-only
+   *  transform — circuit topology (`components[i].nodes`) değişmez. Solver
+   *  matrix aynı → dashboard değerleri bit-identical kalmalı. Wire'lar
+   *  recomputeWires() ile yeni terminal konumlarına re-route edilir.
+   *
+   *  Guard'lar caller'da kontrol ediliyor ama helper saf olsun diye burada
+   *  da tekrar ediyor. Sprint 1.2 Rotation tipi (0|90|180|270) + modulo
+   *  normalize runtime güvencesini sağlar. */
+  private rotateSelectedComponent(direction: 'cw' | 'ccw'): void {
+    if (this.selection.type !== 'component') return;
+    const id = this.selection.id;
+
+    const target = this.layout.components.find((c) => c.id === id);
+    if (!target) return;
+
+    // Sprint 2.1: action öncesi snapshot — Ctrl+Z rotation'ı geri alır.
+    this.pushHistory();
+
+    const delta = direction === 'cw' ? 90 : -90;
+    const next = ((target.rotation + delta + 360) % 360) as Rotation;
+
+    const newComponents = this.layout.components.map((c) =>
+      c.id === id ? { ...c, rotation: next } : c,
+    );
+
+    // Sprint 1.4: terminal konumları değişti → wire'lar yeniden route.
+    this.layout = this.recomputeWires({
+      ...this.layout,
+      components: newComponents,
+    });
+
+    // Rotation topology değiştirmediği için solver yeniden çağrılmaz;
+    // mevcut dashboard snapshot'ı bit-identical kalır (mimari disiplin).
   }
 
   /** Sprint 2.5 / Bug #6: aktif drag'i iptal et.
