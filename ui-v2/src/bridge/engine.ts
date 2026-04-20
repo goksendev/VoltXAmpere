@@ -111,6 +111,42 @@ export interface SolveResult {
   errorMessage?: string;
 }
 
+/** Sprint 2.8: Solver sonucu fiziksel olarak anlamlı sayılar mı?
+ *  success=true dönse bile matris near-singular, overflow gibi durumlarda
+ *  NaN/Infinity karışabilir. Dashboard ok state'ine bu sayıları yazmak
+ *  yerine err state'e düşülmeli — stale değer hiç görünmesin. */
+export function isValidSolverResult(
+  r: SolveResult | null | undefined,
+): boolean {
+  if (!r || !r.success) return false;
+  for (const v of Object.values(r.nodeVoltages)) {
+    if (!Number.isFinite(v)) return false;
+  }
+  for (const i of Object.values(r.branchCurrents)) {
+    if (!Number.isFinite(i)) return false;
+  }
+  return true;
+}
+
+/** Sprint 2.8: Transient simülasyon trace'i baştan sona finite mi?
+ *  Nadir durumlarda steady-state sayılar iyi ama ara zaman noktalarından
+ *  birinde overflow olur — grafik çizilirken NaN canvas hatası çıkar.
+ *  Grafik güvenliği için trace'i de valide et. */
+export function isValidTransientResult(
+  r: TransientResult | null | undefined,
+): boolean {
+  if (!r || !r.success) return false;
+  for (let i = 0; i < r.time.length; i++) {
+    if (!Number.isFinite(r.time[i]!)) return false;
+  }
+  for (const series of Object.values(r.nodeVoltages)) {
+    for (let i = 0; i < series.length; i++) {
+      if (!Number.isFinite(series[i]!)) return false;
+    }
+  }
+  return true;
+}
+
 // ─── Worker yaşam döngüsü ────────────────────────────────────────────────────
 // Tek worker instance paylaşılır (lazy init). RC low-pass gibi tek seferlik
 // solve için her çağrıda yeni worker yaratmak maliyetli — ileride invalidation

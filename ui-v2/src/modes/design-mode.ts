@@ -38,6 +38,8 @@ import {
   type WireDrawState,
 } from '../interaction/wire-draw.ts';
 import {
+  isValidSolverResult,
+  isValidTransientResult,
   solveTransient,
   type CircuitDef,
   type ComponentType,
@@ -648,16 +650,14 @@ export class VxaDesignMode extends LitElement {
       });
       if (transient.success) {
         const snapshot = snapshotFromTransient(transient, this.circuit, -1);
-        // Sprint 2.7: NaN/Infinity validation. Solver success=true dönse
-        // bile matrix near-singular, overflow gibi durumlarda geçersiz
-        // sayılar döndürebilir. Stale 33.94µA senaryosunun bir varyantı.
-        const allFinite =
-          Object.values(snapshot.nodeVoltages).every((v) => Number.isFinite(v)) &&
-          Object.values(snapshot.branchCurrents).every((v) => Number.isFinite(v));
-        if (!allFinite) {
+        // Sprint 2.8: isValidSolverResult / isValidTransientResult helpers
+        // bridge/engine.ts'te. Snapshot (steady-state slot'lar) + trace
+        // (grafik) ayrı ayrı valide ediliyor — biri bozuksa diğerini
+        // göstermek stale gösterim yaratır.
+        if (!isValidSolverResult(snapshot) || !isValidTransientResult(transient)) {
           this.dashboard = {
             kind: 'err',
-            message: 'solver geçersiz sonuç üretti (NaN/Infinity)',
+            message: 'solver geçersiz sonuç üretti (NaN / Infinity)',
           };
           return;
         }
@@ -1477,16 +1477,43 @@ export class VxaDesignMode extends LitElement {
   }
 
   private renderDashboard() {
+    // Sprint 2.8 / Bug #3-variant: 'err' UI artık empty/floating ile simetrik.
+    // Eski davranış merkezde tek kırmızı kutu — kullanıcı dashboard'ın genel
+    // akışından koparılıyordu. Şimdi aynı header + slot iskeleti, "—" slot
+    // değerleri ve alt ipucu "çözüm hesaplanamadı · devreyi kontrol edin".
+    // Detay (solver mesajı) slot altı sub-satırında kalır.
     if (this.dashboard.kind === 'err') {
+      const detail = this.dashboard.message
+        ? this.dashboard.message.slice(0, 80)
+        : 'solver sonuç üretemedi';
       return html`
         <section
-          class="dashboard-zone dashboard-zone--error"
+          class="dashboard-zone dashboard-zone--loading"
           aria-label="dashboard hata"
           role="alert"
         >
-          <div class="err-box">
-            <span class="err-title">⚠ Solver başlatılamadı</span>
-            <span class="err-msg">${this.dashboard.message}</span>
+          ${this.renderDashboardHeader()}
+          <div class="dash-chart" aria-hidden="true">
+            <div class="empty-hint">
+              Çözüm hesaplanamadı · devreyi kontrol edin
+            </div>
+          </div>
+          <div class="dash-slots">
+            <div class="slot">
+              <span class="slot-title">V_ÇIKIŞ @son</span>
+              <span class="slot-value">—</span>
+              <span class="slot-sub">${detail}</span>
+            </div>
+            <div class="slot">
+              <span class="slot-title">V_GİRİŞ @son</span>
+              <span class="slot-value">—</span>
+              <span class="slot-sub">${detail}</span>
+            </div>
+            <div class="slot">
+              <span class="slot-title">I(R1) @son</span>
+              <span class="slot-value">—</span>
+              <span class="slot-sub">${detail}</span>
+            </div>
           </div>
         </section>
       `;
