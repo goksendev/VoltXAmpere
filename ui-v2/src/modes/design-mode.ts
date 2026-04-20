@@ -622,10 +622,20 @@ export class VxaDesignMode extends LitElement {
       return;
     }
     // Sprint 2.6 / Bug #4B: bileşen var ama hiç tel yok — tüm bileşenler
-    // izole. Solver'ı çağırmadan floating state'e düş. 33.94µA gibi stale
-    // değer ya da anlamsız "0.00 V" slot'u yerine kullanıcıya "telle bağla"
-    // ipucu veriliyor.
+    // izole. Solver'ı çağırmadan floating state'e düş.
     if (this.layout.wires.length === 0) {
+      this.dashboard = { kind: 'floating' };
+      return;
+    }
+    // Sprint 2.7 / Bug #3-variant: Her V kaynağının bir terminali 'gnd'
+    // node'unda değilse devre açık (kapalı loop yok). Solver sayısal noise
+    // döndürüyor (V=0 ama I=2.5pA gibi), dashboard kafa karıştırıcı oluyor.
+    // Proxy heuristic: tüm V kaynakları GND'ye bağlı olmalı ki solver
+    // anlamlı sonuç üretsin.
+    const hasOpenSource = this.circuit.components.some(
+      (c) => c.type === 'V' && !c.nodes.includes('gnd'),
+    );
+    if (hasOpenSource) {
       this.dashboard = { kind: 'floating' };
       return;
     }
@@ -638,11 +648,23 @@ export class VxaDesignMode extends LitElement {
       });
       if (transient.success) {
         const snapshot = snapshotFromTransient(transient, this.circuit, -1);
+        // Sprint 2.7: NaN/Infinity validation. Solver success=true dönse
+        // bile matrix near-singular, overflow gibi durumlarda geçersiz
+        // sayılar döndürebilir. Stale 33.94µA senaryosunun bir varyantı.
+        const allFinite =
+          Object.values(snapshot.nodeVoltages).every((v) => Number.isFinite(v)) &&
+          Object.values(snapshot.branchCurrents).every((v) => Number.isFinite(v));
+        if (!allFinite) {
+          this.dashboard = {
+            kind: 'err',
+            message: 'solver geçersiz sonuç üretti (NaN/Infinity)',
+          };
+          return;
+        }
         this.dashboard = { kind: 'ok', transient, snapshot };
       } else {
         // Sprint 2.5 / Bug #3: Başarısız solver → err state'e düş (önceki
-        // disiplin "eski sonucu koru" idi ama kullanıcı için yanıltıcı;
-        // "V=0 ama I=33.94µA" senaryosu bundan doğmuştu).
+        // disiplin "eski sonucu koru" idi ama kullanıcı için yanıltıcı).
         this.dashboard = {
           kind: 'err',
           message: transient.errorMessage ?? 'solver başarısız',
