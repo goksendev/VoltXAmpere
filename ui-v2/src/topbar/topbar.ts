@@ -158,6 +158,31 @@ export class VxaTopbar extends LitElement {
       height: 11px;
     }
 
+    /* Sprint 2.4: ikon-only buton (Undo/Redo). Metin yok, sadece 14px SVG. */
+    .action-btn.icon-only {
+      padding: 4px 7px;
+      justify-content: center;
+    }
+    .action-btn.icon-only svg {
+      width: 14px;
+      height: 14px;
+    }
+
+    /* Sprint 2.4: disabled state — opacity düşük, cursor not-allowed, hover
+       efekti tamamen kapalı. History boşken Undo/Redo grileşir. */
+    .action-btn:disabled,
+    .action-btn[disabled] {
+      opacity: 0.35;
+      cursor: not-allowed;
+      color: var(--fg-3);
+    }
+    .action-btn:disabled:hover,
+    .action-btn[disabled]:hover {
+      background: transparent;
+      color: var(--fg-3);
+      border-color: transparent;
+    }
+
     /* Esnek dolgu — ana aksiyonları sola, yardımcıları sağa itmek için. */
     .spacer {
       flex: 1 1 auto;
@@ -172,10 +197,17 @@ export class VxaTopbar extends LitElement {
 
   @property() activeMode: ModeName = 'tasarla';
 
+  /** Sprint 2.4: history.past boş değil mi? Design-mode'dan prop olarak iner,
+   *  Undo butonu disabled state'i bu değere göre. */
+  @property({ type: Boolean }) canUndo: boolean = false;
+
+  /** Sprint 2.4: history.future boş değil mi? Redo butonu disabled state'i. */
+  @property({ type: Boolean }) canRedo: boolean = false;
+
   private onAction(id: string): void {
-    // Sprint 0.8: her ana buton yalnızca placeholder log. Gerçek handler
-    // Sprint 1.x+'da bağlanacak. bubbles+composed ki design-mode dinleyebilsin.
-    console.log(`[TODO] ${id} butonu — Sprint 1.x+`);
+    // Sprint 0.8: ana buton event emit. Sprint 2.4'te undo/redo gerçekten
+    // design-mode'a bağlandı; diğerleri (save/open/spice/bom/export) hâlâ
+    // design-mode'da [TODO] log. Topbar emit mantığı tek — dinleyici karar verir.
     this.dispatchEvent(
       new CustomEvent('action', { detail: { id }, bubbles: true, composed: true }),
     );
@@ -256,6 +288,42 @@ export class VxaTopbar extends LitElement {
         ${this.renderMode('tasarla')}
         ${this.renderMode('guc')}
       </nav>
+
+      <span class="sep" aria-hidden="true"></span>
+
+      <!-- Sprint 2.4: Undo/Redo grubu — mod switch ile ana aksiyonlar arasında.
+           Title tooltip native browser: Mac'te Cmd, Windows'ta Ctrl — metin
+           'Ctrl+Z' sabit; gerçek kısayol Sprint 2.1 platform detection'dan. -->
+      <div class="actions" aria-label="geçmiş aksiyonları">
+        <button
+          type="button"
+          class="action-btn icon-only"
+          data-action="undo"
+          title="Geri Al (Ctrl+Z)"
+          aria-label="Geri Al"
+          ?disabled=${!this.canUndo}
+          @click=${() => this.canUndo && this.onAction('undo')}
+        >
+          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none" aria-hidden="true">
+            <path d="M3 10h10a5 5 0 0 1 0 10H8"/>
+            <polyline points="6 6 3 10 6 14"/>
+          </svg>
+        </button>
+        <button
+          type="button"
+          class="action-btn icon-only"
+          data-action="redo"
+          title="Yinele (Ctrl+Shift+Z)"
+          aria-label="Yinele"
+          ?disabled=${!this.canRedo}
+          @click=${() => this.canRedo && this.onAction('redo')}
+        >
+          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none" aria-hidden="true">
+            <path d="M21 10H11a5 5 0 0 0 0 10h5"/>
+            <polyline points="18 6 21 10 18 14"/>
+          </svg>
+        </button>
+      </div>
 
       <span class="sep" aria-hidden="true"></span>
 

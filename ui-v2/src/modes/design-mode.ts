@@ -95,11 +95,14 @@ import {
 import { snapshotFromTransient } from '../util/snapshot.ts';
 import {
   INITIAL_SELECTION,
+  isComponentSelected,
   selectedComponentIds,
   type Selection,
 } from '../state/selection.ts';
 import {
   INITIAL_HISTORY,
+  canRedo as historyCanRedo,
+  canUndo as historyCanUndo,
   pushAction as historyPush,
   redo as historyRedo,
   snapshot as historySnapshot,
@@ -459,6 +462,21 @@ export class VxaDesignMode extends LitElement {
     this.dragHistoryPushed = false;
     await this.runSolver();
   }
+
+  /** Sprint 2.4: topbar'dan action event. Undo/Redo butonları design-mode
+   *  handler'larına köprü — diğer butonlar (save/open/spice/bom/export) hâlâ
+   *  TODO log. */
+  private onTopbarAction = (e: Event): void => {
+    const id = (e as CustomEvent).detail.id as string;
+    if (id === 'undo') {
+      void this.doUndo();
+    } else if (id === 'redo') {
+      void this.doRedo();
+    } else {
+      // Sprint 1.x+ handler'ları için placeholder
+      console.log(`[TODO] ${id} butonu — Sprint 3.x+`);
+    }
+  };
 
   /** Ctrl+Shift+Z (veya Ctrl+Y): future'ın first'ünü restore et. */
   private async doRedo(): Promise<void> {
@@ -1033,11 +1051,11 @@ export class VxaDesignMode extends LitElement {
    * Components map güncelle, wire'ları yeniden hesapla.
    *
    * Sprint 2.1: drag BAŞINDA tek snapshot al (ilk drag-position event'i).
-   * Sonraki ara event'ler flag nedeniyle tekrar pushlamaz. drag-end geldiğinde
-   * flag reset olur. Böylece 1 drag = 1 undo adımı. */
+   * Sprint 2.4: multi-drag — drag'lenen bileşen selection içindeyse
+   * selection'daki TÜM bileşenler aynı dx/dy ile taşınır. recomputeWires'a
+   * draggedIds + offset verilir; iki ucu da draggedIds'de olan tellerin
+   * via noktaları dx/dy kaydırılır (fast path, rota şekli korunur). */
   private onCanvasDragPosition = (e: Event): void => {
-    // Flag false iken snapshot al — HENÜZ this.layout drag öncesi.
-    // pushHistory'den SONRA layout güncellenir; disiplin kritik.
     if (!this.dragHistoryPushed) {
       this.pushHistory();
       this.dragHistoryPushed = true;
@@ -1048,11 +1066,28 @@ export class VxaDesignMode extends LitElement {
       x: number;
       y: number;
     };
+
+    // Drag'lenen bileşenin mevcut konumu → offset
+    const dragged = this.layout.components.find((c) => c.id === componentId);
+    if (!dragged) return;
+    const dx = x - dragged.x;
+    const dy = y - dragged.y;
+    if (dx === 0 && dy === 0) return;
+
+    // Selection içinde mi? → multi-drag. Değilse sadece o bileşen taşınır
+    // (selection değişmez — Figma "seçim dışına basınca sıfırla" davranışını
+    // muhafazakâr bir şekilde ters çeviriyoruz: selection'a zarar verme).
+    const draggedSelected = isComponentSelected(this.selection, componentId);
+    const targetIds = draggedSelected
+      ? selectedComponentIds(this.selection)
+      : [componentId];
+    const targetSet = new Set(targetIds);
+
     const components = this.layout.components.map((c) =>
-      c.id === componentId ? { ...c, x, y } : c,
+      targetSet.has(c.id) ? { ...c, x: c.x + dx, y: c.y + dy } : c,
     );
     const next: CircuitLayout = { ...this.layout, components };
-    this.layout = this.recomputeWires(next);
+    this.layout = this.recomputeWires(next, targetIds, dx, dy);
   };
 
   /** Canvas drag-end event'i (Sprint 2.1): drag snapshot flag'ini sıfırla.
@@ -1168,8 +1203,19 @@ export class VxaDesignMode extends LitElement {
   }
 
   /** Tüm wire'lar için via ara noktalarını yeniden hesapla.
-   * Layout-merkez-relative koordinatlar; render world'e çevirir. */
-  private recomputeWires(layout: CircuitLayout): CircuitLayout {
+   *  Layout-merkez-relative koordinatlar; render world'e çevirir.
+   *
+   *  Sprint 2.4 fast path: draggedIds + dx + dy verilirse iki ucu da
+   *  draggedIds içinde olan tellerin via noktaları dx/dy kaydırılır
+   *  (routeWire çağrılmaz). Böylece multi-drag'de rota şekli korunur +
+   *  performans kazanılır. Tek ucu dragged olan teller smart re-route
+   *  (Sprint 1.2 davranışı); hiç dragged olmayan teller aynen kalır. */
+  private recomputeWires(
+    layout: CircuitLayout,
+    draggedIds?: readonly string[],
+    dx?: number,
+    dy?: number,
+  ): CircuitLayout {
     // Tüm bileşenlerin layout-relative AABB + 8 px padding (tel nefes alsın)
     const TEL_PAD = 8;
     const compAabbs = layout.components
@@ -1192,7 +1238,31 @@ export class VxaDesignMode extends LitElement {
       })
       .filter((x): x is { id: string; aabb: NonNullable<typeof x>['aabb'] } => x !== null);
 
+    // Sprint 2.4: multi-drag fast path hazırlığı — draggedIds + offset verilmişse
+    // iki ucu da hareket eden tellerin via'larını kaydır, routeWire çağrısız.
+    const hasFastPath =
+      draggedIds !== undefined &&
+      dx !== undefined &&
+      dy !== undefined &&
+      draggedIds.length > 0;
+    const draggedSet = hasFastPath ? new Set(draggedIds) : null;
+
     const wires = layout.wires.map((wire) => {
+      // Fast path: iki ucu da drag grubunda → via dx/dy kaydır, rota şekli aynen.
+      if (hasFastPath && draggedSet) {
+        const fromIn =
+          wire.from.kind === 'terminal' && draggedSet.has(wire.from.componentId);
+        const toIn =
+          wire.to.kind === 'terminal' && draggedSet.has(wire.to.componentId);
+        if (fromIn && toIn) {
+          return {
+            ...wire,
+            via: (wire.via ?? []).map((p) => ({ x: p.x + dx!, y: p.y + dy! })),
+          };
+        }
+      }
+
+      // Normal path: routeWire ile smart re-route.
       const from = this.resolveEndpoint(wire.from, layout);
       const to = this.resolveEndpoint(wire.to, layout);
 
@@ -1350,7 +1420,12 @@ export class VxaDesignMode extends LitElement {
     const solve = this.dashboard.kind === 'ok' ? this.dashboard.snapshot : null;
     return html`
       <section class="topbar-zone" aria-label="topbar">
-        <vxa-topbar .activeMode=${this.activeMode}></vxa-topbar>
+        <vxa-topbar
+          .activeMode=${this.activeMode}
+          .canUndo=${historyCanUndo(this.history)}
+          .canRedo=${historyCanRedo(this.history)}
+          @action=${this.onTopbarAction}
+        ></vxa-topbar>
       </section>
 
       <section class="sidebar-zone" aria-label="sidebar">
