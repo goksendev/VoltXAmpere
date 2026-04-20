@@ -106,6 +106,13 @@ import {
   undo as historyUndo,
   type HistoryState,
 } from '../state/history.ts';
+import {
+  INITIAL_RUBBER_BAND,
+  componentsInRect,
+  rubberBandRect,
+  shouldActivateRubberBand,
+  type RubberBandState,
+} from '../interaction/rubber-band.ts';
 
 type DashboardState =
   | { kind: 'loading' }
@@ -365,6 +372,10 @@ export class VxaDesignMode extends LitElement {
   // mousemove her biri ayrı snapshot alır — kullanıcı 1 drag = 60 undo.
   private dragHistoryPushed = false;
 
+  // Sprint 2.3: rubber-band state. Canvas boş alan mousedown → armed → active.
+  // baseSelection armed anında dondurulur; Shift+drag bu baseSelection'a ekler.
+  @state() private rubberBand: RubberBandState = INITIAL_RUBBER_BAND;
+
   // Sprint 2.2: canvas select event — hit bilgisi + shift modifier.
   // Karar burada (design-mode state'e sahip). Shift+Click toggle,
   // normal click Sprint 1.1/1.5 davranışı.
@@ -596,6 +607,13 @@ export class VxaDesignMode extends LitElement {
       }
       if (this.wireDraw.phase !== 'idle') {
         this.wireDraw = INITIAL_WIRE_DRAW;
+        e.preventDefault();
+        return;
+      }
+      // Sprint 2.3: rubber-band aktifse iptal et, baseSelection geri dön.
+      if (this.rubberBand.phase !== 'idle') {
+        this.selection = this.rubberBand.baseSelection;
+        this.rubberBand = INITIAL_RUBBER_BAND;
         e.preventDefault();
         return;
       }
@@ -1043,6 +1061,112 @@ export class VxaDesignMode extends LitElement {
     this.dragHistoryPushed = false;
   };
 
+  // ─── Sprint 2.3: rubber-band handler'ları ─────────────────────────────
+
+  /** Boş alan mousedown — canvas preventDefault etmiş, click gelmeyecek.
+   *  Armed duruma geç, baseSelection'ı dondur. */
+  private onCanvasRubberBandStart = (e: Event): void => {
+    const { x, y, shiftKey } = (e as CustomEvent).detail as {
+      x: number;
+      y: number;
+      shiftKey: boolean;
+    };
+    this.rubberBand = {
+      phase: 'armed',
+      startX: x,
+      startY: y,
+      shiftKey,
+      baseSelection: this.selection,
+    };
+  };
+
+  /** Rubber-band fare hareketi. Armed'de 5px eşik kontrolü → active.
+   *  Active ise kutu içindeki bileşenleri hesapla + selection'ı güncelle. */
+  private onCanvasRubberBandMove = (e: Event): void => {
+    if (this.rubberBand.phase === 'idle') return;
+    const { x, y } = (e as CustomEvent).detail as { x: number; y: number };
+
+    if (this.rubberBand.phase === 'armed') {
+      if (!shouldActivateRubberBand(this.rubberBand, x, y)) return;
+      this.rubberBand = {
+        ...this.rubberBand,
+        phase: 'active',
+        currentX: x,
+        currentY: y,
+      };
+    } else {
+      this.rubberBand = { ...this.rubberBand, currentX: x, currentY: y };
+    }
+
+    // Active durumda: kutu içindeki bileşenleri selection'a yaz.
+    if (this.rubberBand.phase === 'active') {
+      const rect = rubberBandRect(this.rubberBand);
+      const canvasRect = this.canvasRectOrZero();
+      const idsInBox = componentsInRect(
+        rect,
+        this.layout,
+        this.circuit,
+        canvasRect.width / 2,
+        canvasRect.height / 2,
+      );
+
+      if (this.rubberBand.shiftKey) {
+        // Shift+drag: baseSelection + kutu içindekiler union
+        this.selection = this.unionSelectionWithIds(
+          this.rubberBand.baseSelection,
+          idsInBox,
+        );
+      } else {
+        this.selection = this.idsToSelection(idsInBox);
+      }
+    }
+  };
+
+  /** Mouseup — drag bitti. Active'de selection zaten güncel, sadece state
+   *  temizle. Armed'de (eşik aşılmadı) click davranışını taklit et — Sprint 1.1
+   *  boş alan click: shift yoksa selection temizle, shift varsa koru. */
+  private onCanvasRubberBandEnd = (): void => {
+    if (this.rubberBand.phase === 'armed') {
+      if (!this.rubberBand.shiftKey) {
+        this.selection = INITIAL_SELECTION;
+      }
+      // shift varsa baseSelection zaten korundu (hiç değişmedi)
+    }
+    // Active'de zaten rubber-band-move'da selection güncellendi.
+    this.rubberBand = INITIAL_RUBBER_BAND;
+  };
+
+  /** ID listesi → en uygun Selection tipi. 0 → none, 1 → component, 2+ → multi. */
+  private idsToSelection(ids: string[]): Selection {
+    if (ids.length === 0) return { type: 'none' };
+    if (ids.length === 1) return { type: 'component', id: ids[0]! };
+    return { type: 'multi', componentIds: ids };
+  }
+
+  /** baseSelection (component/multi/wire/none) + yeni ID'ler union.
+   *  Wire tipi rubber-band baseSelection olsa bile kaybolur çünkü
+   *  rubber-band sadece bileşen seçer. Bu kabul — kullanıcı tel seçili iken
+   *  rubber-band başlatınca bilindik bir trade-off. */
+  private unionSelectionWithIds(base: Selection, add: string[]): Selection {
+    const baseIds = selectedComponentIds(base);
+    const merged = Array.from(new Set([...baseIds, ...add]));
+    return this.idsToSelection(merged);
+  }
+
+  /** Canvas DOM element'in boyutları — rubber-band koordinat dönüşümünde
+   *  lazım. Canvas shadow DOM içinde; bu element'in shadowRoot'undan
+   *  <vxa-canvas> → shadowRoot → canvas yolunu izle. */
+  private canvasRectOrZero(): { width: number; height: number } {
+    const canvasEl = this.shadowRoot
+      ?.querySelector('vxa-canvas')
+      ?.shadowRoot?.querySelector('canvas');
+    if (!canvasEl) return { width: 0, height: 0 };
+    return {
+      width: canvasEl.clientWidth,
+      height: canvasEl.clientHeight,
+    };
+  }
+
   /** Tüm wire'lar için via ara noktalarını yeniden hesapla.
    * Layout-merkez-relative koordinatlar; render world'e çevirir. */
   private recomputeWires(layout: CircuitLayout): CircuitLayout {
@@ -1245,6 +1369,7 @@ export class VxaDesignMode extends LitElement {
           .selectedWireIndex=${this.selection.type === 'wire' ? this.selection.index : null}
           .activeTool=${this.activeTool}
           .wireDraw=${this.wireDraw}
+          .rubberBand=${this.rubberBand}
           chromeTitle="DENEY"
           chromeSubtitle="Alçak Geçiren RC Süzgeç · f_c ≈ 15.9 kHz"
           .isPlaying=${true}
@@ -1256,6 +1381,9 @@ export class VxaDesignMode extends LitElement {
           @place-component=${this.onPlaceComponent}
           @terminal-click=${this.onTerminalClick}
           @mouse-move=${this.onCanvasMouseMove}
+          @rubber-band-start=${this.onCanvasRubberBandStart}
+          @rubber-band-move=${this.onCanvasRubberBandMove}
+          @rubber-band-end=${this.onCanvasRubberBandEnd}
         ></vxa-canvas>
       </section>
 

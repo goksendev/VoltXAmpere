@@ -40,6 +40,8 @@ import {
   pointInAABB,
 } from '../interaction/hit-test.ts';
 import type { WireDrawState } from '../interaction/wire-draw.ts';
+import type { RubberBandState } from '../interaction/rubber-band.ts';
+import { rubberBandRect } from '../interaction/rubber-band.ts';
 import {
   COMPONENT_BOUNDS,
   DEFAULT_BOUNDS,
@@ -70,6 +72,11 @@ const MAJOR_STEP_RATIO = 5;
 // yumuşak anti-aliased nokta. 2px yapmak kocaman görünüyor.
 const MINOR_DOT = 1;
 const MAJOR_DOT = 1.4;
+
+// Sprint 2.3: rubber-band dolgu rengi — accent %8 opacity. Sprint 1.x+ token
+// tanımlanana kadar literal. Design system V3.2 accent-dim kavramı sonrası
+// tokens.css --accent-dim olarak ekranılacak.
+const RUBBER_BAND_FILL = 'rgba(255, 184, 77, 0.08)';
 
 @customElement('vxa-canvas')
 export class VxaCanvas extends LitElement {
@@ -119,6 +126,10 @@ export class VxaCanvas extends LitElement {
   // tel + hover terminal marker'ları bu prop'a göre render edilir.
   @property({ attribute: false }) wireDraw: WireDrawState = { phase: 'idle' };
 
+  // Sprint 2.3: rubber-band state'i (idle/armed/active). Active ise kutu
+  // çizilir. Design-mode handler'ları selection update + state yönetir.
+  @property({ attribute: false }) rubberBand: RubberBandState = { phase: 'idle' };
+
   // ─── Internal ───────────────────────────────────────────────────────────
   private readonly canvasRef: Ref<HTMLCanvasElement> = createRef();
   private resizeObserver: ResizeObserver | null = null;
@@ -141,6 +152,12 @@ export class VxaCanvas extends LitElement {
   // Drag'in hemen sonrasında DOM otomatik click event'i tetikleyebilir —
   // "R1'i sürükledim, bırakınca seçim kaybolmasın/taşınmasın" için flag.
   private justFinishedDrag = false;
+
+  // Sprint 2.3: rubber-band bittikten hemen sonra browser click event'i
+  // canvas'ta tetiklenir. Bu boş alan click davranışı (selection temizle)
+  // rubber-band'in ayarladığı selection'ı override eder. Flag pattern ile
+  // tek event loop iterasyonunda click'i suppress et.
+  private justFinishedRubberBand = false;
 
   // Sprint 1.3: ghost preview pozisyonu (layout-relative, snap'li).
   // activeTool null ise null. Canvas redraw ghost'u çizer.
@@ -181,7 +198,8 @@ export class VxaCanvas extends LitElement {
       changed.has('hoveredWireIndex') ||
       changed.has('activeTool') ||
       changed.has('ghostPosition') ||
-      changed.has('wireDraw')
+      changed.has('wireDraw') ||
+      changed.has('rubberBand')
     ) {
       this.scheduleDraw();
     }
@@ -216,6 +234,9 @@ export class VxaCanvas extends LitElement {
     // Sprint 1.2: drag aktifken unmount olursa document listener'ları sızmasın.
     document.removeEventListener('mousemove', this.onDocumentMouseMove);
     document.removeEventListener('mouseup', this.onDocumentMouseUp);
+    // Sprint 2.3: rubber-band listener'ları da
+    document.removeEventListener('mousemove', this.onDocumentRubberMove);
+    document.removeEventListener('mouseup', this.onDocumentRubberUp);
   }
 
   // ─── Sprint 1.1: hit testing + mouse handler'ları ──────────────────────
@@ -355,6 +376,9 @@ export class VxaCanvas extends LitElement {
     // Sprint 1.2: drag biter bitmez browser click event'i tetikleyebilir;
     // bunu yoksay — kullanıcının niyeti taşımaktı, seçimi değiştirmek değil.
     if (this.justFinishedDrag) return;
+    // Sprint 2.3: rubber-band biter bitmez aynı click sorunu — selection
+    // rubber-band-end'de ayarlanmıştı, click bunu override etmesin.
+    if (this.justFinishedRubberBand) return;
 
     const canvas = this.canvasRef.value;
     if (!canvas) return;
@@ -442,27 +466,89 @@ export class VxaCanvas extends LitElement {
     if (e.button !== 0) return; // sadece sol tık
 
     const { x, y } = mouseToCanvasCoords(e, canvas);
+
+    // Öncelik 1: bileşen üstünde → drag akışı (Sprint 1.2).
     const hitId = this.hitTest(x, y);
-    if (!hitId) return; // boş alan — drag başlatma, click zaten handle eder
+    if (hitId) {
+      const placement = this.layout?.components.find((c) => c.id === hitId);
+      if (!placement) return;
+      this.dragState = {
+        phase: 'armed',
+        componentId: hitId,
+        startX: x,
+        startY: y,
+        origX: placement.x,
+        origY: placement.y,
+      };
+      e.preventDefault();
+      document.addEventListener('mousemove', this.onDocumentMouseMove);
+      document.addEventListener('mouseup', this.onDocumentMouseUp);
+      return;
+    }
 
-    const placement = this.layout?.components.find((c) => c.id === hitId);
-    if (!placement) return;
+    // Öncelik 2: activeTool varsa (Sprint 1.3 yerleştirme) — mousedown noop,
+    // click yerleştirir. Rubber-band yok.
+    if (this.activeTool) return;
 
-    this.dragState = {
-      phase: 'armed',
-      componentId: hitId,
-      startX: x,
-      startY: y,
-      origX: placement.x,
-      origY: placement.y,
-    };
+    // Öncelik 3: terminal veya wire hit varsa — click akışına bırak (Sprint 1.4
+    // tel kurma, Sprint 1.5 tel seçimi). Rubber-band başlatma, preventDefault
+    // YAPMA — tarayıcı click event'ini doğal tetiklesin.
+    if (this.circuit && this.layout) {
+      const rect = canvas.getBoundingClientRect();
+      const cx = rect.width / 2;
+      const cy = rect.height / 2;
+      const termHit = hitTestTerminal(x, y, this.layout, this.circuit.components, cx, cy);
+      if (termHit) return;
+      const wireHit = hitTestWire(x, y, this.layout, this.circuit, cx, cy);
+      if (wireHit !== null) return;
+    }
 
-    // Metin seçimi vs engelle
+    // Sprint 2.3: boş alan mousedown — rubber-band armed.
+    // preventDefault → tarayıcı click event'ini tetiklemeyecek. Design-mode
+    // rubber-band-end'de armed ise (eşik aşılmadı) click davranışını taklit
+    // eder (shift yoksa selection temizle).
     e.preventDefault();
+    this.dispatchEvent(
+      new CustomEvent('rubber-band-start', {
+        detail: { x, y, shiftKey: e.shiftKey },
+        bubbles: true,
+        composed: true,
+      }),
+    );
+    document.addEventListener('mousemove', this.onDocumentRubberMove);
+    document.addEventListener('mouseup', this.onDocumentRubberUp);
+  };
 
-    // Drag boyunca document listener'ları — canvas dışına çıkınca da akış sürsün
-    document.addEventListener('mousemove', this.onDocumentMouseMove);
-    document.addEventListener('mouseup', this.onDocumentMouseUp);
+  // ─── Sprint 2.3: rubber-band document listener'ları ──────────────────
+  private onDocumentRubberMove = (e: MouseEvent): void => {
+    const canvas = this.canvasRef.value;
+    if (!canvas) return;
+    const { x, y } = mouseToCanvasCoords(e, canvas);
+    this.dispatchEvent(
+      new CustomEvent('rubber-band-move', {
+        detail: { x, y },
+        bubbles: true,
+        composed: true,
+      }),
+    );
+  };
+
+  private onDocumentRubberUp = (): void => {
+    this.dispatchEvent(
+      new CustomEvent('rubber-band-end', {
+        bubbles: true,
+        composed: true,
+      }),
+    );
+    // Browser mouseup sonrası canvas click event'i tetikler. onClick bu flag'i
+    // görünce atlar. setTimeout 0 ile event kuyruğu sonunda temizle —
+    // click bu iterasyonda tetiklenirse yakalanmış olur.
+    this.justFinishedRubberBand = true;
+    setTimeout(() => {
+      this.justFinishedRubberBand = false;
+    }, 0);
+    document.removeEventListener('mousemove', this.onDocumentRubberMove);
+    document.removeEventListener('mouseup', this.onDocumentRubberUp);
   };
 
   private onDocumentMouseMove = (e: MouseEvent): void => {
@@ -615,6 +701,25 @@ export class VxaCanvas extends LitElement {
         this.selectedWireIndex,
         this.hoveredWireIndex,
       );
+    }
+
+    // ─── Sprint 2.3: rubber-band kutusu (z-order en üstte) ──────────────
+    if (this.rubberBand.phase === 'active') {
+      const rect = rubberBandRect(this.rubberBand);
+      const w = rect.x2 - rect.x1;
+      const h = rect.y2 - rect.y1;
+      ctx.save();
+      // Hafif amber dolgu — bileşen seçim çerçevesinden ayırmak için şeffaf.
+      // Token yok; accent renginin 8% opacity hali Sprint 1.x+ token'a alınabilir.
+      const styles = getComputedStyle(this);
+      const accentColor = styles.getPropertyValue('--accent').trim() || '#FFB84D';
+      ctx.fillStyle = RUBBER_BAND_FILL;
+      ctx.fillRect(rect.x1, rect.y1, w, h);
+      ctx.strokeStyle = accentColor;
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 3]);
+      ctx.strokeRect(rect.x1, rect.y1, w, h);
+      ctx.restore();
     }
 
     // Sprint 0.9: debug state kaldırıldı — cssW/cssH/dpr içeride hesaplanıyor
