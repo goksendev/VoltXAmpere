@@ -94,6 +94,14 @@ import {
 } from '../util/format.ts';
 import { snapshotFromTransient } from '../util/snapshot.ts';
 import { INITIAL_SELECTION, type Selection } from '../state/selection.ts';
+import {
+  INITIAL_HISTORY,
+  pushAction as historyPush,
+  redo as historyRedo,
+  snapshot as historySnapshot,
+  undo as historyUndo,
+  type HistoryState,
+} from '../state/history.ts';
 
 type DashboardState =
   | { kind: 'loading' }
@@ -343,12 +351,68 @@ export class VxaDesignMode extends LitElement {
   // Sprint 1.4: tel çekme durumu. idle → started → (kurulum/iptal) → idle.
   @state() private wireDraw: WireDrawState = INITIAL_WIRE_DRAW;
 
+  // Sprint 2.1: undo/redo snapshot stack. Her undoable action öncesi
+  // pushHistory() çağrılır; state/history.ts immutable reducer'larla yönetir.
+  // UI state (selection, hover, activeTool) history'de DEĞİL.
+  @state() private history: HistoryState = INITIAL_HISTORY;
+
+  // Sprint 2.1: drag boyunca history tek sefer pushlanır. İlk drag-position
+  // event'inde flag true olur, drag-end'de false'a döner. Aksi halde 60+ ara
+  // mousemove her biri ayrı snapshot alır — kullanıcı 1 drag = 60 undo.
+  private dragHistoryPushed = false;
+
   // Sprint 1.1: canvas select event handler. hitId null olursa selection
   // temizlenir ('none'); bileşen hit olursa 'component' tipi + id.
   private onCanvasSelect = (e: Event): void => {
     const detail = (e as CustomEvent).detail as Selection;
     this.selection = detail;
   };
+
+  // ─── Sprint 2.1: history helpers ──────────────────────────────────────
+
+  /** Undoable bir action yapılmadan ÖNCE çağrılır. Mevcut circuit + layout
+   *  snapshot'ı past stack'ine pushlanır, future temizlenir.
+   *
+   *  Kullanım:
+   *    this.pushHistory();        // action öncesi snapshot
+   *    this.layout = { ... };      // action'ı uygula
+   *    await this.runSolver();     // solver tetikle
+   *  */
+  private pushHistory(): void {
+    const current = historySnapshot(this.circuit, this.layout);
+    this.history = historyPush(this.history, current);
+  }
+
+  /** Ctrl+Z: past'ın top'unu restore et, mevcut state'i future'a it. */
+  private async doUndo(): Promise<void> {
+    const current = historySnapshot(this.circuit, this.layout);
+    const result = historyUndo(this.history, current);
+    if (!result) return;
+    this.history = result.newHistory;
+    this.circuit = result.restored.circuit;
+    this.layout = result.restored.layout;
+    // UI state reset — eski selection/hover/wireDraw geçersiz olabilir.
+    this.selection = INITIAL_SELECTION;
+    this.wireDraw = INITIAL_WIRE_DRAW;
+    this.activeTool = null;
+    this.dragHistoryPushed = false;
+    await this.runSolver();
+  }
+
+  /** Ctrl+Shift+Z (veya Ctrl+Y): future'ın first'ünü restore et. */
+  private async doRedo(): Promise<void> {
+    const current = historySnapshot(this.circuit, this.layout);
+    const result = historyRedo(this.history, current);
+    if (!result) return;
+    this.history = result.newHistory;
+    this.circuit = result.restored.circuit;
+    this.layout = result.restored.layout;
+    this.selection = INITIAL_SELECTION;
+    this.wireDraw = INITIAL_WIRE_DRAW;
+    this.activeTool = null;
+    this.dragHistoryPushed = false;
+    await this.runSolver();
+  }
 
   // ─── Sprint 1.3: yerleştirme akışı ────────────────────────────────────
 
@@ -374,6 +438,9 @@ export class VxaDesignMode extends LitElement {
     };
     const type = toolToComponentType(detail.tool);
     if (!type) return;
+
+    // Sprint 2.1: action öncesi snapshot — undoable.
+    this.pushHistory();
 
     const id = this.generateNewId(type);
     const value = DEFAULT_VALUES[type];
@@ -465,9 +532,11 @@ export class VxaDesignMode extends LitElement {
     }
   }
 
-  /** Document keydown — Escape + Delete/Backspace.
+  /** Document keydown — Escape + Delete/Backspace + Undo/Redo.
    *  Escape: placement veya tel modunu iptal (Sprint 1.3/1.4).
-   *  Delete/Backspace: seçili bileşen veya tel silme (Sprint 1.5). */
+   *  Delete/Backspace: seçili bileşen veya tel silme (Sprint 1.5).
+   *  Ctrl/Cmd+Z: undo (Sprint 2.1).
+   *  Ctrl/Cmd+Shift+Z veya Ctrl+Y: redo (Sprint 2.1). */
   private onKeyDown = (e: KeyboardEvent): void => {
     if (e.key === 'Escape') {
       if (this.activeTool) {
@@ -497,6 +566,31 @@ export class VxaDesignMode extends LitElement {
         e.preventDefault();
         void this.deleteWire(this.selection.index);
       }
+      return;
+    }
+
+    // Sprint 2.1: Undo/Redo. Mac'te Cmd, Windows/Linux'ta Ctrl.
+    const isMac = navigator.platform.toLowerCase().includes('mac');
+    const cmdKey = isMac ? e.metaKey : e.ctrlKey;
+    const key = e.key.toLowerCase();
+
+    if (!cmdKey) return;
+
+    // Text input focus'unda tarayıcının kendi undo'suna izin ver.
+    if (this.isTextInputFocused(e)) return;
+
+    // Ctrl/Cmd+Shift+Z → redo. Ctrl+Y → redo (Windows klasik).
+    if ((e.shiftKey && key === 'z') || (!e.shiftKey && key === 'y')) {
+      e.preventDefault();
+      void this.doRedo();
+      return;
+    }
+
+    // Ctrl/Cmd+Z (shift yok) → undo.
+    if (!e.shiftKey && key === 'z') {
+      e.preventDefault();
+      void this.doUndo();
+      return;
     }
   };
 
@@ -515,6 +609,9 @@ export class VxaDesignMode extends LitElement {
   private async deleteComponent(id: string): Promise<void> {
     const comp = this.circuit.components.find((c) => c.id === id);
     if (!comp) return;
+
+    // Sprint 2.1: action öncesi snapshot — undoable.
+    this.pushHistory();
 
     // 1) Circuit'ten bileşeni çıkar
     const newComponents = this.circuit.components.filter((c) => c.id !== id);
@@ -555,6 +652,9 @@ export class VxaDesignMode extends LitElement {
    *  ile yeniden hesapla. Rezerve isimler ('in', 'out', 'gnd') korunur. */
   private async deleteWire(index: number): Promise<void> {
     if (index < 0 || index >= this.layout.wires.length) return;
+
+    // Sprint 2.1: action öncesi snapshot — undoable.
+    this.pushHistory();
 
     const remainingWires = this.layout.wires.filter((_, i) => i !== index);
 
@@ -737,6 +837,9 @@ export class VxaDesignMode extends LitElement {
       return;
     }
 
+    // Sprint 2.1: action öncesi snapshot — undoable.
+    this.pushHistory();
+
     const merged = this.chooseMergedNodeName(fromNode, toNode);
 
     // Immutable merge: tüm components nodes[]'da fromNode ve toNode → merged.
@@ -803,8 +906,19 @@ export class VxaDesignMode extends LitElement {
   // ─── Sprint 1.2: drag event handler + wire routing ────────────────────
 
   /** Canvas drag-position event'i: bileşenin yeni layout pozisyonu (snap'lenmiş).
-   * Components map güncelle, wire'ları yeniden hesapla. */
+   * Components map güncelle, wire'ları yeniden hesapla.
+   *
+   * Sprint 2.1: drag BAŞINDA tek snapshot al (ilk drag-position event'i).
+   * Sonraki ara event'ler flag nedeniyle tekrar pushlamaz. drag-end geldiğinde
+   * flag reset olur. Böylece 1 drag = 1 undo adımı. */
   private onCanvasDragPosition = (e: Event): void => {
+    // Flag false iken snapshot al — HENÜZ this.layout drag öncesi.
+    // pushHistory'den SONRA layout güncellenir; disiplin kritik.
+    if (!this.dragHistoryPushed) {
+      this.pushHistory();
+      this.dragHistoryPushed = true;
+    }
+
     const { componentId, x, y } = (e as CustomEvent).detail as {
       componentId: string;
       x: number;
@@ -815,6 +929,12 @@ export class VxaDesignMode extends LitElement {
     );
     const next: CircuitLayout = { ...this.layout, components };
     this.layout = this.recomputeWires(next);
+  };
+
+  /** Canvas drag-end event'i (Sprint 2.1): drag snapshot flag'ini sıfırla.
+   *  Canvas Sprint 1.2'den beri emit ediyordu ama design-mode dinlemiyordu. */
+  private onCanvasDragEnd = (): void => {
+    this.dragHistoryPushed = false;
   };
 
   /** Tüm wire'lar için via ara noktalarını yeniden hesapla.
@@ -1026,6 +1146,7 @@ export class VxaDesignMode extends LitElement {
           .zoom=${100}
           @select=${this.onCanvasSelect}
           @drag-position=${this.onCanvasDragPosition}
+          @drag-end=${this.onCanvasDragEnd}
           @place-component=${this.onPlaceComponent}
           @terminal-click=${this.onTerminalClick}
           @mouse-move=${this.onCanvasMouseMove}
