@@ -95,10 +95,10 @@ export class VxaCanvas extends LitElement {
   @property({ attribute: false }) circuit?: CircuitDef;
   @property({ attribute: false }) layout?: CircuitLayout;
   @property({ attribute: false }) solve?: SolveResult | null;
-  /** Seçili bileşenin id'si (Sprint 0.6). Canvas bu prop'a göre o bileşeni
-   * --accent renginde çizer ve etrafına dashed frame ekler. Sprint 0.7'de
-   * canvas click event'i bu prop'u güncelleyecek. */
-  @property({ attribute: false }) selectionId?: string;
+  /** Sprint 2.2: seçili bileşen ID'leri (multi-select ile birden fazla olabilir).
+   *  Sprint 0.6'daki `selectionId?: string` tek string idi; Sprint 2.2'de
+   *  array'e geçildi. Renderer her bileşen için `.includes(id)` kontrol eder. */
+  @property({ attribute: false }) selectedIds: string[] = [];
 
   /** Sprint 1.5: seçili telin layout.wires[] içindeki indeksi. null/undefined
    * ise hiçbir tel seçili değil. Seçili tel render'da accent rengiyle çizilir. */
@@ -175,7 +175,7 @@ export class VxaCanvas extends LitElement {
       changed.has('circuit') ||
       changed.has('layout') ||
       changed.has('solve') ||
-      changed.has('selectionId') ||
+      changed.has('selectedIds') ||
       changed.has('selectedWireIndex') ||
       changed.has('hoveredId') ||
       changed.has('hoveredWireIndex') ||
@@ -402,25 +402,16 @@ export class VxaCanvas extends LitElement {
       }
     }
 
-    // ─── Sprint 1.1/1.5: component > wire > none ──────────────────────
+    // ─── Sprint 1.1/1.5/2.2: component > wire > none ───────────────────
     //   Terminal (1.4) > Component (1.1) > Wire (1.5) > Empty.
-    //   Component AABB'leri tellerin üstünde olduğundan bileşene tıklandığında
-    //   altındaki tel değil, bileşen seçilmeli.
-    const hitId = this.hitTest(x, y);
-    if (hitId) {
-      this.dispatchEvent(
-        new CustomEvent('select', {
-          detail: { type: 'component' as const, id: hitId },
-          bubbles: true,
-          composed: true,
-        }),
-      );
-      return;
-    }
-
-    if (this.circuit && this.layout) {
+    //   Sprint 2.2: select event detail {hitComponent, hitWire, isShift} —
+    //   design-mode karar verir. Canvas state'e sahip değil, sadece hit
+    //   bilgisini raporlar + shiftKey modifier'ını geçirir.
+    const hitComponent = this.hitTest(x, y);
+    let hitWire: number | null = null;
+    if (!hitComponent && this.circuit && this.layout) {
       const rect = canvas.getBoundingClientRect();
-      const wireHit = hitTestWire(
+      hitWire = hitTestWire(
         x,
         y,
         this.layout,
@@ -428,22 +419,15 @@ export class VxaCanvas extends LitElement {
         rect.width / 2,
         rect.height / 2,
       );
-      if (wireHit !== null) {
-        this.dispatchEvent(
-          new CustomEvent('select', {
-            detail: { type: 'wire' as const, index: wireHit },
-            bubbles: true,
-            composed: true,
-          }),
-        );
-        return;
-      }
     }
 
-    // Boş alan — seçimi temizle.
     this.dispatchEvent(
       new CustomEvent('select', {
-        detail: { type: 'none' as const },
+        detail: {
+          hitComponent,
+          hitWire,
+          isShift: e.shiftKey,
+        },
         bubbles: true,
         composed: true,
       }),
@@ -624,7 +608,7 @@ export class VxaCanvas extends LitElement {
         this.layout,
         this.solve ?? null,
         colors,
-        this.selectionId,
+        this.selectedIds,
         this.hoveredId,
         ghost,
         this.wireDraw,

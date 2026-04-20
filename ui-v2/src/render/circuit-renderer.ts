@@ -131,7 +131,9 @@ export function drawCircuit(
   layout: CircuitLayout,
   solve: SolveResult | null,
   colors: RenderColors,
-  selectionId?: string,
+  /** Sprint 2.2: seçili bileşen ID'leri. Tek seçim tek elemanlı array, multi
+   *  N elemanlı, none boş array. */
+  selectedIds: readonly string[],
   hoveredId?: string | null,
   ghost?: GhostSpec,
   wireDraw?: WireDrawState,
@@ -190,7 +192,7 @@ export function drawCircuit(
   for (const p of layout.components) {
     const comp = circuit.components.find((c) => c.id === p.id);
     if (!comp) continue;
-    const isSelected = selectionId === p.id;
+    const isSelected = selectedIds.includes(p.id);
     const isHovered = hoveredId === p.id;
     ctx.save();
     ctx.translate(cx + p.x, cy + p.y);
@@ -214,7 +216,7 @@ export function drawCircuit(
   for (const p of layout.components) {
     const comp = circuit.components.find((c) => c.id === p.id);
     if (!comp) continue;
-    const isSelected = selectionId === p.id;
+    const isSelected = selectedIds.includes(p.id);
     const center: Point = { x: cx + p.x, y: cy + p.y };
     switch (comp.type) {
       case 'R':
@@ -229,10 +231,10 @@ export function drawCircuit(
     }
   }
 
-  // ─── 5) Seçim çerçevesi (seçili bileşen varsa) ───────────────────────────
-  if (selectionId) {
-    const placement = layout.components.find((p) => p.id === selectionId);
-    const comp = circuit.components.find((c) => c.id === selectionId);
+  // ─── 5) Seçim çerçeveleri (multi için tüm seçili bileşenlerin etrafı) ────
+  for (const selId of selectedIds) {
+    const placement = layout.components.find((p) => p.id === selId);
+    const comp = circuit.components.find((c) => c.id === selId);
     if (placement && comp && BBOX_BY_TYPE[comp.type]) {
       const { w, h } = bboxFor(comp.type, placement.rotation);
       drawSelectionFrame(ctx, cx + placement.x, cy + placement.y, w, h, colors);

@@ -93,7 +93,11 @@ import {
   formatVoltage,
 } from '../util/format.ts';
 import { snapshotFromTransient } from '../util/snapshot.ts';
-import { INITIAL_SELECTION, type Selection } from '../state/selection.ts';
+import {
+  INITIAL_SELECTION,
+  selectedComponentIds,
+  type Selection,
+} from '../state/selection.ts';
 import {
   INITIAL_HISTORY,
   pushAction as historyPush,
@@ -361,12 +365,58 @@ export class VxaDesignMode extends LitElement {
   // mousemove her biri ayrı snapshot alır — kullanıcı 1 drag = 60 undo.
   private dragHistoryPushed = false;
 
-  // Sprint 1.1: canvas select event handler. hitId null olursa selection
-  // temizlenir ('none'); bileşen hit olursa 'component' tipi + id.
+  // Sprint 2.2: canvas select event — hit bilgisi + shift modifier.
+  // Karar burada (design-mode state'e sahip). Shift+Click toggle,
+  // normal click Sprint 1.1/1.5 davranışı.
   private onCanvasSelect = (e: Event): void => {
-    const detail = (e as CustomEvent).detail as Selection;
-    this.selection = detail;
+    const { hitComponent, hitWire, isShift } = (e as CustomEvent).detail as {
+      hitComponent: string | null;
+      hitWire: number | null;
+      isShift: boolean;
+    };
+
+    if (isShift) {
+      // Shift+Click: sadece bileşen toggle. Tel ve boş alan selection'ı
+      // korur (Figma davranışı) — kullanıcı yanlışlıkla kaçırdıysa seçimi
+      // kaybetmesin.
+      if (hitComponent) {
+        this.selection = this.toggleComponentInSelection(this.selection, hitComponent);
+      }
+      return;
+    }
+
+    // Shift yok — Sprint 1.1/1.5 normal davranış.
+    if (hitComponent) {
+      this.selection = { type: 'component', id: hitComponent };
+    } else if (hitWire !== null) {
+      this.selection = { type: 'wire', index: hitWire };
+    } else {
+      this.selection = INITIAL_SELECTION;
+    }
   };
+
+  /** Sprint 2.2: Shift+Click bileşen toggle.
+   *  Geçiş kuralları:
+   *    none → component (id)
+   *    component (id) → none (aynı id)
+   *    component (other) → multi [other, id]
+   *    multi + id hariç → multi + id ekle
+   *    multi + id dahil, n>2 → multi - id
+   *    multi + id dahil, n=2 → component (kalan tek eleman)
+   *    wire → component (id) (kategoriler arası geçişte tel iptal)
+   *  'multi' TIPI EN AZ 2 ELEMAN — tek kalınca component'a düşer. */
+  private toggleComponentInSelection(sel: Selection, id: string): Selection {
+    const current = selectedComponentIds(sel);
+    if (current.includes(id)) {
+      const remaining = current.filter((x) => x !== id);
+      if (remaining.length === 0) return { type: 'none' };
+      if (remaining.length === 1) return { type: 'component', id: remaining[0]! };
+      return { type: 'multi', componentIds: remaining };
+    }
+    const combined = [...current, id];
+    if (combined.length === 1) return { type: 'component', id };
+    return { type: 'multi', componentIds: combined };
+  }
 
   // ─── Sprint 2.1: history helpers ──────────────────────────────────────
 
@@ -554,17 +604,12 @@ export class VxaDesignMode extends LitElement {
 
     if (e.key === 'Delete' || e.key === 'Backspace') {
       // Text input odağındayken Backspace'i yakalama — form'ları kırar.
-      // Şu an form yok ama gelecekte inspector değer düzenleme geldiğinde
-      // bu guard olmadan Backspace kullanıcının text'ini silmek yerine
-      // bileşeni silecek.
       if (this.isTextInputFocused(e)) return;
 
-      if (this.selection.type === 'component') {
+      // Sprint 2.2: router — component / wire / multi.
+      if (this.selection.type !== 'none') {
         e.preventDefault();
-        void this.deleteComponent(this.selection.id);
-      } else if (this.selection.type === 'wire') {
-        e.preventDefault();
-        void this.deleteWire(this.selection.index);
+        void this.deleteSelection();
       }
       return;
     }
@@ -602,7 +647,68 @@ export class VxaDesignMode extends LitElement {
     return tag === 'INPUT' || tag === 'TEXTAREA' || target.isContentEditable;
   }
 
-  // ─── Sprint 1.5: silme akışı ──────────────────────────────────────────
+  // ─── Sprint 1.5 / 2.2: silme akışı ────────────────────────────────────
+
+  /** Sprint 2.2: Delete tuşuna basıldığında çağrılan router. Selection
+   *  tipine göre tekil veya bulk silme fonksiyonuna yönlendirir. */
+  private async deleteSelection(): Promise<void> {
+    if (this.selection.type === 'component') {
+      return this.deleteComponent(this.selection.id);
+    }
+    if (this.selection.type === 'wire') {
+      return this.deleteWire(this.selection.index);
+    }
+    if (this.selection.type === 'multi') {
+      return this.deleteMultipleComponents(this.selection.componentIds);
+    }
+  }
+
+  /** Sprint 2.2: birden fazla bileşeni tek undo adımında sil.
+   *  Her bileşen + bağlı tüm teller kaldırılır; node topolojisi
+   *  `rebuildNodeTopology` ile yeniden kurulur; solver bir kez çalışır. */
+  private async deleteMultipleComponents(ids: readonly string[]): Promise<void> {
+    if (ids.length === 0) return;
+
+    // TEK snapshot — kullanıcı Ctrl+Z bassa N adım değil 1 adım geri alsın.
+    this.pushHistory();
+
+    const idSet = new Set(ids);
+
+    // Circuit'ten bileşenleri çıkar
+    const newComponents = this.circuit.components.filter((c) => !idSet.has(c.id));
+
+    // Orphan node cleanup — silinen bileşenlerin artık kullanılmayan node'ları
+    const stillUsed = new Set<string>();
+    for (const c of newComponents) for (const n of c.nodes) stillUsed.add(n);
+    stillUsed.add('gnd');
+
+    // Layout'tan bileşenleri + bağlı tüm telleri kaldır
+    const remainingWires = this.layout.wires.filter((w) => {
+      const fromHit = w.from.kind === 'terminal' && idSet.has(w.from.componentId);
+      const toHit = w.to.kind === 'terminal' && idSet.has(w.to.componentId);
+      return !fromHit && !toHit;
+    });
+
+    // Node rebuild (Sprint 1.5 algoritması) — kalan bileşenler için topoloji
+    const rebuilt = this.rebuildNodeTopology(
+      {
+        ...this.circuit,
+        components: newComponents,
+        nodes: this.circuit.nodes.filter((n) => stillUsed.has(n)),
+      },
+      remainingWires,
+    );
+    this.circuit = rebuilt;
+
+    this.layout = this.recomputeWires({
+      ...this.layout,
+      components: this.layout.components.filter((c) => !idSet.has(c.id)),
+      wires: remainingWires,
+    });
+
+    this.selection = INITIAL_SELECTION;
+    await this.runSolver();
+  }
 
   /** Bileşeni sil: bileşeni + ona bağlı tüm telleri kaldır, orphan
    *  node'ları temizle, seçimi sıfırla, solver yeniden çağır. */
@@ -1135,7 +1241,7 @@ export class VxaDesignMode extends LitElement {
           .circuit=${this.circuit}
           .layout=${this.layout}
           .solve=${solve}
-          .selectionId=${this.selection.type === 'component' ? this.selection.id : undefined}
+          .selectedIds=${selectedComponentIds(this.selection)}
           .selectedWireIndex=${this.selection.type === 'wire' ? this.selection.index : null}
           .activeTool=${this.activeTool}
           .wireDraw=${this.wireDraw}

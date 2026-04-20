@@ -286,7 +286,59 @@ export class VxaInspector extends LitElement {
     if (this.selection.type === 'wire') {
       return this.renderWire(this.selection.index);
     }
+    if (this.selection.type === 'multi') {
+      return this.renderMulti(this.selection.componentIds);
+    }
     return this.renderComponent(this.selection.id);
+  }
+
+  /** Sprint 2.2: çoklu seçim paneli. Kaç bileşen + tip dökümü + Delete ipucu.
+   *  Canlı değerler yok — farklı bileşenlerin değerleri karışır. */
+  private renderMulti(ids: readonly string[]): TemplateResult {
+    const typeCounts = new Map<string, number>();
+    for (const id of ids) {
+      const comp = this.circuit?.components.find((c) => c.id === id);
+      if (!comp) continue;
+      typeCounts.set(comp.type, (typeCounts.get(comp.type) ?? 0) + 1);
+    }
+    const typeLabel = (t: string): string => {
+      const map: Record<string, string> = {
+        V: 'voltaj kaynağı',
+        I: 'akım kaynağı',
+        R: 'direnç',
+        C: 'kapasitör',
+        L: 'endüktör',
+        D: 'diyot',
+        Z: 'zener',
+        BJT: 'BJT',
+        MOS: 'MOSFET',
+        OA: 'op-amp',
+      };
+      return map[t] ?? t;
+    };
+
+    return html`
+      <div class="kicker">seçim · çoklu</div>
+      <div class="name">${ids.length}<span class="name-sub"> bileşen</span></div>
+      <div class="kind">çoklu seçim</div>
+
+      <section class="section first">
+        <div class="section-title">içerik</div>
+        ${Array.from(typeCounts.entries()).map(
+          ([type, n]) => html`
+            <div class="field">
+              <span class="field-label">${typeLabel(type)}</span>
+              <span class="field-value">${n}</span>
+            </div>
+          `,
+        )}
+      </section>
+
+      <section class="section">
+        <div class="section-title">ipucu</div>
+        <div class="hint-box">Delete tuşuyla hepsini birden silebilirsin.</div>
+      </section>
+    `;
   }
 
   /** Sprint 1.5: seçili telin uçlarını göster + Delete ipucu. */
