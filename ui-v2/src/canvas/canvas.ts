@@ -163,6 +163,42 @@ export class VxaCanvas extends LitElement {
   // activeTool null ise null. Canvas redraw ghost'u çizer.
   @state() private ghostPosition: { x: number; y: number } | null = null;
 
+  // ─── Sprint 2.5: public imperative API (design-mode'dan çağrılır) ───
+
+  /** Sprint 2.5 / Bug #1 — Silme sonrası stale hover state'ini temizle.
+   *  design-mode deleteComponent/deleteMultipleComponents/deleteWire sonunda
+   *  çağırır. Fare taşınana kadar stale kalmasın. */
+  public clearHover(): void {
+    if (this.hoveredId !== null) {
+      this.hoveredId = null;
+      this.dispatchEvent(
+        new CustomEvent('hover-change', {
+          detail: { id: null },
+          bubbles: true,
+          composed: true,
+        }),
+      );
+    }
+    if (this.hoveredWireIndex !== null) {
+      this.hoveredWireIndex = null;
+    }
+    const canvas = this.canvasRef.value;
+    if (canvas) canvas.style.cursor = 'default';
+  }
+
+  /** Sprint 2.5 / Bug #6 — Drag'i iptal et. Design-mode Escape handler'ı
+   *  layout restore ettikten sonra çağırır. dragState idle + document
+   *  listener cleanup. justFinishedDrag SET EDİLMEZ — click event zaten
+   *  drag iptalinden sonra beklenmiyor (Escape synthetic). */
+  public cancelDrag(): void {
+    if (this.dragState.phase === 'idle') return;
+    this.dragState = INITIAL_DRAG;
+    const canvas = this.canvasRef.value;
+    if (canvas) canvas.style.cursor = 'default';
+    document.removeEventListener('mousemove', this.onDocumentMouseMove);
+    document.removeEventListener('mouseup', this.onDocumentMouseUp);
+  }
+
   override firstUpdated(): void {
     const canvas = this.canvasRef.value;
     if (!canvas) throw new Error('vxa-canvas: canvas referansı alınamadı');
@@ -424,6 +460,15 @@ export class VxaCanvas extends LitElement {
         );
         return;
       }
+    }
+
+    // ─── Sprint 2.5 / Bug #7: wireDraw.started'dayken select event dispatch
+    //   ETME. Tel modunda sadece terminal hit anlamlı — yukarıda zaten
+    //   handle edildi ve return edildi. Terminal hit olmayan click'ler
+    //   (boş alan, bileşen gövdesi, tel) tel modunu kesmemeli; kullanıcı
+    //   Escape ile iptal eder. İki modun aynı anda aktif olmasını önler.
+    if (this.wireDraw.phase === 'started') {
+      return;
     }
 
     // ─── Sprint 1.1/1.5/2.2: component > wire > none ───────────────────

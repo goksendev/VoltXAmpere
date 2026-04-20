@@ -120,7 +120,10 @@ import {
 type DashboardState =
   | { kind: 'loading' }
   | { kind: 'ok'; transient: TransientResult; snapshot: SolveResult }
-  | { kind: 'err'; message: string };
+  | { kind: 'err'; message: string }
+  // Sprint 2.5 / Bug #3: boş devre. Kullanıcı tüm bileşenleri sildi ya da
+  // henüz hiçbir şey eklemedi. Stale snapshot gösterme — placeholder UI.
+  | { kind: 'empty' };
 
 @customElement('vxa-design-mode')
 export class VxaDesignMode extends LitElement {
@@ -294,6 +297,19 @@ export class VxaDesignMode extends LitElement {
       min-height: var(--fs-xl);
     }
 
+    /* Sprint 2.5 / Bug #3: boş devre dashboard — chart yerine ipucu metni. */
+    .empty-hint {
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--mono);
+      font-size: var(--fs-xs);
+      color: var(--fg-3);
+      letter-spacing: 0.08em;
+      text-transform: lowercase;
+    }
+
     /* Hata durumu: başlık + tek hata kutusu merkez hizalı. */
     .dashboard-zone--error {
       display: flex;
@@ -374,6 +390,11 @@ export class VxaDesignMode extends LitElement {
   // event'inde flag true olur, drag-end'de false'a döner. Aksi halde 60+ ara
   // mousemove her biri ayrı snapshot alır — kullanıcı 1 drag = 60 undo.
   private dragHistoryPushed = false;
+
+  // Sprint 2.5 / Bug #6: drag sırasında Escape iptal için. İlk drag-position
+  // event'inde etkilenen bileşenlerin orijinal konumları saklanır. Escape'te
+  // layout bu konumlara restore + history.past'tan commit'sız snapshot atılır.
+  private dragOrigPositions: Map<string, { x: number; y: number }> | null = null;
 
   // Sprint 2.3: rubber-band state. Canvas boş alan mousedown → armed → active.
   // baseSelection armed anında dondurulur; Shift+drag bu baseSelection'a ekler.
@@ -586,8 +607,16 @@ export class VxaDesignMode extends LitElement {
 
   /** Solver'ı mevcut circuit ile yeniden çağır. Topoloji değişimi sonrası
    * (Sprint 1.3 yerleştirme, Sprint 1.4 tel çekme, Sprint 1.5 silme).
-   * Drag (layout-only) tetiklemez. */
+   * Drag (layout-only) tetiklemez.
+   *
+   * Sprint 2.5 / Bug #3: Boş devre için solver'ı çağırmadan empty state'e
+   * düş. Aksi halde solver 0-bileşen için crash/garbage döner ve dashboard
+   * stale snapshot'ta kalıyordu. */
   private async runSolver(): Promise<void> {
+    if (this.circuit.components.length === 0) {
+      this.dashboard = { kind: 'empty' };
+      return;
+    }
     try {
       const transient = await solveTransient({
         circuit: this.circuit,
@@ -599,15 +628,18 @@ export class VxaDesignMode extends LitElement {
         const snapshot = snapshotFromTransient(transient, this.circuit, -1);
         this.dashboard = { kind: 'ok', transient, snapshot };
       } else {
-        // Plan: eski sonucu koru, UI değişmesin — kullanıcı önceki değerleri
-        // görmeye devam etsin.
-        console.warn(
-          '[solver] yeniden hesap başarısız:',
-          transient.errorMessage,
-        );
+        // Sprint 2.5 / Bug #3: Başarısız solver → err state'e düş (önceki
+        // disiplin "eski sonucu koru" idi ama kullanıcı için yanıltıcı;
+        // "V=0 ama I=33.94µA" senaryosu bundan doğmuştu).
+        this.dashboard = {
+          kind: 'err',
+          message: transient.errorMessage ?? 'solver başarısız',
+        };
       }
     } catch (err) {
       console.error('[solver] beklenmedik hata:', err);
+      const msg = err instanceof Error ? err.message : String(err);
+      this.dashboard = { kind: 'err', message: msg };
     }
   }
 
@@ -632,6 +664,12 @@ export class VxaDesignMode extends LitElement {
       if (this.rubberBand.phase !== 'idle') {
         this.selection = this.rubberBand.baseSelection;
         this.rubberBand = INITIAL_RUBBER_BAND;
+        e.preventDefault();
+        return;
+      }
+      // Sprint 2.5 / Bug #6: drag sırasında Escape → iptal.
+      if (this.dragOrigPositions !== null && this.dragHistoryPushed) {
+        this.cancelActiveDrag();
         e.preventDefault();
         return;
       }
@@ -681,6 +719,49 @@ export class VxaDesignMode extends LitElement {
     if (!target) return false;
     const tag = target.tagName;
     return tag === 'INPUT' || tag === 'TEXTAREA' || target.isContentEditable;
+  }
+
+  /** Sprint 2.5 / Bug #6: aktif drag'i iptal et.
+   *    1. Layout: etkilenen bileşenleri dragOrigPositions'tan restore et
+   *       + wire'ları yeniden route et (recomputeWires).
+   *    2. History: drag başında pushHistory yapılmıştı; commit olmadığı
+   *       için past stack'in son elemanı atılır (Ctrl+Z "hayalet" drag'e
+   *       gitmesin).
+   *    3. Canvas: dragState.idle + document listener cleanup.
+   *    4. design-mode flag'ler reset.
+   *  Sıra kritik — layout restore → history pop → state reset. */
+  private cancelActiveDrag(): void {
+    if (!this.dragOrigPositions) return;
+    const restored = this.layout.components.map((c) => {
+      const orig = this.dragOrigPositions!.get(c.id);
+      return orig ? { ...c, x: orig.x, y: orig.y } : c;
+    });
+    this.layout = this.recomputeWires({ ...this.layout, components: restored });
+
+    // history.past'tan son (commit olmayan) snapshot'ı at
+    this.history = {
+      past: this.history.past.slice(0, -1),
+      future: this.history.future,
+    };
+
+    this.dragHistoryPushed = false;
+    this.dragOrigPositions = null;
+
+    // Canvas'ı bilgilendir: dragState idle + document listener cleanup
+    const canvas = this.shadowRoot?.querySelector('vxa-canvas') as
+      | (HTMLElement & { cancelDrag?: () => void })
+      | null;
+    canvas?.cancelDrag?.();
+  }
+
+  /** Sprint 2.5 / Bug #1: silme sonrası canvas'ın stale hover state'ini
+   *  temizle. Fare taşınana kadar hoveredId/hoveredWireIndex eski ID'de
+   *  kalıyor; görsel orphan yaratıyor. */
+  private clearCanvasHover(): void {
+    const canvas = this.shadowRoot?.querySelector('vxa-canvas') as
+      | (HTMLElement & { clearHover?: () => void })
+      | null;
+    canvas?.clearHover?.();
   }
 
   // ─── Sprint 1.5 / 2.2: silme akışı ────────────────────────────────────
@@ -743,6 +824,10 @@ export class VxaDesignMode extends LitElement {
     });
 
     this.selection = INITIAL_SELECTION;
+
+    // Sprint 2.5 / Bug #1: bulk delete sonrası hover cleanup.
+    this.clearCanvasHover();
+
     await this.runSolver();
   }
 
@@ -786,6 +871,10 @@ export class VxaDesignMode extends LitElement {
     // 4) Seçim temizle — silinen bileşen seçiliyse empty'e düş
     this.selection = INITIAL_SELECTION;
 
+    // Sprint 2.5 / Bug #1: silme sonrası canvas hover state'i temizle —
+    // silinen bileşen hâlâ hoveredId olarak kalıyor, orphan marker yaratıyor.
+    this.clearCanvasHover();
+
     // 5) Topoloji değişti → solver
     await this.runSolver();
   }
@@ -812,6 +901,9 @@ export class VxaDesignMode extends LitElement {
 
     // Seçim temizle
     this.selection = INITIAL_SELECTION;
+
+    // Sprint 2.5 / Bug #1: tel silme sonrası stale hoveredWireIndex cleanup.
+    this.clearCanvasHover();
 
     // Topoloji değişti → solver
     await this.runSolver();
@@ -1056,11 +1148,6 @@ export class VxaDesignMode extends LitElement {
    * draggedIds + offset verilir; iki ucu da draggedIds'de olan tellerin
    * via noktaları dx/dy kaydırılır (fast path, rota şekli korunur). */
   private onCanvasDragPosition = (e: Event): void => {
-    if (!this.dragHistoryPushed) {
-      this.pushHistory();
-      this.dragHistoryPushed = true;
-    }
-
     const { componentId, x, y } = (e as CustomEvent).detail as {
       componentId: string;
       x: number;
@@ -1074,14 +1161,28 @@ export class VxaDesignMode extends LitElement {
     const dy = y - dragged.y;
     if (dx === 0 && dy === 0) return;
 
-    // Selection içinde mi? → multi-drag. Değilse sadece o bileşen taşınır
-    // (selection değişmez — Figma "seçim dışına basınca sıfırla" davranışını
-    // muhafazakâr bir şekilde ters çeviriyoruz: selection'a zarar verme).
+    // Selection içinde mi? → multi-drag. Değilse sadece o bileşen taşınır.
     const draggedSelected = isComponentSelected(this.selection, componentId);
     const targetIds = draggedSelected
       ? selectedComponentIds(this.selection)
       : [componentId];
     const targetSet = new Set(targetIds);
+
+    // Sprint 2.5 / Bug #6: ilk drag-position event'inde etkilenen bileşenlerin
+    // orijinal konumlarını da sakla (Escape iptal için). pushHistory'den ÖNCE
+    // çünkü snapshot o konumları yakalamadı (dx/dy henüz uygulanmadı ama map
+    // mantığı gereği pre-drag konum bilgimizin bu event'te tuttuğumuz
+    // dragged.x/y değeri ile aynı).
+    if (!this.dragHistoryPushed) {
+      this.pushHistory();
+      this.dragHistoryPushed = true;
+      this.dragOrigPositions = new Map();
+      for (const c of this.layout.components) {
+        if (targetSet.has(c.id)) {
+          this.dragOrigPositions.set(c.id, { x: c.x, y: c.y });
+        }
+      }
+    }
 
     const components = this.layout.components.map((c) =>
       targetSet.has(c.id) ? { ...c, x: c.x + dx, y: c.y + dy } : c,
@@ -1094,6 +1195,10 @@ export class VxaDesignMode extends LitElement {
    *  Canvas Sprint 1.2'den beri emit ediyordu ama design-mode dinlemiyordu. */
   private onCanvasDragEnd = (): void => {
     this.dragHistoryPushed = false;
+    // Sprint 2.5 / Bug #6: drag commit oldu (Escape değil mouseup ile bitti),
+    // orijinal pozisyonlar artık gereksiz. Escape senaryosunda cancelDrag
+    // tarafından önceden temizleniyordu; normal akışta da burada temizlenir.
+    this.dragOrigPositions = null;
   };
 
   // ─── Sprint 2.3: rubber-band handler'ları ─────────────────────────────
@@ -1348,6 +1453,36 @@ export class VxaDesignMode extends LitElement {
           <div class="err-box">
             <span class="err-title">⚠ Solver başlatılamadı</span>
             <span class="err-msg">${this.dashboard.message}</span>
+          </div>
+        </section>
+      `;
+    }
+
+    // Sprint 2.5 / Bug #3: boş devre — stale snapshot göstermek yerine
+    // kullanıcıya "bileşen ekle" ipucu. Slot'lar "—", grafik alanı boş.
+    if (this.dashboard.kind === 'empty') {
+      return html`
+        <section class="dashboard-zone dashboard-zone--loading" aria-label="dashboard boş">
+          ${this.renderDashboardHeader()}
+          <div class="dash-chart" aria-hidden="true">
+            <div class="empty-hint">Devre boş · soldaki araçlardan bileşen ekleyin</div>
+          </div>
+          <div class="dash-slots">
+            <div class="slot">
+              <span class="slot-title">V_ÇIKIŞ @son</span>
+              <span class="slot-value">—</span>
+              <span class="slot-sub">bileşen yok</span>
+            </div>
+            <div class="slot">
+              <span class="slot-title">V_GİRİŞ @son</span>
+              <span class="slot-value">—</span>
+              <span class="slot-sub">bileşen yok</span>
+            </div>
+            <div class="slot">
+              <span class="slot-title">I(R1) @son</span>
+              <span class="slot-value">—</span>
+              <span class="slot-sub">bileşen yok</span>
+            </div>
           </div>
         </section>
       `;

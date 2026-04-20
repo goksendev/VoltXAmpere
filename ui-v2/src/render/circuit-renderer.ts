@@ -241,9 +241,18 @@ export function drawCircuit(
     }
   }
 
-  // ─── 6) Probe'lar (üst katman) — solver başarılıysa ──────────────────────
+  // ─── 6) Probe'lar (üst katman) — solver başarılıysa + node hâlâ aktif ─
+  //   Sprint 2.5 / Bug #5: probe.node artık hiçbir bileşene bağlı değilse
+  //   (silme sonrası orphan) probe'u çizme. Canvas'ta asılı probe kutusu
+  //   + orphan pin daireleri kullanıcıyı yanıltıyordu. Topoloji kontrolü
+  //   basit: en az bir bileşenin nodes[]'ında geçiyor mu?
   if (solve && solve.success) {
+    const activeNodes = new Set<string>();
+    for (const c of circuit.components) {
+      for (const n of c.nodes) activeNodes.add(n);
+    }
     for (const pr of layout.probes) {
+      if (!activeNodes.has(pr.node)) continue; // orphan probe — atla
       const voltage = solve.nodeVoltages[pr.node] ?? 0;
       const spec: ProbeDrawSpec = {
         pin: world(pr.pin),
