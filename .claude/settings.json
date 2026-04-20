@@ -1,0 +1,14 @@
+{
+  "hooks": {
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"$CLAUDE_PROJECT_DIR\" && echo '--- git status ---' && git status --short && echo '--- background processes (Protocol Rule 1) ---' && ps aux | grep -E 'node|vite' | grep -v grep || echo clean"
+          }
+        ]
+      }
+    ]
+  }
+}
